@@ -1,0 +1,91 @@
+Laney AOR 50 Vorverstärker – Effekt für REAPER (JSFX)
+=====================================================
+
+Installation
+1. In REAPER: Menü Options → Show REAPER resource path in explorer/finder.
+2. „Laney AOR 50 Preamp.jsfx“ in den Unterordner „Effects“ kopieren
+   (eine ältere Fassung gleichen Namens dabei ersetzen).
+3. Im FX-Browser „Refresh“ (F5); der Effekt heißt
+   „JS: Laney AOR 50 Vorverstärker (nach Schaltplan DRG 1054, mit Röhrenverzerrung)“.
+
+Bedienung
+- Alle Regler und Schalter des Verstärkers, dazu Eingangsbuchse (HIGH/LOW),
+  Kanal, Bass-Umbau (C2, C3, C14), Effektweg + Endstufeneingang,
+  Kennlinie des Middle-Potis und Ausgangspegel. Alles automatisierbar.
+- Röhrenverzerrung: Aus = lineares Modell (exakt nach Plan, ohne Verzerrung),
+  An = Röhrenmodell (Schätzung, siehe unten).
+- Instrumentenpegel bei 0 dBFS: legt fest, welcher Spannung am Verstärkereingang
+  ein Vollpegel-Signal in REAPER entspricht (Spitzenwert in mV). Davon hängt ab,
+  wie stark die Röhren übersteuern. Richtwerte: passiver Bass 100–300 mV,
+  aktiver Bass 300–1000 mV. Wirkt nur bei eingeschalteter Verzerrung.
+- Überabtastung: 1-fach (Grundeinstellung) oder 2-fach. 2-fach verringert
+  Verzerrungsprodukte oberhalb der hörbaren Grenze, braucht aber doppelt so
+  viel Rechenleistung; gut zum Rendern.
+
+Oberfläche
+Der Effekt zeigt eine eigene Frontplatte in der Anordnung des Verstärkers:
+Eingänge HIGH / LOW · Kontrollleuchte · PREAMP 1 VOLUME (PULL ON) ·
+PREAMP 2 VOLUME · PREAMP 1 LEVEL · MASTER VOLUME · TREBLE · MIDDLE · BASS
+(je PULL BOOST) · PRESENCE · REVERB · STANDBY · POWER.
+Presence und Reverb sind im Plugin nur Bild (Endstufe und Hall sind nicht
+im Plugin-Modell); Standby und Power ebenfalls.
+- Regler: senkrecht ziehen; mit Umschalt- oder Strg-Taste fein; Mausrad;
+  Doppelklick = Grundstellung. Beim Überfahren wird der Wert angezeigt.
+- Zugschalter: auf „PULL BOOST“ (Bass, Middle, Treble) bzw. „PULL ON“
+  (Preamp 1 Volume = Kanal Preamp 1) klicken. Gezogen: rot hinterlegt,
+  Knopf steht hervor.
+- Eingang: auf die Buchse LOW oder HIGH klicken.
+- Ausgegraut ist, was gerade nichts bewirkt: Presence (Endstufe, nicht im
+  Modell), Preamp 1 Volume bei Eingang LOW, Preamp 1 Level in Preamp 2.
+- Unterer Streifen „MODELL“: Einstellungen, die es am Gerät nicht gibt
+  (Bass-Umbau, Effektweg, Verzerrung, Überabtastung, Middle-Kennlinie,
+  Instrumentenpegel, Ausgangspegel) und die Kanalanzeige (Fußschalter-LED).
+- Die Schieberegler von REAPER bleiben erhalten (Automation, Parameterliste);
+  die Oberfläche folgt ihnen und umgekehrt. Das Fenster lässt sich beliebig
+  vergrößern.
+
+Pegel
+Lineares Modell: Grundstellung des jeweiligen Kanals bei 1 kHz = 0 dB.
+Verzerrung: Ausgang = Spannung am Ausgang der Vorstufe / 20 V.
+
+Rechenlast (gemessen auf einem Server mit derselben EEL2-Laufzeit wie REAPER,
+48 kHz; ein aktueller Desktop-Rechner ist meist schneller)
+- linear: ca. 20 % eines Prozessorkerns
+- Verzerrung 1-fach: ca. 47 %, bei ununterbrochener Automation bis ca. 77 %
+- Verzerrung 2-fach: ca. 88 %
+Das Plugin braucht etwa das Dreifache des Browser-Simulators. Tipps: in REAPER
+„Anticipative FX processing“ eingeschaltet lassen (Standard), Spuren mit dem
+Effekt nach dem Einspielen einfrieren (Freeze), zum Rendern 2-fach wählen.
+
+Was das Modell kann und was nicht
+- Rechnet den kompletten Vorverstärker nach Schaltplan DRG 1054, identisch mit
+  dem Simulator (geprüft Abtastwert für Abtastwert: linear unter −130 dB,
+  Verzerrung unter −88 dB Abweichung, bei 44,1 / 48 / 96 kHz, mit allen
+  Reglern, Schaltern und Umschaltungen).
+- Verzerrung: Röhrenmodell nach Koren (ECC83) mit Gitterstrom; eine Schätzung,
+  nicht mit einem echten AOR 50 verglichen. Die berechneten Kathodenspannungen
+  treffen den Plan auf 0,1 V, die Anodenspannungen liegen 3–11 V zu hoch.
+- Endstufe, Ausgangsübertrager und Lautsprecher sind nicht enthalten.
+- Beim Wechsel von Kanal, Eingang, Modus oder Überabtastung wird die neue
+  Schaltung eingeblendet (30 ms; im linearen Modell nach etwa 70 ms Nachrechnen).
+- Bass-Umbau bei eingeschalteter Verzerrung: Die Schaltung springt auf den neuen
+  Arbeitspunkt; kurzes Knacken möglich.
+
+Überabtastung (Verzerrung)
+Die Röhrenverzerrung erzeugt Obertöne weit über 20 kHz; ohne Überabtastung
+spiegeln sie sich als unharmonisches Zischen ins Hörband (Aliasing). Gemessen
+bei 300 mV, Preamp 1, alles auf 10 (Aliasing unter dem Nutzsignal):
+  377 Hz: 1-fach 19 dB, 2-fach 30 dB, 4-fach 42 dB, 8-fach 49 dB
+  2345 Hz: 1-fach 10 dB, 2-fach 21 dB, 4-fach 29 dB, 8-fach 34 dB
+  4567 Hz: 1-fach  4 dB, 2-fach 16 dB, 4-fach 24 dB, 8-fach 30 dB
+Grundeinstellung ist 4-fach. 8-fach bringt noch einmal 5 bis 7 dB und kostet
+etwa das Doppelte an Rechenlast; 1-fach nur für sehr schwache Rechner.
+
+Rechentest, Schutz und Diagnose
+Beim Laden misst das Plugin, wie viel eines Prozessorkerns jede
+Überabtastungsstufe braucht, und erlaubt nur Stufen unter 90 %. Eine höhere
+Einstellung wird auf die erlaubte Stufe begrenzt (sonst reißt der Echtzeit-
+puffer: Stille und hohe Last). Die Zeile im Modellstreifen zeigt die
+gemessenen Werte, die erlaubte Stufe, die Abtastrate, den laufenden Kern und
+die Neustarts. Liefert der Röhrenkern einen ungültigen Wert, startet er sich
+selbst neu. Das Fenster lässt sich vergrößern; die Schrift wächst mit.

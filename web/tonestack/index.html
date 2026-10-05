@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Klangregler-Simulatoren: Yamaha B100-II und Laney AOR 50</title>
+<meta name="description" content="Interaktive Klangregler-Simulatoren für Yamaha B100-II und Laney AOR 50, berechnet aus den Schaltplänen.">
+<meta name="theme-color" content="#EEF1EC">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/yamaha-b100ii-192.png">
+<link rel="preload" href="assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face{font-family:"Archivo";src:url("assets/fonts/archivo-latin.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}</style>
+<style>
+:root{--paper:#EEF1EC;--paper2:#E3E8E2;--ink:#1F2B36;--ink2:#51606B;--line:#C3CBC6;--f:"Archivo","Helvetica Neue",Arial,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141917;--paper2:#1A201D;--ink:#D8E1DC;--ink2:#95A39C;--line:#33403A}}
+:root[data-theme="dark"]{--paper:#141917;--paper2:#1A201D;--ink:#D8E1DC;--ink2:#95A39C;--line:#33403A}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f);line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding:40px 20px}
+h1{font-stretch:78%;font-size:clamp(1.8rem,5vw,2.6rem);line-height:1.05;margin:0 0 10px}
+p{color:var(--ink2);max-width:62ch;margin:0 0 26px}
+.card{display:flex;gap:18px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;color:inherit;text-decoration:none}
+.card:hover{background:var(--paper2)}
+.card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.card img{flex:none;border-radius:14px}
+.card b{display:block;font-stretch:85%;font-size:1.25rem}
+.card span span{color:var(--ink2);font-size:.95rem}
+footer{margin-top:30px;border-top:1px solid var(--line);padding-top:12px;font-size:.82rem;color:var(--ink2)}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Klangregler-Simulatoren</h1>
+  <p>Treble, Middle und Bass zum Durchdrehen, mit Bauteilwerten aus den Original-Schaltplänen und exakter Schaltungsberechnung. Auf dem Handy lassen sich beide Seiten zum Startbildschirm hinzufügen und laufen dann auch offline.</p>
+
+  <a class="card" href="yamaha-b100ii/">
+    <img src="assets/icons/yamaha-b100ii-192.png" alt="" width="72" height="72">
+    <span><b>Yamaha B100-II Klangregler</b><span>Treble, Middle, Bass des Transistor-Bass-Combos, geprüft gegen die Werkskurve, mit Anhören eigener Audiodateien.</span></span>
+  </a>
+  <a class="card" href="laney-aor50/">
+    <img src="assets/icons/laney-aor50-192.png" alt="" width="72" height="72">
+    <span><b>Laney AOR 50 Vorverstärker</b><span>Kompletter Röhren-Vorverstärker mit beiden Kanälen, Boosts, Umbau-Kondensatoren und Anhören eigener Audiodateien, optional mit geschätzter Röhrenverzerrung.</span></span>
+  </a>
+  <footer>Kleinsignalrechnung, gültig solange nichts verzerrt; Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
+</main>
+</body>
+</html>

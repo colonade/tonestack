@@ -1,0 +1,84 @@
+KLANGREGLER-SIMULATOREN – Installation auf einem Apache-Webserver
+==================================================================
+
+Inhalt
+------
+index.html                     Übersichtsseite mit Links zu beiden Simulatoren
+yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
+laney-aor50/                   Laney AOR 50 Klangregler-Simulator
+assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
+assets/icons/                  App-Symbole für den Startbildschirm
+sw.js                          Service Worker für Offline-Betrieb
+.htaccess                      Apache-Einstellungen (versteckte Datei!)
+
+Hochladen
+---------
+1. Den kompletten Ordner "tonestack" in das Webverzeichnis kopieren,
+   z. B. /var/www/html/tonestack  ->  https://example.de/tonestack/
+   Der Ordner kann beliebig umbenannt werden oder direkt im Wurzelverzeichnis
+   liegen; alle Pfade sind relativ.
+2. Beim Upload per FTP darauf achten, dass die versteckte Datei .htaccess
+   mit übertragen wird (im FTP-Programm "versteckte Dateien anzeigen").
+3. Rechte: Ordner 755, Dateien 644. Beispiel auf dem Server:
+     find tonestack -type d -exec chmod 755 {} \;
+     find tonestack -type f -exec chmod 644 {} \;
+
+Apache-Voraussetzungen
+----------------------
+- Apache 2.4.
+- Die .htaccess wird nur gelesen, wenn für das Verzeichnis AllowOverride
+  gesetzt ist (mindestens: AllowOverride FileInfo Indexes Options).
+  Bei Webhostern ist das in der Regel so.
+- Empfohlene Module: mod_mime, mod_headers, mod_expires, mod_deflate.
+  Fehlt ein Modul, wird der Block ignoriert; die Seiten funktionieren trotzdem.
+  Auf eigenen Servern aktivieren (Debian/Ubuntu):
+     a2enmod headers expires deflate && systemctl reload apache2
+- Alternativ zur .htaccess können die Einstellungen in einen
+  <Directory>-Block der VirtualHost-Konfiguration übernommen werden.
+
+Anhören eigener Audiodateien (beide Simulatoren)
+------------------------------------------------
+In beiden Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
+berechnete Schaltung abspielen. Die Datei wird nur im Browser verarbeitet,
+nichts wird zum Server übertragen. Die Rechnung läuft in
+yamaha-b100ii/b100ii-worklet.js bzw. laney-aor50/laney-worklet.js
+(beide müssen mit hochgeladen werden).
+Laney: Standardmäßig werden die Röhrenstufen linear gerechnet, also ohne
+Verzerrung. Optional lässt sich eine geschätzte Röhrenverzerrung einschalten
+(veröffentlichtes 12AX7-Modell von N. Koren, nicht mit einem echten AOR 50
+verglichen). Sie braucht deutlich mehr Rechenleistung; die Seite misst beim
+Einschalten das Gerät und wählt 2- oder 1-fache Überabtastung.
+Über https läuft sie in einem eigenen Audio-Thread (AudioWorklet). Über reines
+http erlauben Browser das nicht; dann schaltet die Seite automatisch auf einen
+Ausweichbetrieb um, der genauso rechnet, aber beim Drehen etwas träger reagiert.
+
+HTTPS
+-----
+Die Seiten funktionieren auch über http. Die Offline-Funktion und
+"Zum Startbildschirm hinzufügen" als eigenständige App gibt es aber nur über
+https (z. B. kostenloses Zertifikat mit Let's Encrypt / certbot).
+
+Auf dem Handy als App
+---------------------
+Seite im Browser öffnen, dann im Browsermenü "Zum Startbildschirm hinzufügen"
+bzw. "App installieren". Jeder Simulator erscheint als eigenes Symbol.
+
+Aktualisieren
+-------------
+Nach dem Austausch der Seiten in sw.js die Zeile VERSION ändern
+(z. B. Datum hochzählen). Dann holen sich installierte Handys die neue Fassung.
+
+Datenschutz
+-----------
+Die Seiten laden nichts von fremden Servern, setzen keine Cookies und
+senden keine Daten. Reglerstellungen und Bauteilwerte werden nur im
+Browser des Besuchers gespeichert (localStorage).
+Hinweis: Öffentliche Websites in Deutschland können impressumspflichtig sein;
+das hängt vom Einzelfall ab.
+
+Prüfen nach dem Hochladen
+-------------------------
+  curl -I https://example.de/tonestack/
+  -> HTTP/1.1 200, Content-Security-Policy und Cache-Control: no-cache sichtbar
+  curl -I https://example.de/tonestack/assets/fonts/archivo-latin.woff2
+  -> Content-Type: font/woff2

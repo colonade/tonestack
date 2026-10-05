@@ -1,0 +1,38 @@
+Manifest-Version: 1.0
+
+Name: AndroidManifest.xml
+SHA-256-Digest: IUCB2Gn71zyfdGbfBdso+6mRasPB4OwLrAbmveUztio=
+
+Name: assets/b100ii-worklet.js
+SHA-256-Digest: IoBGLYWGV2XZ8doJI+pYNyycTQBumxT+OSUVMqyzca8=
+
+Name: assets/fonts/OFL-Archivo.txt
+SHA-256-Digest: EItOV8nHltPTjQQoyn7jneR62TGHMCcY2bLYhkubcWs=
+
+Name: assets/fonts/archivo-latin.woff2
+SHA-256-Digest: YXp3wZ0zixOesMbl5YnIwYtKJnCmZMoG9PV9Fw+IP+4=
+
+Name: assets/index.html
+SHA-256-Digest: d5cDZwQ81gWjmKuBLDkOFuOrQqdd2lRTfWDbAar07OI=
+
+Name: classes.dex
+SHA-256-Digest: zXRIb9VeiatdVQLck4EKS1IyaKPn8gNZoopHLKqHtJg=
+
+Name: res/mipmap-hdpi/ic_launcher.png
+SHA-256-Digest: AKLvX5F/bR+gRJStXT/aLwUS8n5jWapXJ9g4GW6hi3M=
+
+Name: res/mipmap-mdpi/ic_launcher.png
+SHA-256-Digest: IBViVZvrbh78rHxZ+6JerrzYBHfcJJ+2n5svq1H1Ub0=
+
+Name: res/mipmap-xhdpi/ic_launcher.png
+SHA-256-Digest: XW7PmoTCZ/KgX6GhrD5l+HIdIaZEeAyMU0DgiAGJthA=
+
+Name: res/mipmap-xxhdpi/ic_launcher.png
+SHA-256-Digest: 2v1Yo8psintXUVEmKXb3NmGoiN5ocxVxYPaMKh6Bkag=
+
+Name: res/mipmap-xxxhdpi/ic_launcher.png
+SHA-256-Digest: pmnEs7HHMbOu5+bNNoTxLyRPmqizwVzB+PG2EXsastQ=
+
+Name: resources.arsc
+SHA-256-Digest: ij+sb9hbqlo27FbBi2IdkCTtpseJpABYnG1zMkmgSAY=
+

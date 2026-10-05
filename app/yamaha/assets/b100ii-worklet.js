@@ -1,0 +1,228 @@
+// Laney AOR 50 Vorverstärker als Zeitbereichs-Schaltungssimulation (Trapezregel wie SPICE), linear (Kleinsignal).
+// Zustand: je Kondensator der "Verlaufsstrom" Ih. Pro Abtastwert: vc = K·Ih + k·u,  Ih' = 2G·vc − Ih,  y = c·Ih + d·u.
+// K, k, c, d werden bei Regler-/Schalteränderung aus der Knotenmatrix neu berechnet (LU-Zerlegung).
+(() => {
+  const ln = Math.log, ex = Math.exp;
+  // Schaltelement weich überblenden: nicht der Widerstand, sondern seine Wirkung y = Rref/(R+Rref) ändert sich gleichmäßig.
+  // x=1: ein (ron), x=0: aus (roff); Endpunkte exakt.
+  const blendR = (ron, roff, x, rref) => {
+    if (x >= 1) return ron; if (x <= 0) return roff;
+    const yon = rref / (ron + rref), yoff = rref / (roff + rref), y = yoff + x * (yon - yoff);
+    return rref * (1 / y - 1);
+  };
+  const rpOf = (Ia, v) => v.rp0 * Math.pow(v.ia0 / Ia, 1 / 3);
+  const VT = 0.02585;
+  const BANDCFG = [['cs0','cq0'],['cs1','cq1'],['cs2','cq2'],['cs3','cq3'],['cs4','cq4']];
+  // Yamaha B100-II, PA-Board: Klangregler, TR102, Volume, TR103/104, TR105 + fünf EQ-Bänder, Ausgang
+  function build(v, s, fs) {
+    const idx = {}; let n = 0;
+    const N = k => k === '0' ? -1 : (k in idx ? idx[k] : (idx[k] = n++));
+    const Rs = [], Cs = [], TR = []; let rc = 0;
+    const R = (a, b, r) => Rs.push([N(a), N(b), 1 / Math.max(r, 1e-3)]);   // Untergrenze 1 mΩ: vermeidet schlecht konditionierte Gleichungssysteme
+    const C = (a, b, c) => Cs.push([N(a), N(b), 2 * c * fs]);
+    const RC = (a, b, r, c) => { const m = '_rc' + (rc++); R(a, m, r); C(m, b, c); };
+    const bjt = (b, c, e, ic) => TR.push([N(b), N(c), N(e), ic / VT, v.hfe]);
+    N('in');                      // Quelle: 1 V hinter dem Drainwiderstand (Thevenin)
+    R('in', 'src', v.rs);
+    RC('src', 'T', v.rt * (1 - s.t), v.ct);
+    R('T', 'W', v.rt * s.t); R('src', 'A', v.rsl);
+    C('A', 'W', v.cb); C('A', 'M', v.cm);
+    R('W', 'M', v.rb * s.b); R('M', '0', v.rm * s.m);
+    RC('T', 'b2', v.rs2, v.cl);
+    R('b2', '0', v.rbias + 1 / (1 / 39e3 + 1 / 4.7e3));
+    R('e2', '0', v.re); R('c2', '0', v.rc); C('b2', 'c2', v.ccb);
+    bjt('b2', 'c2', 'e2', 1.40e-3);
+    C('c2', 'vt', 2.2e-6);
+    R('vt', 'vw', v.vol * (1 - s.vol)); R('vw', '0', v.vol * s.vol);
+    RC('vw', 'b3', 560, 1e-6);
+    R('b3', '0', 100e3 + 1 / (1 / 39e3 + 1 / 3.9e3));
+    R('e3', '0', 3.3e3); R('c3', '0', 15e3); C('b3', 'c3', 100e-12);
+    bjt('b3', 'c3', 'e3', 0.588e-3);
+    R('c3', 'b4', 1e-6); R('e4', '0', 10e3); C('b4', 'e4', 1000e-12);
+    bjt('b4', '0', 'e4', 2.06e-3);
+    C('e4', 'x1', 10e-6); R('x1', '0', 100e3); C('x1', 'b5', 3.3e-6);
+    R('b5', '0', 56e3 + 1 / (1 / 33e3 + 1 / 10e3));
+    R('e5', '0', 4.7e3); R('c5', '0', 4.7e3); C('b5', 'c5', 100e-12);
+    bjt('b5', 'c5', 'e5', 1.306e-3);
+    C('c5', 'BA', 47e-6); C('e5', 'BB', 47e-6);
+    BANDCFG.forEach(([cs, cq], k) => {
+      const p = s['e' + k];
+      R('BA', 'w' + k, Math.max(v.vreq * (1 - p), 1)); R('w' + k, 'BB', Math.max(v.vreq * p, 1));
+      C('w' + k, 'n' + k, v[cs]); R('n' + k, 'ge' + k, v.rg); C('n' + k, 'gb' + k, v[cq]);
+      R('gb' + k, '0', 110e3); C('gb' + k, 'ge' + k, v.cg); R('ge' + k, '0', 10e3);
+      bjt('gb' + k, '0', 'ge' + k, 1.44e-3);
+    });
+    RC('c5', 'o', 10e3, 4.7e-6); R('o', '0', 100e3);
+    const M = n + 1, A = new Float64Array(M * M);
+    const st = (a, b, g) => { if (a >= 0) A[a*M+a] += g; if (b >= 0) A[b*M+b] += g; if (a >= 0 && b >= 0) { A[a*M+b] -= g; A[b*M+a] -= g; } };
+    for (const [a, b, g] of Rs) st(a, b, g);
+    for (const [a, b, g] of Cs) st(a, b, g);
+    for (const [bb, cc, ee, gm, beta] of TR) {
+      const add = (row, col, g) => { if (row >= 0 && col >= 0) A[row*M+col] += g; };
+      for (const [row, sg] of [[cc,1],[ee,-1]]) { if (row < 0) continue; add(row, bb, sg*gm); add(row, ee, -sg*gm); }
+      for (const [row, sg] of [[bb,1],[ee,-1]]) { if (row < 0) continue; add(row, bb, sg*gm/beta); add(row, ee, -sg*gm/beta); }
+    }
+    const si = idx['in']; A[si*M+n] = 1; A[n*M+si] = 1;
+    const piv = new Int32Array(M);
+    for (let c = 0; c < M; c++) {
+      let p = c, best = -1; for (let r = c; r < M; r++) { const m = Math.abs(A[r*M+c]); if (m > best) { best = m; p = r; } }
+      piv[c] = p; if (p !== c) for (let q = 0; q < M; q++) { const t = A[c*M+q]; A[c*M+q] = A[p*M+q]; A[p*M+q] = t; }
+      const d = A[c*M+c];
+      for (let r = c + 1; r < M; r++) { const f = A[r*M+c] / d; if (f === 0) continue; A[r*M+c] = f; for (let q = c + 1; q < M; q++) A[r*M+q] -= f * A[c*M+q]; }
+    }
+    const solve = rhs => {
+      for (let c = 0; c < M; c++) { const p = piv[c]; if (p !== c) { const t = rhs[c]; rhs[c] = rhs[p]; rhs[p] = t; } }
+      for (let r = 1; r < M; r++) { let s2 = rhs[r]; for (let q = 0; q < r; q++) s2 -= A[r*M+q] * rhs[q]; rhs[r] = s2; }
+      for (let r = M - 1; r >= 0; r--) { let s2 = rhs[r]; for (let q = r + 1; q < M; q++) s2 -= A[r*M+q] * rhs[q]; rhs[r] = s2 / A[r*M+r]; }
+      return rhs;
+    };
+    const nc = Cs.length, diff = (x, a, b) => (a >= 0 ? x[a] : 0) - (b >= 0 ? x[b] : 0);
+    const K = new Float64Array(nc * nc), k = new Float64Array(nc), G2 = new Float64Array(nc), c = new Float64Array(nc);
+    const out = idx['o']; let d = 0;
+    for (let j = 0; j <= nc; j++) {
+      const rhs = new Float64Array(M);
+      if (j < nc) { const [a, b] = Cs[j]; if (a >= 0) rhs[a] += 1; if (b >= 0) rhs[b] -= 1; } else rhs[n] = 1;
+      const x = solve(rhs);
+      for (let i = 0; i < nc; i++) { const vv = diff(x, Cs[i][0], Cs[i][1]); if (j < nc) K[i*nc+j] = vv; else k[i] = vv; }
+      if (j < nc) c[j] = x[out]; else d = x[out];
+    }
+    for (let i = 0; i < nc; i++) G2[i] = 2 * Cs[i][2];
+    return { nc, K, k, G2, c, d, mc: [], md: new Float64Array(0) };
+  }
+  // Hochpässe im Effektweg und am Endstufeneingang (erster Ordnung, bilinear)
+  function hpCoef(fc, fs) { const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, a1: (K - 1) / a0 }; }
+  function paStages(v, fs) {
+    const cser = 1 / (1 / v.c201 + 1 / v.c202), two = Math.PI * 2;
+    return [1 / (two * (1e3 + 1 / (1 / 39e3 + 1 / 55e3)) * cser), 1 / (two * (1e3 + 1e6) * v.c18), 1 / (two * 280e3 * v.c21)].map(f => hpCoef(f, fs));
+  }
+
+  const SMOOTH = ['t','b','m','vol','e0','e1','e2','e3','e4'];
+  class Core {
+    constructor(fs) { this.fs = fs; this.every = 256; this.sys = null; this.prevSys = null; this.blend = 1; this.prevNorm = 1; this.cur = null; this.tgt = null; this.v = null; this.cnt = 0; this.Ih = null; this.vc = null;
+      this.pa = false; this.paC = null; this.paZ = [0,0,0,0,0,0]; this.norm = 1; this.prevNorm = 1; }
+    setTarget(m) {
+      const s = { ...m.s };
+      if (Array.isArray(s.eq)) s.eq.forEach((x, i) => { s['e' + i] = x; });   // EQ-Stellungen als e0…e4, damit sie geglättet und übernommen werden
+      const partsChanged = !this.v || Object.keys(m.v).some(k => m.v[k] !== this.v[k]);
+      this.tgt = s;
+      if (partsChanged || !this.cur) {
+        const had = !!this.sys, oldG = had ? this.sys.G2 : null;
+        this.v = { ...m.v }; if (!this.cur) this.cur = { ...s };
+        this.rebuild(); this.paC = paStages(this.v, this.fs);
+        if (had) {
+          // Bauteiltausch: sofort umschalten (keine Überblendung) und die Kondensatorspannungen erhalten.
+          // Zustand Ih = G·v + i; bei neuem G ist Ih' = Ih + (G' − G)·v.
+          this.prevSys = null; this.blend = 1; this.prevNorm = this.norm;
+          if (oldG.length === this.sys.nc) for (let j = 0; j < oldG.length; j++) this.Ih[j] += (this.sys.G2[j] - oldG[j]) / 2 * this.vc[j];
+        }
+      }
+      this.pa = !!m.pa;
+    }
+    rebuild() {
+      this.prevSys = this.sys; this.prevNorm = this.norm; this.blend = this.prevSys ? 0 : 1;
+      this.sys = build(this.v, this.cur, this.fs);
+      if (!this.prevSys) this.prevNorm = this.norm; if (!this.Ih || this.Ih.length !== this.sys.nc) { this.Ih = new Float64Array(this.sys.nc); this.vc = new Float64Array(this.sys.nc); } }
+    tick() {
+      if (!this.tgt || ++this.cnt < this.every) return; this.cnt = 0;
+      const a = 1 - Math.exp(-this.every / (0.015 * this.fs)); let moved = false;
+      for (const k of SMOOTH) {
+        const d = this.tgt[k] - this.cur[k]; if (d === 0) continue; moved = true;
+        if (Math.abs(d) > 1e-5) this.cur[k] += d * a; else this.cur[k] = this.tgt[k];
+      }
+      if (moved) this.rebuild();
+    }
+    step(u) {
+      const S = this.sys, nc = S.nc, Ih = this.Ih, vc = this.vc;
+      let y, nrm;
+      if (this.blend < 1 && this.prevSys && this.prevSys.nc === nc) {
+        const a = this.blend, b = 1 - a, P = this.prevSys, K1 = S.K, K0 = P.K;
+        y = (a * S.d + b * P.d) * u;
+        for (let i = 0; i < nc; i++) { let s1 = S.k[i] * u, s0 = P.k[i] * u; const o = i * nc;
+          for (let j = 0; j < nc; j++) { s1 += K1[o + j] * Ih[j]; s0 += K0[o + j] * Ih[j]; }
+          vc[i] = a * s1 + b * s0; y += (a * S.c[i] + b * P.c[i]) * Ih[i]; }
+        nrm = a * this.norm + b * this.prevNorm; this.blend = Math.min(1, this.blend + 1 / this.every);
+      } else {
+        const K = S.K; y = S.d * u;
+        for (let i = 0; i < nc; i++) { let s1 = S.k[i] * u; const o = i * nc; for (let j = 0; j < nc; j++) s1 += K[o + j] * Ih[j]; vc[i] = s1; y += S.c[i] * Ih[i]; }
+        for (let m = 0; m < S.mc.length; m++) { let s1 = S.md[m] * u; const r = S.mc[m]; for (let j = 0; j < nc; j++) s1 += r[j] * Ih[j]; const ab = Math.abs(s1); if (ab > this.peak[m]) this.peak[m] = ab; }
+        nrm = this.norm;
+      }
+      for (let i = 0; i < nc; i++) Ih[i] = S.G2[i] * vc[i] - Ih[i];
+      y /= nrm;
+      if (this.pa) { const z = this.paZ, C = this.paC;
+        for (let s2 = 0; s2 < 3; s2++) { const c = C[s2], x0 = y; y = c.b0 * x0 + c.b1 * z[2*s2] - c.a1 * z[2*s2+1]; z[2*s2] = x0; z[2*s2+1] = y; } }
+      return y;
+    }
+    clone() {
+      const c = new Core(this.fs);
+      Object.assign(c, this, { cur: { ...this.cur }, tgt: { ...this.tgt }, v: { ...this.v }, Ih: Float64Array.from(this.Ih), vc: Float64Array.from(this.vc),
+        paZ: this.paZ.slice(), peak: Float64Array.from(this.peak) });
+      return c;
+    }
+  }
+  // Verwaltung des Kanalwechsels: Die neue Schaltung startet leer, rechnet die letzten 150 ms Eingangssignal nach
+  // (verteilt über mehrere Audioblöcke, damit der Audio-Thread nicht überlastet wird) und wird dann über 30 ms
+  // eingeblendet. So sind alle Kondensatoren beim Einblenden eingeschwungen wie im echten Betrieb.
+  class LaneyEngine {                 // einfache Hülle: nur eine Schaltung, kein Kanalwechsel
+    constructor(fs) { this.fs = fs; this.a = new Core(fs); }
+    get sys() { return this.a.sys; }
+    get cur() { return this.a.cur; }
+    setTarget(m) { this.a.setTarget(m); }
+    tick() { this.a.tick(); }
+    step(u) { return this.a.step(u); }
+    work() {}
+    rebuild() { this.a.rebuild(); }
+  }
+  // WebAssembly-Kern (C++-Übersetzung desselben Netzes): blockweise Verarbeitung
+  const PORDER = ["rs", "rsl", "ct", "cb", "cm", "rt", "rb", "rm", "cl", "rs2", "rbias", "ccb", "hfe", "re", "rc", "vol", "vreq", "rg", "cg", "cs0", "cq0", "cs1", "cq1", "cs2", "cq2", "cs3", "cq3", "cs4", "cq4"];
+  class WasmEngine {
+    constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.x.y_init(fs); this.ready = false;
+      if (this.x.y_parts_count() !== PORDER.length) throw new Error('Bauteilliste passt nicht zum WebAssembly-Kern'); }
+    f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
+    setTarget(m) { const pb = this.f64(this.x.y_parts_buffer(), PORDER.length); PORDER.forEach((k, i) => pb[i] = m.v[k]);
+      const s = m.s, eq = Array.isArray(s.eq) ? s.eq : [s.e0, s.e1, s.e2, s.e3, s.e4];
+      const tb = this.f64(this.x.y_target_buffer(), 9); [s.t, s.b, s.m, s.vol, ...eq].forEach((x, i) => tb[i] = +x); this.x.y_set_target(); this.ready = true; }
+    process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.y_buffer(), n); b.set(buf.subarray(0, n)); this.x.y_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.y_buffer(), n)); }
+  }
+  const api = { build, LaneyEngine, WasmEngine };
+  if (typeof registerProcessor === 'function') {
+    class B100Processor extends AudioWorkletProcessor {
+      constructor(options) {
+        super(); this.eng = new LaneyEngine(sampleRate); this.bypass = false; this.mix = 1; this.rep = 0;
+        const init = options && options.processorOptions;
+        if (init && init.params) this.eng.setTarget(init.params);
+        if (init && 'bypass' in init) { this.bypass = !!init.bypass; this.mix = this.bypass ? 0 : 1; }
+        this.weng = null; this.last = null; this.mono = new Float32Array(128);
+        this.port.onmessage = e => { const m = e.data;
+          if (m.wasm) { const imports = { wasi_snapshot_preview1: { fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, proc_exit: () => {} } };
+            WebAssembly.instantiate(m.wasm, imports).then(r => { const inst = r.instance || r; this.weng = new WasmEngine(inst, sampleRate); if (this.last) this.weng.setTarget(this.last); this.port.postMessage({ wasm: true }); })
+              .catch(err => this.port.postMessage({ wasm: false, error: String(err) })); return; }
+          if (m.params) { this.last = m.params; if (this.weng) this.weng.setTarget(m.params); else this.eng.setTarget(m.params); }
+          if ('bypass' in m) this.bypass = !!m.bypass; };
+      }
+      process(inputs, outputs) {
+        const inp = inputs[0], out = outputs[0], eng = this.eng;
+        if (!inp || inp.length === 0 || (!this.weng && !eng.sys)) { for (const ch of out) ch.fill(0); return true; }
+        const len = out[0].length, target = this.bypass ? 0 : 1, step = 1 / (0.02 * sampleRate); let mix = this.mix;
+        if (this.weng && this.weng.ready) {
+          if (this.mono.length < len) this.mono = new Float32Array(len); const mo = this.mono;
+          for (let n = 0; n < len; n++) { let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; mo[n] = u / inp.length; }
+          const dry = Float32Array.from(mo.subarray(0, len)); this.weng.process(mo, len);
+          for (let n = 0; n < len; n++) { if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
+            const o = mix * mo[n] + (1 - mix) * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o; }
+          this.mix = mix; return true;
+        }
+        for (let n = 0; n < len; n++) {
+          let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; u /= inp.length;     // Mono
+          eng.tick(); const y = eng.step(u);
+          if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
+          const o = mix * y + (1 - mix) * u; for (let c = 0; c < out.length; c++) out[c][n] = o;
+        }
+        this.mix = mix;
+        return true;
+      }
+    }
+    registerProcessor('b100ii-tonestack', B100Processor);
+  } else if (typeof module !== 'undefined') module.exports = api;
+  else globalThis.B100DSP = api;
+})();

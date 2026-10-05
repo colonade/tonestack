@@ -1,0 +1,5 @@
+*.jks
+*.keystore
+SCHLUESSEL-LIESMICH.txt
+*_unsigned.apk
+signed/
