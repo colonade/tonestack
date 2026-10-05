@@ -1,0 +1,20 @@
+// C-Schnittstelle des Yamaha-Kerns für WebAssembly
+#include "yamaha_core.hpp"
+using namespace b100;
+static YCore *Y = nullptr; static float bufY[8192]; static double partsY[64], tgtY[16];
+extern "C" {
+float *y_buffer() { return bufY; } double *y_parts_buffer() { return partsY; } double *y_target_buffer() { return tgtY; }
+int y_parts_count() { int n = 0;
+#define X(a) n++;
+  YPARTS_LIST(X)
+#undef X
+  return n; }
+void y_init(double fs) { delete Y; Y = new YCore(fs); }
+// tgtY = t, b, m, vol, e0..e4 (Anteile 0..1, Kennlinie schon angewandt)
+void y_set_target() { if (!Y) return; YParts p; int i = 0;
+#define X(a) p.a = partsY[i++];
+  YPARTS_LIST(X)
+#undef X
+  YSetting s; s.t = tgtY[0]; s.b = tgtY[1]; s.m = tgtY[2]; s.vol = tgtY[3]; for (int k = 0; k < 5; k++) s.e[k] = tgtY[4 + k]; Y->setTarget(p, s); }
+void y_process(int n) { if (n < 0) return; if (n > 8192) n = 8192; if (Y) Y->block(bufY, n); else for (int i = 0; i < n; i++) bufY[i] = 0; }
+}
