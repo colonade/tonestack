@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.1
+Version 3.2
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -46,8 +46,9 @@ Meters and load
 Idle
   When the input has been silent for a while and the circuit has settled
   (all capacitor voltages within 5 mV of their resting values), the plugin
-  tells REAPER it may stop calling it (CLAP "sleep"); the CPU line then shows
-  "idle (silent input)". With tube distortion this takes about 9 s after the
+  tells REAPER it may stop calling it (CLAP "sleep") and, whether or not the
+  host honours that, skips its own processing and outputs silence; the CPU
+  line then shows "idle (silent input)". With tube distortion this takes about 9 s after the
   last note, because of C12 (3.3 MOhm feedback, about 1 s time constant);
   in linear mode about 1 s. On the next note it continues from the resting
   state, so the result does not depend on whether or how long it slept
