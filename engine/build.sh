@@ -20,5 +20,6 @@ if [ -x "$WASI/bin/clang++" ]; then
 else echo "wasi-sdk nicht gefunden ($WASI): WebAssembly übersprungen"; fi
 g++ -O3 -std=c++17 -Isrc -Igen tests/harness.cpp -o build/harness
 g++ -O2 -std=c++17 -Ithird_party tests/hosttest.cpp -ldl -o build/hosttest
+g++ -O2 -std=c++17 -Ithird_party tests/defaults.cpp -ldl -o build/defaults
 g++ -O2 -std=c++17 -Ithird_party tests/guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/guitest
 echo "Testwerkzeuge: build/harness, build/hosttest, build/guitest"

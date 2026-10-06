@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.0
+Version 3.1
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -21,7 +21,8 @@ Parameters
   FX loop + power amp (Presence), Middle/Presence pot taper, Output level,
   Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 4x),
   Presence (active with "FX loop + power amp").
-  Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 4x oversampling.
+  Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 8x oversampling,
+  bass mod on, FX loop + power amp on.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel

@@ -20,9 +20,9 @@ static const PDef PD[P_COUNT] = {
   {"Preamp 1 Volume", 0, 10, 5, 0, 0}, {"Preamp 2 Volume", 0, 10, 5, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 5, 0, 0},
   {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Master Volume", 0, 10, 5, 0, 0},
   {"Mid Boost (S105)", 0, 1, 0, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 0, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 0, N_ONOFF, 2},
-  {"Bass mod", 0, 1, 0, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 0, N_ONOFF, 2}, {"Middle/Presence pot taper", 0, 2, 0, N_TAP, 3},
+  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Middle/Presence pot taper", 0, 2, 0, N_TAP, 3},
   {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
-  {"Oversampling (distortion)", 0, 3, 2, N_OS, 4}, {"Presence", 0, 10, 5, 0, 0} };
+  {"Oversampling (distortion)", 0, 3, 3, N_OS, 4}, {"Presence", 0, 10, 5, 0, 0} };
 
 struct Plugin {
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
@@ -172,7 +172,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_MONO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.0", "Preamp simulation from schematic DRG 1054 with tube distortion and power amp feedback (presence)", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.1", "Preamp simulation from schematic DRG 1054 with tube distortion and power amp feedback (presence)", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }
