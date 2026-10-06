@@ -16,7 +16,7 @@ static const void *host_ext(const clap_host_t *, const char *id) { if (!strcmp(i
 static void host_nop(const clap_host_t *) {}
 int main(int argc, char **argv) {
   Display *d = XOpenDisplay(nullptr); if (!d) { printf("kein Display\n"); return 1; }
-  Window root = RootWindow(d, DefaultScreen(d)); Window par = XCreateSimpleWindow(d, root, 0, 0, 1200, 212, 0, 0, 0x202020); XMapWindow(d, par); XFlush(d);
+  Window root = RootWindow(d, DefaultScreen(d)); Window par = XCreateSimpleWindow(d, root, 0, 0, 1200, 400, 0, 0, 0x202020); XMapWindow(d, par); XFlush(d);
   void *lib = dlopen(argv[1], RTLD_NOW); auto *entry = (const clap_plugin_entry_t*)dlsym(lib, "clap_entry"); entry->init(argv[1]);
   auto *fac = (const clap_plugin_factory_t*)entry->get_factory(CLAP_PLUGIN_FACTORY_ID); const clap_plugin_descriptor_t *desc = fac->get_plugin_descriptor(fac, 0);
   clap_host_t host = {CLAP_VERSION_INIT, nullptr, "test", "", "", "1", host_ext, host_nop, host_nop, host_nop};

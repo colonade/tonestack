@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.2
+Version 3.3
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -35,6 +35,15 @@ User interface
   Dimmed controls have no effect in the current setting; REVERB is not
   modelled.
   Needs libcairo2 and libX11 (present anyway with REAPER on Linux).
+
+Frequency response
+  Below the model strip the plugin draws the small-signal frequency response
+  of the current setting (blue), relative to 1 kHz, computed from the same
+  circuit network as the audio (complex nodal analysis, 20 Hz to 20 kHz).
+  The dashed grey line is the reference: original parts, all controls at 5,
+  boosts off, same channel, input and FX-loop setting. With tube distortion
+  on, the curve still shows the linear (small-signal) response. The window
+  can be resized; the plot scales with it.
 
 Meters and load
   TUBE DRIVE: five bars show how hard each triode stage (V101A, V101B,

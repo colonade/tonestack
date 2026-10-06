@@ -7,6 +7,7 @@
 #include <map>
 #include <array>
 #include <algorithm>
+#include <complex>
 #include "parts_gen.h"
 
 namespace aor {
@@ -53,10 +54,10 @@ inline double rpOf(double Ia, const Parts &v) { return v.rp0 * std::pow(v.ia0 / 
 struct LinSys { int nc = 0; std::vector<double> K, k, G2, c; double d = 0; std::vector<std::vector<double>> mc; std::vector<double> md; };
 struct LinNet {
   std::map<std::string,int> idx; int n = 0;
-  std::vector<std::array<double,3>> Rs, Cs; std::vector<std::array<double,4>> TR; std::vector<std::array<double,5>> BJ; int rcCount = 0;
+  std::vector<std::array<double,3>> Rs, Cs; std::vector<std::array<double,4>> TR; std::vector<std::array<double,5>> BJ; int rcCount = 0; double fsRef = 0;
   int N(const std::string &k) { if (k == "0") return -1; auto it = idx.find(k); if (it != idx.end()) return it->second; idx[k] = n; return n++; }
   void R(const std::string &a, const std::string &b, double r) { Rs.push_back({(double)N(a), (double)N(b), 1 / std::max(r, 1e-3)}); }
-  void C(const std::string &a, const std::string &b, double c, double fs) { Cs.push_back({(double)N(a), (double)N(b), 2 * c * fs}); }
+  void C(const std::string &a, const std::string &b, double c, double fs) { Cs.push_back({(double)N(a), (double)N(b), 2 * c * fs}); fsRef = fs; }
   void RC(const std::string &a, const std::string &b, double r, double c, double fs) { std::string m = "rc" + std::to_string(rcCount++); R(a, m, r); C(m, b, c, fs); }
   void triode(const std::string &g, const std::string &p, const std::string &k, double Ia, const Parts &v, double fs) {
     double rp = rpOf(Ia, v); R(p, k, rp); TR.push_back({(double)N(g), (double)N(p), (double)N(k), v.mu / rp}); C(g, k, v.cgk, fs); C(g, p, v.cga, fs); }
@@ -98,6 +99,26 @@ struct LinNet {
     return S;
   }
 };
+// Kleinsignal-Übertragung bei der Frequenz f (komplexe Knotenanalyse auf demselben Netz; Kapazitäten aus den Trapez-Leitwerten zurückgerechnet)
+inline std::complex<double> responseAt(const LinNet &o, double f, const std::string &outName) {
+  typedef std::complex<double> cd; int n = o.n, M = n + 1; std::vector<cd> A(M * M, cd(0, 0)); cd jw(0, 2 * PI * f);
+  auto st = [&](int a, int b, cd g) { if (a >= 0) A[a*M+a] += g; if (b >= 0) A[b*M+b] += g; if (a >= 0 && b >= 0) { A[a*M+b] -= g; A[b*M+a] -= g; } };
+  for (auto &e : o.Rs) st((int)e[0], (int)e[1], cd(e[2], 0));
+  for (auto &e : o.Cs) st((int)e[0], (int)e[1], jw * (e[2] / (2 * o.fsRef)));
+  for (auto &t : o.TR) { int g = (int)t[0], p = (int)t[1], k = (int)t[2]; double gm = t[3];
+    if (p >= 0) { A[p*M+g] += gm; if (k >= 0) A[p*M+k] -= gm; } if (k >= 0) { A[k*M+g] -= gm; A[k*M+k] += gm; } }
+  for (auto &t : o.BJ) { int bb = (int)t[0], cc = (int)t[1], ee = (int)t[2]; double gm = t[3], beta = t[4];
+    auto add = [&](int row, int col, double g) { if (row >= 0 && col >= 0) A[row*M+col] += g; };
+    for (auto [row, sg] : std::initializer_list<std::pair<int,double>>{{cc, 1.0}, {ee, -1.0}}) { if (row < 0) continue; add(row, bb, sg*gm); add(row, ee, -sg*gm); }
+    for (auto [row, sg] : std::initializer_list<std::pair<int,double>>{{bb, 1.0}, {ee, -1.0}}) { if (row < 0) continue; add(row, bb, sg*gm/beta); add(row, ee, -sg*gm/beta); } }
+  int si = o.idx.at("in"); A[si*M+n] = 1; A[n*M+si] = 1;
+  std::vector<cd> x(M, cd(0, 0)); x[n] = 1;
+  for (int ccol = 0; ccol < M; ccol++) { int p = ccol; double best = -1; for (int r = ccol; r < M; r++) { double m = std::abs(A[r*M+ccol]); if (m > best) { best = m; p = r; } }
+    if (p != ccol) { for (int q = 0; q < M; q++) std::swap(A[ccol*M+q], A[p*M+q]); std::swap(x[ccol], x[p]); }
+    cd d = A[ccol*M+ccol]; for (int r = ccol + 1; r < M; r++) { cd fct = A[r*M+ccol] / d; if (fct == cd(0, 0)) continue; for (int q = ccol; q < M; q++) A[r*M+q] -= fct * A[ccol*M+q]; x[r] -= fct * x[ccol]; } }
+  for (int r = M - 1; r >= 0; r--) { cd s = x[r]; for (int q = r + 1; q < M; q++) s -= A[r*M+q] * x[q]; x[r] = s / A[r*M+r]; }
+  return x[o.idx.at(outName)];
+}
 static const std::vector<std::pair<std::string,std::string>> MON = {{"g1","k1"},{"g2","k2"},{"g3","k3"},{"g4","k4"},{"g6","k6"}};
 static const double MONREF[5] = {1.6, 1.7, 3.1, 1.0, 1.0};
 
@@ -116,7 +137,7 @@ inline double vt1R(const Parts &v, double x) {
 }
 inline double chanShape(const Parts &v, double x) { return vt1Div(v, vt1R(v, 1 - x)); }
 
-inline LinSys buildLin(const Parts &v, const Setting &s, double fs) {
+inline LinNet netLin(const Parts &v, const Setting &s, double fs) {
   LinNet o; o.N("in");
   if (s.low) { o.R("g1","0",v.r1); o.R("in","t2",1e-3); } else o.R("in","g1",v.r1);
   o.triode("g1","p1","k1",0.62e-3,v,fs); o.R("k1","0",2.7e3); o.C("k1","0",47e-6,fs); o.R("p1","0",100e3);
@@ -143,10 +164,11 @@ inline LinSys buildLin(const Parts &v, const Setting &s, double fs) {
   o.R("W4","W3",v.vr103*(1-s.pl)); o.R("W3","B3",std::max(v.vr103*s.pl, 1e-3));
   o.R("B3","0", blendR(v.ronvt, 1e12, s.ch1, v.vr103));
   o.R("W3","0",1e6);
-  return o.compile("W3", MON);
+  return o;
 }
+inline LinSys buildLin(const Parts &v, const Setting &s, double fs) { return netLin(v, s, fs).compile("W3", MON); }
 // Endstufe mit Gegenkopplung und Presence (wie engine.paBuild)
-inline LinSys buildPA(const Parts &v, double pres, double fs) {
+inline LinNet netPA(const Parts &v, double pres, double fs) {
   LinNet o; o.N("in");
   auto buf = [&](const std::string &a, const std::string &b) { o.vccs(a, "0", b, 1); o.R(b, "0", 1); };
   o.R("in","fa",1e3); o.C("fa","fb",v.c201,fs); o.C("fb","fc",v.c202,fs); o.R("fc","0",1/(1/39e3+1/55e3));
@@ -156,8 +178,9 @@ inline LinSys buildPA(const Parts &v, double pres, double fs) {
   o.C("gb","x",v.c19,fs); o.R("x","0",v.r105); o.R("x","px",v.vr108*(1-pres)); o.C("px","0",v.c110,fs);
   o.vccs("g2","0","br",1); o.vccs("g1","br","0",1); o.R("br","0",1);
   o.R("br","x", v.r38 * 0.5 / std::max(v.gp, 1e-6));
-  return o.compile("br", {});
+  return o;
 }
+inline LinSys buildPA(const Parts &v, double pres, double fs) { return netPA(v, pres, fs).compile("br", {}); }
 
 // Zustandsrechner für ein lineares Netz mit Überblendung bei Neuaufbau
 struct LinRunner {
