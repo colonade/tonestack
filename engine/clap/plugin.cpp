@@ -27,6 +27,7 @@ static const PDef PD[P_COUNT] = {
 struct Plugin {
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5]; double pkAcc[5] = {0,0,0,0,0}; int pkCnt = 0; std::vector<float> mono2;
+  long quiet = 0; std::atomic<bool> sleeping{false};   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1;
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::deque<std::pair<int,double>> guiQ; double guiW = 1200, guiH = 0; std::string diagTxt;
   Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)std::lround(val[P_TAPER]);
@@ -36,6 +37,29 @@ struct Plugin {
     t.vin = t.nl ? val[P_VIN] / 1000 : 1; int o = (int)std::lround(val[P_OS]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8; return t; }
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
+// Ruhezustand nach langer Stille: Arbeitspunkte wie beim Start, Koppelkondensatoren entladen, Filterspeicher leer.
+// Wird beim Aufwachen angewandt; so hängt das Ergebnis weder von der Schlafdauer ab noch davon, ob der Host den Schlaf befolgt.
+static void settleRunner(LinRunner &r) { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; }
+// Größte Abweichung aller Kondensatorspannungen vom Ruhezustand (V): Maß dafür, ob der Kern innerlich zur Ruhe gekommen ist
+static double restDev(Engine *E) {
+  if (!E || !E->a || E->b) return 1e9; CoreBase *c = E->a; double d = 0;
+  auto lin = [&](LinRunner &r) { for (double x : r.vc) d = std::max(d, std::fabs(x)); };
+  if (c->isNl()) { NlCore *n = (NlCore*)c;
+    std::string key(reinterpret_cast<const char*>(&n->v), sizeof n->v); key += std::to_string(n->fs) + "|" + std::to_string(n->os);
+    auto &ca = NlCore::cache(); auto it = ca.find(key); if (it == ca.end()) return 1e9;
+    const Snapshot &s = it->second; for (size_t k = 0; k < n->amp.st.size() && k < s.st.size(); k++) for (size_t i = 0; i < n->amp.st[k].vc.size() && i < s.st[k].vc.size(); i++) d = std::max(d, std::fabs(n->amp.st[k].vc[i] - s.st[k].vc[i]));
+    if (n->pa) lin(n->paC.r); }
+  else { LinCore *l = (LinCore*)c; lin(l->r); if (l->pa) lin(l->paC.r); }
+  return d;
+}
+static void settle(Engine *E) {
+  if (!E || !E->a || E->b) return; CoreBase *c = E->a;
+  if (c->isNl()) { NlCore *n = (NlCore*)c;
+    std::string key(reinterpret_cast<const char*>(&n->v), sizeof n->v); key += std::to_string(n->fs) + "|" + std::to_string(n->os);
+    auto &ca = NlCore::cache(); auto it = ca.find(key); if (it != ca.end()) n->amp.initFrom(n->v, n->cur, it->second); else n->amp.init(n->v, n->cur);
+    n->amp.blending = false; std::fill(n->amp.xb.begin(), n->amp.xb.end(), 0.0); std::fill(n->amp.yb.begin(), n->amp.yb.end(), 0.0); settleRunner(n->paC.r); }
+  else { LinCore *l = (LinCore*)c; settleRunner(l->r); settleRunner(l->paC.r); }
+}
 
 // ---- Parameter ----
 static uint32_t par_count(const clap_plugin_t *) { return P_COUNT; }
@@ -94,17 +118,25 @@ static void pl_reset(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->eng) {
 static clap_process_status pl_process(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
   if (!pl->eng) return CLAP_PROCESS_CONTINUE;
-  if (pl->dirty.exchange(false)) { Target t = pl->target(); pl->eng->setTarget(t); pl->eng2->setTarget(t); pl->outg = std::pow(10, pl->val[P_OUT] / 20); }
+  if (pl->dirty.exchange(false)) { Target t = pl->target(); pl->eng->setTarget(t); pl->eng2->setTarget(t); pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; }
   uint32_t n = pr->frames_count; if (pr->audio_inputs_count < 1 || pr->audio_outputs_count < 1) return CLAP_PROCESS_CONTINUE;
   const clap_audio_buffer_t &in = pr->audio_inputs[0]; clap_audio_buffer_t &out = pr->audio_outputs[0];
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
   auto t0 = std::chrono::steady_clock::now();
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } m[i] = (float)x; m2[i] = (float)x2; }
+  float inPk = 0; for (uint32_t i = 0; i < n; i++) inPk = std::max(inPk, std::max(std::fabs(m[i]), std::fabs(m2[i])));
+  if (pl->sleeping && inPk >= 1e-6f) { settle(pl->eng); settle(pl->eng2); pl->sleeping = false; pl->quiet = 0; }   // Aufwachen: vom Ruhezustand aus weiterrechnen
   pl->eng->block(m, (int)n); if (stereo) pl->eng2->block(m2, (int)n);
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
   for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = (float)(src[i] * pl->outg); else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i] * pl->outg; }
   if ((pl->pkCnt += n) >= pl->fs / 10) { pl->pkCnt = 0; double q[5]; takePeaksFrom(pl->eng, q); for (int i = 0; i < 5; i++) pl->pk[i] = q[i]; }
+  // Schlafen: Eingang still (< −120 dBFS), Ausgang abgeklungen (< −100 dBFS), kein Umschaltvorgang; nach 0,5 s darf der Host aussetzen
+  double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0) * pl->outg);
+  bool trans = pl->eng->b != nullptr || pl->eng2->b != nullptr;
+  bool rest = inPk < 1e-6f && outPk < 1e-5 && !trans && restDev(pl->eng) < 5e-3 && (!stereo || restDev(pl->eng2) < 5e-3);   // auch innen zur Ruhe gekommen (< 5 mV; langsamste Zeitkonstante: C12 mit 3,3 MΩ, etwa 1 s)
+  if (rest) pl->quiet += n; else pl->quiet = 0;
+  if (pl->quiet >= (long)(0.5 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; for (int i = 0; i < 5; i++) pl->pk[i] = 0; } return CLAP_PROCESS_SLEEP; }
   return CLAP_PROCESS_CONTINUE;
 }
 // ---- Oberfläche (X11, eingebettet) ----
@@ -119,7 +151,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
   return true; }
 static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
   if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } if (pl->dpy) { XFlush(pl->dpy); } }
-static void upd_diag(Plugin *pl) { char b[160]; int o = (int)std::lround(pl->val[P_OS]); std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling · %.0f Hz · stereo", pl->load.load() * 100, o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8, pl->fs); pl->diagTxt = b; }
+static void upd_diag(Plugin *pl) { char b[160]; int o = (int)std::lround(pl->val[P_OS]); std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling · %.0f Hz · stereo%s", pl->load.load() * 100, o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); pl->diagTxt = b; }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }
@@ -140,7 +172,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_MONO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "2.9", "Preamp simulation from schematic DRG 1054 with tube distortion and power amp feedback (presence)", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.0", "Preamp simulation from schematic DRG 1054 with tube distortion and power amp feedback (presence)", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 2.9
+Version 3.0
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -41,6 +41,16 @@ Meters and load
   overdrive (1.0), green below, amber around, red above. The text line in
   the model strip shows the CPU load of the plugin in percent of one core,
   the oversampling in use and the sample rate.
+
+Idle
+  When the input has been silent for a while and the circuit has settled
+  (all capacitor voltages within 5 mV of their resting values), the plugin
+  tells REAPER it may stop calling it (CLAP "sleep"); the CPU line then shows
+  "idle (silent input)". With tube distortion this takes about 9 s after the
+  last note, because of C12 (3.3 MOhm feedback, about 1 s time constant);
+  in linear mode about 1 s. On the next note it continues from the resting
+  state, so the result does not depend on whether or how long it slept
+  (deviation from uninterrupted processing below -115 dB).
 
 Notes
   True stereo: left and right are processed by two independent engines. A
