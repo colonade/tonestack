@@ -541,9 +541,9 @@ const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
 const P = LANEY_PARTS;
 const KDEF = {v1:5, v2:5, t:5, m:5, b:5, mv:5, pl:5, pres:5};
-const DEF = { knobs:{...KDEF}, sw:{ch:1, inp:'high', mid:false, top:false, bass:false}, mode:'rel1k', taper:'a15', showRef:true, pa:false,
-  parts:Object.fromEntries(P.map(p=>[p[0],p[4]])) };
-let S; try { S = JSON.parse(localStorage.getItem('laneypre-v2') || 'null'); } catch(e) { S = null; }
+const DEF = { knobs:{...KDEF}, sw:{ch:1, inp:'high', mid:false, top:false, bass:false}, mode:'rel1k', taper:'a15', showRef:true, pa:true,
+  parts:Object.fromEntries(P.map(p=>[p[0], p[5] !== null ? p[5] : p[4]])) };   // Grundstellung: Bass-Umbau, Effektweg + Endstufe an
+let S; try { S = JSON.parse(localStorage.getItem('laneypre-v3') || 'null'); } catch(e) { S = null; }   // v3: neue Grundstellung (2026-10-06)
 // Umbau-Stand Revision 5: C6, C9, C13, C21 gehören nicht mehr zum Bass-Umbau. Stehen sie noch genau auf den alten Umbauwerten, zurück auf Original.
 if (S && S.parts) for (const [k, alt] of [['c6', 1000], ['c9', 22], ['c13', 22], ['c21', 47]]) {
   const p = LANEY_PARTS.find(q => q[0] === k); if (p && S.parts[k] === alt) S.parts[k] = p[4];
@@ -553,7 +553,7 @@ for (const k in KDEF) if (!(k in S.knobs)) S.knobs[k] = KDEF[k];   // ältere Sp
 if (!S.sw.inp) S.sw.inp = 'high';
 for (const p of P) if (!(p[0] in S.parts)) S.parts[p[0]] = p[4];
 let cmp = null, cmpId = 0;
-const save = () => { try { localStorage.setItem('laneypre-v2', JSON.stringify(S)); } catch(e) {} };
+const save = () => { try { localStorage.setItem('laneypre-v3', JSON.stringify(S)); } catch(e) {} };
 const valsOf = parts => { const v = {...LANEY_FIXED}; for (const p of P) v[p[0]] = parts[p[0]] * p[3]; return v; };
 const vals = () => valsOf(S.parts);
 const ORIG = valsOf(DEF.parts);
@@ -1078,7 +1078,7 @@ let benched = false;
 $('anl').onchange = async () => {
   nlUI();
   if ($('anl').checked && !benched) {
-    if (A.wasm) { benched = true; status('WebAssembly-Kern: 2-, 4- und 8-fache Überabtastung laufen in Echtzeit (Standard 4-fach).'); if (+$('aos').value < 4 && !$('aos').dataset.user) $('aos').value = '4'; send(); return; }
+    if (A.wasm) { benched = true; status('WebAssembly-Kern: 2-, 4- und 8-fache Überabtastung laufen in Echtzeit (Standard 8-fach).'); if (+$('aos').value < 8 && !$('aos').dataset.user) $('aos').value = '8'; send(); return; }
     benched = true; status('Rechentest läuft …');
     try {
       const l2 = await bench(2), l1 = l2 > 45 ? await bench(1) : null;
@@ -1142,7 +1142,7 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
   cv.addEventListener('keydown', e => { const m = {ArrowLeft:-5, ArrowRight:5, PageDown:-30, PageUp:30}[e.key]; if (m) { seek(pos() + m); e.preventDefault(); } else if (e.key === 'Home') { seek(0); e.preventDefault(); } else if (e.key === ' ' || e.key === 'Enter') { A.playing ? pause() : play(); e.preventDefault(); } });
   addEventListener('resize', drawWave); }
 
-function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.value >= 4) o.disabled = !A.wasm; if (!A.wasm && +sel.value >= 4) { sel.value = '2'; send(); } if (A.wasm && !sel.dataset.user && +sel.value < 4) { sel.value = '4'; send(); }
+function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.value >= 4) o.disabled = !A.wasm; if (!A.wasm && +sel.value >= 4) { sel.value = '2'; send(); } if (A.wasm && !sel.dataset.user && +sel.value < 8) { sel.value = '8'; send(); }
   const st = $('astatus'); if (A.wasm && !st.dataset.wasm) { st.dataset.wasm = '1'; st.textContent += ' WebAssembly-Kern aktiv (4- und 8-fach möglich).'; } }
 })();
 </script><script>if("serviceWorker"in navigator&&location.protocol==="https:")addEventListener("load",()=>navigator.serviceWorker.register("../sw.js").catch(()=>{}));</script>
