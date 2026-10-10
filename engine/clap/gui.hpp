@@ -20,12 +20,14 @@
 namespace aorgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_COUNT };
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_COUNT };
+static const char *TUBE_SHORT[5] = {"12AX7", "12AT7", "12AU7", "5751", "12AY7"};
 static const int KPARAM[9] = {P_V1, P_V2, P_PL, P_MV, P_T, P_M, P_B, P_PRES, -1};   // Knopf → Parameter (Reverb: keiner)
 static const int PULLP[9] = {P_CH, -1, -1, -1, P_TOP, P_MID, P_BASS, -1, -1};       // Zugschalter je Knopf
 static const char *KNAME[9] = {"PREAMP 1 VOLUME","PREAMP 2 VOLUME","PREAMP 1 LEVEL","MASTER VOLUME","TREBLE","MIDDLE","BASS","PRESENCE","REVERB"};
 constexpr double STRIP = 70;   // Modellstreifen unter dem Foto (in Foto-Einheiten)
-constexpr double PLOT = 330;   // Frequenzgang-Diagramm unter dem Modellstreifen
+constexpr double TUBEROW = 44;  // Zeile Röhrenbestückung
+constexpr double PLOT = 330 + TUBEROW;   // Röhrenzeile + Frequenzgang-Diagramm unter dem Modellstreifen
 static const double TOTALH = FH + STRIP + PLOT;
 constexpr int NF = 120;        // Stützstellen des Diagramms (20 Hz … 20 kHz, logarithmisch)
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
@@ -124,12 +126,19 @@ struct Gui {
         setrgb(c, 0x8d919a); textC(c, tn[i], bx + bw / 2, by + bh + 7, 9, false); } }
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); font(c, 11, false); cairo_move_to(c, 260, y0 + 12); cairo_show_text(c, d.c_str()); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
-    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_PRES};
+    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3};
       for (int id : ks) kn += std::snprintf(kb + kn, sizeof kb - kn, "%.4g|", v[id]); std::string key(kb, kn); double now = (double)std::clock() / CLOCKS_PER_SEC;
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; } }
-    { double px0 = 70, px1 = FW - 24, py0 = FH + STRIP + 30, py1 = FH + STRIP + PLOT - 40;
-      setrgb(c, 0x14161a); cairo_rectangle(c, 0, FH + STRIP, FW, PLOT); cairo_fill(c);
-      setrgb(c, 0xb8bcc4); font(c, 12, true); cairo_move_to(c, px0, FH + STRIP + 20); cairo_show_text(c, "FREQUENCY RESPONSE  (small signal, relative to 1 kHz)");
+    { double ty0 = FH + STRIP; setrgb(c, 0x14161a); cairo_rectangle(c, 0, ty0, FW, PLOT); cairo_fill(c);
+      // Röhrenbestückung: V101, V102, V103 (Taste schaltet den Typ durch), RESET = Bestückung wie im Gerät
+      setrgb(c, 0xb8bcc4); font(c, 12, true); cairo_move_to(c, 70, ty0 + 28); cairo_show_text(c, "TUBES");
+      for (int i = 0; i < 3; i++) { double bx = 150 + i * 300, by = ty0 + 8, bw = 270, bh = 30; int tt = std::max(0, std::min(4, (int)std::lround(v[P_TUBE1 + i]))); bool stock = tt == 0;
+        setrgb(c, 0x111317); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, stock ? 0x4d4d52 : 0xe8b23c); cairo_set_line_width(c, 1.5); cairo_rectangle(c, bx, by, bw, bh); cairo_stroke(c);
+        char lbl[48]; std::snprintf(lbl, sizeof lbl, "V10%d  %s%s", i + 1, TUBE_SHORT[tt], aor::TUBE_MODELS[tt].fitted ? " *" : ""); setrgb(c, stock ? 0xb8bcc4 : 0xffd98a); textC(c, lbl, bx + bw / 2, by + bh / 2, 13, true); }
+      { bool anyMod = v[P_TUBE1] > 0.5 || v[P_TUBE2] > 0.5 || v[P_TUBE3] > 0.5; double bx = 1060, by = ty0 + 8, bw = 150, bh = 30; setrgb(c, 0x111317); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, anyMod ? 0x9a9aa0 : 0x4d4d52); cairo_set_line_width(c, 1.5); cairo_rectangle(c, bx, by, bw, bh); cairo_stroke(c); setrgb(c, anyMod ? 0xececf0 : 0x6a6a68); textC(c, "RESET TO STOCK", bx + bw / 2, by + bh / 2, 12, true); }
+      setrgb(c, 0x8d919a); font(c, 11, false); cairo_move_to(c, 1230, ty0 + 28); cairo_show_text(c, "each socket is a twin triode; * = model fitted to data sheet operating point, less certain off that point");
+      double px0 = 70, px1 = FW - 24, py0 = ty0 + TUBEROW + 30, py1 = FH + STRIP + PLOT - 40;
+      setrgb(c, 0xb8bcc4); font(c, 12, true); cairo_move_to(c, px0, ty0 + TUBEROW + 20); cairo_show_text(c, "FREQUENCY RESPONSE  (small signal, relative to 1 kHz)");
       double lo = -25, hi = 15; if (!curve.empty()) { double mn = 1e9, mx = -1e9; for (double x : curve) { mn = std::min(mn, x); mx = std::max(mx, x); } for (double x : refCurve) { mn = std::min(mn, x); mx = std::max(mx, x); }
         lo = std::min(lo, std::floor((mn - 3) / 5) * 5); hi = std::max(hi, std::ceil((mx + 3) / 5) * 5); if (hi - lo < 40) { double add = 40 - (hi - lo); lo -= std::floor(add / 10) * 5; hi = lo + 40; } }
       double step = (hi - lo) > 60 ? 10 : 5; auto X = [&](double f) { return px0 + (px1 - px0) * std::log(f / 20) / std::log(1000.0); }; auto Y = [&](double d) { return py1 - (py1 - py0) * (d - lo) / (hi - lo); };
@@ -143,8 +152,8 @@ struct Gui {
         for (int i = 0; i < NF; i++) { double y = std::min(py1, std::max(py0, Y(refCurve[i]))); if (i == 0) cairo_move_to(c, X(freqAt(i)), y); else cairo_line_to(c, X(freqAt(i)), y); } cairo_stroke(c); cairo_set_dash(c, nullptr, 0, 0); }
       if (!curve.empty()) { setrgb(c, 0x4da3ff); cairo_set_line_width(c, 3.5); cairo_set_line_join(c, CAIRO_LINE_JOIN_ROUND); cairo_new_path(c);
         for (int i = 0; i < NF; i++) { double y = std::min(py1, std::max(py0, Y(curve[i]))); if (i == 0) cairo_move_to(c, X(freqAt(i)), y); else cairo_line_to(c, X(freqAt(i)), y); } cairo_stroke(c); }
-      setrgb(c, 0x4da3ff); cairo_set_line_width(c, 3.5); cairo_move_to(c, px1 - 420, FH + STRIP + 16); cairo_line_to(c, px1 - 390, FH + STRIP + 16); cairo_stroke(c); setrgb(c, 0xb8bcc4); font(c, 11, false); cairo_move_to(c, px1 - 382, FH + STRIP + 20); cairo_show_text(c, "current setting");
-      setrgb(c, 0x8d919a); cairo_set_line_width(c, 2); const double dash2[] = {8, 6}; cairo_set_dash(c, dash2, 2, 0); cairo_move_to(c, px1 - 250, FH + STRIP + 16); cairo_line_to(c, px1 - 220, FH + STRIP + 16); cairo_stroke(c); cairo_set_dash(c, nullptr, 0, 0); setrgb(c, 0xb8bcc4); cairo_move_to(c, px1 - 212, FH + STRIP + 20); cairo_show_text(c, "original parts, all controls 5, boosts off"); }
+      setrgb(c, 0x4da3ff); cairo_set_line_width(c, 3.5); cairo_move_to(c, px1 - 420, ty0 + TUBEROW + 16); cairo_line_to(c, px1 - 390, ty0 + TUBEROW + 16); cairo_stroke(c); setrgb(c, 0xb8bcc4); font(c, 11, false); cairo_move_to(c, px1 - 382, ty0 + TUBEROW + 20); cairo_show_text(c, "current setting");
+      setrgb(c, 0x8d919a); cairo_set_line_width(c, 2); const double dash2[] = {8, 6}; cairo_set_dash(c, dash2, 2, 0); cairo_move_to(c, px1 - 250, ty0 + TUBEROW + 16); cairo_line_to(c, px1 - 220, ty0 + TUBEROW + 16); cairo_stroke(c); cairo_set_dash(c, nullptr, 0, 0); setrgb(c, 0xb8bcc4); cairo_move_to(c, px1 - 212, ty0 + TUBEROW + 20); cairo_show_text(c, "original parts, stock tubes, all controls 5, boosts off"); }
     // Wertanzeige
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[96]; double tx, ty;
       if (i < 9) { const KnobGeo &g = KG[i]; tx = g.rx; ty = g.ry - g.R * 1.3; if (i == 8) std::snprintf(buf, 96, "REVERB: not modelled"); else if (i == 7 && !pa) std::snprintf(buf, 96, "PRESENCE %.1f (needs FX loop + power amp)", v[P_PRES]); else std::snprintf(buf, 96, "%s %.1f", KNAME[i], v[KPARAM[i]]); }
@@ -159,6 +168,7 @@ struct Gui {
   int hitPull(double x, double y) const { double s = scale(); x /= s; y /= s; for (auto &l : LG) { int pp = -1; if (!std::strcmp(l.t, "PULL ON")) pp = P_CH; else if (!std::strcmp(l.t, "PULL BOOST")) pp = !std::strcmp(l.k, "t") ? P_TOP : !std::strcmp(l.k, "m") ? P_MID : P_BASS;
       if (pp >= 0 && x >= l.x - 8 && x <= l.x + l.w + 8 && y >= l.y - 10 && y <= l.y + l.h + 10) return pp; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J[2] = {JACK_HIGH, JACK_LOW}; for (int i = 0; i < 2; i++) { double dx = x - J[i][0], dy = y - J[i][1]; if (dx*dx + dy*dy <= (J[i][2] + 14) * (J[i][2] + 14)) return i; } return -1; }
+  int hitTube(double x, double y) const { double s = scale(); x /= s; y /= s; double ty0 = FH + STRIP; if (y < ty0 + 8 || y > ty0 + 38) return -1; for (int i = 0; i < 3; i++) if (x >= 150 + i * 300 && x <= 420 + i * 300) return i; if (x >= 1060 && x <= 1210) return 3; return -1; }
   int hitButton(double x, double y) const { double s = scale(); x /= s; y /= s; if (y < FH + 28 || y > FH + 64) return -1; const double bx[5] = {14, 214, 514, 724, 964}, bw[5] = {190, 290, 200, 230, 270}; const int bp[5] = {P_UMBAU, P_PA, P_NL, P_OS, P_TAPER};
     for (int i = 0; i < 5; i++) if (x >= bx[i] && x <= bx[i] + bw[i]) return bp[i]; return -1; }
   double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
@@ -174,6 +184,7 @@ struct Gui {
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_INP, j == 0 ? 0 : 1); return true; }
+        int tb2 = hitTube(x, y); if (tb2 == 3) { for (int i = 0; i < 3; i++) setP(P_TUBE1 + i, 0); return true; } if (tb2 >= 0) { setP(P_TUBE1 + tb2, std::fmod(std::lround(getP(P_TUBE1 + tb2)) + 1, 5)); return true; }
         int b = hitButton(x, y); if (b >= 0) { if (b == P_OS) setP(P_OS, std::fmod(std::lround(getP(P_OS)) + 1, 4)); else if (b == P_TAPER) setP(P_TAPER, std::fmod(std::lround(getP(P_TAPER)) + 1, 3)); else setP(b, getP(b) > 0.5 ? 0 : 1); return true; }
         return false; }
       case MotionNotify: { double x = ev.xmotion.x, y = ev.xmotion.y;

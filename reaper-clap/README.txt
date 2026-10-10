@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.3
+Version 3.4
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -22,7 +22,7 @@ Parameters
   Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 4x),
   Presence (active with "FX loop + power amp").
   Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 8x oversampling,
-  bass mod on, FX loop + power amp on.
+  bass mod on, FX loop + power amp on, stock tubes (3 x 12AX7).
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -35,6 +35,20 @@ User interface
   Dimmed controls have no effect in the current setting; REVERB is not
   modelled.
   Needs libcairo2 and libX11 (present anyway with REAPER on Linux).
+
+Tubes
+  Three parameters Tube V101, Tube V102, Tube V103 (each socket is a twin
+  triode) choose the tube type: 12AX7/ECC83 (stock), 12AT7/ECC81, 12AU7/ECC82,
+  5751, 12AY7. The models for 12AX7, 12AT7 and 12AU7 are Norman Koren's
+  published parameters; 5751 and 12AY7 are Koren-type models fitted to the
+  data sheet operating point (mu fixed) and are marked "fitted" - less
+  certain away from that point. The operating points (bias, plate voltages)
+  follow from the model and the circuit, so a different tube also shifts the
+  bias of its stage. In the user interface the row above the frequency
+  response shows the sockets; clicking a socket cycles the type, RESET TO
+  STOCK restores 3 x 12AX7. Stock tubes are bit-exact with version 3.3.
+  Not modelled: sample-to-sample variation, microphonics, ageing; the phase
+  inverter V104 and the power tubes stay linear.
 
 Frequency response
   Below the model strip the plugin draws the small-signal frequency response

@@ -24,7 +24,7 @@ Ein gemeinsamer C++-Kern für alle Fassungen: CLAP-Plugin (nativ) und WebAssembl
 | `engine/src/yamaha_core.hpp` | Yamaha B100-II: PA-Board als lineares Netz (Transistoren, Gyrator-Bänder) |
 | `engine/clap/` | CLAP-Plugin (`plugin.cpp`) und X11/Cairo-Oberfläche (`gui.hpp`) |
 | `engine/wasm/` | C-Schnittstellen für WebAssembly (`wasm_api.cpp` Laney, `yamaha_wasm.cpp` Yamaha) |
-| `engine/tools/` | `extract.js` (Bauteile, Geometrie, Foto aus den Web-Seiten), `gen_geo.py`, `embed_wasm.py` |
+| `engine/tools/` | `extract.js` (Bauteile, Geometrie, Foto aus den Web-Seiten), `gen_geo.py`, `embed_wasm.py`, `patch_tubes.py` (einmaliger Einbau der Röhrenauswahl in Web/App) |
 | `engine/gen/` | erzeugte Dateien (nicht von Hand ändern; Quelle sind die Web-Seiten) |
 | `engine/tests/` | `harness` (Kern), `hosttest` (CLAP-Host), `guitest` (Oberfläche unter Xvfb), `wasmcompare.js` |
 | `engine/third_party/` | CLAP-Header 1.2.2 (MIT), stb_image (Public Domain/MIT) |
@@ -49,7 +49,7 @@ ebenfalls Byte für Byte identisch und ist im heutigen Stand im Klang bitgleich 
     java -jar uber-apk-signer.jar -a laney_unsigned.apk -a yamaha_unsigned.apk \
          --ks tonestack-release.jks --ksAlias tonestack --ksPass PASSWORT --ksKeyPass PASSWORT -o signed
 
-Vor jedem Bau `versionCode` und `versionName` in `app/*/apktool.yml` erhöhen.
+Vor jedem Bau `versionCode` und `versionName` in `app/*/apktool.yml` erhöhen (Werkzeuge: apktool 2.10, uber-apk-signer 1.3; Stand 2.9 = versionCode 20).
 Der Signaturschlüssel gehört **nicht** in dieses Repository (siehe `.gitignore`); er liegt separat in `App-Signaturschluessel.zip`.
 
 ## Web einspielen

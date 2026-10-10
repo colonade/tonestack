@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
+#include <initializer_list>
 static bool ok_timer(const clap_host_t *, uint32_t, clap_id *id) { *id = 1; return true; }
 static bool ok_untimer(const clap_host_t *, clap_id) { return true; }
 static const clap_host_timer_support_t HT = {ok_timer, ok_untimer};
@@ -16,7 +17,7 @@ static const void *host_ext(const clap_host_t *, const char *id) { if (!strcmp(i
 static void host_nop(const clap_host_t *) {}
 int main(int argc, char **argv) {
   Display *d = XOpenDisplay(nullptr); if (!d) { printf("kein Display\n"); return 1; }
-  Window root = RootWindow(d, DefaultScreen(d)); Window par = XCreateSimpleWindow(d, root, 0, 0, 1200, 400, 0, 0, 0x202020); XMapWindow(d, par); XFlush(d);
+  Window root = RootWindow(d, DefaultScreen(d)); Window par = XCreateSimpleWindow(d, root, 0, 0, 1200, 420, 0, 0, 0x202020); XMapWindow(d, par); XFlush(d);
   void *lib = dlopen(argv[1], RTLD_NOW); auto *entry = (const clap_plugin_entry_t*)dlsym(lib, "clap_entry"); entry->init(argv[1]);
   auto *fac = (const clap_plugin_factory_t*)entry->get_factory(CLAP_PLUGIN_FACTORY_ID); const clap_plugin_descriptor_t *desc = fac->get_plugin_descriptor(fac, 0);
   clap_host_t host = {CLAP_VERSION_INIT, nullptr, "test", "", "", "1", host_ext, host_nop, host_nop, host_nop};
@@ -35,7 +36,13 @@ int main(int argc, char **argv) {
   send(ButtonPress, kx(272), kx(218), 1); send(ButtonRelease, kx(272), kx(218), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(800), kx(358 + 46), 1); send(ButtonRelease, kx(800), kx(358 + 46), 1); tim->on_timer(p, 1);
   send(MotionNotify, kx(1145), kx(190), 0); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
-  char t[64]; const int ids[] = {3, 1, 0, 18}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
+  send(ButtonPress, kx(585), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(585), kx(358 + 70 + 23), 1); tim->on_timer(p, 1);
+  send(ButtonPress, kx(585), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(585), kx(358 + 70 + 23), 1); tim->on_timer(p, 1);
+  send(ButtonPress, kx(885), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(885), kx(358 + 70 + 23), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
+  { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, "/tmp/claude-0/-home-claude/b63c1d50-a850-570a-b024-24f84b746f01/scratchpad/gui_tubes.png"); cairo_surface_destroy(xs); }
+  char t[64]; const int ids[] = {3, 1, 0, 18, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
+  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, kx(1135), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(1135), kx(358 + 70 + 23), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
+  for (int id : {20, 21, 22}) { double v; params->get_value(p, id, &v); params->value_to_text(p, id, v, t, 64); printf("  nach RESET: Tube %d = %s\n", id - 19, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
   gui->hide(p); gui->destroy(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d); return 0;
 }

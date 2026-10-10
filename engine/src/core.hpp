@@ -34,7 +34,20 @@ struct Parts {
 struct Setting {
   double v1 = 1, v2 = 1, t = 1, m = 1, b = 1, mv = 0.5, pl = 1, pres = 0.15;
   double mid = 0, top = 0, bass = 0, ch1 = 1, low = 0;
+  int tube[3] = {0, 0, 0};   // Röhrentyp je Fassung V101, V102, V103 (Index in TUBE_MODELS; 0 = 12AX7/ECC83 wie im Gerät)
 };
+// Röhrenmodelle (Koren): 12AX7, 12AT7, 12AU7 nach Koren (Glass Audio 1996, Tabelle 1); 5751 und 12AY7 an Datenblatt-Arbeitspunkte angepasst (mu fest, kvb 300)
+struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; };
+static const TubeModel TUBE_MODELS[5] = {
+  {"12AX7 / ECC83", 100,  1.4,   1060, 600, 300, 1.6e-12, 1.7e-12, false},
+  {"12AT7 / ECC81", 60,   1.35,  460,  300, 300, 2.7e-12, 2.2e-12, false},
+  {"12AU7 / ECC82", 21.5, 1.3,   1180, 84,  300, 2.5e-12, 2.0e-12, false},
+  {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true},
+  {"12AY7",         44,   1.700, 3781, 206, 300, 1.3e-12, 1.3e-12, true} };
+constexpr int NTUBES = 5;
+inline bool stockTubes(const Setting &s) { return s.tube[0] == 0 && s.tube[1] == 0 && s.tube[2] == 0; }
+// Kleinsignalwerte eines Triodensystems im Arbeitspunkt (aus dem Gleichstromlöser des Röhrenkerns abgeleitet)
+struct TriSS { double gm, rp, cgk, cga; };
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.v1,&s.v2,&s.t,&s.b,&s.m,&s.mv,&s.pl,&s.mid,&s.top,&s.bass}; return *f[i]; }
 
 inline double taper(double x, int type) {     // 0: log 15 % in Mittelstellung, 1: log 10 %, 2: linear
@@ -137,25 +150,28 @@ inline double vt1R(const Parts &v, double x) {
 }
 inline double chanShape(const Parts &v, double x) { return vt1Div(v, vt1R(v, 1 - x)); }
 
-inline LinNet netLin(const Parts &v, const Setting &s, double fs) {
-  LinNet o; o.N("in");
+std::vector<TriSS> smallSignal(const Parts &v, const Setting &s, double fs);
+inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vector<TriSS> *ss = nullptr) {
+  LinNet o; o.N("in"); int ti = 0;
+  auto tri = [&](const std::string &g, const std::string &p, const std::string &k, double Ia) {
+    if (ss) { const TriSS &t = (*ss)[ti]; o.R(p, k, t.rp); o.vccs(g, p, k, t.gm); o.C(g, k, t.cgk, fs); o.C(g, p, t.cga, fs); } else o.triode(g, p, k, Ia, v, fs); ti++; };
   if (s.low) { o.R("g1","0",v.r1); o.R("in","t2",1e-3); } else o.R("in","g1",v.r1);
-  o.triode("g1","p1","k1",0.62e-3,v,fs); o.R("k1","0",2.7e3); o.C("k1","0",47e-6,fs); o.R("p1","0",100e3);
+  tri("g1","p1","k1",0.62e-3); o.R("k1","0",2.7e3); o.C("k1","0",47e-6,fs); o.R("p1","0",100e3);
   o.C("p1","n5",v.c2,fs); o.R("n5","t1",v.r5);
   o.R("t1","0", vt1R(v, 1 - s.ch1));
   o.R("t1","g2",v.vr101*(1-s.v1)); o.R("g2","0",v.vr101*s.v1);
-  o.triode("g2","p2","k2",0.69e-3,v,fs); o.R("k2","0",2.7e3); o.C("k2","0",v.c3,fs); o.R("p2","0",100e3);
+  tri("g2","p2","k2",0.69e-3); o.R("k2","0",2.7e3); o.C("k2","0",v.c3,fs); o.R("p2","0",100e3);
   o.C("p2", s.low ? "0" : "t2", v.ck, fs); o.R("t2","w2",v.vr102*(1-s.v2)); o.R("w2","0",v.vr102*s.v2); o.R("w2","g3",68e3);
-  o.triode("g3","p3","k3",0.31e-3,v,fs); o.R("k3","0",10e3); o.R("p3","0",100e3);
+  tri("g3","p3","k3",0.31e-3); o.R("k3","0",10e3); o.R("p3","0",100e3);
   o.C("p3","n12",v.c4,fs); o.R("n12","g4",470e3); o.C("n12","g4",v.c5,fs); o.R("g4","0",470e3);
-  o.triode("g4","p4","k4",1.10e-3,v,fs); o.R("k4","0",820); o.R("p4","0",100e3);
-  o.triode("p4","0","k5",1.5e-3,v,fs); o.R("k5","0",100e3);
+  tri("g4","p4","k4",1.10e-3); o.R("k4","0",820); o.R("p4","0",100e3);
+  tri("p4","0","k5",1.5e-3); o.R("k5","0",100e3);
   o.C("k5","X",v.c6,fs); o.C("X","Z",v.c7,fs); o.RC("X","Z", blendR(1e-3, 10e6, s.mid, 1 / (2 * PI * 1000 * v.c8)), v.c8, fs);
   o.R("X","Y",v.r18); o.C("Y","W",v.c11,fs);
   o.R("Z","T",v.vr105*(1-s.t)); o.R("T","W",v.vr105*s.t); o.R("W","P",v.vr106*s.b);
   o.R("P","Mw",v.vr107*(1-s.m)); o.R("Mw","0",v.vr107*s.m); o.C("Y","Mw",v.c10,fs);
   o.C("T","n19",v.c9,fs); o.R("n19","g6",1e6); o.R("g6","0",1e6); o.R("g6","n20",3.3e6); o.C("n20","p6",v.c12,fs);
-  o.triode("g6","p6","k6",1.18e-3,v,fs); o.R("k6","0",820); o.C("k6","0",v.c13,fs); o.R("p6","0",100e3);
+  tri("g6","p6","k6",1.18e-3); o.R("k6","0",820); o.C("k6","0",v.c13,fs); o.R("p6","0",100e3);
   o.C("p6","n24",v.c14,fs); o.R("n24","J",68e3);
   o.R("J","Q",33e3); o.C("Q","0",v.c15,fs); o.R("Q","0", blendR(1e12, v.rts, s.bass, 33e3));
   o.R("J","W4",v.vr104*(1-s.mv)); o.R("W4","N2",v.vr104*s.mv);
@@ -166,7 +182,7 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs) {
   o.R("W3","0",1e6);
   return o;
 }
-inline LinSys buildLin(const Parts &v, const Setting &s, double fs) { return netLin(v, s, fs).compile("W3", MON); }
+inline LinSys buildLin(const Parts &v, const Setting &s, double fs, const std::vector<TriSS> *ss = nullptr) { return netLin(v, s, fs, ss).compile("W3", MON); }
 // Endstufe mit Gegenkopplung und Presence (wie engine.paBuild)
 inline LinNet netPA(const Parts &v, double pres, double fs) {
   LinNet o; o.N("in");
@@ -214,10 +230,11 @@ struct LinRunner {
 
 // ---------- Röhrenmodell (Koren 12AX7) mit Tabelle ----------
 struct Tube {
-  static constexpr double KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300, RGI = 2000, SG = 0.02;
+  double KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300; static constexpr double RGI = 2000, SG = 0.02;
   static constexpr double G0 = -12, GS = 0.01, P0 = 0, PS = 1; static constexpr int GN = 1501, PN = 321;
-  std::vector<float> TAB;
-  static void tube(double vgk, double vpk, double *out) {
+  std::vector<float> TAB; int type = 0;
+  void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; }
+  void tube(double vgk, double vpk, double *out) const {
     if (vpk <= 1e-6) { out[0] = out[1] = out[2] = 0; return; }
     double s = std::sqrt(KVB + vpk * vpk), q = KP * (1 / MU + vgk / s), sp, sig;
     if (q > 35) { sp = q; sig = 1; } else { double eq = std::exp(q); sp = std::log1p(eq); sig = eq / (1 + eq); }
@@ -241,6 +258,8 @@ struct Tube {
   static void grid(double v, double *out) { double x = v / SG; if (x > 35) { out[0] = v / RGI; out[1] = 1 / RGI; return; }
     double e = std::exp(x); out[0] = SG * std::log1p(e) / RGI; out[1] = e / (1 + e) / RGI; }
 };
+// Röhrentabellen je Typ, einmal je Prozess (bei Bedarf aufgebaut)
+inline const Tube &tubeOf(int t) { static Tube bank[NTUBES]; static bool ready[NTUBES] = {false}; if (t < 0 || t >= NTUBES) t = 0; if (!ready[t]) { bank[t].setModel(t); bank[t].makeTab(); ready[t] = true; } return bank[t]; }
 
 // ---------- nichtlineare Abschnitte ----------
 struct Net {
@@ -293,7 +312,7 @@ inline Sec compileSec(const Net &o, double fs, bool dc) {
   return C;
 }
 inline std::vector<Net> defs(const Parts &v, const Setting &s) {
-  std::vector<Net> S(5);
+  std::vector<Net> S(5); const TubeModel &T3 = TUBE_MODELS[s.tube[2]]; double cgk3 = stockTubes(s) ? v.cgk : T3.cgk, cga3 = stockTubes(s) ? v.cga : T3.cga;
   { Net &o = S[0]; o.src("in"); o.r("in","g1",v.r1); o.c("g1","0",CMg1); o.port("g1","0"); o.probe("g1"); }
   { Net &o = S[1]; o.src("B"); o.r("B","p1",100e3); o.r("k1","0",2.7e3); o.c("k1","0",47e-6);
     o.c("p1","n5",v.c2); o.r("n5","t1",v.r5); o.r("t1","0", s.ch1 <= 0 ? v.ronvt + v.r6 : s.ch1 >= 1 ? 1e12 : blendR(v.ronvt + v.r6, 1e12, 1 - s.ch1, 5e4));
@@ -308,13 +327,13 @@ inline std::vector<Net> defs(const Parts &v, const Setting &s) {
     o.port("p3","k3"); o.port("g4","0"); o.port("0","k3"); o.probe("p3"); o.probe("k3"); o.probe("g4"); }
   { Net &o = S[4]; o.src("B");
     o.r("B","p4",100e3); o.r("k4","0",820);
-    o.r("k5","0",100e3); o.c("p4","0",v.cga); o.c("p4","k5",v.cgk);
+    o.r("k5","0",100e3); o.c("p4","0",cga3); o.c("p4","k5",cgk3);
     o.c("k5","X",v.c6); o.c("X","Z",v.c7); o.rcs("X","Z", s.mid >= 1 ? 1e-3 : s.mid <= 0 ? 10e6 : blendR(1e-3, 10e6, s.mid, 1 / (2 * PI * 1000 * v.c8)), v.c8);
     o.r("X","Y",v.r18); o.c("Y","W",v.c11);
     o.r("Z","T",v.vr105*(1-s.t)); o.r("T","W",v.vr105*s.t); o.r("W","P",v.vr106*s.b);
     o.r("P","Mw",v.vr107*(1-s.m)); o.r("Mw","0",v.vr107*s.m); o.c("Y","Mw",v.c10);
     o.c("T","n19",v.c9); o.r("n19","g6",1e6); o.r("g6","0",1e6); o.r("g6","n20",3.3e6); o.c("n20","p6",v.c12);
-    o.r("B","p6",100e3); o.r("k6","0",820); o.c("k6","0",v.c13); o.c("g6","k6",v.cgk); o.c("g6","p6",v.cga);
+    o.r("B","p6",100e3); o.r("k6","0",820); o.c("k6","0",v.c13); o.c("g6","k6",cgk3); o.c("g6","p6",cga3);
     o.c("p6","n24",v.c14); o.r("n24","J",68e3); o.r("J","Q",33e3); o.c("Q","0",v.c15);
     o.r("Q","0", s.bass <= 0 ? v.rts : s.bass >= 1 ? 1e12 : blendR(1e12, v.rts, s.bass, 33e3));
     o.r("J","W4",v.vr104*(1-s.mv)); o.r("W4","N2",v.vr104*s.mv); o.r("N2","0",22e3); o.c("N2","0",v.c16);
@@ -331,12 +350,13 @@ struct AmpState { std::vector<double> Ih, vc; };
 struct Snapshot { std::vector<AmpState> st; std::vector<std::vector<double>> I; double vkPrev[4], vgkDC[5], w3DC; };
 
 struct Amp {
-  int os; double fs; const Tube *tube; bool low = false;
+  int os; double fs; const Tube *tube; const Tube *tubes[3]; bool low = false;
   std::vector<Sec> sec, dcSec; std::vector<AmpState> st; double vkPrev[4] = {0,0,0,0}, vgkDC[5] = {0,0,0,0,0}, peak[5] = {0,0,0,0,0}, w3DC = 0;
-  double g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, tb[3], gb[2], Ib[8], Dn[8]; double tol = 1e-9;
+  double g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, tb[3], gb[2], Ib[8], Dn[8]; double tol = 1e-9; bool dcMode = false, dcExact = false;
+  void tubeAt(const Tube *T, double vgk, double vpk) { if (dcMode && (dcExact || vgk < Tube::G0)) T->tube(vgk, vpk, tb); else T->tubeT(vgk, vpk, tb); }   // Gleichstrom: links der Tabelle exakt, damit der Löser eine Richtung hat
   std::vector<double> h, hp; int L = 0; std::vector<double> xb, yb; int xi = 0, yi = 0;
   struct Blend { std::vector<double> Mp, Mc, dV; }; std::vector<Blend> bFrom, bTo; bool blending = false; int bpos = 0;
-  Amp(double fsBase, int os_, const Tube *t) : os(os_), fs(os_ * fsBase), tube(t) {
+  Amp(double fsBase, int os_, const Tube *t) : os(os_), fs(os_ * fsBase), tube(t) { tubes[0] = tubes[1] = tubes[2] = t;
     if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, w = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * w; sum += h[k]; }
@@ -349,7 +369,8 @@ struct Amp {
     for (int r = 0; r < C.npr; r++) for (int u = 0; u < nu; u++) C.dV[r * nu + u] = C.Mp[r * C.ncol + C.nc + C.ns + UNK[k][u]];
     C.kn = KNOWN[k]; C.w.assign(C.npr, 0); C.pv.assign(C.npr, 0); C.J.assign(nu * nu, 0); C.F.assign(nu, 0); C.I.assign(nu, 0); C.pI.assign(C.np, 0); C.k = k; C.Ip2.clear();
   }
-  void compileAll(const Parts &v, const Setting &s) { auto D = defs(v, s); sec.resize(5); dcSec.resize(5);
+  void setTubes(const Setting &s) { for (int i = 0; i < 3; i++) tubes[i] = &tubeOf(s.tube[i]); }
+  void compileAll(const Parts &v, const Setting &s) { setTubes(s); auto D = defs(v, s); sec.resize(5); dcSec.resize(5);
     for (int k = 0; k < 5; k++) { sec[k] = compileSec(D[k], fs, false); prep(sec[k], k); dcSec[k] = compileSec(D[k], fs, true); prep(dcSec[k], k); } }
   void residual(Sec &C, double vg) {
     double *pv = C.pv.data(), *J = C.J.data(), *F = C.F.data(), *I = C.I.data(), *dV = C.dV.data(); int nu = C.nu, k = C.k;
@@ -357,18 +378,18 @@ struct Amp {
     double a1, a2, a3;
     if (k == 0) { Tube::grid(pv[0] - vkPrev[0], gb); F[0] = I[0] - gb[0]; J[0] -= gb[1] * dV[0]; return; }
     if (k <= 3) {
-      tube->tubeT(vg - pv[1], pv[0] - pv[1], tb); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];
+      tubeAt(tubes[k <= 2 ? 0 : 1], vg - pv[1], pv[0] - pv[1]); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];   // k=1,2: V101; k=3: V102A
       for (int q = 0; q < 2; q++) J[q] -= a1 * dV[q] + a2 * dV[2 + q];
       Tube::grid(pv[2] - vkPrev[k], gb); F[1] = I[1] - gb[0];
       for (int q = 0; q < 2; q++) J[2 + q] -= gb[1] * dV[4 + q];
       return; }
-    tube->tubeT(vg - pv[1], pv[0] - pv[1], tb); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];
+    tubeAt(tubes[1], vg - pv[1], pv[0] - pv[1]); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];   // V102B
     for (int q = 0; q < 5; q++) J[q] -= a1 * dV[q] + a2 * dV[5 + q];
-    tube->tubeT(pv[0] - pv[2], UB[3] - pv[2], tb); F[1] = I[1] - tb[0]; a1 = tb[1]; a2 = -tb[1] - tb[2];
+    tubeAt(tubes[2], pv[0] - pv[2], UB[3] - pv[2]); F[1] = I[1] - tb[0]; a1 = tb[1]; a2 = -tb[1] - tb[2];   // V103A (Kathodenfolger)
     for (int q = 0; q < 5; q++) J[5 + q] -= a1 * dV[q] + a2 * dV[10 + q];
     Tube::grid(pv[0] - pv[2], gb); F[2] = I[2] - gb[0];
     for (int q = 0; q < 5; q++) J[10 + q] -= gb[1] * (dV[q] - dV[10 + q]);
-    tube->tubeT(pv[3] - pv[5], pv[4] - pv[5], tb); F[3] = I[3] - tb[0]; a1 = tb[1]; a2 = tb[2]; a3 = -tb[1] - tb[2];
+    tubeAt(tubes[2], pv[3] - pv[5], pv[4] - pv[5]); F[3] = I[3] - tb[0]; a1 = tb[1]; a2 = tb[2]; a3 = -tb[1] - tb[2];   // V103B
     for (int q = 0; q < 5; q++) J[15 + q] -= a1 * dV[15 + q] + a2 * dV[20 + q] + a3 * dV[25 + q];
     Tube::grid(pv[3] - pv[5], gb); F[4] = I[4] - gb[0];
     for (int q = 0; q < 5; q++) J[20 + q] -= gb[1] * (dV[15 + q] - dV[25 + q]);
@@ -423,7 +444,7 @@ struct Amp {
   }
   double run(double u, bool dc) {
     if (!dc && blending && ((++bpos) & 31) == 0) blendNow();
-    double known = 0, vg = 0; std::vector<Sec> &secs = dc ? dcSec : sec; int maxIt = dc ? 300 : 60;
+    dcMode = dc; double known = 0, vg = 0; std::vector<Sec> &secs = dc ? dcSec : sec; int maxIt = dc ? 300 : 60;
     for (int k = 0; k < 5; k++) {
       Sec &C = secs[k]; double src[2]; int ns = 1;
       if (k == 0) src[0] = low ? 0 : u; else if (k == 2) { src[0] = UB[1]; src[1] = low ? u : 0; ns = 2; } else src[0] = UB[k - 1];
@@ -443,7 +464,7 @@ struct Amp {
     std::memcpy(vkPrev, snap.vkPrev, sizeof vkPrev); std::memcpy(vgkDC, snap.vgkDC, sizeof vgkDC); w3DC = snap.w3DC; for (double &p : peak) p = 0;
   }
   void retarget(const Parts &v, const Setting &s) {
-    auto D = defs(v, s); bFrom.resize(5); bTo.resize(5);
+    setTubes(s); auto D = defs(v, s); bFrom.resize(5); bTo.resize(5);
     for (int k = 0; k < 5; k++) { Sec fresh = compileSec(D[k], fs, false); prep(fresh, k);
       bFrom[k] = {sec[k].Mp, sec[k].Mc, sec[k].dV}; bTo[k] = {fresh.Mp, fresh.Mc, fresh.dV}; }
     blending = true; bpos = 0; blendNow();
@@ -453,7 +474,14 @@ struct Amp {
     const std::vector<std::vector<double>> guess = {{0}, {0.6e-3, 0}, {0.6e-3, 0}, {0.25e-3, 0}, {1.1e-3, 1.5e-3, 0, 1.1e-3, 0}};
     for (int k = 0; k < 5; k++) { sec[k].I = guess[k]; dcSec[k].I = guess[k]; }
     vkPrev[0] = 1.6; vkPrev[1] = 1.7; vkPrev[2] = 2.5; vkPrev[3] = 0.9;
-    for (int pass = 0; pass < 4; pass++) run(0, true);
+    if (stockTubes(s)) { for (int pass = 0; pass < 4; pass++) run(0, true); }
+    else {   // Fortsetzung: Modellparameter in Schritten von der 12AX7 zur gewählten Röhre, jeweils vom vorigen Arbeitspunkt aus (exakte Kennlinie, ohne Tabelle)
+      Tube tmp[3]; dcExact = true; const TubeModel &m0 = TUBE_MODELS[0]; const int NS = 8;
+      for (int step = 1; step <= NS; step++) { double a = (double)step / NS;
+        for (int i = 0; i < 3; i++) { const TubeModel &m1 = TUBE_MODELS[s.tube[i]]; Tube &T = tmp[i];
+          T.MU = m0.mu + a * (m1.mu - m0.mu); T.EX = m0.ex + a * (m1.ex - m0.ex); T.KG1 = m0.kg1 + a * (m1.kg1 - m0.kg1); T.KP = m0.kp + a * (m1.kp - m0.kp); T.KVB = m0.kvb + a * (m1.kvb - m0.kvb); tubes[i] = &tmp[i]; }
+        for (int pass = 0; pass < 3; pass++) run(0, true); }
+      setTubes(s); for (int pass = 0; pass < 4; pass++) run(0, true); dcExact = false; }
     double known = 0;
     for (int k = 0; k < 5; k++) {
       Sec &D = dcSec[k], &C = sec[k]; double src = k == 0 ? 0 : UB[k - 1];
@@ -477,6 +505,15 @@ struct Amp {
   }
 };
 
+inline std::vector<TriSS> smallSignal(const Parts &v, const Setting &s, double fs) {
+  Amp a(fs, 1, &tubeOf(0)); a.low = s.low > 0.5; a.init(v, s); std::vector<TriSS> r(6); double o[3];
+  auto at = [&](int ti, int sock, double vgk, double vpk) { const Tube &T = tubeOf(s.tube[sock]); T.tube(vgk, vpk, o); const TubeModel &m = TUBE_MODELS[s.tube[sock]];
+    r[ti] = {o[1], 1 / std::max(o[2], 1e-12), m.cgk, m.cga}; };   // out[1] = dI/dVgk (Steilheit), out[2] = dI/dVpk (1/rp)
+  auto &P0 = a.dcSec[0].pv, &P1 = a.dcSec[1].pv, &P2 = a.dcSec[2].pv, &P3 = a.dcSec[3].pv, &P4 = a.dcSec[4].pv;
+  at(0, 0, P0[0] - P1[1], P1[0] - P1[1]); at(1, 0, P1[2] - P2[1], P2[0] - P2[1]); at(2, 1, P2[2] - P3[1], P3[0] - P3[1]);
+  at(3, 1, P3[2] - P4[1], P4[0] - P4[1]); at(4, 2, P4[0] - P4[2], UB[3] - P4[2]); at(5, 2, P4[3] - P4[5], P4[4] - P4[5]);
+  return r;
+}
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
 struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; };
 struct Norms { double high1 = 35986.334852078886, high2 = 920.5260111823894, low1 = 29.12973364705375, low2 = 37.52073127705745, pa = 5.957573504094253; };
@@ -494,17 +531,18 @@ struct PaCore {
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0; virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0}; };
 
 struct LinCore : CoreBase {
-  double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaCore paC; Norms N; double vin = 0.1;
+  double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaCore paC; Norms N; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
   explicit LinCore(double fs_) : fs(fs_), paC(fs_) {}
+  void updSS() { useSS = !stockTubes(cur); if (useSS) ss = smallSignal(v, cur, fs); }
   double normOf(const Setting &c) const { double nP1 = c.low ? N.low1 : N.high1, nP2 = c.low ? N.low2 : N.high2;
     double x = c.ch1, r0 = chanShape(v, 0), r1 = chanShape(v, 1); return nP2 * (chanShape(v, x) / r0) * std::pow(nP1 / (nP2 * r1 / r0), x); }
-  void rebuild(bool keep) { r.set(buildLin(v, cur, fs), normOf(cur), keep); }
+  void rebuild(bool keep) { r.set(buildLin(v, cur, fs, useSS ? &ss : nullptr), normOf(cur), keep); }
   void setTarget(const Target &t) override {
-    Setting s = t.s; bool partsChanged = !hasV || !(t.v == v); tgt = s; vin = t.vin;
+    Setting s = t.s; bool tubesChanged = hasV && (cur.tube[0] != s.tube[0] || cur.tube[1] != s.tube[1] || cur.tube[2] != s.tube[2]); bool partsChanged = !hasV || !(t.v == v) || tubesChanged; tgt = s; vin = t.vin;
     bool chChanged = hasV && cur.ch1 != s.ch1; if (chChanged) cur.ch1 = s.ch1;
     if (partsChanged || !hasV || chChanged) {
       bool had = hasV && partsChanged; std::vector<double> oldG = had ? r.sys.G2 : std::vector<double>();
-      v = t.v; if (!hasV) { cur = s; hasV = true; }
+      v = t.v; if (!hasV) { cur = s; hasV = true; } for (int i = 0; i < 3; i++) cur.tube[i] = s.tube[i]; updSS();
       rebuild(!had);
       if (had && oldG.size() == (size_t)r.sys.nc) { r.hasPrev = false; r.blend = 1; r.prevNorm = r.norm; for (size_t j = 0; j < oldG.size(); j++) r.Ih[j] += (r.sys.G2[j] - oldG[j]) / 2 * r.vc[j]; }
     }
@@ -523,9 +561,9 @@ struct NlCore : CoreBase {
   NlCore(double fs_, int os_, const Tube *t) : fs(fs_), os(os_), amp(fs_, os_, t), paC(fs_) {}
   void setTarget(const Target &t) override {
     Setting s = t.s; vin = t.vin; pa = t.pa; amp.low = s.low > 0.5;
-    bool partsChanged = !hasV || !(t.v == v);
+    bool partsChanged = !hasV || !(t.v == v) || cur.tube[0] != s.tube[0] || cur.tube[1] != s.tube[1] || cur.tube[2] != s.tube[2];
     if (partsChanged) { v = t.v; hasV = true; cur = s; tgt = s;
-      std::string key(reinterpret_cast<const char*>(&v), sizeof v); key += std::to_string(fs) + "|" + std::to_string(os);
+      std::string key(reinterpret_cast<const char*>(&v), sizeof v); key += std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(s.tube[0]) + std::to_string(s.tube[1]) + std::to_string(s.tube[2]);
       auto &c = cache(); auto it = c.find(key);
       if (it == c.end()) { amp.init(v, cur); if (c.size() >= 32) c.clear(); c[key] = amp.snapshot(); } else amp.initFrom(v, cur, it->second);   // begrenzter Zwischenspeicher
     } else tgt = s;
