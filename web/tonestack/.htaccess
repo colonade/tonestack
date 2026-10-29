@@ -22,6 +22,7 @@ AddCharset utf-8 .html .js .webmanifest .txt
     ExpiresActive On
     ExpiresDefault "access plus 1 hour"
     ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType text/javascript "access plus 0 seconds"
     ExpiresByType application/manifest+json "access plus 1 day"
     ExpiresByType font/woff2 "access plus 1 year"
     ExpiresByType image/png "access plus 30 days"
@@ -32,9 +33,6 @@ AddCharset utf-8 .html .js .webmanifest .txt
     <FilesMatch "\.(html|js)$">
         Header set Cache-Control "no-cache"
     </FilesMatch>
-    <Files "sw.js">
-        Header set Service-Worker-Allowed "/"
-    </Files>
     # Sicherheit: nur Inhalte von diesem Server, keine Einbettung in fremde Seiten
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'"
     Header always set X-Content-Type-Options "nosniff"

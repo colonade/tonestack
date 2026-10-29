@@ -1,16 +1,7 @@
-// Laney AOR 50 Vorverstärker als Zeitbereichs-Schaltungssimulation (Trapezregel wie SPICE), linear (Kleinsignal).
+// Yamaha B100-II (PA-Board, Endstufe, Lautsprecher) als Zeitbereichs-Schaltungssimulation (Trapezregel wie SPICE), linear (Kleinsignal).
 // Zustand: je Kondensator der "Verlaufsstrom" Ih. Pro Abtastwert: vc = K·Ih + k·u,  Ih' = 2G·vc − Ih,  y = c·Ih + d·u.
 // K, k, c, d werden bei Regler-/Schalteränderung aus der Knotenmatrix neu berechnet (LU-Zerlegung).
 (() => {
-  const ln = Math.log, ex = Math.exp;
-  // Schaltelement weich überblenden: nicht der Widerstand, sondern seine Wirkung y = Rref/(R+Rref) ändert sich gleichmäßig.
-  // x=1: ein (ron), x=0: aus (roff); Endpunkte exakt.
-  const blendR = (ron, roff, x, rref) => {
-    if (x >= 1) return ron; if (x <= 0) return roff;
-    const yon = rref / (ron + rref), yoff = rref / (roff + rref), y = yoff + x * (yon - yoff);
-    return rref * (1 / y - 1);
-  };
-  const rpOf = (Ia, v) => v.rp0 * Math.pow(v.ia0 / Ia, 1 / 3);
   const VT = 0.02585;
   const BANDCFG = [['cs0','cq0'],['cs1','cq1'],['cs2','cq2'],['cs3','cq3'],['cs4','cq4']];
   // Yamaha B100-II, PA-Board: Klangregler, TR102, Volume, TR103/104, TR105 + fünf EQ-Bänder, Ausgang

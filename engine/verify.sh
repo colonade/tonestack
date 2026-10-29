@@ -10,11 +10,15 @@ for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100
     if not os.path.exists(p): continue
     if open(p, 'rb').read() == emb(f): print(f'{w}: identisch mit der Seite'); continue
     print(f'{w}: Bytes weichen von der Seite ab', end='')
-    if w == 'laney-core.wasm':   # gemeinsamer Kern hat die (vom Laney ungenutzte) Yamaha-Ergänzung: Klang vergleichen
-        open('/tmp/_deployed.wasm', 'wb').write(emb(f)); import subprocess
-        print(', Klangvergleich:'); print(subprocess.run(['node', os.path.join(R, 'engine/tests/wasmcompare.js'), p, '/tmp/_deployed.wasm'], capture_output=True, text=True).stdout)
-    else: print()
+    import subprocess, tempfile; tf = tempfile.NamedTemporaryFile(suffix='.wasm', delete=False); tf.write(emb(f)); tf.close()   # Klang vergleichen
+    cmp = 'engine/tests/wasmcompare.js' if w == 'laney-core.wasm' else 'engine/tests/ywasmcompare.js'
+    print(', Klangvergleich:'); print(subprocess.run(['node', os.path.join(R, cmp), p, tf.name], capture_output=True, text=True).stdout); os.unlink(tf.name)
 for n in ['Laney_AOR50.clap', 'Yamaha_B100II.clap']:
     a = os.path.join(B, n); b = os.path.join(R, 'reaper-clap', n)
     if os.path.exists(a): print(n + ': ' + ('identisch mit reaper-clap/' if open(a, 'rb').read() == open(b, 'rb').read() else 'ABWEICHEND von reaper-clap/'))
+import zipfile, glob
+for z in sorted(glob.glob(os.path.join(R, 'web/tonestack/download/*.zip'))):   # Download-Pakete der Übersichtsseite müssen die ausgelieferten Plugins enthalten
+    with zipfile.ZipFile(z) as zf:
+        for n in zf.namelist():
+            if n.endswith('.clap'): print(os.path.basename(z) + ' / ' + n + ': ' + ('identisch mit reaper-clap/' if zf.read(n) == open(os.path.join(R, 'reaper-clap', n), 'rb').read() else 'ABWEICHEND von reaper-clap/'))
 PY

@@ -6,6 +6,7 @@
 using namespace aor;
 struct Ev { long t; int idx; double val; };
 int main(int argc, char **argv) {
+  if (argc < 4) { std::fprintf(stderr, "harness in.f32 out.f32 fs [\"t:idx=val,...\"]\n"); return 1; }
   double fs = atof(argv[3]); FILE *fi = fopen(argv[1], "rb"); fseek(fi, 0, SEEK_END); long n = ftell(fi) / 4; fseek(fi, 0, SEEK_SET);
   std::vector<float> x(n); if (fread(x.data(), 4, n, fi) != (size_t)n) return 2; fclose(fi);
   double sl[23] = {0,0,5,5,5,5,5,5,5,0,0,0,0,0,0,0,1,100,2,5,0,0,0};   // Grundstellung wie im Plugin (alles 5, Verzerrung an, 4-fach)
@@ -16,7 +17,7 @@ int main(int argc, char **argv) {
   auto target = [&]() { Target t; t.v = sl[12] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)sl[14];
     t.s.v1 = sl[2]/10; t.s.v2 = sl[3]/10; t.s.pl = sl[4]/10; t.s.t = sl[5]/10; t.s.m = taper(sl[6]/10, t.taper); t.s.b = sl[7]/10; t.s.mv = sl[8]/10; t.s.pres = taper(sl[19]/10, t.taper);
     t.s.mid = sl[9] > 0.5; t.s.top = sl[10] > 0.5; t.s.bass = sl[11] > 0.5; t.s.ch1 = sl[1] < 0.5 ? 1 : 0; t.s.low = sl[0] > 0.5; t.pa = sl[13] > 0.5; t.nl = sl[16] > 0.5;
-    t.vin = t.nl ? sl[17] / 1000 : 1; t.os = sl[18] == 1 ? 1 : sl[18] == 0 ? 2 : sl[18] == 2 ? 4 : 8; for (int i = 0; i < 3; i++) t.s.tube[i] = (int)sl[20 + i]; return t; };
+    t.vin = t.nl ? sl[17] / 1000 : 1; int o = (int)std::lround(sl[18]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8; for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(sl[20 + i]))); return t; };
   const int B = 128; std::vector<float> out(n); double outg = 1;
   for (long pos = 0; pos < n; pos += B) {
     bool ch = false; for (auto &e : evs) if (e.t >= pos && e.t < pos + B) { sl[e.idx] = e.val; ch = true; }

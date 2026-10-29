@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.6.1
+Version 3.7
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -88,6 +88,17 @@ Speaker (since 3.6)
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
+3.7 (code review)
+  Fixed latency of 31 samples in every mode (see below). The tube tables and
+  the operating-point cache are now built and used thread-safely (several
+  instances on parallel tracks, GUI thread); the tables are built when the
+  plugin is created, not on the audio thread. The idle/sleep state now also
+  works with tube distortion (a key mismatch had disabled it since 3.4).
+  Non-finite input samples are treated as silence and a diverged solver
+  restarts the circuit instead of outputting NaN forever. Denormals are
+  flushed during processing. Plugin state is saved with full precision.
+  With a mono input the second engine is no longer kept running. The audio
+  with tube distortion and oversampling is bit-identical to 3.6.1.
 3.6.1
   Frequency-response plot refreshes on the wall clock (before, it could lag
   behind a knob move when the process used little CPU). Audio unchanged.
@@ -98,8 +109,10 @@ Polarity and latency (since 3.5)
   engineer pointed out that a plugin should not flip polarity, so the engine
   now undoes it. Apart from the sign the output is identical to 3.4.
   With tube distortion and oversampling the engine has 31 samples of latency
-  (oversampling filters); the plugin reports this to the host, so REAPER
-  compensates it automatically. Linear mode and 1x have no latency.
+  (oversampling filters). Since 3.7 the plugin always reports 31 samples
+  and delays the linear and 1x paths by the same amount, so the latency
+  never changes while the plugin is active (which CLAP forbids) and
+  switching modes stays click-free; REAPER compensates it automatically.
 
 Notes
   True stereo: left and right are processed by two independent engines. A

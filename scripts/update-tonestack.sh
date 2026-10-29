@@ -2,12 +2,13 @@
 # Spielt ein Update der Klangregler-Simulatoren ein – alles, was im Ordner liegt:
 #   1. Webserver:     tonestack-apache.zip      (über install-tonestack.sh, nur wenn neuer)
 #   2. Handy-Apps:    B100-II_Klangregler.apk, AOR50_Klangregler.apk   (per adb, Einstellungen bleiben)
-#   3. REAPER-Plugin: Laney_AOR50_REAPER.zip    (nach ~/.config/REAPER/Effects)
+#   3. REAPER-Plugin: Laney_AOR50_REAPER.zip    (JSFX, nach ~/.config/REAPER/Effects)
+#   4. CLAP-Plugins:  Laney_AOR50_CLAP-*.zip, Yamaha_B100II_CLAP-*.zip   (nach ~/.clap, danach in REAPER neu scannen)
 #
 #   bash update-tonestack.sh [Optionen]          (als normaler Benutzer; für den Webserver wird sudo abgefragt)
 #
 # Optionen:
-#   --nur web|app|reaper   nur diesen Teil (mehrfach möglich)
+#   --nur web|app|reaper|clap   nur diesen Teil (mehrfach möglich)
 #   --ordner PFAD          wo die Dateien liegen        (Standard: Ordner dieses Skripts)
 #   --ziel PFAD            Installationsordner Web      (Standard: /var/www/html/tonestack)
 #   --url PFAD             URL-Pfad Web                 (Standard: /tonestack)
@@ -33,14 +34,14 @@ info() { printf '  %s\n' "$*"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --nur)      NUR="$NUR $2"; shift 2 ;;
-    --ordner)   ORDNER="$(cd "$2" && pwd)"; shift 2 ;;
+    --nur)      case "${2:-}" in web|app|reaper|clap) NUR="$NUR $2";; *) rot "Unbekannter Teil: ${2:-} (web, app, reaper oder clap)"; exit 1;; esac; shift 2 ;;
+    --ordner)   [ -d "${2:-}" ] || { rot "Ordner nicht gefunden: ${2:-}"; exit 1; }; ORDNER="$(cd "$2" && pwd)"; shift 2 ;;
     --ziel)     ZIEL="${2%/}"; shift 2 ;;
     --url)      URLPFAD="$2"; shift 2 ;;
     --host)     HOST="$2"; shift 2 ;;
     --reaper)   REAPER="${2%/}"; shift 2 ;;
     --erzwingen) ERZWINGEN=1; shift ;;
-    --hilfe|-h) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --hilfe|-h) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) rot "Unbekannte Option: $1 (--hilfe zeigt alle)"; exit 1 ;;
   esac
 done
@@ -130,7 +131,7 @@ if teil reaper; then
   if [ ! -f "$RZ" ] && [ ! -f "$ORDNER/$JS" ]; then info "kein Plugin-Paket gefunden – übersprungen"; merke "REAPER: übersprungen (kein Paket)"
   elif [ ! -d "$REAPER" ]; then info "REAPER-Ordner $REAPER nicht gefunden – übersprungen (--reaper PFAD angeben)"; merke "REAPER: übersprungen (Ordner fehlt)"
   else
-    T="$(mktemp -d)"
+    T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     if [ -f "$RZ" ]; then (cd "$T" && unzip -q -o "$RZ" "$JS" 2>/dev/null) || python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extract(sys.argv[2], sys.argv[3])" "$RZ" "$JS" "$T"
     else cp "$ORDNER/$JS" "$T/"; fi
     if [ ! -f "$T/$JS" ]; then rot "  Plugin nicht im Paket gefunden"; merke "REAPER: FEHLER"
@@ -151,9 +152,32 @@ if teil reaper; then
   fi
 fi
 
+# ---------- 4. CLAP-Plugins ----------
+if teil clap; then
+  echo; echo "== CLAP-Plugins"
+  CLAPDIR="${HOME}/.clap"; GEF=0
+  for CZ in "$ORDNER"/Laney_AOR50_CLAP-*.zip "$ORDNER"/Yamaha_B100II_CLAP-*.zip; do
+    [ -f "$CZ" ] || continue; GEF=1; NAME="$(basename "$CZ" .zip)"
+    T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+    if command -v unzip >/dev/null; then unzip -q -o "$CZ" '*.clap' -d "$T" 2>/dev/null
+    else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); [z.extract(n, sys.argv[2]) for n in z.namelist() if n.endswith('.clap') and '/' not in n]" "$CZ" "$T"; fi
+    CL="$(find "$T" -maxdepth 1 -name '*.clap' | head -n1)"
+    if [ -z "$CL" ]; then rot "  $NAME: keine .clap-Datei im Paket"; merke "CLAP $NAME: FEHLER"; rm -rf "$T"; continue; fi
+    mkdir -p "$CLAPDIR"; ZIELCL="$CLAPDIR/$(basename "$CL")"
+    if [ -f "$ZIELCL" ] && cmp -s "$CL" "$ZIELCL"; then info "$NAME: bereits aktuell"; merke "CLAP $NAME: bereits aktuell"
+    else
+      if [ -f "$ZIELCL" ]; then SICH="$CLAPDIR/tonestack-sicherungen"; mkdir -p "$SICH"; cp -p "$ZIELCL" "$SICH/$(basename "$CL").$(date +%Y%m%d-%H%M%S)"; info "alte Fassung gesichert in $SICH"; fi
+      cp "$CL" "$ZIELCL"; chmod 755 "$ZIELCL"; info "$NAME: kopiert nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
+    fi
+    rm -rf "$T"
+  done
+  [ $GEF -eq 1 ] && info "In REAPER: Options > Preferences > Plug-ins > CLAP > Clear cache/re-scan (REAPER hält geladene Plugins bis zum Neustart)."
+  [ $GEF -eq 1 ] || { info "kein CLAP-Paket gefunden – übersprungen"; merke "CLAP: übersprungen (kein Paket)"; }
+fi
+
 echo; echo "== Zusammenfassung"
 FEHLER=0
-for z in "${ERGEBNIS[@]}"; do
+for z in "${ERGEBNIS[@]:-}"; do
   case "$z" in *FEHLER*) rot "  $z"; FEHLER=1 ;; *übersprungen*) info "$z" ;; *) gruen "  $z" ;; esac
 done
 exit $FEHLER

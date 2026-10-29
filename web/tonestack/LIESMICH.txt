@@ -47,8 +47,11 @@ yamaha-b100ii/b100ii-worklet.js bzw. laney-aor50/laney-worklet.js
 Laney: Standardmäßig werden die Röhrenstufen linear gerechnet, also ohne
 Verzerrung. Optional lässt sich eine geschätzte Röhrenverzerrung einschalten
 (veröffentlichtes 12AX7-Modell von N. Koren, nicht mit einem echten AOR 50
-verglichen). Sie braucht deutlich mehr Rechenleistung; die Seite misst beim
-Einschalten das Gerät und wählt 2- oder 1-fache Überabtastung.
+verglichen). Sie braucht deutlich mehr Rechenleistung; mit dem eingebetteten
+WebAssembly-Kern läuft sie 8-fach überabgetastet (Standard), der
+JavaScript-Ausweichkern misst beim Einschalten das Gerät und wählt 2- oder
+1-fach. Dazu Röhrenwahl je Fassung, Umbauideen (Sanft, Später), Lautsprecher,
+Bypass (Taste B), Download der bearbeiteten Datei und Voreinstellungen.
 Über https läuft sie in einem eigenen Audio-Thread (AudioWorklet). Über reines
 http erlauben Browser das nicht; dann schaltet die Seite automatisch auf einen
 Ausweichbetrieb um, der genauso rechnet, aber beim Drehen etwas träger reagiert.

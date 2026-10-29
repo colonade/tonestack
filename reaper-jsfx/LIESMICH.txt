@@ -18,9 +18,9 @@ Bedienung
   ein Vollpegel-Signal in REAPER entspricht (Spitzenwert in mV). Davon hängt ab,
   wie stark die Röhren übersteuern. Richtwerte: passiver Bass 100–300 mV,
   aktiver Bass 300–1000 mV. Wirkt nur bei eingeschalteter Verzerrung.
-- Überabtastung: 1-fach (Grundeinstellung) oder 2-fach. 2-fach verringert
-  Verzerrungsprodukte oberhalb der hörbaren Grenze, braucht aber doppelt so
-  viel Rechenleistung; gut zum Rendern.
+- Überabtastung: 1-, 2-, 4- (Grundeinstellung) oder 8-fach. Mehr verringert
+  Verzerrungsprodukte oberhalb der hörbaren Grenze (Zahlen unten), braucht aber
+  je Stufe etwa das Doppelte an Rechenleistung; 8-fach gut zum Rendern.
 
 Oberfläche
 Der Effekt zeigt eine eigene Frontplatte in der Anordnung des Verstärkers:

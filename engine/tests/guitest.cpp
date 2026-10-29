@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   send(ButtonPress, kx(585), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(585), kx(358 + 70 + 23), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(585), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(585), kx(358 + 70 + 23), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(885), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(885), kx(358 + 70 + 23), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
-  { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, "/tmp/claude-0/-home-claude/b63c1d50-a850-570a-b024-24f84b746f01/scratchpad/gui_tubes.png"); cairo_surface_destroy(xs); }
+  { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argc > 3 ? argv[3] : "gui_tubes.png"); cairo_surface_destroy(xs); }
   char t[64]; const int ids[] = {3, 1, 0, 18, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
   XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, kx(1135), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(1135), kx(358 + 70 + 23), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   for (int id : {20, 21, 22}) { double v; params->get_value(p, id, &v); params->value_to_text(p, id, v, t, 64); printf("  nach RESET: Tube %d = %s\n", id - 19, t); }

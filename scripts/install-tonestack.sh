@@ -62,7 +62,7 @@ apache_neu_laden() {
 
 # ---------- Prüfung (folgt Weiterleitungen, prüft auch den Inhalt) ----------
 seiten_pruefen() {
-  command -v curl >/dev/null || { rot "curl fehlt – Prüfung übersprungen (sudo apt install curl)"; PROBLEME=0; return; }
+  command -v curl >/dev/null || { rot "curl fehlt – Seiten nicht geprüft (sudo apt install curl)"; PROBLEME=1; return; }
   local BASIS="http://$HOST$URLPFAD" ziel code typ kopf
   # -L: Weiterleitungen folgen (z. B. http → https); -k: Zertifikat bei localhost nicht prüfen – es geht nur um die eigenen Dateien
   CURL=(curl -sSLk --max-time 15)
@@ -99,13 +99,18 @@ if [ "$AKTION" = "check" ]; then
   if [ "$PROBLEME" -eq 0 ]; then gruen "Alles in Ordnung."; exit 0; else rot "$PROBLEME Prüfung(en) fehlgeschlagen."; exit 2; fi
 fi
 
+# Ziel absichern: nie leer, nie das Wurzelverzeichnis, und ersetzt/entfernt wird nur eine Tonestack-Installation
+case "$ZIEL" in ""|/|/var/www|/var/www/html) fehler "Ungültiges Ziel '$ZIEL' – bitte einen eigenen Unterordner angeben (z. B. /var/www/html/tonestack)";; esac
+SICHERUNGSORDNER="/var/backups/tonestack"   # außerhalb des Webverzeichnisses, damit alte Stände nicht öffentlich bleiben
+ist_tonestack() { [ -f "$1/sw.js" ] && [ -d "$1/laney-aor50" ] && [ -d "$1/yamaha-b100ii" ]; }
+
 # ---------- Deinstallieren ----------
 if [ "$AKTION" = "remove" ]; then
   echo "Deinstallation von $ZIEL"
   [ -e "$CONF" ] && { a2disconf -q "$CONF_NAME" >/dev/null 2>&1 || true; rm -f "$CONF"; info "Apache-Einstellung entfernt"; }
-  [ -d "$ZIEL" ] && { rm -rf "$ZIEL"; info "Ordner entfernt"; }
+  if [ -d "$ZIEL" ]; then ist_tonestack "$ZIEL" || fehler "$ZIEL sieht nicht wie eine Tonestack-Installation aus – nicht entfernt."; rm -rf "$ZIEL"; info "Ordner entfernt"; fi
   apache2ctl configtest >/dev/null 2>&1 && apache_neu_laden
-  gruen "Fertig. Sicherungen ($ZIEL.bak-*) wurden nicht gelöscht."
+  gruen "Fertig. Sicherungen unter $SICHERUNGSORDNER wurden nicht gelöscht."
   exit 0
 fi
 
@@ -122,11 +127,12 @@ info "Apache:     $(apache2ctl -v 2>/dev/null | sed -n 's/^Server version: //p')
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 if command -v unzip >/dev/null; then unzip -q "$ZIP" -d "$TMP"
-else python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$ZIP" "$TMP"; fi
+else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$ZIP" "$TMP"; fi
 NEU="$TMP/tonestack"
 for f in index.html sw.js .htaccess yamaha-b100ii/index.html yamaha-b100ii/b100ii-worklet.js laney-aor50/index.html laney-aor50/laney-worklet.js assets/fonts/archivo-latin.woff2; do
   [ -f "$NEU/$f" ] || fehler "Im ZIP fehlt tonestack/$f – ist es das richtige Paket?"
 done
+ls "$NEU"/download/*.zip >/dev/null 2>&1 || gelb "Hinweis: im ZIP liegt kein download/*.zip (Plugin-Downloads der Übersichtsseite)"
 info "Paketinhalt vollständig (Version $(grep -o 'VERSION = "[^"]*"' "$NEU/sw.js" | cut -d'"' -f2))"
 
 # ---------- 2. Module ----------
@@ -154,7 +160,9 @@ info "$CONF aktiv"
 echo "4/6 Installieren"
 SICHERUNG=""
 if [ -e "$ZIEL" ]; then
-  SICHERUNG="$ZIEL.bak-$(date +%Y%m%d-%H%M%S)"
+  ist_tonestack "$ZIEL" || fehler "$ZIEL existiert, sieht aber nicht wie eine Tonestack-Installation aus – nicht ersetzt."
+  mkdir -p "$SICHERUNGSORDNER"; chmod 700 "$SICHERUNGSORDNER"
+  SICHERUNG="$SICHERUNGSORDNER/$(basename "$ZIEL").bak-$(date +%Y%m%d-%H%M%S)"
   mv "$ZIEL" "$SICHERUNG"; info "bisherige Installation gesichert: $SICHERUNG"
 fi
 mkdir -p "$(dirname "$ZIEL")"
@@ -180,15 +188,14 @@ info "Apache neu geladen"
 echo "6/6 Seiten prüfen"
 sleep 1
 seiten_pruefen
-BASIS="http://$HOST$URLPFAD"
 echo
 if [ "$PROBLEME" -eq 0 ]; then
-  gruen "Installation erfolgreich: $BASIS/"
+  gruen "Installation erfolgreich: http://$HOST$URLPFAD/"
   [ -n "$SICHERUNG" ] && info "Sicherung des alten Stands: $SICHERUNG (kann gelöscht werden, wenn alles läuft)"
   info "Hinweis: Audio-Thread, Offline-Betrieb und 'Zum Startbildschirm' nur über https (z. B. certbot --apache)."
 else
   rot "$PROBLEME Prüfung(en) fehlgeschlagen – Details oben."
-  [ -n "$SICHERUNG" ] && info "Alter Stand liegt unter $SICHERUNG (zurück: sudo rm -rf $ZIEL && sudo mv $SICHERUNG $ZIEL)"
+  [ -n "$SICHERUNG" ] && info "Alter Stand liegt unter $SICHERUNG (zurück: sudo rm -rf '$ZIEL' && sudo mv '$SICHERUNG' '$ZIEL')"
   info "Liegt die Seite unter einem anderen Namen? Prüfen mit: sudo bash $0 --nur-pruefen --host deine.domain"
   exit 2
 fi

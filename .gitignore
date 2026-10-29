@@ -4,3 +4,11 @@ SCHLUESSEL-LIESMICH.txt
 *_unsigned.apk
 signed/
 engine/build/
+__pycache__/
+node_modules/
+*.bundle
+app/*/build/
+App-Signaturschluessel.zip
+tonestack-apache.zip
+*.pem
+*.p12

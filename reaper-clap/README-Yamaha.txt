@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - native CLAP plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Installation
   mkdir -p ~/.clap && cp Yamaha_B100II.clap ~/.clap/
@@ -68,6 +68,12 @@ Frequency response
   treble, middle, bass 10, EQ flat) with the same jack and speaker. E and B
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
   the plot (it is flat apart from the 9 Hz high-pass).
+
+1.1 (code review)
+  Non-finite input samples are treated as silence and a diverged circuit
+  state restarts the filter instead of outputting NaN; denormals are
+  flushed; state is saved with full precision; with a mono input the second
+  engine is no longer kept running. Audio bit-identical to 1.0.
 
 Polarity and latency
   The output has the same polarity as the input (the PA board itself

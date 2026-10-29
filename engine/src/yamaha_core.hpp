@@ -83,13 +83,15 @@ struct YCore {
   void block(float *buf, int n) { if (!hasV) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
     const double ingT = tgt.ing, step = 1.0 / (0.02 * fs); const bool pwr = tgt.pwr, sp = tgt.spk;   // Eingangsteiler mit fester Flanke (1,0 je 20 ms)
     if (pwr != pwrWas) { hpOut.reset(); pwrWas = pwr; } if (sp != spkWas) { spk.lo.reset(); spk.le.reset(); spk.cone.reset(); spkWas = sp; }
-    for (int i = 0; i < n; i++) { tick();
+    for (int i = 0; i < n; i++) { tick(); if (!std::isfinite(buf[i])) buf[i] = 0;
       if (ingCur < ingT) ingCur = std::min(ingT, ingCur + step); else if (ingCur > ingT) ingCur = std::max(ingT, ingCur - step);
       double y;
       if (pwr) { double vo = r.step(buf[i] * tgt.vin * ingCur * G_TR101) * G_MA; double a = std::fabs(vo); if (a > pkPre) pkPre = a; y = hpOut.step(clipMA(vo)) / V_FS; }
       else y = r.step(buf[i]) * ingCur;
       if (sp) y = spk.step(y);
+      if (!std::isfinite(y)) { recover(); for (; i < n; i++) buf[i] = 0; return; }
       buf[i] = (float)-y; } }   // Polarität wie am Eingang (das PA-Board invertiert)
+  void recover() { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; hpOut.reset(); spk.lo.reset(); spk.le.reset(); spk.cone.reset(); pkPre = 0; }
   double takePeak() { double p = pkPre; pkPre = 0; return p; }
 };
 } // namespace b100

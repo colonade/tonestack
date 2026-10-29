@@ -8,6 +8,9 @@
 #include <array>
 #include <algorithm>
 #include <complex>
+#ifndef __wasm__
+#include <mutex>
+#endif
 #include "parts_gen.h"
 
 namespace aor {
@@ -247,6 +250,7 @@ struct Tube {
   void makeTab() { TAB.resize(GN * PN); double o[3]; for (int i = 0; i < GN; i++) for (int j = 0; j < PN; j++) { tube(G0 + i * GS, P0 + j * PS, o); TAB[i * PN + j] = (float)o[0]; } }
   void tubeT(double vgk, double vpk, double *out) const {
     double x = (vgk - G0) / GS, y = (vpk - P0) / PS;
+    if (!std::isfinite(x) || !std::isfinite(y)) { out[0] = out[1] = out[2] = 0; return; }
     if (x < 0) x = 0; else if (x > GN - 1.000001) { tube(vgk, vpk, out); return; }
     if (y < 0) y = 0; else if (y > PN - 1.000001) { tube(vgk, vpk, out); return; }
     int i = (int)x, j = (int)y; double fx = x - i, fy = y - j; int o = i * PN + j;
@@ -259,8 +263,15 @@ struct Tube {
   static void grid(double v, double *out) { double x = v / SG; if (x > 35) { out[0] = v / RGI; out[1] = 1 / RGI; return; }
     double e = std::exp(x); out[0] = SG * std::log1p(e) / RGI; out[1] = e / (1 + e) / RGI; }
 };
-// Röhrentabellen je Typ, einmal je Prozess (bei Bedarf aufgebaut)
+// Röhrentabellen je Typ, einmal je Prozess. Nativ (mehrere Threads, mehrere Plugin-Instanzen): alle fünf beim ersten Zugriff auf einmal,
+// thread-sicher über die statische Initialisierung; warmTubes() ruft das im Haupt-Thread auf, damit es nicht im Audio-Thread passiert.
+// WebAssembly ist einfädig: dort bei Bedarf je Typ (spart Speicher).
+#ifdef __wasm__
 inline const Tube &tubeOf(int t) { static Tube bank[NTUBES]; static bool ready[NTUBES] = {false}; if (t < 0 || t >= NTUBES) t = 0; if (!ready[t]) { bank[t].setModel(t); bank[t].makeTab(); ready[t] = true; } return bank[t]; }
+#else
+inline const Tube &tubeOf(int t) { static const std::array<Tube, NTUBES> bank = [] { std::array<Tube, NTUBES> b; for (int i = 0; i < NTUBES; i++) { b[i].setModel(i); b[i].makeTab(); } return b; }(); if (t < 0 || t >= NTUBES) t = 0; return bank[t]; }
+#endif
+inline void warmTubes() { tubeOf(0); }
 
 // ---------- nichtlineare Abschnitte ----------
 struct Net {
@@ -448,9 +459,8 @@ struct Amp {
     if (!dc && blending && ((++bpos) & 31) == 0) blendNow();
     dcMode = dc; double known = 0, vg = 0; std::vector<Sec> &secs = dc ? dcSec : sec; int maxIt = dc ? 300 : 60;
     for (int k = 0; k < 5; k++) {
-      Sec &C = secs[k]; double src[2]; int ns = 1;
-      if (k == 0) src[0] = low ? 0 : u; else if (k == 2) { src[0] = UB[1]; src[1] = low ? u : 0; ns = 2; } else src[0] = UB[k - 1];
-      (void)ns;
+      Sec &C = secs[k]; double src[2];
+      if (k == 0) src[0] = low ? 0 : u; else if (k == 2) { src[0] = UB[1]; src[1] = low ? u : 0; } else src[0] = UB[k - 1];
       if (!dc) { if (C.Ip2.empty()) C.Ip2 = C.I; for (int q = 0; q < C.nu; q++) { double cur = C.I[q]; C.I[q] = 2 * cur - C.Ip2[q]; C.Ip2[q] = cur; } }
       solve(C, dc ? nullptr : st[k].Ih.data(), src, known, vg, maxIt);
       if (!dc) advance(C, st[k], src, known);
@@ -531,7 +541,7 @@ inline void bilinear(const double *bs, const double *as, int n, double fs, doubl
   for (int j = 0; j <= n; j++) { bz[j] = num[j] / den[0]; az[j] = den[j] / den[0]; }
 }
 struct IIR { int n = 0; double b[5] = {0,0,0,0,0}, a[5] = {1,0,0,0,0}, z[5] = {0,0,0,0,0};
-  double step(double x) { double y = b[0] * x + z[0]; for (int i = 1; i < n; i++) z[i-1] = b[i] * x + z[i] - a[i] * y; z[n-1] = b[n] * x - a[n] * y; return y; }
+  double step(double x) { if (n == 0) return x; double y = b[0] * x + z[0]; for (int i = 1; i < n; i++) z[i-1] = b[i] * x + z[i] - a[i] * y; z[n-1] = b[n] * x - a[n] * y; return y; }
   void reset() { for (double &q : z) q = 0; } };
 struct Speaker { IIR lo, le, cone; bool ready = false;
   void design(double fs, const SpkModel &m = SpkModel()) {
@@ -563,7 +573,8 @@ struct PaCore {
   double step(double u) { return r.step(u) / norm; }
 };
 
-struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0; virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0}; };
+struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
+  std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0}; };
 
 struct LinCore : CoreBase {
   double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaCore paC; Norms N; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
@@ -593,12 +604,19 @@ struct LinCore : CoreBase {
 struct NlCore : CoreBase {
   double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaCore paC; Norms N;
   static std::map<std::string, Snapshot> &cache() { static std::map<std::string, Snapshot> c; return c; }
+  static std::string cacheKey(const Parts &v, double fs, int os, const int tube[3]) { std::string key(reinterpret_cast<const char*>(&v), sizeof v); return key + std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(tube[0]) + std::to_string(tube[1]) + std::to_string(tube[2]); }
+#ifdef __wasm__
+  struct CacheLock { CacheLock() {} };   // einfädig
+#else
+  static std::mutex &cacheMutex() { static std::mutex m; return m; }
+  struct CacheLock { std::lock_guard<std::mutex> g; CacheLock() : g(cacheMutex()) {} };
+#endif
   NlCore(double fs_, int os_, const Tube *t) : fs(fs_), os(os_), amp(fs_, os_, t), paC(fs_) {}
   void setTarget(const Target &t) override {
     Setting s = t.s; vin = t.vin; pa = t.pa; amp.low = s.low > 0.5;
     bool partsChanged = !hasV || !(t.v == v) || cur.tube[0] != s.tube[0] || cur.tube[1] != s.tube[1] || cur.tube[2] != s.tube[2];
     if (partsChanged) { v = t.v; hasV = true; cur = s; tgt = s;
-      std::string key(reinterpret_cast<const char*>(&v), sizeof v); key += std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(s.tube[0]) + std::to_string(s.tube[1]) + std::to_string(s.tube[2]);
+      std::string key = cacheKey(v, fs, os, s.tube); CacheLock lk;
       auto &c = cache(); auto it = c.find(key);
       if (it == c.end()) { amp.init(v, cur); if (c.size() >= 32) c.clear(); c[key] = amp.snapshot(); } else amp.initFrom(v, cur, it->second);   // begrenzter Zwischenspeicher
     } else tgt = s;
@@ -614,13 +632,16 @@ struct NlCore : CoreBase {
 
 // Moduswechsel (linear/Röhre, Überabtastung, Buchse, Kanal): neue Schaltung rechnet die letzten 150 ms nach und wird über 30 ms eingeblendet
 struct Engine {
-  double fs; Tube tube; CoreBase *a = nullptr, *b = nullptr; double xf = 0; std::vector<float> hist; int hpos = 0, hfill = 0; int qpos = 0, qlen = 0, qdone = 0; bool replay = false; Target last; bool hasLast = false;
+  double fs; CoreBase *a = nullptr, *b = nullptr; double xf = 0; std::vector<float> hist; int hpos = 0, hfill = 0; int qpos = 0, qlen = 0, qdone = 0; bool replay = false; Target last; bool hasLast = false;
   Speaker spk; bool spkOn = false;
-  explicit Engine(double fs_) : fs(fs_) { tube.makeTab(); hist.assign((int)std::lround(0.15 * fs), 0); spk.design(fs_); }
+  explicit Engine(double fs_) : fs(fs_) { hist.assign((int)std::lround(0.15 * fs), 0); spk.design(fs_); }
   ~Engine() { delete a; delete b; }
+  void recover() { delete a; delete b; a = b = nullptr; replay = false; xf = 0; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); if (hasLast) a = make(last); }
   static std::string kindOf(bool nl, int os, bool low) { return (nl ? "nl" + std::to_string(os) : std::string("lin")) + (low ? "|low" : "|high"); }
   std::string kindOfCore(const CoreBase *c) const { return kindOf(c->isNl(), c->osOf(), c->lowOf()); }
-  CoreBase *make(const Target &t) { CoreBase *c = t.nl ? (CoreBase*)new NlCore(fs, t.os, &tube) : (CoreBase*)new LinCore(fs); c->setTarget(t); return c; }
+  int pad = 0;   // Plugin: feste Gesamtlatenz; Kerne ohne eigene Laufzeit (linear, 1-fach) werden um pad Abtastwerte verzögert, damit die Latenz nicht mit dem Modus wechselt
+  CoreBase *make(const Target &t) { CoreBase *c = t.nl ? (CoreBase*)new NlCore(fs, t.os, &tubeOf(0)) : (CoreBase*)new LinCore(fs); c->setTarget(t); c->prepDelay(ownLatency(c) == 0 ? pad : 0); return c; }
+  static int ownLatency(const CoreBase *c) { return c->isNl() && c->osOf() > 1 ? 31 : 0; }
   void setTarget(const Target &t) {
     last = t; hasLast = true; if (t.spk != spkOn) { spkOn = t.spk; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); }
     std::string kind = kindOf(t.nl, t.os, t.s.low > 0.5);
@@ -634,13 +655,14 @@ struct Engine {
   }
   void block(float *buf, int n) {
     if (!a) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
-    if (b && replay) { int todo = std::min(384, qlen - qdone); for (int i = 0; i < todo; i++) { b->tick(); b->step(hist[qpos]); qpos = (qpos + 1) % (int)hist.size(); qdone++; } if (qdone >= qlen) replay = false; }
+    if (b && replay) { int todo = std::min(384, qlen - qdone); for (int i = 0; i < todo; i++) { b->tick(); b->delayed(b->step(hist[qpos])); qpos = (qpos + 1) % (int)hist.size(); qdone++; } if (qdone >= qlen) replay = false; }
     for (int i = 0; i < n; i++) {
-      double x = buf[i]; hist[hpos] = (float)x; hpos = (hpos + 1) % (int)hist.size(); if (hfill < (int)hist.size()) hfill++;
-      a->tick(); double y = a->step(x);
-      if (b) { b->tick(); double yb = b->step(x);
+      double x = buf[i]; if (!std::isfinite(x)) x = 0; hist[hpos] = (float)x; hpos = (hpos + 1) % (int)hist.size(); if (hfill < (int)hist.size()) hfill++;
+      a->tick(); double y = a->delayed(a->step(x));
+      if (b) { b->tick(); double yb = b->delayed(b->step(x));
         if (!replay) { xf += 1.0 / (0.03 * fs); if (xf >= 1) { delete a; a = b; b = nullptr; y = yb; } else y = y * (1 - xf) + yb * xf; } }
       if (spkOn) y = spk.step(y);
+      if (!std::isfinite(y)) { recover(); for (; i < n; i++) buf[i] = 0; return; }   // Löser entgleist (z. B. nach unsinnigen Bauteilwerten): Schaltung neu aufsetzen, Rest des Blocks still
       buf[i] = (float)-y;   // Polarität wie am Eingang: der Vorverstärker (5 invertierende Stufen) dreht das Signal, für Aufnahme und Vergleich wird das hier aufgehoben
     }
   }
