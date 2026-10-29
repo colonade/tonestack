@@ -131,7 +131,13 @@ footer{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
 .fsel input[type=range]{flex:1;min-width:0;height:40px}
 .fselb{min-width:44px;min-height:44px;font-size:1.3rem;padding:0}
 @media (max-width:760px){.frontscroll{display:none}.frontrows{display:block}}
-.fk:focus{outline:none}
+.fk:focus,.fjack:focus{outline:none}
+.fjack{cursor:pointer}.fjack .fjring{fill:none;stroke:transparent;stroke-width:3}.fjack.an .fjring{stroke:#E0382A}.fjack:focus-visible .fjring{stroke:#FFD34D;stroke-width:2.5}
+.fjack .fplug{fill:#1a1a1a;stroke:#c8c8c8;stroke-width:1.5;opacity:0}.fjack.an .fplug{opacity:1}
+.abyp[aria-pressed="true"]{background:#E0382A;color:#fff;border-color:#E0382A}
+details.exp{margin:8px 0 0}details.exp>summary{cursor:pointer;color:var(--ink2);font-size:.86rem;list-style:none;display:inline-flex;align-items:center;gap:6px}
+details.exp>summary::before{content:"▸";display:inline-block;transition:transform .15s}details.exp[open]>summary::before{transform:rotate(90deg)}
+details.exp>summary::-webkit-details-marker{display:none}
 .fk .fring{fill:none;stroke:transparent;stroke-width:3}
 .fk:focus-visible .fring{stroke:#FFD34D}
 .ftip{position:absolute;transform:translate(-50%,-100%);background:#F4EFE3;color:#111;font:600 .8rem/1.2 var(--f);padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.35)}
@@ -177,7 +183,7 @@ select{max-width:100%}
     <div class="fselkopf"><span class="fseltext"><span class="fselname" id="fselName"></span><span class="fselval" id="fselVal"></span></span><span class="fselsp"></span><button class="btn" type="button" id="fselMitte">Mitte</button><button class="btn fselb" type="button" id="fselZu" aria-label="Feinregler schließen">✕</button></div>
     <div class="fselzeile"><button class="btn fselb" type="button" id="fselMinus" aria-label="Weniger">−</button><input type="range" id="fselRange" min="0" max="10" step="0.1"><button class="btn fselb" type="button" id="fselPlus" aria-label="Mehr">+</button></div>
   </div>
-  <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Mittelstellung. Eingangsbuchsen, POWER und ON/OFF sind nur Bild.</figcaption>
+  <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Mittelstellung. Eingang durch Antippen der Buchse HIGH oder LOW (roter Ring = Stecker drin). POWER und ON/OFF sind nur Bild.</figcaption>
 </figure>
 
 
@@ -228,6 +234,12 @@ select{max-width:100%}
     <span class="atime" id="atime">0:00 / 0:00</span>
     <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
   </div>
+  <div class="player" id="player2">
+    <button class="btn abyp" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Klangregler umschalten">Bypass: aus</button>
+    <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Klangregler-Ausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten)"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
+    <button class="btn" type="button" id="adl" disabled title="Die Datei einmal durch die Schaltung rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">Durch den Klangregler gerechnet herunterladen (WAV)</button>
+    <span class="note" id="adlstatus" aria-live="polite"></span>
+  </div>
   <div class="abar">
     <div class="seg" role="group" aria-label="Was ist zu hören">
       <button type="button" data-lm="on" aria-pressed="true">Mit Klangregler</button>
@@ -240,6 +252,7 @@ select{max-width:100%}
   </div>
   <p class="note" id="astatus" aria-live="polite"></p>
   <p class="note">Die Datei wird nur in deinem Browser verarbeitet und nirgendwohin hochgeladen. Sie läuft im Loop und wird so behandelt, als käme ihr Signal aus der Stufe vor dem Klangregler (TR101). Klangregler und TR102 zusammen haben bei 1 kHz fast genau 0 dB Verstärkung, deshalb ist „Ohne Klangregler" etwa gleich laut. Gerechnet wird die Schaltung Abtastwert für Abtastwert; Reglerbewegungen werden wie bei einem echten Poti ohne Knacken übernommen. Am besten klingt es mit einer trocken aufgenommenen Bass-Spur (direkt aus dem Instrument, ohne Verstärker).</p>
+  <p class="note">Eingänge: HIGH geht über 15 kΩ auf das Gate von TR101 (330 kΩ nach Masse), LOW über 47 kΩ; die leere HIGH-Buchse legt dabei ihre 15 kΩ an Masse, so dass LOW um 12,2 dB leiser ist (Service Manual Tabelle 3: 12 ± 3 dB). Im Simulator wirkt LOW als Pegel −12,2 dB, hörbar in der Wiedergabe und sichtbar im Diagramm „Absolut"; an einem echten passiven Bass belastet LOW den Tonabnehmer zusätzlich mit etwa 62 kΩ statt 345 kΩ, was Resonanz und Höhen dämpft und hier nicht nachgebildet ist. Bypass (auch Taste B) schaltet knackfrei zwischen Originaldatei und Schaltung um, „Herunterladen" rechnet die Datei einmal vollständig durch denselben Kern und speichert sie als WAV (mono, 24 Bit, Lautstärkeregler eingerechnet). Voreinstellungen (Regler, Eingang, Bauteile) lassen sich unten mit Namen speichern und als JSON-Datei weitergeben.</p>
 </section>
 
 <div class="bar">
@@ -248,13 +261,24 @@ select{max-width:100%}
   <button class="btn" type="button" id="snap">Kurve merken</button>
   <button class="btn" type="button" id="unsnap" disabled>Gemerkte Kurve entfernen</button>
 </div>
+<div class="bar" id="presets" role="group" aria-label="Voreinstellungen">
+  <label for="preset">Voreinstellung <select id="preset"><option value="">– keine –</option></select></label>
+  <button class="btn" type="button" id="psave" title="Aktuelle Regler, Eingang und Bauteile unter einem Namen speichern (im Browser)">Speichern unter …</button>
+  <button class="btn" type="button" id="pupd" disabled title="Gewählte Voreinstellung mit der aktuellen Einstellung überschreiben">Überschreiben</button>
+  <button class="btn" type="button" id="pdel" disabled>Löschen</button>
+  <button class="btn" type="button" id="pexp" disabled title="Alle Voreinstellungen als JSON-Datei speichern, z. B. zum Weitergeben">Exportieren</button>
+  <button class="btn" type="button" id="pimp" title="Voreinstellungen aus einer JSON-Datei hinzufügen">Importieren</button><input type="file" id="pfile" accept=".json,application/json" hidden>
+  <span class="note" id="pstatus" aria-live="polite"></span>
+</div>
 
 <div class="cols">
   <section>
     <h2>Bauteilwerte</h2>
-    <div class="parts" id="parts"></div>
+    <details class="exp" id="partsexp"><summary>Bauteilwerte im Einzelnen (Widerstände, Kondensatoren, Transistorkennwerte)</summary>
+    <div class="parts" id="parts" style="margin-top:8px"></div>
     <p class="note" style="margin-top:10px">Geänderte Werte sind blau markiert. Alle Werte stammen aus dem Schaltplan, außer der Stromverstärkung von TR102: Der Plan nennt nur die Gruppen GR und BL (200–700). Zwischen 200 und 700 ändert sich die Kurve um höchstens 0,3 dB (bei 20 kHz), unterhalb von 3 kHz um höchstens 0,2 dB.</p>
     <button class="btn" type="button" id="reset">Originalwerte wiederherstellen</button>
+    </details>
   </section>
   <section>
     <h2>Werksprüfung nach Service Manual</h2>
@@ -371,7 +395,7 @@ const ENGINE = (() => {
     }
     return Math.hypot(Xr[ckt.out], Xi[ckt.out]);
   }
-  const H = (f, v, s) => solve(f, build(v, s));
+  const H = (f, v, s) => solve(f, build(v, s)) * (s.ing || 1);   // ing: Eingangsteiler HIGH (1) oder LOW (0,245 = −12,2 dB)
   return { taper, build, solve, H, BANDS, dB: x => 20*Math.log10(x) };
 })();
 if (typeof module !== 'undefined') module.exports = ENGINE;
@@ -411,25 +435,28 @@ const PARTS = [
 ];
 const FIXED = { rd: 1e12, ic: 1.4e-3, rlv: 1/(1/25e3 + 1/(560 + 90e3)) };
 const FIG1 = [[21.0, 1.7], [24.4, 1.9], [28.4, 2.0], [33.1, 1.9], [38.5, 1.6], [44.7, 1.1], [52.1, 0.5], [60.6, -0.2], [70.4, -1.2], [81.9, -2.2], [95.3, -3.4], [110.9, -4.8], [129.0, -6.4], [150.1, -7.9], [174.6, -9.3], [203.1, -10.5], [236.3, -11.1], [274.9, -11.0], [319.8, -10.3], [372.0, -9.0], [432.7, -7.6], [503.4, -6.1], [585.6, -4.6], [681.3, -3.3], [792.6, -2.0], [922.0, -0.7], [1072.6, 0.4], [1247.8, 1.5], [1451.6, 2.4], [1688.7, 3.2], [1964.5, 3.8], [2285.3, 4.3], [2658.5, 4.7], [3092.7, 5.0], [3597.9, 5.2], [4185.5, 5.1], [4869.1, 4.9], [5664.3, 4.6], [6589.4, 4.2], [7665.7, 3.8], [8917.6, 3.2], [10374.1, 2.5], [12068.4, 1.7], [14039.5, 0.7], [16332.5, -0.5], [19000.0, -1.9]];
-const DEF = { knobs:{vol:5,t:5,m:5,b:5,e0:5,e1:5,e2:5,e3:5,e4:5}, mode:'rel', taper:'a15', showRef:true, showFig:true, parts:Object.fromEntries(PARTS.map(p=>[p[0],p[4]])) };
+const DEF = { knobs:{vol:5,t:5,m:5,b:5,e0:5,e1:5,e2:5,e3:5,e4:5}, sw:{inp:'high'}, mode:'rel', taper:'a15', showRef:true, showFig:true, parts:Object.fromEntries(PARTS.map(p=>[p[0],p[4]])) };
+// Eingangsteiler: HIGH 15 kΩ auf 330 kΩ (Bezug), LOW 47 kΩ auf 15 kΩ ∥ (1 kΩ + 330 kΩ): (14,35/61,35) / (330/345) = 0,245
+const ING = { high: 1, low: (1 / (1/15e3 + 1/331e3)) / (47e3 + 1 / (1/15e3 + 1/331e3)) / (330e3 / 345e3) };
 let S;
 try { S = JSON.parse(localStorage.getItem('b100ts-v3') || 'null'); } catch(e) { S = null; }
 if (!S || !S.parts || !('e0' in S.knobs)) S = structuredClone(DEF);
 if (!('vol' in S.knobs)) S.knobs.vol = 10;          // ältere Speicherstände: Volume wie bisher voll aufgedreht
 if (!('showFig' in S)) S.showFig = true;
 for (const p of PARTS) if (!(p[0] in S.parts)) S.parts[p[0]] = p[4];
+if (!S.sw || (S.sw.inp !== 'high' && S.sw.inp !== 'low')) S.sw = { inp: 'high' };   // ältere Speicherstände
 let cmp = null;
 const save = () => { try { localStorage.setItem('b100ts-v3', JSON.stringify(S)); } catch(e) {} };
 
 const vals = () => ({...FIXED, ...Object.fromEntries(PARTS.map(p => [p[0], S.parts[p[0]] * p[3]]))});
 const frac = k => ENGINE.taper(k / 10, S.taper);
-const setting = kn => ({ t: frac(kn.t), b: frac(kn.b), m: frac(kn.m), vol: Math.max(frac(kn.vol ?? 10), 0.001),   // Volume-Poti: 0,1 % Restwiderstand
-  eq: [0,1,2,3,4].map(i => 1 - kn['e' + i] / 10) });    // Knopf 10 = Anhebung, 0 = Absenkung, 5 = neutral
+const setting = (kn, inp = S.sw.inp) => ({ t: frac(kn.t), b: frac(kn.b), m: frac(kn.m), vol: Math.max(frac(kn.vol ?? 10), 0.001),   // Volume-Poti: 0,1 % Restwiderstand
+  eq: [0,1,2,3,4].map(i => 1 - kn['e' + i] / 10), ing: ING[inp] || 1 });    // Knopf 10 = Anhebung, 0 = Absenkung, 5 = neutral
 const fmt = (x, d=1) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(d).replace('.', ',');
 const fmtHz = f => f >= 1000 ? (f/1000).toFixed(f >= 10000 ? 0 : 1).replace('.', ',').replace(',0','') + ' kHz' : Math.round(f) + ' Hz';
 
 // Schnittstelle für den Audioteil (nur in der Apache-Fassung genutzt)
-window.B100 = { current: () => ({ s: setting(S.knobs), v: vals() }), snapshot: () => cmp ? { s: setting(cmp.kn), v: cmp.v } : null, onChange: null };
+window.B100 = { current: () => ({ s: setting(S.knobs), v: vals() }), snapshot: () => cmp ? { s: setting(cmp.kn, cmp.inp), v: cmp.v } : null, onChange: null };
 // ---------- Plot ----------
 let W = 1000, Ht = 440; const L = 58, R = 16, T = 14, B = 40;
 const F0 = 20, F1 = 20000, NP = 260;
@@ -451,8 +478,8 @@ const yOf = d => { const [a,b] = range(); return T + (b - Math.min(b, Math.max(a
 const svg = $('plot');
 const el = (n, a, parent=svg) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
 
-function curve(kn, v) {
-  const s = setting(kn), ref = S.mode === 'rel' ? ENGINE.H(1000, v, s) : 1;
+function curve(kn, v, inp) {
+  const s = setting(kn, inp), ref = S.mode === 'rel' ? ENGINE.H(1000, v, s) : 1;
   return FREQS.map(f => ENGINE.dB(ENGINE.H(f, v, s) / ref));
 }
 const pathOf = arr => arr.map((d,i) => (i ? 'L' : 'M') + xOf(FREQS[i]).toFixed(1) + ' ' + yOf(d).toFixed(1)).join('');
@@ -474,7 +501,7 @@ function drawGrid() {
     const t = el('text', {x:xOf(f), y:Ht-B+20, 'text-anchor':'middle'}); t.textContent = f >= 1000 ? f/1000 + 'k' : f;
   }
   const yl = el('text', {x:16, y:(T+Ht-B)/2, 'text-anchor':'middle', transform:`rotate(-90 16 ${(T+Ht-B)/2})`});
-  yl.textContent = S.mode === 'rel' ? 'dB bezogen auf 1 kHz' : 'dB (Ausgang O / Drain TR101)';
+  yl.textContent = S.mode === 'rel' ? 'dB bezogen auf 1 kHz' : 'dB (Ausgang O / Drain TR101' + (S.sw.inp === 'low' ? ', Eingang LOW −12,2 dB)' : ')');
   const xl = el('text', {x:(L+W-R)/2, y:Ht-4, 'text-anchor':'middle'}); xl.textContent = 'Frequenz (Hz)';
   for (const [f,n] of [[41.2,'E'],[30.9,'H']]) {
     el('line', {x1:xOf(f), x2:xOf(f), y1:T, y2:Ht-B, stroke:'var(--ref)', 'stroke-dasharray':'2 4'});
@@ -495,7 +522,7 @@ function render() {
     yr = S.mode === 'rel' ? fitRange([cur, cmpA], -25, 15, 40) : fitRange([cur, refA, cmpA], null, null, 45); }
   drawGrid();
   if (S.showRef) el('path', {d:pathOf(curve({t:10,m:10,b:10,e0:5,e1:5,e2:5,e3:5,e4:5}, v)), fill:'none', stroke:'var(--ref)', 'stroke-width':1.6});
-  if (cmp) el('path', {d:pathOf(cmp.mode === S.mode ? cmp.data : curve(cmp.kn, cmp.v)), fill:'none', stroke:'var(--cmp)', 'stroke-width':2.2, 'stroke-dasharray':'7 5'});
+  if (cmp) el('path', {d:pathOf(cmp.mode === S.mode ? cmp.data : curve(cmp.kn, cmp.v, cmp.inp)), fill:'none', stroke:'var(--cmp)', 'stroke-width':2.2, 'stroke-dasharray':'7 5'});
   if (S.showFig && S.mode === 'rel') for (const [f, d] of FIG1) el('rect', {x:xOf(f)-3, y:yOf(d)-3, width:6, height:6, fill:'none', stroke:'var(--ink)', 'stroke-width':1.4});
   el('path', {d:pathOf(cur), fill:'none', stroke:'var(--curve)', 'stroke-width':3, 'stroke-linejoin':'round'});
   const s = setting(S.knobs), ref = S.mode === 'rel' ? ENGINE.H(1000, v, s) : 1;
@@ -549,7 +576,7 @@ svg.addEventListener('pointermove', e => {
   if (x < L || x > W-R) { tip.style.display='none'; hoverLine && hoverLine.setAttribute('visibility','hidden'); return; }
   const f = fOf(x), v = vals(), s = setting(S.knobs), ref = S.mode === 'rel' ? ENGINE.H(1000, v, s) : 1;
   let txt = `${fmtHz(f)}: ${fmt(ENGINE.dB(ENGINE.H(f, v, s)/ref))} dB`;
-  if (cmp) { const s2 = setting(cmp.kn), r2 = S.mode === 'rel' ? ENGINE.H(1000, cmp.v, s2) : 1; txt += ` · gemerkt ${fmt(ENGINE.dB(ENGINE.H(f, cmp.v, s2)/r2))} dB`; }
+  if (cmp) { const s2 = setting(cmp.kn, cmp.inp), r2 = S.mode === 'rel' ? ENGINE.H(1000, cmp.v, s2) : 1; txt += ` · gemerkt ${fmt(ENGINE.dB(ENGINE.H(f, cmp.v, s2)/r2))} dB`; }
   tip.textContent = txt; tip.style.display = 'block';
   const bx = $('plotbox').getBoundingClientRect();
   let left = e.clientX - bx.left + 12 + $('plotbox').scrollLeft; if (left + tip.offsetWidth > bx.width - 4 + $('plotbox').scrollLeft) left -= tip.offsetWidth + 24;
@@ -581,6 +608,7 @@ const fextra = k => { const v = S.knobs[k]; return EQKEYS.includes(k)
 // Ansichten: ganze Frontplatte (breite Fenster) und zwei Ausschnitte untereinander (schmale Fenster, z. B. Handy hochkant)
 const FVIEWS = [];
 const FPTR = {}; FKEYS.forEach(k => FPTR[k] = []);
+const JACKS = { high: {x:136, y:120, r:26}, low: {x:217, y:120, r:26} }, FJACK = { high: [], low: [] };   // Buchsen auf dem Foto (vermessen)
 const IMGSRC = document.querySelector('#frontbox img').src;
 function makeView(box, svg, tip, keys) {
   const view = {box, svg, tip}; FVIEWS.push(view);
@@ -614,6 +642,16 @@ function makeView(box, svg, tip, keys) {
       else if (e.key === 'Enter' || e.key === ' ') { selectKnob(k); e.preventDefault(); }
     });
   }
+  const vb = svg.viewBox.baseVal;
+  for (const [inp, name] of [['high','HIGH'], ['low','LOW']]) {   // Eingangsbuchsen: Antippen = Stecker rein
+    const g = JACKS[inp]; if (vb.width && (g.x < vb.x || g.x > vb.x + vb.width)) continue;
+    const jg = el('g', {class:'fjack', 'data-inp':inp, tabindex:'0', role:'button', 'aria-label':`Eingang ${name}`}, svg);
+    el('circle', {cx:g.x, cy:g.y, r:g.r + 14, fill:'transparent'}, jg); el('circle', {class:'fjring', cx:g.x, cy:g.y, r:g.r + 4}, jg);
+    el('circle', {class:'fplug', cx:g.x, cy:g.y, r:g.r * 0.42}, jg);
+    const set = () => { S.sw.inp = inp; render(); };
+    jg.addEventListener('click', set); jg.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { set(); e.preventDefault(); } });
+    FJACK[inp].push(jg);
+  }
   return view;
 }
 let ftipK = null, ftipV = null;
@@ -627,7 +665,7 @@ function showTip(k, view) {
 // breite Ansicht (ganze Frontplatte)
 makeView($('frontbox'), $('frontsvg'), $('ftip'), FKEYS);
 // schmale Ansicht: zwei Ausschnitte
-const ROWS = [{x0:226, w:596, keys:['vol','t','m','b'], name:'Klangregler'}, {x0:890, w:703, keys:['e0','e1','e2','e3','e4'], name:'Equalizer'}];
+const ROWS = [{x0:96, w:726, keys:['vol','t','m','b'], name:'Eingänge und Klangregler'}, {x0:890, w:703, keys:['e0','e1','e2','e3','e4'], name:'Equalizer'}];
 const Y0 = 14, HH = 192;
 for (const r of ROWS) {
   const box = el2('div', 'fview', $('frontrows')); box.style.aspectRatio = `${r.w} / ${HH}`;
@@ -655,6 +693,7 @@ function updFront() {
       ln.setAttribute('transform', `rotate(${ang(v)} ${g.x} ${g.y})`);
       ln._g.setAttribute('aria-valuenow', v.toFixed(1));
       ln._g.setAttribute('aria-valuetext', EQKEYS.includes(k) ? fval(k) + ' (Skala −5 … +5)' : fval(k) + ' von 10'); } }
+  for (const inp of ['high','low']) FJACK[inp].forEach(j => { const on = S.sw.inp === inp; j.classList.toggle('an', on); j.setAttribute('aria-pressed', on); });
   if (ftipK && ftipV) showTip(ftipK, ftipV);
   updSel();
 }
@@ -673,6 +712,7 @@ for (const [k, label, unit, , def] of PARTS) {
     d.classList.remove('err'); S.parts[k] = x; mark(); render();
   });
   d._reset = () => { inp.value = def; S.parts[k] = def; d.classList.remove('err'); mark(); };
+  d._sync = () => { inp.value = S.parts[k]; d.classList.remove('err'); mark(); };
   mark();
 }
 $('reset').onclick = () => { document.querySelectorAll('.pf').forEach(d => d._reset()); render(); };
@@ -685,22 +725,70 @@ $('showRef').checked = S.showRef; $('showRef').onchange = e => { S.showRef = e.t
 $('showFig').checked = S.showFig; $('showFig').onchange = e => { S.showFig = e.target.checked; render(); };
 $('pMax').onclick = () => { S.knobs = {...S.knobs, t:10,m:10,b:10,e0:5,e1:5,e2:5,e3:5,e4:5}; updKnobs(); render(); };
 $('pMid').onclick = () => { S.knobs = {...S.knobs, t:5,m:5,b:5,e0:5,e1:5,e2:5,e3:5,e4:5}; updKnobs(); render(); };
-$('snap').onclick = () => { const v = vals(); cmp = {kn:{...S.knobs}, v, mode:S.mode, data:curve(S.knobs, v)}; render(); };
+$('snap').onclick = () => { const v = vals(); cmp = {kn:{...S.knobs}, v, mode:S.mode, inp:S.sw.inp, data:curve(S.knobs, v)}; render(); };
+
+// ---------- Voreinstellungen mit Namen (im Browser gespeichert, getrennt vom laufenden Zustand) ----------
+const PKEY = 'b100ts-presets';
+let PRESETS; try { PRESETS = JSON.parse(localStorage.getItem(PKEY) || '[]'); if (!Array.isArray(PRESETS)) PRESETS = []; } catch (e) { PRESETS = []; }
+const psave = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRESETS)); } catch (e) { $('pstatus').textContent = 'Speichern im Browser nicht möglich (Speicher voll oder gesperrt).'; } };
+const pstate = () => ({ knobs: {...S.knobs}, sw: {...S.sw}, parts: {...S.parts} });
+const pvalid = q => q && typeof q === 'object' && q.knobs && q.parts;
+const pfs = () => [...document.querySelectorAll('.pf')];
+function papply(q) {
+  for (const k in DEF.knobs) if (typeof q.knobs[k] === 'number') S.knobs[k] = Math.max(0, Math.min(10, q.knobs[k]));
+  S.sw = { inp: q.sw && q.sw.inp === 'low' ? 'low' : 'high' };
+  for (const p of PARTS) { const x = q.parts[p[0]]; if (typeof x === 'number' && x > 0) S.parts[p[0]] = x; }
+  pfs().forEach(d => d._sync());
+  updKnobs(); render();
+}
+function plist(selectName) {
+  const sel = $('preset'); sel.innerHTML = '<option value="">– keine –</option>';
+  PRESETS.forEach((q, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = q.name; sel.appendChild(o); });
+  const i = PRESETS.findIndex(q => q.name === selectName); sel.value = i >= 0 ? String(i) : '';
+  $('pupd').disabled = $('pdel').disabled = sel.value === ''; $('pexp').disabled = PRESETS.length === 0;
+}
+$('preset').onchange = e => { const q = PRESETS[+e.target.value]; $('pupd').disabled = $('pdel').disabled = !q; if (q) { papply(q); $('pstatus').textContent = `„${q.name}" geladen.`; } };
+$('psave').onclick = () => {
+  const cur = PRESETS[+$('preset').value]; let name = prompt('Name der Voreinstellung:', cur ? cur.name : ''); if (name === null) return; name = name.trim().slice(0, 60); if (!name) return;
+  const i = PRESETS.findIndex(q => q.name === name);
+  if (i >= 0) { if (!confirm(`„${name}" gibt es schon. Überschreiben?`)) return; PRESETS[i] = { name, ...pstate() }; } else PRESETS.push({ name, ...pstate() });
+  PRESETS.sort((a, b) => a.name.localeCompare(b.name, 'de')); psave(); plist(name); $('pstatus').textContent = `„${name}" gespeichert.`;
+};
+$('pupd').onclick = () => { const q = PRESETS[+$('preset').value]; if (!q) return; Object.assign(q, pstate()); psave(); $('pstatus').textContent = `„${q.name}" überschrieben.`; };
+$('pdel').onclick = () => { const i = +$('preset').value, q = PRESETS[i]; if (!q || !confirm(`„${q.name}" löschen?`)) return; PRESETS.splice(i, 1); psave(); plist(''); $('pstatus').textContent = `„${q.name}" gelöscht.`; };
+$('pexp').onclick = () => {
+  const blob = new Blob([JSON.stringify({ format: 'b100ii-presets', version: 1, presets: PRESETS }, null, 1)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'b100ii-voreinstellungen.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+$('pimp').onclick = () => $('pfile').click();
+$('pfile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); const list = Array.isArray(j) ? j : j && Array.isArray(j.presets) ? j.presets : null; if (!list) throw new Error('kein Voreinstellungs-Format');
+    let n = 0; for (const q of list) { if (!pvalid(q) || typeof q.name !== 'string') continue; let name = q.name.trim().slice(0, 60) || 'Import'; let k = 2; const base = name; while (PRESETS.some(x => x.name === name)) name = `${base} (${k++})`;
+      PRESETS.push({ name, knobs: q.knobs, sw: q.sw, parts: q.parts }); n++; }
+    PRESETS.sort((a, b) => a.name.localeCompare(b.name, 'de')); psave(); plist($('preset').selectedOptions[0] ? $('preset').selectedOptions[0].textContent : '');
+    $('pstatus').textContent = n ? `${n} Voreinstellung${n === 1 ? '' : 'en'} importiert.` : 'Keine gültigen Voreinstellungen in der Datei.';
+  } catch (err) { $('pstatus').textContent = 'Import nicht möglich: ' + (err && err.message ? err.message : 'Datei nicht lesbar.'); }
+};
+plist('');
 $('unsnap').onclick = () => { cmp = null; render(); };
 render();
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
 })();
 (() => {
 const $ = id => document.getElementById(id);
-const A = { ctx:null, node:null, sp:null, eng:null, gain:null, an:null, buf:null, src:null, playing:false, mode:'on', ready:null, fallback:false };
+const A = { ctx:null, node:null, sp:null, eng:null, gain:null, an:null, buf:null, src:null, playing:false, mode:'on', prevMode:'on', ready:null, fallback:false, fname:'', rendering:false };
 const status = t => { const st = $('astatus'); st.textContent = st.dataset.wasm ? t + ' WebAssembly-Kern aktiv.' : t; };
 const params = () => { const q = A.mode === 'cmp' && window.B100.snapshot() ? window.B100.snapshot() : window.B100.current(); return { v: q.v, s: q.s }; };
 function send() {
   if (!A.ctx) return;
-  const msg = {params: params(), bypass: A.mode === 'off'};
+  const msg = {params: params(), bypass: A.mode === 'off', match: $('amatch').checked};
   if (A.node) A.node.port.postMessage(msg);
-  if (A.eng) { A.eng.setTarget(msg.params); A.bypass = msg.bypass; }
+  if (A.eng) { A.eng.setTarget(msg.params); A.bypass = msg.bypass; A.match = msg.match; A.ing = msg.params.s.ing || 1; }
 }
+const wasmBin = (() => { let bin = null, tried = false; return () => { if (tried) return bin; tried = true;
+  const b64 = document.getElementById('wasmcore'); if (b64 && typeof WebAssembly === 'object') { try { bin = Uint8Array.from(atob(b64.textContent.trim()), c => c.charCodeAt(0)); } catch (e) { bin = null; } } return bin; }; })();
 async function ensureCtx() {
   if (A.ready) return A.ready;
   A.ready = (async () => {
@@ -715,8 +803,8 @@ async function ensureCtx() {
     if (A.ctx.audioWorklet && !forceFallback) {
       try {
         await A.ctx.audioWorklet.addModule('b100ii-worklet.js');
-        A.node = new AudioWorkletNode(A.ctx, 'b100ii-tonestack', {numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[2], channelCount:2, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{params: params(), bypass: A.mode === 'off'}});
-        { const b64 = document.getElementById('wasmcore'); if (b64 && typeof WebAssembly === 'object') { const bin = Uint8Array.from(atob(b64.textContent.trim()), c => c.charCodeAt(0)); A.wasm = null;
+        A.node = new AudioWorkletNode(A.ctx, 'b100ii-tonestack', {numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[2], channelCount:2, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{params: params(), bypass: A.mode === 'off', match: $('amatch').checked}});
+        { const bin = wasmBin(); if (bin) { A.wasm = null;
             A.node.port.addEventListener('message', ev => { if (ev.data && 'wasm' in ev.data) { A.wasm = !!ev.data.wasm; if (A.wasm) { const st = $('astatus'); if (st && !st.dataset.wasm) { st.dataset.wasm = '1'; st.textContent = (st.textContent + ' WebAssembly-Kern aktiv.').trim(); } } } }); A.node.port.start(); A.node.port.postMessage({ wasm: bin.buffer }); } }
         A.node.connect(A.gain);
         workletOk = true;
@@ -724,18 +812,20 @@ async function ensureCtx() {
     }
     if (!workletOk) {
       // Ausweichbetrieb (z. B. ohne HTTPS): derselbe Rechenkern im Hauptthread
-      A.fallback = true; A.eng = new B100DSP.LaneyEngine(A.ctx.sampleRate); A.mix = 1; A.bypass = false; A.eng.setTarget(params());
+      A.fallback = true; A.eng = new B100DSP.LaneyEngine(A.ctx.sampleRate); A.mix = 1; A.bypass = false; A.match = $('amatch').checked; A.ing = params().s.ing || 1; A.ingCur = A.ing; A.eng.setTarget(params());
+      A.msDry = 0; A.msAmp = 0; A.gMatch = 1; const avgk = 1 / (1.0 * A.ctx.sampleRate);
       A.sp = A.ctx.createScriptProcessor(2048, 2, 2);
       A.sp.onaudioprocess = e => {
         const ib = e.inputBuffer, ob = e.outputBuffer, len = ob.length, eng = A.eng;
         const i0 = ib.getChannelData(0), i1 = ib.getChannelData(ib.numberOfChannels > 1 ? 1 : 0), o0 = ob.getChannelData(0), o1 = ob.getChannelData(1);
-        const target = A.bypass ? 0 : 1, step = 1 / (0.02 * A.ctx.sampleRate); let mix = A.mix;
+        const target = A.bypass ? 0 : 1, step = 1 / (0.02 * A.ctx.sampleRate), gd = A.match ? A.gMatch : 1, gstep = Math.abs(A.ing - A.ingCur) / (0.02 * A.ctx.sampleRate); let mix = A.mix, md = A.msDry, ma = A.msAmp, ing = A.ingCur;
         for (let n = 0; n < len; n++) {
-          const u = 0.5 * (i0[n] + i1[n]); eng.tick(); const y = eng.step(u);      // Mono, wie im Audio-Thread
+          const u = 0.5 * (i0[n] + i1[n]); eng.tick(); if (ing < A.ing) ing = Math.min(A.ing, ing + gstep); else if (ing > A.ing) ing = Math.max(A.ing, ing - gstep); const y = eng.step(u) * ing;      // Mono, wie im Audio-Thread; Eingangsteiler HIGH/LOW
+          md += avgk * (u * u - md); ma += avgk * (y * y - ma);
           if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
-          o0[n] = o1[n] = mix * y + (1 - mix) * u;
+          o0[n] = o1[n] = mix * y + (1 - mix) * gd * u;
         }
-        A.mix = mix;
+        A.mix = mix; A.ingCur = ing; A.msDry = md; A.msAmp = ma; if (!A.bypass && md > 1e-8 && ma > 1e-8) A.gMatch = Math.min(100, Math.max(0.01, Math.sqrt(ma / md)));
       };
       A.sp.connect(A.gain);
     }
@@ -750,7 +840,7 @@ async function loadFile(file) {
   try {
     await ensureCtx();
     const buf = await A.ctx.decodeAudioData(await file.arrayBuffer());
-    A.buf = buf; A.peaks = makePeaks(buf); A.offset = 0; $('wave').hidden = false; setButtons(); drawWave(); $('wavec').setAttribute('aria-valuemax', Math.round(buf.duration));
+    A.buf = buf; A.fname = file.name; A.peaks = makePeaks(buf); A.offset = 0; $('wave').hidden = false; setButtons(); drawWave(); $('wavec').setAttribute('aria-valuemax', Math.round(buf.duration));
     const sec = buf.duration, mm = Math.floor(sec / 60), ss = Math.round(sec % 60);
     $('aname').textContent = `${file.name} · ${mm}:${String(ss).padStart(2, '0')} · ${buf.numberOfChannels === 1 ? 'mono' : 'stereo'}`;
     $('aplay').disabled = false;
@@ -788,9 +878,65 @@ const drop = $('drop');
 ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 $('aplay').onclick = () => A.playing ? pause() : play();
-document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => {
-  A.mode = b.dataset.lm; document.querySelectorAll('[data-lm]').forEach(x => x.setAttribute('aria-pressed', x === b)); send();
+function setMode(m) {
+  if (m !== 'off') A.prevMode = m;
+  A.mode = m; document.querySelectorAll('[data-lm]').forEach(x => x.setAttribute('aria-pressed', x.dataset.lm === m));
+  const bp = $('abyp'), on = m === 'off'; bp.setAttribute('aria-pressed', on ? 'true' : 'false'); bp.textContent = on ? 'Bypass: an (Original)' : 'Bypass: aus';
+  send();
+}
+document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => setMode(b.dataset.lm));
+const toggleBypass = () => { if (!A.buf) return; let back = A.prevMode; if (back === 'cmp' && document.querySelector('[data-lm="cmp"]').disabled) back = 'on'; setMode(A.mode === 'off' ? back : 'off'); };
+$('abyp').onclick = toggleBypass;
+$('amatch').onchange = () => send();
+document.addEventListener('keydown', e => {   // Taste B: Bypass, auch während der Wiedergabe
+  if (e.key !== 'b' && e.key !== 'B') return; const t = e.target, tag = t && t.tagName; if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || (t && t.isContentEditable) || e.ctrlKey || e.metaKey || e.altKey) return;
+  toggleBypass(); e.preventDefault();
 });
+
+// ---------- Herunterladen: Datei einmal durch die Schaltung rechnen (Offline-Rendering mit demselben Kern wie die Wiedergabe) ----------
+function wav24(y, fs) {   // WAV, 1 Kanal, 24 Bit PCM
+  const n = y.length, bytes = 44 + n * 3, b = new ArrayBuffer(bytes), v = new DataView(b), w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, bytes - 8, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, fs, true); v.setUint32(28, fs * 3, true); v.setUint16(32, 3, true); v.setUint16(34, 24, true); w(36, 'data'); v.setUint32(40, n * 3, true);
+  let o = 44; for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, y[i])); let q = Math.round(x * 8388607); if (q < 0) q += 16777216; v.setUint8(o, q & 255); v.setUint8(o + 1, (q >> 8) & 255); v.setUint8(o + 2, (q >> 16) & 255); o += 3; }
+  return b;
+}
+async function renderThroughAmp(prm, onProgress) {
+  const fs = A.ctx.sampleRate, n = A.buf.length, dur = A.buf.duration;
+  if (!A.fallback && window.OfflineAudioContext && window.AudioWorkletNode) {
+    const oc = new OfflineAudioContext(1, n, fs); await oc.audioWorklet.addModule('b100ii-worklet.js');
+    const node = new AudioWorkletNode(oc, 'b100ii-tonestack', { numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1], channelCount:1, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{ params: prm, bypass: false, match: false } });
+    const bin = A.wasm ? wasmBin() : null;
+    if (bin) await new Promise((res, rej) => { node.port.onmessage = e => { if (e.data && 'wasm' in e.data) { if (e.data.wasm) res(); else rej(new Error('WebAssembly-Kern: ' + e.data.error)); } }; node.port.start(); node.port.postMessage({ wasm: bin.buffer }); });
+    node.port.postMessage({ params: prm, bypass: false, match: false });
+    const src = oc.createBufferSource(); src.buffer = A.buf; src.connect(node); node.connect(oc.destination); src.start(0);
+    let timer = 0;
+    if (typeof oc.suspend === 'function') { for (let t = 1; t < dur; t += 1) { const tt = t; oc.suspend(tt).then(() => { onProgress(tt / dur); oc.resume(); }).catch(() => {}); } }
+    else { const t0 = performance.now(); timer = setInterval(() => onProgress(-((performance.now() - t0) / 1000)), 500); }   // Firefox kennt suspend() nicht: verstrichene Zeit statt Prozent
+    try { const out = await oc.startRendering(); return out.getChannelData(0); } finally { if (timer) clearInterval(timer); }
+  }
+  const eng = new B100DSP.LaneyEngine(fs); eng.setTarget(prm); const ing = prm.s.ing || 1;
+  const c0 = A.buf.getChannelData(0), c1 = A.buf.getChannelData(A.buf.numberOfChannels > 1 ? 1 : 0), y = new Float32Array(n), B = 4096;
+  for (let p = 0; p < n; p += B) { const e = Math.min(n, p + B); for (let i = p; i < e; i++) { eng.tick(); y[i] = eng.step(0.5 * (c0[i] + c1[i])) * ing; }
+    onProgress(e / n); await new Promise(r => setTimeout(r, 0)); }
+  return y;
+}
+async function download() {
+  if (!A.buf || A.rendering) return;
+  A.rendering = true; setButtons(); const st = $('adlstatus'); st.textContent = 'Rechne … 0 %';
+  try {
+    const prm = params(); const t0 = performance.now();
+    const y = await renderThroughAmp(prm, f => { st.textContent = f >= 0 ? 'Rechne … ' + Math.round(f * 100) + ' %' : 'Rechne … ' + Math.round(-f) + ' s'; });
+    const g = Math.pow(10, +$('avol').value / 20); let pk = 0; for (let i = 0; i < y.length; i++) { y[i] *= g; const a = Math.abs(y[i]); if (a > pk) pk = a; }
+    let note = ''; if (pk > 0.999) { const k = 0.999 / pk; for (let i = 0; i < y.length; i++) y[i] *= k; note = ` Um ${(20 * Math.log10(pk)).toFixed(1).replace('.', ',')} dB abgesenkt, damit nichts übersteuert.`; pk = 0.999; }
+    const base = (A.fname || 'audio').replace(/\.[^.]+$/, ''), name = base + '-b100ii.wav';
+    const blob = new Blob([wav24(y, A.ctx.sampleRate)], { type: 'audio/wav' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+    st.textContent = `Gespeichert: ${name} (mono, 24 Bit, ${A.ctx.sampleRate} Hz, Spitze ${(20 * Math.log10(pk)).toFixed(1).replace('.', ',')} dBFS, Eingang ${prm.s.ing < 1 ? 'LOW' : 'HIGH'}${A.mode === 'cmp' ? ', gemerkte Einstellung' : ''}, ${((performance.now() - t0) / 1000).toFixed(1).replace('.', ',')} s).${note}`;
+  } catch (err) { st.textContent = 'Herunterladen nicht möglich: ' + (err && err.message ? err.message : err); }
+  finally { A.rendering = false; setButtons(); }
+}
+$('adl').onclick = download;
 $('avol').oninput = e => { const d = +e.target.value; $('avolv').textContent = (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' dB';
   if (A.gain) A.gain.gain.setTargetAtTime(Math.pow(10, d / 20), A.ctx.currentTime, 0.02); };
 let lastKey = null;
@@ -837,7 +983,7 @@ function drawWave() {
   $('atime').textContent = fmtT(pos()) + ' / ' + fmtT(dur()); cv.setAttribute('aria-valuenow', Math.round(pos())); cv.setAttribute('aria-valuetext', fmtT(pos()) + ' von ' + fmtT(dur()));
 }
 function animate() { drawWave(); if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }
-function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd']) $(id).disabled = !on;
+function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd','abyp']) $(id).disabled = !on; $('adl').disabled = !on || A.rendering;
   $('aplay').textContent = A.playing ? '❚❚ Pause' : '▶ Abspielen'; $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
 function startSource(from) {
   A.src = A.ctx.createBufferSource(); A.src.buffer = A.buf; A.src.loop = $('aloop').checked;

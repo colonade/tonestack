@@ -25,12 +25,15 @@ Simulation zweier Bassverstärker von Nutzer: **Yamaha B100-115II** (Transistor-
 ## Prüfung der Verzerrung (2026-10-29)
 Anlass: Ein Nutzer hörte bei einer Gitarrendatei „nur die Spitzen stark verzerrt, der Rest sauber". Gemessen am C++-Kern: Löser konvergiert in jedem Teilschritt, keine numerischen Sprünge; die steilen Flanken entstehen in der Schaltung (V102A aus der Sperrung, V102B kippt, Kathodenfolger). Übergang sauber → stark verzerrt liegt innerhalb von 6 bis 12 dB Eingangspegel (Preamp 2, alles 5: Körper −12 dB THD −36 dB, Spitze 100 mV THD −15 dB; Preamp 1 Volume 1/1: −28 / −12 dB; LOW-Eingang −67 dB). Normalisierung der Datei ist unerheblich, weil der Spitzenwert immer dem Regler „Spitzenpegel" gleichgesetzt wird. Unsicher bleiben VT1-Durchlasswiderstand und fehlende Netzteil-Nachgiebigkeit. Werkzeuge dazu im Verlauf: Sinus-THD-Tabelle und Burst-Test mit `engine/build/harness`.
 
+Gitterstopper vor V102B/V103B wurden am 2026-10-29 im Kern eingebaut, gemessen (wirkungslos: < 0,3 dB THD, weil 470 kΩ/1 MΩ schon vor den Gittern liegen; die Spitzen entstehen durch Sperren der Röhren) und auf Wunsch wieder entfernt (Commit f84a11a, Revert fbbbc0b). Wirksam gegen den harten Einsatz: C3 an V101B weglassen (Preamp 2: Spitze −16 → −31 dB THD, −2 dB Pegel), 5751/12AY7 in V101, LOW-Eingang.
+Mit der Datei des Nutzers (Strum, Crest 24 dB, Spitzen = gedämpfte Anschläge, 74 % der Zeit unter −20 dB): Preamp 2 alles 5 folgt der Hüllkurve fast exakt, nur die obersten 6 dB jedes Anschlags werden begrenzt; Preamp 1 Volume 2/2 komprimiert die Ausklingphase auf −20…−30 dB. Verhalten der Schaltung, kein Fehler.
+
 ## Ideen, die besprochen, aber nicht gebaut wurden
 - CLAP-Plugin für den Yamaha (Kern vorhanden, Parameter und Oberfläche fehlen).
 - Logic (AU) über ein JUCE-Projekt, zu bauen auf einem Mac; Pro Tools (AAX) wegen Avid-Signierung nicht sinnvoll.
 - Farben für die Röhrentasten im CLAP-Plugin (Web/App haben sie: grau, grün, blau, orange, violett).
 - Englische Fassung von Web und App.
-- Bypass/Download/Einklappen auch für die Yamaha-Seite und die Laney-App (App braucht Signaturschlüssel).
+- Apps (Laney, Yamaha) auf den Web-Stand 2026-10-29-3 bringen (Bypass, Download, Voreinstellungen, Yamaha-Buchsen); braucht Signaturschlüssel. Yamaha-CLAP: Eingangsfaktor ING wäre dort als Parameter zu ergänzen.
 
 ## Versionsstand
-Web 2026-10-29-1 (Laney: Bypass mit Pegelangleich, WAV-Download durch den Verstärker, Bauteilwerte eingeklappt; App noch auf Stand 2026-10-10) · Apps 2.10 (versionCode 21) · CLAP 3.4 · JSFX eingefroren · letzter Commit siehe `git log`.
+Web 2026-10-29-3 (Laney und Yamaha: Bypass-Taste B mit Pegelangleich, WAV-Download durch die Schaltung (auch Firefox), Voreinstellungen mit Namen inkl. JSON-Export/-Import, Bauteilwerte eingeklappt; Yamaha zusätzlich HIGH/LOW-Buchsen auf dem Foto, LOW = −12,2 dB nach Schaltplan JK-Board und Service Manual Tabelle 3; Apps noch auf Stand 2026-10-10) · Apps 2.10 (versionCode 21) · CLAP 3.4 · JSFX eingefroren · letzter Commit siehe `git log`.

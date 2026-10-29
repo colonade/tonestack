@@ -189,17 +189,30 @@
     class B100Processor extends AudioWorkletProcessor {
       constructor(options) {
         super(); this.eng = new LaneyEngine(sampleRate); this.bypass = false; this.mix = 1; this.rep = 0;
+        // Bypass mit Pegelangleich (Effektivwerte, 1 s) und Eingangsteiler HIGH/LOW (ing, über 20 ms geglättet)
+        this.match = true; this.msDry = 0; this.msAmp = 0; this.gMatch = 1; this.avg = 1 / (1.0 * sampleRate); this.ing = 1; this.ingCur = 1;
         const init = options && options.processorOptions;
-        if (init && init.params) this.eng.setTarget(init.params);
+        if (init && init.params) { this.eng.setTarget(init.params); this.ing = this.ingCur = init.params.s && init.params.s.ing || 1; }
         if (init && 'bypass' in init) { this.bypass = !!init.bypass; this.mix = this.bypass ? 0 : 1; }
-        this.weng = null; this.last = null; this.mono = new Float32Array(128);
+        if (init && 'match' in init) this.match = !!init.match;
+        this.weng = null; this.last = init && init.params ? init.params : null; this.mono = new Float32Array(128);
         this.port.onmessage = e => { const m = e.data;
           if (m.wasm) { const imports = { wasi_snapshot_preview1: { fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, proc_exit: () => {} } };
             WebAssembly.instantiate(m.wasm, imports).then(r => { const inst = r.instance || r; this.weng = new WasmEngine(inst, sampleRate); if (this.last) this.weng.setTarget(this.last); this.port.postMessage({ wasm: true }); })
               .catch(err => this.port.postMessage({ wasm: false, error: String(err) })); return; }
-          if (m.params) { this.last = m.params; if (this.weng) this.weng.setTarget(m.params); else this.eng.setTarget(m.params); }
-          if ('bypass' in m) this.bypass = !!m.bypass; };
+          if (m.params) { this.last = m.params; this.ing = m.params.s && m.params.s.ing || 1; if (this.weng) this.weng.setTarget(m.params); else this.eng.setTarget(m.params); }
+          if ('bypass' in m) this.bypass = !!m.bypass;
+          if ('match' in m) this.match = !!m.match; };
       }
+      finish(dry, amp, len) {   // Pegelverhältnis nachführen (nur solange der Klangregler hörbar ist), Mischung mit dem Original
+        let md = this.msDry, ma = this.msAmp; const k = this.avg;
+        for (let n = 0; n < len; n++) { md += k * (dry[n] * dry[n] - md); ma += k * (amp[n] * amp[n] - ma); }
+        this.msDry = md; this.msAmp = ma;
+        if (!this.bypass && md > 1e-8 && ma > 1e-8) this.gMatch = Math.min(100, Math.max(0.01, Math.sqrt(ma / md)));
+        return this.match ? this.gMatch : 1;
+      }
+      applyIng(buf, len) { let g = this.ingCur; const t = this.ing, st = Math.abs(t - g) / (0.02 * sampleRate);
+        for (let n = 0; n < len; n++) { if (g < t) g = Math.min(t, g + st); else if (g > t) g = Math.max(t, g - st); buf[n] *= g; } this.ingCur = g; }
       process(inputs, outputs) {
         const inp = inputs[0], out = outputs[0], eng = this.eng;
         if (!inp || inp.length === 0 || (!this.weng && !eng.sys)) { for (const ch of out) ch.fill(0); return true; }
@@ -207,16 +220,20 @@
         if (this.weng && this.weng.ready) {
           if (this.mono.length < len) this.mono = new Float32Array(len); const mo = this.mono;
           for (let n = 0; n < len; n++) { let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; mo[n] = u / inp.length; }
-          const dry = Float32Array.from(mo.subarray(0, len)); this.weng.process(mo, len);
+          const dry = Float32Array.from(mo.subarray(0, len)); this.weng.process(mo, len); this.applyIng(mo, len); const gd = this.finish(dry, mo, len);
           for (let n = 0; n < len; n++) { if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
-            const o = mix * mo[n] + (1 - mix) * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o; }
+            const o = mix * mo[n] + (1 - mix) * gd * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o; }
           this.mix = mix; return true;
         }
+        if (this.mono.length < 2 * len) this.mono = new Float32Array(2 * len); const dry = this.mono.subarray(0, len), wet = this.mono.subarray(len, 2 * len);
         for (let n = 0; n < len; n++) {
           let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; u /= inp.length;     // Mono
-          eng.tick(); const y = eng.step(u);
+          eng.tick(); dry[n] = u; wet[n] = eng.step(u);
+        }
+        this.applyIng(wet, len); const gd = this.finish(dry, wet, len);
+        for (let n = 0; n < len; n++) {
           if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
-          const o = mix * y + (1 - mix) * u; for (let c = 0; c < out.length; c++) out[c][n] = o;
+          const o = mix * wet[n] + (1 - mix) * gd * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o;
         }
         this.mix = mix;
         return true;
