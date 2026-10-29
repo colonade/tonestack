@@ -215,6 +215,7 @@ table.chk td.z{color:var(--ink2)}
 .wave canvas:focus{outline:none}
 .wave canvas:focus-visible{box-shadow:inset 0 0 0 2px #FFD34D}
 .player{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+.abyp[aria-pressed="true"]{background:#E0382A;color:#fff;border-color:#E0382A}
 .atime{font-variant-numeric:tabular-nums;color:var(--ink2);min-width:7.5em}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -321,6 +322,12 @@ select{max-width:100%}
     <span class="atime" id="atime">0:00 / 0:00</span>
     <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
   </div>
+  <div class="player" id="player2">
+    <button class="btn abyp" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Verstärker umschalten">Bypass: aus</button>
+    <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Verstärkerausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten), damit der Vergleich die Klangfarbe zeigt und nicht die Lautstärke"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
+    <button class="btn" type="button" id="adl" disabled title="Die Datei einmal durch den Verstärker rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">Durch den Verstärker gerechnet herunterladen (WAV)</button>
+    <span class="note" id="adlstatus" aria-live="polite"></span>
+  </div>
   <div class="abar">
     <div class="seg lseg" role="group" aria-label="Was ist zu hören">
       <button type="button" data-lm="on" aria-pressed="true">Mit Vorverstärker</button>
@@ -338,10 +345,12 @@ select{max-width:100%}
   <details class="exp"><summary>Hinweise zu Pegel und Verarbeitung</summary>
   <div id="linnotes">
   <p class="note">Der Spitzenwert der Audiodatei wird dem eingestellten Instrumentenpegel gleichgesetzt. Den kennt der Simulator nicht; er hängt stark von Instrument und Spielweise ab und lässt sich am genauesten mit einem Oszilloskop am Instrumentenkabel messen. Grenze je Stufe: Die Spannung zwischen Gitter und Kathode erreicht die Vorspannung aus dem Schaltplan. Sobald eine Stufe übersteuert, ist das Signal dahinter in Wirklichkeit schon begrenzt; maßgeblich ist die erste rote Stufe.</p>
+  <p class="note">Bypass (auch Taste B) schaltet knackfrei zwischen Originaldatei und Verstärker um; mit „Pegel angleichen" bekommt das Original die Lautstärke des Verstärkerausgangs, sonst spielt es mit seinem eigenen Pegel. „Herunterladen" rechnet die Datei einmal vollständig durch denselben Kern wie die Wiedergabe (aktuelle Einstellung einschließlich Lautstärkeregler) und speichert sie als WAV, mono, 24 Bit, in der Abtastrate der Wiedergabe.</p>
   <p class="note">Die Datei wird nur in deinem Browser verarbeitet und nirgendwohin hochgeladen, in Mono gerechnet und im Loop abgespielt. Die Wiedergabe ist auf die Grundstellung des jeweiligen Kanals eingepegelt; Regler, Boosts und Master ändern die Lautstärke also wie am echten Verstärker. Beim Kanalwechsel rechnet der Simulator den neuen Kanal zuerst auf das laufende Signal ein und blendet dann über, deshalb setzt er etwa 20 bis 40 ms verzögert ein.</p>
   </div>
   <div id="nlnotes" hidden>
   <p class="note">Der Spitzenwert der Audiodatei wird dem eingestellten Instrumentenpegel gleichgesetzt; er bestimmt, wie stark die Röhren ausgesteuert werden. Die Anzeige zeigt die tatsächlich gerechnete Aussteuerung jeder Stufe: Spitze der Gitter-Kathoden-Spannung gegenüber ihrem Ruhewert, im Verhältnis zur Vorspannung im Arbeitspunkt des Modells. Die Übersteuerung vorheriger Stufen ist dabei schon enthalten.</p>
+  <p class="note">Bypass (auch Taste B) schaltet knackfrei zwischen Originaldatei und Verstärker um; mit „Pegel angleichen" bekommt das Original die Lautstärke des Verstärkerausgangs, sonst spielt es mit seinem eigenen Pegel. „Herunterladen" rechnet die Datei einmal vollständig durch denselben Kern wie die Wiedergabe (aktuelle Einstellung einschließlich Lautstärkeregler) und speichert sie als WAV, mono, 24 Bit, in der Abtastrate der Wiedergabe.</p>
   <p class="note">Die Datei wird nur in deinem Browser verarbeitet und nirgendwohin hochgeladen, in Mono gerechnet und im Loop abgespielt. Die Lautstärke folgt dem Instrumentenpegel wie am echten Verstärker; Vollaussteuerung entspricht 20 V am Ausgang des Vorverstärkers. Bei Kanalwechsel oder beim Ein- und Ausschalten der Verzerrung startet eine frische Schaltung im Ruhezustand und wird über 30 ms eingeblendet.</p>
   <p class="note">Warum Volume-Regler hier oft kaum lauter machen: Übersteuert eine Röhrenstufe, begrenzt sie den Pegel. Ein Regler davor (Preamp 1 Volume, Preamp 2 Volume) ändert dann vor allem, wie stark sie verzerrt, und kaum die Lautstärke. Gerechnet in Preamp 2: Preamp 2 Volume von 10 auf 2 senkt den Pegel bei 0,1 mV Instrumentenpegel um 13,8 dB, bei 10 mV nur noch um 0,9 dB. Master Volume und Preamp 1 Level liegen hinter allen Röhrenstufen und ändern die Lautstärke immer voll. So verhält sich auch ein echter Verstärker mit Master-Regler.</p>
   </div>
@@ -362,9 +371,11 @@ select{max-width:100%}
     <label class="opt"><input type="checkbox" id="mod"> <span>Werte aus dem Bass-Umbau verwenden: C2, C3, C14 (Stand Umbau-PDF Revision 5)</span></label>
     <label class="opt"><input type="checkbox" id="pa"> <span>Effektweg + Endstufe einrechnen: Phasenumkehr V104 mit Gegenkopplung und Presence (C201, C202, C18, C19, C20, C21/C22, R38, R105, VR108, C110; Endröhren und Übertrager linear als Gp)</span></label>
     
-    <div class="parts" id="parts"></div>
+    <details class="exp" id="partsexp"><summary>Bauteilwerte im Einzelnen (Widerstände, Kondensatoren, Röhrenkennwerte)</summary>
+    <div class="parts" id="parts" style="margin-top:8px"></div>
     <p class="note" style="margin-top:10px">Geänderte Werte sind blau markiert. Der Umbau tauscht nur Kondensatoren, deren wirksame Grenzfrequenz im Original über 35 Hz liegt (C3 Pol 229 Hz, C14 rund 75 Hz, C2 in Preamp 2 50,7 Hz). Nicht mehr enthalten, weil schon unter 35 Hz: C6, C9, C13 sowie in der Endstufe C21/C22 (25,8 / 25,2 Hz) und C19 (15,9 Hz). Ihre Werte lassen sich im Bauteilfeld weiterhin von Hand ändern. C19 wird nicht gerechnet: Er liegt in der Gegenkopplung über den Ausgangsübertrager, ohne dessen Daten lässt sich seine Wirkung nicht bestimmen.</p>
     <button class="btn" type="button" id="reset">Originalwerte wiederherstellen</button>
+    </details>
   </section>
   <section>
     <h2>Was die Schalter gerade bewirken</h2>
@@ -968,7 +979,7 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
 (() => {
 const $ = id => document.getElementById(id);
 const DSP_STAGES = [['V101A', '1. Stufe', 1.6], ['V101B', '2. Stufe', 1.7], ['V102A', '3. Stufe', 3.1], ['V102B', '4. Stufe', 1.0], ['V103B', 'nach dem Klangregler', 1.0]];
-const A = { ctx:null, node:null, sp:null, eng:null, gain:null, an:null, buf:null, peak:1, src:null, playing:false, mode:'on', ready:null, fallback:false };
+const A = { ctx:null, node:null, sp:null, eng:null, gain:null, an:null, buf:null, peak:1, src:null, playing:false, mode:'on', prevMode:'on', ready:null, fallback:false, fname:'', rendering:false };
 const status = t => { $('astatus').textContent = t; };
 const vinVolt = () => Math.pow(10, +$('avin').value) / 1000;
 const params = () => {
@@ -977,9 +988,9 @@ const params = () => {
 };
 function send() {
   if (!A.ctx) return;
-  const msg = { params: params(), bypass: A.mode === 'off' };
+  const msg = { params: params(), bypass: A.mode === 'off', match: $('amatch').checked };
   if (A.node) A.node.port.postMessage(msg);
-  if (A.eng) { A.eng.setTarget(msg.params); A.bypass = msg.bypass; }
+  if (A.eng) { A.eng.setTarget(msg.params); A.bypass = msg.bypass; A.match = msg.match; }
 }
 // Stufenanzeige
 const st = $('stages');
@@ -993,6 +1004,8 @@ function showPeaks(r) {
     $('sv' + i).classList.toggle('over', x >= 1 && A.playing);
   });
 }
+const wasmBin = (() => { let bin = null, tried = false; return () => { if (tried) return bin; tried = true;
+  const b64 = document.getElementById('wasmcore'); if (b64 && typeof WebAssembly === 'object') { try { bin = Uint8Array.from(atob(b64.textContent.trim()), c => c.charCodeAt(0)); } catch (e) { bin = null; } } return bin; }; })();
 async function ensureCtx() {
   if (A.ready) return A.ready;
   A.ready = (async () => {
@@ -1007,8 +1020,8 @@ async function ensureCtx() {
     if (A.ctx.audioWorklet && !forceFallback) {
       try {
         await A.ctx.audioWorklet.addModule('laney-worklet.js');
-        A.node = new AudioWorkletNode(A.ctx, 'laney-preamp', {numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[2], channelCount:2, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{params: params(), bypass: A.mode === 'off'}});
-        { const b64 = document.getElementById('wasmcore'); if (b64 && typeof WebAssembly === 'object') { const bin = Uint8Array.from(atob(b64.textContent.trim()), c => c.charCodeAt(0)); A.wasm = null;
+        A.node = new AudioWorkletNode(A.ctx, 'laney-preamp', {numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[2], channelCount:2, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{params: params(), bypass: A.mode === 'off', match: $('amatch').checked}});
+        { const bin = wasmBin(); if (bin) { A.wasm = null;
             A.node.port.addEventListener('message', ev => { if (ev.data && 'wasm' in ev.data) { A.wasm = !!ev.data.wasm; updOs(); } }); A.node.port.start(); A.node.port.postMessage({ wasm: bin.buffer }); } }
         A.node.port.onmessage = e => { if (e.data.peaks) showPeaks(e.data.peaks); };
         A.node.connect(A.gain);
@@ -1016,19 +1029,21 @@ async function ensureCtx() {
       } catch (err) { A.node = null; }   // z. B. wenn das Modul nicht geladen werden kann: Ausweichbetrieb
     }
     if (!workletOk) {
-      A.fallback = true; A.eng = new LaneyDSP.LaneyEngine(A.ctx.sampleRate); A.mix = 1; A.bypass = false; A.eng.setTarget(params());
+      A.fallback = true; A.eng = new LaneyDSP.LaneyEngine(A.ctx.sampleRate); A.mix = 1; A.bypass = false; A.match = $('amatch').checked; A.eng.setTarget(params());
+      A.msDry = 0; A.msAmp = 0; A.gMatch = 1; const avgk = 1 / (1.0 * A.ctx.sampleRate);
       A.sp = A.ctx.createScriptProcessor(2048, 2, 2);
       A.sp.onaudioprocess = e => {
         const ib = e.inputBuffer, ob = e.outputBuffer, len = ob.length, eng = A.eng;
         const i0 = ib.getChannelData(0), i1 = ib.getChannelData(ib.numberOfChannels > 1 ? 1 : 0), o0 = ob.getChannelData(0), o1 = ob.getChannelData(1);
-        const target = A.bypass ? 0 : 1, step = 1 / (0.02 * A.ctx.sampleRate); let mix = A.mix;
+        const target = A.bypass ? 0 : 1, step = 1 / (0.02 * A.ctx.sampleRate), gd = A.match ? A.gMatch : 1; let mix = A.mix, md = A.msDry, ma = A.msAmp;
         eng.work(3072);
         for (let n = 0; n < len; n++) {
           const u = 0.5 * (i0[n] + i1[n]); eng.tick(); const y = eng.step(u);
+          md += avgk * (u * u - md); ma += avgk * (y * y - ma);
           if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
-          o0[n] = o1[n] = mix * y + (1 - mix) * u;
+          o0[n] = o1[n] = mix * y + (1 - mix) * gd * u;
         }
-        A.mix = mix;
+        A.mix = mix; A.msDry = md; A.msAmp = ma; if (!A.bypass && md > 1e-8 && ma > 1e-8) A.gMatch = Math.min(100, Math.max(0.01, Math.sqrt(ma / md)));
       };
       setInterval(() => { if (A.playing) showPeaks(A.eng.takePeaks()); }, 100);
       A.sp.connect(A.gain);
@@ -1045,7 +1060,7 @@ async function loadFile(file) {
     const buf = await A.ctx.decodeAudioData(await file.arrayBuffer());
     const c0 = buf.getChannelData(0), c1 = buf.getChannelData(buf.numberOfChannels > 1 ? 1 : 0); let pk = 0;
     for (let i = 0; i < c0.length; i++) { const m = Math.abs(0.5 * (c0[i] + c1[i])); if (m > pk) pk = m; }
-    A.buf = buf; A.peaks = makePeaks(buf); A.offset = 0; $('wave').hidden = false; setButtons(); drawWave(); $('wavec').setAttribute('aria-valuemax', Math.round(buf.duration)); A.peak = pk > 0 ? pk : 1; send();
+    A.buf = buf; A.fname = file.name; A.peaks = makePeaks(buf); A.offset = 0; $('wave').hidden = false; setButtons(); drawWave(); $('wavec').setAttribute('aria-valuemax', Math.round(buf.duration)); A.peak = pk > 0 ? pk : 1; send();
     const sec = buf.duration, mm = Math.floor(sec / 60), ss = Math.round(sec % 60);
     $('aname').textContent = `${file.name} · ${mm}:${String(ss).padStart(2, '0')} · ${buf.numberOfChannels === 1 ? 'mono' : 'stereo, wird zu mono gemischt'}`;
     $('aplay').disabled = false;
@@ -1082,9 +1097,65 @@ const drop = $('drop');
 ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 $('aplay').onclick = () => A.playing ? pause() : play();
-document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => {
-  A.mode = b.dataset.lm; document.querySelectorAll('[data-lm]').forEach(x => x.setAttribute('aria-pressed', x === b)); send();
+function setMode(m) {
+  if (m !== 'off') A.prevMode = m;
+  A.mode = m; document.querySelectorAll('[data-lm]').forEach(x => x.setAttribute('aria-pressed', x.dataset.lm === m));
+  const bp = $('abyp'), on = m === 'off'; bp.setAttribute('aria-pressed', on ? 'true' : 'false'); bp.textContent = on ? 'Bypass: an (Original)' : 'Bypass: aus';
+  send();
+}
+document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => setMode(b.dataset.lm));
+const toggleBypass = () => { if (!A.buf) return; let back = A.prevMode; if (back === 'cmp' && document.querySelector('[data-lm="cmp"]').disabled) back = 'on'; setMode(A.mode === 'off' ? back : 'off'); };
+$('abyp').onclick = toggleBypass;
+$('amatch').onchange = () => send();
+document.addEventListener('keydown', e => {   // Taste B: Bypass, auch während der Wiedergabe
+  if (e.key !== 'b' && e.key !== 'B') return; const t = e.target, tag = t && t.tagName; if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || (t && t.isContentEditable) || e.ctrlKey || e.metaKey || e.altKey) return;
+  toggleBypass(); e.preventDefault();
 });
+
+// ---------- Herunterladen: Datei einmal durch den Verstärker rechnen (Offline-Rendering mit demselben Kern wie die Wiedergabe) ----------
+function wav24(y, fs) {   // WAV, 1 Kanal, 24 Bit PCM
+  const n = y.length, bytes = 44 + n * 3, b = new ArrayBuffer(bytes), v = new DataView(b), w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, bytes - 8, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, fs, true); v.setUint32(28, fs * 3, true); v.setUint16(32, 3, true); v.setUint16(34, 24, true); w(36, 'data'); v.setUint32(40, n * 3, true);
+  let o = 44; for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, y[i])); let q = Math.round(x * 8388607); if (q < 0) q += 16777216; v.setUint8(o, q & 255); v.setUint8(o + 1, (q >> 8) & 255); v.setUint8(o + 2, (q >> 16) & 255); o += 3; }
+  return b;
+}
+async function renderThroughAmp(prm, onProgress) {
+  const fs = A.ctx.sampleRate, n = A.buf.length, dur = A.buf.duration;
+  if (!A.fallback && window.OfflineAudioContext && window.AudioWorkletNode) {
+    const oc = new OfflineAudioContext(1, n, fs); await oc.audioWorklet.addModule('laney-worklet.js');
+    const node = new AudioWorkletNode(oc, 'laney-preamp', { numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1], channelCount:1, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{ params: prm, bypass: false, match: false } });
+    const bin = A.wasm ? wasmBin() : null;
+    if (bin) await new Promise((res, rej) => { node.port.onmessage = e => { if (e.data && 'wasm' in e.data) { if (e.data.wasm) res(); else rej(new Error('WebAssembly-Kern: ' + e.data.error)); } }; node.port.start(); node.port.postMessage({ wasm: bin.buffer }); });
+    node.port.postMessage({ params: prm, bypass: false, match: false });
+    const src = oc.createBufferSource(); src.buffer = A.buf; src.connect(node); node.connect(oc.destination); src.start(0);
+    for (let t = 1; t < dur; t += 1) { const tt = t; oc.suspend(tt).then(() => { onProgress(tt / dur); oc.resume(); }).catch(() => {}); }
+    const out = await oc.startRendering(); return out.getChannelData(0);
+  }
+  // Ausweichbetrieb: Rechenkern im Hauptthread, in Stücken, damit die Seite bedienbar bleibt
+  const eng = new LaneyDSP.LaneyEngine(fs); eng.setTarget(prm);
+  const c0 = A.buf.getChannelData(0), c1 = A.buf.getChannelData(A.buf.numberOfChannels > 1 ? 1 : 0), y = new Float32Array(n), B = 4096;
+  for (let p = 0; p < n; p += B) { eng.work(B); const e = Math.min(n, p + B); for (let i = p; i < e; i++) { eng.tick(); y[i] = eng.step(0.5 * (c0[i] + c1[i])); }
+    onProgress(e / n); await new Promise(r => setTimeout(r, 0)); }
+  return y;
+}
+async function download() {
+  if (!A.buf || A.rendering) return;
+  A.rendering = true; setButtons(); const st = $('adlstatus'); st.textContent = 'Rechne … 0 %';
+  try {
+    const prm = params(); const t0 = performance.now();
+    const y = await renderThroughAmp(prm, f => { st.textContent = 'Rechne … ' + Math.round(f * 100) + ' %'; });
+    const g = Math.pow(10, +$('avol').value / 20); let pk = 0; for (let i = 0; i < y.length; i++) { y[i] *= g; const a = Math.abs(y[i]); if (a > pk) pk = a; }
+    let note = ''; if (pk > 0.999) { const k = 0.999 / pk; for (let i = 0; i < y.length; i++) y[i] *= k; note = ` Um ${(20 * Math.log10(pk)).toFixed(1).replace('.', ',')} dB abgesenkt, damit nichts übersteuert.`; pk = 0.999; }
+    const base = (A.fname || 'audio').replace(/\.[^.]+$/, ''), name = base + '-laney-aor50.wav';
+    const blob = new Blob([wav24(y, A.ctx.sampleRate)], { type: 'audio/wav' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const sw = prm.sw, desc = `${sw.inp === 'low' ? 'LOW' : 'HIGH'}, Preamp ${sw.ch}, ${prm.nl ? 'Röhrenverzerrung ' + prm.os + '-fach' : 'linear'}${A.mode === 'cmp' ? ', gemerkte Einstellung' : ''}`;
+    st.textContent = `Gespeichert: ${name} (mono, 24 Bit, ${A.ctx.sampleRate} Hz, Spitze ${(20 * Math.log10(pk)).toFixed(1).replace('.', ',')} dBFS, ${desc}, ${((performance.now() - t0) / 1000).toFixed(1).replace('.', ',')} s).${note}`;
+  } catch (err) { st.textContent = 'Herunterladen nicht möglich: ' + (err && err.message ? err.message : err); }
+  finally { A.rendering = false; setButtons(); }
+}
+$('adl').onclick = download;
 $('avol').oninput = e => { const d = +e.target.value; $('avolv').textContent = (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' dB';
   if (A.gain) A.gain.gain.setTargetAtTime(Math.pow(10, d / 20), A.ctx.currentTime, 0.02); };
 $('avin').oninput = () => { const mv = Math.pow(10, +$('avin').value); $('avinv').textContent = (mv < 10 ? mv.toFixed(1).replace('.', ',') : Math.round(mv)) + ' mV'; send(); };
@@ -1172,7 +1243,7 @@ function drawWave() {
   $('atime').textContent = fmtT(pos()) + ' / ' + fmtT(dur()); cv.setAttribute('aria-valuenow', Math.round(pos())); cv.setAttribute('aria-valuetext', fmtT(pos()) + ' von ' + fmtT(dur()));
 }
 function animate() { drawWave(); if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }
-function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd']) $(id).disabled = !on;
+function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd','abyp']) $(id).disabled = !on; $('adl').disabled = !on || A.rendering;
   $('aplay').textContent = A.playing ? '❚❚ Pause' : '▶ Abspielen'; $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
 function startSource(from) {
   A.src = A.ctx.createBufferSource(); A.src.buffer = A.buf; A.src.loop = $('aloop').checked;

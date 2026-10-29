@@ -22,11 +22,15 @@ Simulation zweier Bassverstärker von Nutzer: **Yamaha B100-115II** (Transistor-
 - Grundstellung überall: HIGH, Preamp 1 (PULL ON), alle Regler 5, Verzerrung an, 8-fach, Bass-Umbau an, Effektweg + Endstufe an, 3 × ECC83.
 - Offen/unsicher: Gp (Übertragerdaten fehlen), Yamaha 60-Hz-Band rechnet 43 Hz, Yamaha Middle-Hub 3,3 dB gegen 6 ± 3 dB im SM.
 
+## Prüfung der Verzerrung (2026-10-29)
+Anlass: Ein Nutzer hörte bei einer Gitarrendatei „nur die Spitzen stark verzerrt, der Rest sauber". Gemessen am C++-Kern: Löser konvergiert in jedem Teilschritt, keine numerischen Sprünge; die steilen Flanken entstehen in der Schaltung (V102A aus der Sperrung, V102B kippt, Kathodenfolger). Übergang sauber → stark verzerrt liegt innerhalb von 6 bis 12 dB Eingangspegel (Preamp 2, alles 5: Körper −12 dB THD −36 dB, Spitze 100 mV THD −15 dB; Preamp 1 Volume 1/1: −28 / −12 dB; LOW-Eingang −67 dB). Normalisierung der Datei ist unerheblich, weil der Spitzenwert immer dem Regler „Spitzenpegel" gleichgesetzt wird. Unsicher bleiben VT1-Durchlasswiderstand und fehlende Netzteil-Nachgiebigkeit. Werkzeuge dazu im Verlauf: Sinus-THD-Tabelle und Burst-Test mit `engine/build/harness`.
+
 ## Ideen, die besprochen, aber nicht gebaut wurden
 - CLAP-Plugin für den Yamaha (Kern vorhanden, Parameter und Oberfläche fehlen).
 - Logic (AU) über ein JUCE-Projekt, zu bauen auf einem Mac; Pro Tools (AAX) wegen Avid-Signierung nicht sinnvoll.
 - Farben für die Röhrentasten im CLAP-Plugin (Web/App haben sie: grau, grün, blau, orange, violett).
 - Englische Fassung von Web und App.
+- Bypass/Download/Einklappen auch für die Yamaha-Seite und die Laney-App (App braucht Signaturschlüssel).
 
 ## Versionsstand
-Web 2026-10-10-2 · Apps 2.10 (versionCode 21) · CLAP 3.4 · JSFX eingefroren · letzter Commit siehe `git log`.
+Web 2026-10-29-1 (Laney: Bypass mit Pegelangleich, WAV-Download durch den Verstärker, Bauteilwerte eingeklappt; App noch auf Stand 2026-10-10) · Apps 2.10 (versionCode 21) · CLAP 3.4 · JSFX eingefroren · letzter Commit siehe `git log`.
