@@ -1129,8 +1129,10 @@ async function renderThroughAmp(prm, onProgress) {
     if (bin) await new Promise((res, rej) => { node.port.onmessage = e => { if (e.data && 'wasm' in e.data) { if (e.data.wasm) res(); else rej(new Error('WebAssembly-Kern: ' + e.data.error)); } }; node.port.start(); node.port.postMessage({ wasm: bin.buffer }); });
     node.port.postMessage({ params: prm, bypass: false, match: false });
     const src = oc.createBufferSource(); src.buffer = A.buf; src.connect(node); node.connect(oc.destination); src.start(0);
-    for (let t = 1; t < dur; t += 1) { const tt = t; oc.suspend(tt).then(() => { onProgress(tt / dur); oc.resume(); }).catch(() => {}); }
-    const out = await oc.startRendering(); return out.getChannelData(0);
+    let timer = 0;
+    if (typeof oc.suspend === 'function') { for (let t = 1; t < dur; t += 1) { const tt = t; oc.suspend(tt).then(() => { onProgress(tt / dur); oc.resume(); }).catch(() => {}); } }
+    else { const t0 = performance.now(); timer = setInterval(() => onProgress(-((performance.now() - t0) / 1000)), 500); }   // Firefox kennt suspend() nicht: verstrichene Zeit statt Prozent
+    try { const out = await oc.startRendering(); return out.getChannelData(0); } finally { if (timer) clearInterval(timer); }
   }
   // Ausweichbetrieb: Rechenkern im Hauptthread, in Stücken, damit die Seite bedienbar bleibt
   const eng = new LaneyDSP.LaneyEngine(fs); eng.setTarget(prm);
@@ -1144,7 +1146,7 @@ async function download() {
   A.rendering = true; setButtons(); const st = $('adlstatus'); st.textContent = 'Rechne … 0 %';
   try {
     const prm = params(); const t0 = performance.now();
-    const y = await renderThroughAmp(prm, f => { st.textContent = 'Rechne … ' + Math.round(f * 100) + ' %'; });
+    const y = await renderThroughAmp(prm, f => { st.textContent = f >= 0 ? 'Rechne … ' + Math.round(f * 100) + ' %' : 'Rechne … ' + Math.round(-f) + ' s'; });
     const g = Math.pow(10, +$('avol').value / 20); let pk = 0; for (let i = 0; i < y.length; i++) { y[i] *= g; const a = Math.abs(y[i]); if (a > pk) pk = a; }
     let note = ''; if (pk > 0.999) { const k = 0.999 / pk; for (let i = 0; i < y.length; i++) y[i] *= k; note = ` Um ${(20 * Math.log10(pk)).toFixed(1).replace('.', ',')} dB abgesenkt, damit nichts übersteuert.`; pk = 0.999; }
     const base = (A.fname || 'audio').replace(/\.[^.]+$/, ''), name = base + '-laney-aor50.wav';
