@@ -57,10 +57,51 @@ select,input[type=number]{font:inherit;font-size:.92rem;color:var(--ink);backgro
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:var(--ink2);margin:8px 2px 0}
 .legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--curve);vertical-align:middle;margin-right:6px}
 .legend i.c{border-top:2px dashed var(--cmp)} .legend i.r{border-top:1.5px solid var(--ref)}
+
+/* ---------- Gliederung in Tafeln, Farbsystem der Tasten ---------- */
+:root{--go:#2B7A4B;--goink:#fff;--mem:#9A6B12;--memink:#fff;--file:#1D5A94;--fileink:#fff;--red:#B8372A;--redink:#fff;--btnline:#8E9A94}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--go:#3E9D62;--mem:#C99A3A;--memink:#141917;--file:#4F93D6;--fileink:#0E1A26;--red:#D9644F;--btnline:#5E6B65}}
+:root[data-theme="dark"]{--go:#3E9D62;--mem:#C99A3A;--memink:#141917;--file:#4F93D6;--fileink:#0E1A26;--red:#D9644F;--btnline:#5E6B65}
+.jump{display:flex;flex-wrap:wrap;gap:6px 8px;margin:12px 0 4px;padding:0;list-style:none}
+.jump a{font-size:.86rem;text-decoration:none;color:var(--ink);background:var(--paper2);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.jump a:hover{border-color:var(--ink2)}
+.jump a::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--jc,var(--ink2));margin-right:7px;vertical-align:0}
+.jump a[href="#front"]{--jc:var(--ink)}.jump a[href="#sec-plot"]{--jc:var(--curve)}.jump a[href="#listen"]{--jc:var(--go)}.jump a[href="#sec-set"]{--jc:var(--mem)}.jump a[href="#sec-parts"]{--jc:var(--btnline)}
+.panel{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:18px 20px 20px;margin:18px 0 0;scroll-margin-top:12px}
+.panel>h2,.panel>.ph>h2{display:flex;align-items:center;gap:10px;font-stretch:80%;font-weight:700;font-size:1.3rem;letter-spacing:-.01em;margin:0 0 4px}
+.panel>h2::before,.panel>.ph>h2::before{content:"";flex:none;width:9px;height:22px;border-radius:3px;background:var(--acc,var(--ink2))}
+.panel>.ph{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin-bottom:10px}
+.panel>.ph p,.panel>.lead{margin:0 0 12px;font-size:.9rem;color:var(--ink2);max-width:80ch}
+.p-plot{--acc:var(--curve)}.p-listen{--acc:var(--go)}.p-set{--acc:var(--mem)}.p-parts{--acc:var(--btnline)}
+.panel .bar{margin:8px 0 10px}
+.panel .plotbox{border-color:var(--line);background:var(--paper)}
+.setrow{display:grid;grid-template-columns:150px 1fr;gap:8px 16px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.setrow:first-of-type{border-top:0}
+.setrow>b{font-weight:600;font-size:.92rem}
+.setrow>div{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.setrow>div .note{flex-basis:100%;margin:0}
+.listen.panel{margin-top:18px;border-radius:12px;padding:18px 20px 20px}
+.sub{margin:14px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+.sub>h3{margin:0 0 8px;font-size:.95rem;font-stretch:85%}
+footer.panel{border-style:dashed;margin-top:18px;max-width:none}
+.btn{font-weight:500;padding:7px 14px;border-radius:8px;border:1.5px solid var(--btnline);background:var(--field);color:var(--ink);min-height:36px;line-height:1.2}
+.btn:hover{background:var(--paper2)}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn.go,.btn.file,.btn.mem{border-color:transparent;font-weight:600}
+.btn.go{background:var(--go);color:var(--goink)}.btn.file{background:var(--file);color:var(--fileink)}.btn.mem{background:var(--mem);color:var(--memink)}
+.btn.go:hover,.btn.file:hover,.btn.mem:hover{filter:brightness(1.1)}
+.btn.go.o{background:transparent;color:var(--go);border-color:var(--go)}.btn.file.o{background:transparent;color:var(--file);border-color:var(--file)}.btn.mem.o{background:transparent;color:var(--mem);border-color:var(--mem)}
+.btn.go.o:hover,.btn.file.o:hover,.btn.mem.o:hover{background:var(--paper2);filter:none}
+.btn.red{background:transparent;color:var(--red);border-color:var(--red);font-weight:600}
+.btn.red:hover{background:var(--paper2)}
+.btn.red[aria-pressed="true"],.btn.red.f{background:var(--red);color:var(--redink);border-color:transparent}
+.aplay{min-width:130px}
+.aplay[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:transparent}
+.abyp[aria-pressed="true"]{background:var(--red);color:var(--redink);border-color:transparent}
+.seg{border-color:var(--btnline)}.seg button{padding:7px 13px}
+@media (max-width:640px){.setrow{grid-template-columns:1fr;gap:6px}.panel{padding:14px 14px 16px;border-radius:10px}.listen.panel{padding:14px 14px 16px}}
+
 /* Frontplatte */
-.panel{margin-top:22px;border-radius:6px;background:linear-gradient(180deg,var(--alu1),var(--alu2));
-  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,rgba(0,0,0,.035) 1px 3px),linear-gradient(180deg,var(--alu1),var(--alu2));
-  border:1px solid var(--line);padding:18px 18px 14px;display:grid;grid-template-columns:auto 1fr;gap:18px 28px;align-items:center;color:var(--alu-ink)}
 .knobs{display:flex;gap:26px;flex-wrap:wrap}
 .kn{display:flex;flex-direction:column;align-items:center;gap:2px;user-select:none}
 .kn .name{font-stretch:88%;font-weight:600;font-size:.95rem;letter-spacing:.04em}
@@ -239,6 +280,7 @@ select{max-width:100%}
   <p>Der komplette Vorverstärker des AOR 50, von der Eingangsbuchse HIGH bis hinter Master Volume und Preamp 1 Level, nach dem Laney-Schaltplan Drawing 1054 (1985). Mit beiden Kanälen, Mid Boost, Top Boost, Bass Boost und den Kondensatoren aus dem Bass-Umbau.</p>
   </details>
 </header>
+<nav class="jump" aria-label="Abschnitte"><a href="#front">Frontplatte</a><a href="#sec-plot">Frequenzgang</a><a href="#listen">Anhören</a><a href="#sec-set">Einstellungen</a><a href="#sec-parts">Bauteile</a></nav>
 <figure class="front" id="front">
   <div class="frontscroll">
     <div class="frontbox" id="frontbox">
@@ -257,6 +299,8 @@ select{max-width:100%}
 </figure>
 
 
+<section class="panel p-plot" id="sec-plot" aria-labelledby="ph-plot">
+<div class="ph"><h2 id="ph-plot">Frequenzgang</h2><p>Was die aktuelle Einstellung mit dem Signal macht, 20 Hz bis 20 kHz. Zeiger auf die Kurve zeigt den Wert.</p></div>
 <div class="bar">
   <div class="seg" role="group" aria-label="Bezugspegel">
     <button type="button" data-mode="rel1k" aria-pressed="true">Bezogen auf 1 kHz</button>
@@ -284,10 +328,12 @@ select{max-width:100%}
 </div>
 
 <div class="readout solo" id="readout" role="group" aria-label="Pegel bei den markierten Frequenzen"></div>
+</section>
 
-<section class="listen" id="listen" aria-labelledby="lh">
-  <h2 id="lh">Anhören</h2>
-  <div class="warnbox">
+<section class="listen panel p-listen" id="listen" aria-labelledby="lh">
+  <div class="ph"><h2 id="lh">Anhören</h2><p>Eigene Aufnahme durch den Verstärker spielen, umschalten, vergleichen, herunterladen.</p></div>
+  <div class="sub">
+    <h3>Röhrenverzerrung</h3>
     <div class="nlrow">
       <label class="opt" style="margin:0"><input type="checkbox" id="anl" checked> <span><b>Röhrenverzerrung einrechnen (Schätzung)</b></span></label>
       <div class="tubemenu" id="tubesel" aria-label="Röhrenbestückung">
@@ -308,24 +354,24 @@ select{max-width:100%}
   </div>
   <div class="drop" id="drop">
     <input type="file" id="afile" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac" hidden>
-    <button class="btn" type="button" id="apick">Audiodatei wählen</button>
+    <button class="btn file" type="button" id="apick">Audiodatei wählen</button>
     <span id="aname">oder hierher ziehen (MP3, WAV, FLAC, OGG, M4A)</span>
   </div>
   <div class="wave" id="wave" hidden>
     <canvas id="wavec" tabindex="0" role="slider" aria-label="Abspielposition" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
   </div>
   <div class="player" id="player">
-    <button class="btn aplay" type="button" id="aplay" disabled aria-pressed="false">Abspielen</button>
-    <button class="btn" type="button" id="astop" disabled aria-label="Stopp, zurück zum Anfang">■ Stopp</button>
+    <button class="btn aplay go" type="button" id="aplay" disabled aria-pressed="false">Abspielen</button>
+    <button class="btn red" type="button" id="astop" disabled aria-label="Stopp, zurück zum Anfang">■ Stopp</button>
     <button class="btn" type="button" id="aback" disabled aria-label="5 Sekunden zurück">−5 s</button>
     <button class="btn" type="button" id="afwd" disabled aria-label="5 Sekunden vor">+5 s</button>
     <span class="atime" id="atime">0:00 / 0:00</span>
     <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
   </div>
   <div class="player" id="player2">
-    <button class="btn abyp" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Verstärker umschalten">Bypass: aus</button>
+    <button class="btn abyp red" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Verstärker umschalten">Bypass: aus</button>
     <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Verstärkerausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten), damit der Vergleich die Klangfarbe zeigt und nicht die Lautstärke"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
-    <button class="btn" type="button" id="adl" disabled title="Die Datei einmal durch den Verstärker rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">Durch den Verstärker gerechnet herunterladen (WAV)</button>
+    <button class="btn file" type="button" id="adl" disabled title="Die Datei einmal durch den Verstärker rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">Durch den Verstärker gerechnet herunterladen (WAV)</button>
     <span class="note" id="adlstatus" aria-live="polite"></span>
   </div>
   <div class="abar">
@@ -358,22 +404,30 @@ select{max-width:100%}
 
 </section>
 
-<div class="bar">
+<section class="panel p-set" id="sec-set" aria-labelledby="ph-set">
+<div class="ph"><h2 id="ph-set">Einstellungen</h2><p>Regler zurücksetzen, eine Kurve zum Vergleich festhalten, ganze Einstellungen unter Namen speichern.</p></div>
+<div class="setrow"><b>Regler</b><div>
   <button class="btn" type="button" id="pDef">Grundstellung</button>
   <button class="btn" type="button" id="pMid">Alle auf 5</button>
-  <button class="btn" type="button" id="snap">Kurve merken</button>
-  <button class="btn" type="button" id="unsnap" disabled>Gemerkte Kurve entfernen</button>
-</div>
-<div class="bar" id="presets" role="group" aria-label="Voreinstellungen">
-  <label for="preset">Voreinstellung <select id="preset"><option value="">– keine –</option></select></label>
-  <button class="btn" type="button" id="psave" title="Aktuelle Regler, Schalter, Bauteile, Röhren und Endstufe unter einem Namen speichern (im Browser)">Speichern unter …</button>
-  <button class="btn" type="button" id="pupd" disabled title="Gewählte Voreinstellung mit der aktuellen Einstellung überschreiben">Überschreiben</button>
-  <button class="btn" type="button" id="pdel" disabled>Löschen</button>
-  <button class="btn" type="button" id="pexp" disabled title="Alle Voreinstellungen als JSON-Datei speichern, z. B. zum Weitergeben">Exportieren</button>
-  <button class="btn" type="button" id="pimp" title="Voreinstellungen aus einer JSON-Datei hinzufügen">Importieren</button><input type="file" id="pfile" accept=".json,application/json" hidden>
+</div></div>
+<div class="setrow"><b>Vergleichskurve</b><div>
+  <button class="btn mem" type="button" id="snap">Kurve merken</button>
+  <button class="btn mem o" type="button" id="unsnap" disabled>Gemerkte Kurve entfernen</button>
+  <span class="note">Die gemerkte Kurve bleibt gestrichelt im Diagramm und ist unter „Anhören" als „Gemerkte Einstellung" hörbar.</span>
+</div></div>
+<div class="setrow" id="presets" role="group" aria-label="Voreinstellungen"><b><label for="preset">Voreinstellungen</label></b><div>
+  <select id="preset"><option value="">– keine –</option></select>
+  <button class="btn mem" type="button" id="psave" title="Aktuelle Regler, Schalter, Bauteile, Röhren und Endstufe unter einem Namen speichern (im Browser)">Speichern unter …</button>
+  <button class="btn mem o" type="button" id="pupd" disabled title="Gewählte Voreinstellung mit der aktuellen Einstellung überschreiben">Überschreiben</button>
+  <button class="btn red" type="button" id="pdel" disabled>Löschen</button>
+  <button class="btn file o" type="button" id="pexp" disabled title="Alle Voreinstellungen als JSON-Datei speichern, z. B. zum Weitergeben">Exportieren</button>
+  <button class="btn file o" type="button" id="pimp" title="Voreinstellungen aus einer JSON-Datei hinzufügen">Importieren</button><input type="file" id="pfile" accept=".json,application/json" hidden>
   <span class="note" id="pstatus" aria-live="polite"></span>
-</div>
+</div></div>
+</section>
 
+<section class="panel p-parts" id="sec-parts" aria-labelledby="ph-parts">
+<div class="ph"><h2 id="ph-parts">Bauteile und Schalter</h2><p>Umbau-Kondensatoren, Endstufe, einzelne Bauteilwerte, und was jeder Schalter gerade bewirkt.</p></div>
 <div class="cols">
   <section>
     <h2>Bauteilwerte</h2>
@@ -395,8 +449,9 @@ select{max-width:100%}
     <p class="note">Pegeländerung in dB, wenn der jeweilige Schalter zur aktuellen Einstellung umgeschaltet wird. Master Volume ausprobieren: Je weiter er zurückgedreht ist, desto stärker wirken Top Boost und Bass Boost.</p>
   </section>
 </div>
+</section>
 
-<footer class="note">
+<footer class="note panel">
   <details class="exp"><summary>Rechenweg, Kanäle, Eingänge, Annahmen</summary>
   <p style="margin-top:0">Rechenweg: komplexe Knotenanalyse des ganzen Vorverstärkers mit Kleinsignalmodell aller sechs Triodensysteme (V101A bis V103B), 20 Hz bis 20 kHz. Nachgeprüft gegen die bisherige Gesamtrechnung (Preamp 1: Abweichung unter 0,01 dB). Ausgang ist der Schleifer von Preamp 1 Level, der über R201 1 MΩ auf den Operationsverstärker IC203B arbeitet. Dessen feste Verstärkung und die Hallmischung sind nicht enthalten; der Effektweg und der Endstufeneingang gehen auf Wunsch als Hochpässe erster Ordnung ein, ohne die Gegenkopplung der Endstufe, also als Obergrenze der Bassdämpfung.</p>
   <p>Kanäle (im Schaltplan nachverfolgt): Die Fußschalterleitung wird von S103 („Preamp 1 Pullswitch", gezogen) oder vom Fußschalter an Masse gelegt. Dann ist <b>Preamp 1</b> aktiv: Die Anzeige D101 und die LED in VT2 werden über R28 aus der Hilfsspannung (+17…27 V) gespeist, VT2 schaltet Preamp 1 Level zu; der Strom über R32 fließt über D1 ab, VT1 bleibt dunkel, das Signal läuft ungedämpft durch V101A und V101B. Ist die Leitung offen (S103 gedrückt, Grundzustand), ist <b>Preamp 2</b> aktiv: VT1 leuchtet und dämpft das Signal nach V101A über R6 1 kΩ um rund 34 dB, VT2 ist dunkel, Preamp 1 Level ist wirkungslos. Der Ringkontakt des Fußschalters schaltet den Hall stumm (nicht simuliert).</p>
