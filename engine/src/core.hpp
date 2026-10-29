@@ -516,8 +516,41 @@ inline std::vector<TriSS> smallSignal(const Parts &v, const Setting &s, double f
   at(3, 1, P3[2] - P4[1], P4[0] - P4[1]); at(4, 2, P4[0] - P4[2], UB[3] - P4[2]); at(5, 2, P4[3] - P4[5], P4[4] - P4[5]);
   return r;
 }
+// Lautsprecher: Eminence Legend CB158 (Thiele-Small aus dem Datenblatt) im Bassreflexgehäuse der Portaflex-Größe (78 L, Abstimmung 50 Hz,
+// Verlustgüte 7): akustisches Ersatzschaltbild → H(s) = s⁴Ts²Tb² / [(s²Ts²+sTs/Qts+1)(s²Tb²+sTb/Ql+1) + s²·α·Tb²], α = Vas/Vb.
+// Oben: Schwingspuleninduktivität Le/Re (1. Ordnung, 3 kHz) und Membranaufbruch als 2. Ordnung bei 4 kHz (Q 0,7; Schätzung, Datenblatt: nutzbar bis 3 kHz).
+struct SpkModel { double Fs = 34.2, Qts = 0.34, Vas = 336, Vb = 78, Fb = 50, Ql = 7, Re = 6.15, Le = 0.33e-3, fc = 4000, Qc = 0.7; };
+// Bilineare Transformation eines reellen rationalen s-Polynoms (Koeffizienten aufsteigend, Grad ≤ 4) in z (absteigend, a[0] = 1)
+inline void bilinear(const double *bs, const double *as, int n, double fs, double *bz, double *az) {
+  double K = 2 * fs; double num[5] = {0,0,0,0,0}, den[5] = {0,0,0,0,0};
+  // (1 - z^-1)^k (1 + z^-1)^(n-k) ausmultiplizieren
+  for (int k = 0; k <= n; k++) { double poly[5] = {1,0,0,0,0}; int deg = 0;
+    for (int i = 0; i < k; i++) { for (int j = deg + 1; j >= 1; j--) poly[j] -= poly[j-1]; deg++; }      // × (1 − z⁻¹)
+    for (int i = 0; i < n - k; i++) { for (int j = deg + 1; j >= 1; j--) poly[j] += poly[j-1]; deg++; }  // × (1 + z⁻¹)
+    double pk = std::pow(K, k); for (int j = 0; j <= n; j++) { num[j] += bs[k] * pk * poly[j]; den[j] += as[k] * pk * poly[j]; } }
+  for (int j = 0; j <= n; j++) { bz[j] = num[j] / den[0]; az[j] = den[j] / den[0]; }
+}
+struct IIR { int n = 0; double b[5] = {0,0,0,0,0}, a[5] = {1,0,0,0,0}, z[5] = {0,0,0,0,0};
+  double step(double x) { double y = b[0] * x + z[0]; for (int i = 1; i < n; i++) z[i-1] = b[i] * x + z[i] - a[i] * y; z[n-1] = b[n] * x - a[n] * y; return y; }
+  void reset() { for (double &q : z) q = 0; } };
+struct Speaker { IIR lo, le, cone; bool ready = false;
+  void design(double fs, const SpkModel &m = SpkModel()) {
+    double Ts = 1 / (2 * PI * m.Fs), Tb = 1 / (2 * PI * m.Fb), al = m.Vas / m.Vb;
+    double bs[5] = {0, 0, 0, 0, Ts*Ts*Tb*Tb};
+    double as[5] = {1, Ts/m.Qts + Tb/m.Ql, Ts*Ts + Tb*Tb + Ts*Tb/(m.Qts*m.Ql) + al*Tb*Tb, Ts*Ts*Tb/m.Ql + Tb*Tb*Ts/m.Qts, Ts*Ts*Tb*Tb};
+    lo.n = 4; bilinear(bs, as, 4, fs, lo.b, lo.a);
+    double tau = m.Le / m.Re; double b1[2] = {1, 0}, a1[2] = {1, tau}; le.n = 1; bilinear(b1, a1, 1, fs, le.b, le.a);
+    double w0 = 2 * PI * m.fc; double b2[3] = {w0*w0, 0, 0}, a2[3] = {w0*w0, w0/m.Qc, 1}; cone.n = 2; bilinear(b2, a2, 2, fs, cone.b, cone.a);
+    lo.reset(); le.reset(); cone.reset(); ready = true; }
+  double step(double x) { return cone.step(le.step(lo.step(x))); } };
+// Betrag des Lautsprecher-Frequenzgangs (für Diagramme), gleiche Zahlen wie Speaker::design
+inline double spkMag(double f, const SpkModel &m = SpkModel()) {
+  double Ts = 1 / (2 * PI * m.Fs), Tb = 1 / (2 * PI * m.Fb), al = m.Vas / m.Vb, w = 2 * PI * f;
+  double dr = (1 - w*w*Ts*Ts) * (1 - w*w*Tb*Tb) - (w*Ts/m.Qts) * (w*Tb/m.Ql) - w*w*al*Tb*Tb, di = (1 - w*w*Ts*Ts) * (w*Tb/m.Ql) + (w*Ts/m.Qts) * (1 - w*w*Tb*Tb);
+  double lo = (w*w*w*w*Ts*Ts*Tb*Tb) / std::hypot(dr, di), le = 1 / std::hypot(1.0, w * m.Le / m.Re), w0 = 2 * PI * m.fc, cone = w0*w0 / std::hypot(w0*w0 - w*w, w0*w/m.Qc);
+  return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
-struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; };
+struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; };   // spk: Lautsprecher am Ausgang
 struct Norms { double high1 = 35986.334852078886, high2 = 920.5260111823894, low1 = 29.12973364705375, low2 = 37.52073127705745, pa = 5.957573504094253; };
 
 struct PaCore {
@@ -582,13 +615,14 @@ struct NlCore : CoreBase {
 // Moduswechsel (linear/Röhre, Überabtastung, Buchse, Kanal): neue Schaltung rechnet die letzten 150 ms nach und wird über 30 ms eingeblendet
 struct Engine {
   double fs; Tube tube; CoreBase *a = nullptr, *b = nullptr; double xf = 0; std::vector<float> hist; int hpos = 0, hfill = 0; int qpos = 0, qlen = 0, qdone = 0; bool replay = false; Target last; bool hasLast = false;
-  explicit Engine(double fs_) : fs(fs_) { tube.makeTab(); hist.assign((int)std::lround(0.15 * fs), 0); }
+  Speaker spk; bool spkOn = false;
+  explicit Engine(double fs_) : fs(fs_) { tube.makeTab(); hist.assign((int)std::lround(0.15 * fs), 0); spk.design(fs_); }
   ~Engine() { delete a; delete b; }
   static std::string kindOf(bool nl, int os, bool low) { return (nl ? "nl" + std::to_string(os) : std::string("lin")) + (low ? "|low" : "|high"); }
   std::string kindOfCore(const CoreBase *c) const { return kindOf(c->isNl(), c->osOf(), c->lowOf()); }
   CoreBase *make(const Target &t) { CoreBase *c = t.nl ? (CoreBase*)new NlCore(fs, t.os, &tube) : (CoreBase*)new LinCore(fs); c->setTarget(t); return c; }
   void setTarget(const Target &t) {
-    last = t; hasLast = true;
+    last = t; hasLast = true; if (t.spk != spkOn) { spkOn = t.spk; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); }
     std::string kind = kindOf(t.nl, t.os, t.s.low > 0.5);
     if (!a) { a = make(t); return; }
     CoreBase *newest = b ? b : a;
@@ -606,6 +640,7 @@ struct Engine {
       a->tick(); double y = a->step(x);
       if (b) { b->tick(); double yb = b->step(x);
         if (!replay) { xf += 1.0 / (0.03 * fs); if (xf >= 1) { delete a; a = b; b = nullptr; y = yb; } else y = y * (1 - xf) + yb * xf; } }
+      if (spkOn) y = spk.step(y);
       buf[i] = (float)-y;   // Polarität wie am Eingang: der Vorverstärker (5 invertierende Stufen) dreht das Signal, für Aufnahme und Vergleich wird das hier aufgehoben
     }
   }

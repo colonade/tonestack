@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.5
+Version 3.6
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -76,6 +76,17 @@ Idle
   in linear mode about 1 s. On the next note it continues from the resting
   state, so the result does not depend on whether or how long it slept
   (deviation from uninterrupted processing below -115 dB).
+
+Speaker (since 3.6)
+  The SPEAKER button in the tube row (also the parameter "Speaker") adds a
+  15" bass speaker after the preamp/power amp: Eminence Legend CB158, Thiele-
+  Small data from the data sheet (Fs 34 Hz, Qts 0.34, Vas 336 l, Re 6.15 ohm,
+  Le 0.33 mH), in a 78 l vented box tuned to 50 Hz, the size of an Ampeg
+  Portaflex cabinet and Eminence's own recommendation for this driver. The
+  low end is the acoustic equivalent circuit (-3 dB at 61 Hz, +1.7 dB around
+  100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
+  second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
+  The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
 Polarity and latency (since 3.5)
   The output has the same polarity as the input. The preamp itself inverts

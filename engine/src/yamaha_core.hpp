@@ -55,33 +55,6 @@ inline LinSys buildY(const YParts &v, const YSetting &s, double fs) {
 // weiches Knie ab 38 V. Ausgangselko 2200 µF an 8 Ω: Hochpass 9 Hz. Vollaussteuerung der Ausgabe = 48 V (Reserve für die Kippung des Ausgangselkos).
 constexpr double G_TR101 = 8.7, G_MA = 83.0, V_KNEE = 38.0, V_LIM = 42.0, V_FS = 48.0;
 inline double clipMA(double x) { double a = std::fabs(x); if (a <= V_KNEE) return x; double y = V_KNEE + (V_LIM - V_KNEE) * std::tanh((a - V_KNEE) / (V_LIM - V_KNEE)); return x < 0 ? -y : y; }
-// Lautsprecher: Eminence Legend CB158 (Thiele-Small aus dem Datenblatt) im Bassreflexgehäuse der Portaflex-Größe (78 L, Abstimmung 50 Hz,
-// Verlustgüte 7): akustisches Ersatzschaltbild → H(s) = s⁴Ts²Tb² / [(s²Ts²+sTs/Qts+1)(s²Tb²+sTb/Ql+1) + s²·α·Tb²], α = Vas/Vb.
-// Oben: Schwingspuleninduktivität Le/Re (1. Ordnung, 3 kHz) und Membranaufbruch als 2. Ordnung bei 4 kHz (Q 0,7; Schätzung, Datenblatt: nutzbar bis 3 kHz).
-struct SpkModel { double Fs = 34.2, Qts = 0.34, Vas = 336, Vb = 78, Fb = 50, Ql = 7, Re = 6.15, Le = 0.33e-3, fc = 4000, Qc = 0.7; };
-// Bilineare Transformation eines reellen rationalen s-Polynoms (Koeffizienten aufsteigend, Grad ≤ 4) in z (absteigend, a[0] = 1)
-inline void bilinear(const double *bs, const double *as, int n, double fs, double *bz, double *az) {
-  double K = 2 * fs; double num[5] = {0,0,0,0,0}, den[5] = {0,0,0,0,0};
-  // (1 - z^-1)^k (1 + z^-1)^(n-k) ausmultiplizieren
-  for (int k = 0; k <= n; k++) { double poly[5] = {1,0,0,0,0}; int deg = 0;
-    for (int i = 0; i < k; i++) { for (int j = deg + 1; j >= 1; j--) poly[j] -= poly[j-1]; deg++; }      // × (1 − z⁻¹)
-    for (int i = 0; i < n - k; i++) { for (int j = deg + 1; j >= 1; j--) poly[j] += poly[j-1]; deg++; }  // × (1 + z⁻¹)
-    double pk = std::pow(K, k); for (int j = 0; j <= n; j++) { num[j] += bs[k] * pk * poly[j]; den[j] += as[k] * pk * poly[j]; } }
-  for (int j = 0; j <= n; j++) { bz[j] = num[j] / den[0]; az[j] = den[j] / den[0]; }
-}
-struct IIR { int n = 0; double b[5] = {0,0,0,0,0}, a[5] = {1,0,0,0,0}, z[5] = {0,0,0,0,0};
-  double step(double x) { double y = b[0] * x + z[0]; for (int i = 1; i < n; i++) z[i-1] = b[i] * x + z[i] - a[i] * y; z[n-1] = b[n] * x - a[n] * y; return y; }
-  void reset() { for (double &q : z) q = 0; } };
-struct Speaker { IIR lo, le, cone; bool ready = false;
-  void design(double fs, const SpkModel &m = SpkModel()) {
-    double Ts = 1 / (2 * PI * m.Fs), Tb = 1 / (2 * PI * m.Fb), al = m.Vas / m.Vb;
-    double bs[5] = {0, 0, 0, 0, Ts*Ts*Tb*Tb};
-    double as[5] = {1, Ts/m.Qts + Tb/m.Ql, Ts*Ts + Tb*Tb + Ts*Tb/(m.Qts*m.Ql) + al*Tb*Tb, Ts*Ts*Tb/m.Ql + Tb*Tb*Ts/m.Qts, Ts*Ts*Tb*Tb};
-    lo.n = 4; bilinear(bs, as, 4, fs, lo.b, lo.a);
-    double tau = m.Le / m.Re; double b1[2] = {1, 0}, a1[2] = {1, tau}; le.n = 1; bilinear(b1, a1, 1, fs, le.b, le.a);
-    double w0 = 2 * PI * m.fc; double b2[3] = {w0*w0, 0, 0}, a2[3] = {w0*w0, w0/m.Qc, 1}; cone.n = 2; bilinear(b2, a2, 2, fs, cone.b, cone.a);
-    lo.reset(); le.reset(); cone.reset(); ready = true; }
-  double step(double x) { return cone.step(le.step(lo.step(x))); } };
 // Glättung alle 256 Abtastwerte mit Überblendung; Bauteiltausch sofort mit erhaltenen Kondensatorspannungen
 struct YCore {
   double fs; LinRunner r; YSetting cur, tgt; YParts v; bool hasV = false; int cnt = 0;

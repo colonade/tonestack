@@ -583,9 +583,27 @@ const NLAMP = ((NL) => {
   // Verwaltung des Kanalwechsels: Die neue Schaltung startet leer, rechnet die letzten 150 ms Eingangssignal nach
   // (verteilt über mehrere Audioblöcke, damit der Audio-Thread nicht überlastet wird) und wird dann über 30 ms
   // eingeblendet. So sind alle Kondensatoren beim Einblenden eingeschwungen wie im echten Betrieb.
+  // ---------- Lautsprecher (wie im C++-Kern): Eminence Legend CB158 im 78-l-Bassreflex 50 Hz ----------
+  const SPK = { Fs: 34.2, Qts: 0.34, Vas: 336, Vb: 78, Fb: 50, Ql: 7, Re: 6.15, Le: 0.33e-3, fc: 4000, Qc: 0.7 };
+  function bilinear(bs, as, n, fs) {   // s-Polynome (aufsteigend) → z (absteigend, a[0] = 1)
+    const K = 2 * fs, num = [0,0,0,0,0], den = [0,0,0,0,0];
+    for (let k = 0; k <= n; k++) { const poly = [1,0,0,0,0]; let deg = 0;
+      for (let i = 0; i < k; i++) { for (let j = deg + 1; j >= 1; j--) poly[j] -= poly[j-1]; deg++; }
+      for (let i = 0; i < n - k; i++) { for (let j = deg + 1; j >= 1; j--) poly[j] += poly[j-1]; deg++; }
+      const pk = Math.pow(K, k); for (let j = 0; j <= n; j++) { num[j] += bs[k] * pk * poly[j]; den[j] += as[k] * pk * poly[j]; } }
+    const b = [], a = []; for (let j = 0; j <= n; j++) { b.push(num[j] / den[0]); a.push(den[j] / den[0]); } return { n, b, a, z: [0,0,0,0,0] };
+  }
+  const iirStep = (F, x) => { const { n, b, a, z } = F; const y = b[0] * x + z[0]; for (let i = 1; i < n; i++) z[i-1] = b[i] * x + z[i] - a[i] * y; z[n-1] = b[n] * x - a[n] * y; return y; };
+  const iirReset = F => F.z.fill(0);
+  function speakerDesign(fs, m = SPK) {
+    const Ts = 1 / (2 * Math.PI * m.Fs), Tb = 1 / (2 * Math.PI * m.Fb), al = m.Vas / m.Vb;
+    const lo = bilinear([0, 0, 0, 0, Ts*Ts*Tb*Tb], [1, Ts/m.Qts + Tb/m.Ql, Ts*Ts + Tb*Tb + Ts*Tb/(m.Qts*m.Ql) + al*Tb*Tb, Ts*Ts*Tb/m.Ql + Tb*Tb*Ts/m.Qts, Ts*Ts*Tb*Tb], 4, fs);
+    const le = bilinear([1, 0], [1, m.Le / m.Re], 1, fs); const w0 = 2 * Math.PI * m.fc; const cone = bilinear([w0*w0, 0, 0], [w0*w0, w0/m.Qc, 1], 2, fs);
+    return { lo, le, cone, step(x) { return iirStep(cone, iirStep(le, iirStep(lo, x))); }, reset() { iirReset(lo); iirReset(le); iirReset(cone); } };
+  }
   class LaneyEngine {
     constructor(fs) {
-      this.fs = fs; this.a = new Core(fs); this.b = null; this.pend = null; this.x = 0; this.bch = null;
+      this.fs = fs; this.a = new Core(fs); this.b = null; this.pend = null; this.x = 0; this.bch = null; this.spk = false; this.speaker = speakerDesign(fs);
       this.hist = new Float32Array(Math.round(0.15 * fs)); this.hpos = 0; this.hfill = 0;
       this.q = null; this.qlen = 0; this.qpos = 0;
     }
@@ -594,6 +612,7 @@ const NLAMP = ((NL) => {
     chOf(core) { return core.cur.ch1 === 1 ? 1 : 2; }
     kindOf(core) { return (core.nl ? 'nl' + core.os : 'lin') + '|' + (core.cur && core.cur.low ? 'low' : 'high'); }
     setTarget(m) {
+      if (!!m.spk !== this.spk) { this.spk = !!m.spk; this.speaker.reset(); }
       const want = m.sw.ch, kind = (m.nl ? 'nl' + (m.os || 2) : 'lin') + '|' + (m.sw.inp === 'low' ? 'low' : 'high');
       if (this.pend && kind !== this.kindOf(this.pend)) { this.pend = null; this.bch = null; }   // Art während des Nachrechnens erneut geändert: Nachrechnen verwerfen
       if (!this.a.sys || (!this.a.cur)) { if (!m.nl !== !this.a.nl || (m.nl && this.a.os !== (m.os || 2))) this.a = m.nl ? new NlCore(this.fs, m.os || 2) : new Core(this.fs); this.a.setTarget(m); return; }
@@ -642,10 +661,12 @@ const NLAMP = ((NL) => {
     step(u) {
       this.hist[this.hpos] = u; this.hpos = (this.hpos + 1) % this.hist.length; if (this.hfill < this.hist.length) this.hfill++;
       if (this.pend) { if (this.qlen >= this.q.length) { const q2 = new Float32Array(this.q.length * 2); q2.set(this.q); this.q = q2; } this.q[this.qlen++] = u; }
-      const ya = this.a.step(u); if (!this.b) return -ya;   // Polarität wie am Eingang (wie im C++-Kern)
-      const yb = this.b.step(u); this.x += 1 / (0.03 * this.fs);
-      if (this.x >= 1) { this.a = this.b; this.b = null; this.bch = null; return -yb; }
-      return -((1 - this.x) * ya + this.x * yb);
+      const ya = this.a.step(u); let y;
+      if (!this.b) y = ya;
+      else { const yb = this.b.step(u); this.x += 1 / (0.03 * this.fs);
+        if (this.x >= 1) { this.a = this.b; this.b = null; this.bch = null; y = yb; } else y = (1 - this.x) * ya + this.x * yb; }
+      if (this.spk) y = this.speaker.step(y);
+      return -y;   // Polarität wie am Eingang (wie im C++-Kern)
     }
     takePeaks() { return (this.b || this.a).takePeaks(); }
     rebuild() { if (this.a.rebuild) this.a.rebuild(); }
@@ -658,8 +679,8 @@ const NLAMP = ((NL) => {
     setTarget(m) {
       if (this.x.aor_parts_count() !== PORDER.length) throw new Error('Bauteilliste passt nicht zum WebAssembly-Kern');
       const pb = this.f64(this.x.aor_parts_buffer(), PORDER.length); PORDER.forEach((k, i) => pb[i] = m.v[k]);
-      const s = m.s, sw = m.sw, t = [s.v1, s.v2, s.t, s.m, s.b, s.mv, s.pl, s.pres || 0, sw.mid ? 1 : 0, sw.top ? 1 : 0, sw.bass ? 1 : 0, sw.ch === 1 ? 1 : 0, sw.inp === 'low' ? 1 : 0, m.pa ? 1 : 0, m.nl ? m.vin : 1, m.nl ? 1 : 0, m.os || 2, ...((s.tubes && s.tubes.length === 3) ? s.tubes.map(Number) : [0, 0, 0])];
-      const tb = this.f64(this.x.aor_target_buffer(), 20); t.forEach((v, i) => tb[i] = +v);
+      const s = m.s, sw = m.sw, t = [s.v1, s.v2, s.t, s.m, s.b, s.mv, s.pl, s.pres || 0, sw.mid ? 1 : 0, sw.top ? 1 : 0, sw.bass ? 1 : 0, sw.ch === 1 ? 1 : 0, sw.inp === 'low' ? 1 : 0, m.pa ? 1 : 0, m.nl ? m.vin : 1, m.nl ? 1 : 0, m.os || 2, ...((s.tubes && s.tubes.length === 3) ? s.tubes.map(Number) : [0, 0, 0]), m.spk ? 1 : 0];
+      const tb = this.f64(this.x.aor_target_buffer(), 21); t.forEach((v, i) => tb[i] = +v);
       this.x.aor_set_target(); this.ready = true;
     }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.aor_buffer(), n); b.set(buf.subarray(0, n)); this.x.aor_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.aor_buffer(), n)); }
