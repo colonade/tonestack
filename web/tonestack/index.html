@@ -25,6 +25,10 @@ p{color:var(--ink2);max-width:62ch;margin:0 0 26px}
 .card img{flex:none;border-radius:14px}
 .card b{display:block;font-stretch:85%;font-size:1.25rem}
 .card span span{color:var(--ink2);font-size:.95rem}
+.card.dl{border-color:#1D5A94;background:linear-gradient(90deg,rgba(29,90,148,.08),transparent 60%)}
+.card.dl .ico{flex:none;width:72px;height:72px;border-radius:14px;background:#1D5A94;color:#fff;display:grid;place-items:center;font-stretch:80%;font-weight:700;font-size:1.05rem;letter-spacing:.02em}
+.card.dl small{display:block;color:var(--ink2);font-size:.85rem;margin-top:6px}
+h2{font-stretch:80%;font-size:1.15rem;margin:30px 0 10px}
 footer{margin-top:30px;border-top:1px solid var(--line);padding-top:12px;font-size:.82rem;color:var(--ink2)}
 footer a{color:inherit}
 </style>
@@ -41,6 +45,11 @@ footer a{color:inherit}
   <a class="card" href="laney-aor50/">
     <img src="assets/icons/laney-aor50-192.png" alt="" width="72" height="72">
     <span><b>Laney AOR 50 Vorverstärker</b><span>Kompletter Röhren-Vorverstärker mit beiden Kanälen, Boosts, Umbau-Kondensatoren und Anhören eigener Audiodateien, optional mit geschätzter Röhrenverzerrung.</span></span>
+  </a>
+  <h2>Für die DAW</h2>
+  <a class="card dl" href="download/Laney_AOR50_CLAP-3.5.zip" download>
+    <span class="ico">CLAP</span>
+    <span><b>Laney AOR 50 Preamp als REAPER-Plugin</b><span>Derselbe Rechenkern wie der Simulator als natives CLAP-Plugin für Linux x86-64 (REAPER 7, Bitwig, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl.</span><small>Version 3.5 · ZIP, 0,3 MB · Installation: <code>Laney_AOR50.clap</code> nach <code>~/.clap</code> kopieren, in REAPER unter Preferences › Plug-ins › CLAP neu scannen. Anleitung liegt bei (README.txt). Braucht glibc 2.38 oder neuer, also Ubuntu 24.04, Debian 13 oder vergleichbar.</small></span>
   </a>
   <footer>Kleinsignalrechnung, gültig solange nichts verzerrt; Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
 </main>

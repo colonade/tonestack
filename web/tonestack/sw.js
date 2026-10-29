@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-10-29-6";
+const VERSION = "2026-10-29-7";
 const FILES = [
   "./",
   "index.html",
@@ -25,7 +25,7 @@ self.addEventListener("activate", e => {
 });
 // Netz zuerst (immer aktuell), bei fehlender Verbindung aus dem Zwischenspeicher
 self.addEventListener("fetch", e => {
-  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
+  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin || new URL(e.request.url).pathname.includes("/download/")) return;   // Downloads nicht zwischenspeichern
   e.respondWith(fetch(e.request).then(r => {
     if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
     return r;
