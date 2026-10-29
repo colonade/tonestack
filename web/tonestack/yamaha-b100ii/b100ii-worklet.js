@@ -163,13 +163,45 @@
   // Verwaltung des Kanalwechsels: Die neue Schaltung startet leer, rechnet die letzten 150 ms Eingangssignal nach
   // (verteilt über mehrere Audioblöcke, damit der Audio-Thread nicht überlastet wird) und wird dann über 30 ms
   // eingeblendet. So sind alle Kondensatoren beim Einblenden eingeschwungen wie im echten Betrieb.
-  class LaneyEngine {                 // einfache Hülle: nur eine Schaltung, kein Kanalwechsel
-    constructor(fs) { this.fs = fs; this.a = new Core(fs); }
+  // ---------- Endstufe (MA-Board) und Lautsprecher, wie im C++-Kern (yamaha_core.hpp) ----------
+  // Kette geeicht an Service Manual Tabelle 3: TR101 8,7-fach, PA-Board laut Netz, MA-Board 1 + 820 kΩ/10 kΩ = 83-fach; Begrenzung ±42 V (Knie ab 38 V),
+  // Ausgangselko 2200 µF an 8 Ω (Hochpass 9 Hz), Vollaussteuerung = 48 V. Lautsprecher: Eminence Legend CB158 (Thiele-Small) im 78-L-Bassreflexgehäuse, 50 Hz.
+  const G_TR101 = 8.7, G_MA = 83.0, V_KNEE = 38.0, V_LIM = 42.0, V_FS = 48.0;
+  const clipMA = x => { const a = Math.abs(x); if (a <= V_KNEE) return x; const y = V_KNEE + (V_LIM - V_KNEE) * Math.tanh((a - V_KNEE) / (V_LIM - V_KNEE)); return x < 0 ? -y : y; };
+  const SPK = { Fs: 34.2, Qts: 0.34, Vas: 336, Vb: 78, Fb: 50, Ql: 7, Re: 6.15, Le: 0.33e-3, fc: 4000, Qc: 0.7 };
+  function bilinear(bs, as, n, fs) {   // s-Polynome (aufsteigend) → z (absteigend, a[0] = 1)
+    const K = 2 * fs, num = [0,0,0,0,0], den = [0,0,0,0,0];
+    for (let k = 0; k <= n; k++) { const poly = [1,0,0,0,0]; let deg = 0;
+      for (let i = 0; i < k; i++) { for (let j = deg + 1; j >= 1; j--) poly[j] -= poly[j-1]; deg++; }
+      for (let i = 0; i < n - k; i++) { for (let j = deg + 1; j >= 1; j--) poly[j] += poly[j-1]; deg++; }
+      const pk = Math.pow(K, k); for (let j = 0; j <= n; j++) { num[j] += bs[k] * pk * poly[j]; den[j] += as[k] * pk * poly[j]; } }
+    const b = [], a = []; for (let j = 0; j <= n; j++) { b.push(num[j] / den[0]); a.push(den[j] / den[0]); } return { n, b, a, z: [0,0,0,0,0] };
+  }
+  const iirStep = (F, x) => { const { n, b, a, z } = F; const y = b[0] * x + z[0]; for (let i = 1; i < n; i++) z[i-1] = b[i] * x + z[i] - a[i] * y; z[n-1] = b[n] * x - a[n] * y; return y; };
+  const iirReset = F => F.z.fill(0);
+  function speakerDesign(fs, m = SPK) {
+    const Ts = 1 / (2 * Math.PI * m.Fs), Tb = 1 / (2 * Math.PI * m.Fb), al = m.Vas / m.Vb;
+    const lo = bilinear([0, 0, 0, 0, Ts*Ts*Tb*Tb], [1, Ts/m.Qts + Tb/m.Ql, Ts*Ts + Tb*Tb + Ts*Tb/(m.Qts*m.Ql) + al*Tb*Tb, Ts*Ts*Tb/m.Ql + Tb*Tb*Ts/m.Qts, Ts*Ts*Tb*Tb], 4, fs);
+    const le = bilinear([1, 0], [1, m.Le / m.Re], 1, fs); const w0 = 2 * Math.PI * m.fc; const cone = bilinear([w0*w0, 0, 0], [w0*w0, w0/m.Qc, 1], 2, fs);
+    return { lo, le, cone, step(x) { return iirStep(cone, iirStep(le, iirStep(lo, x))); }, reset() { iirReset(lo); iirReset(le); iirReset(cone); } };
+  }
+  class LaneyEngine {                 // einfache Hülle: Schaltung plus Endstufe/Lautsprecher
+    constructor(fs) { this.fs = fs; this.a = new Core(fs); this.vin = 0.1; this.ing = 1; this.ingCur = 1; this.pwr = false; this.spk = false; this.pkPre = 0;
+      this.speaker = speakerDesign(fs); this.hpOut = bilinear([0, 2200e-6 * 8], [1, 2200e-6 * 8], 1, fs); }
     get sys() { return this.a.sys; }
     get cur() { return this.a.cur; }
-    setTarget(m) { this.a.setTarget(m); }
+    setTarget(m) { this.a.setTarget(m); const s = m.s || {}; this.vin = s.vin > 0 ? s.vin : 0.1; this.ing = s.ing > 0 ? s.ing : 1;
+      if (!!s.pwr !== this.pwr) { this.pwr = !!s.pwr; iirReset(this.hpOut); } if (!!s.spk !== this.spk) { this.spk = !!s.spk; this.speaker.reset(); } }
     tick() { this.a.tick(); }
-    step(u) { return -this.a.step(u); }   // Polarität wie am Eingang (wie im C++-Kern)
+    step(u) {
+      const t = this.ing, st = 1.0 / (0.02 * this.fs); if (this.ingCur < t) this.ingCur = Math.min(t, this.ingCur + st); else if (this.ingCur > t) this.ingCur = Math.max(t, this.ingCur - st);
+      let y;
+      if (this.pwr) { const vo = this.a.step(u * this.vin * this.ingCur * G_TR101) * G_MA; const a = Math.abs(vo); if (a > this.pkPre) this.pkPre = a; y = iirStep(this.hpOut, clipMA(vo)) / V_FS; }
+      else y = this.a.step(u) * this.ingCur;
+      if (this.spk) y = this.speaker.step(y);
+      return -y;   // Polarität wie am Eingang (wie im C++-Kern)
+    }
+    takePeak() { const p = this.pkPre; this.pkPre = 0; return p; }
     work() {}
     rebuild() { this.a.rebuild(); }
   }
@@ -181,7 +213,8 @@
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
     setTarget(m) { const pb = this.f64(this.x.y_parts_buffer(), PORDER.length); PORDER.forEach((k, i) => pb[i] = m.v[k]);
       const s = m.s, eq = Array.isArray(s.eq) ? s.eq : [s.e0, s.e1, s.e2, s.e3, s.e4];
-      const tb = this.f64(this.x.y_target_buffer(), 9); [s.t, s.b, s.m, s.vol, ...eq].forEach((x, i) => tb[i] = +x); this.x.y_set_target(); this.ready = true; }
+      const tb = this.f64(this.x.y_target_buffer(), 13); [s.t, s.b, s.m, s.vol, ...eq, s.vin > 0 ? s.vin : 0.1, s.ing > 0 ? s.ing : 1, s.pwr ? 1 : 0, s.spk ? 1 : 0].forEach((x, i) => tb[i] = +x); this.x.y_set_target(); this.ready = true; }
+    takePeak() { return this.x.y_take_peak ? this.x.y_take_peak() : 0; }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.y_buffer(), n); b.set(buf.subarray(0, n)); this.x.y_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.y_buffer(), n)); }
   }
   const api = { build, LaneyEngine, WasmEngine };
@@ -190,9 +223,9 @@
       constructor(options) {
         super(); this.eng = new LaneyEngine(sampleRate); this.bypass = false; this.mix = 1; this.rep = 0;
         // Bypass mit Pegelangleich (Effektivwerte, 1 s) und Eingangsteiler HIGH/LOW (ing, über 20 ms geglättet)
-        this.match = true; this.msDry = 0; this.msAmp = 0; this.gMatch = 1; this.avg = 1 / (1.0 * sampleRate); this.ing = 1; this.ingCur = 1;
+        this.match = true; this.msDry = 0; this.msAmp = 0; this.gMatch = 1; this.avg = 1 / (1.0 * sampleRate);
         const init = options && options.processorOptions;
-        if (init && init.params) { this.eng.setTarget(init.params); this.ing = this.ingCur = init.params.s && init.params.s.ing || 1; }
+        if (init && init.params) this.eng.setTarget(init.params);
         if (init && 'bypass' in init) { this.bypass = !!init.bypass; this.mix = this.bypass ? 0 : 1; }
         if (init && 'match' in init) this.match = !!init.match;
         this.weng = null; this.last = init && init.params ? init.params : null; this.mono = new Float32Array(128);
@@ -200,7 +233,7 @@
           if (m.wasm) { const imports = { wasi_snapshot_preview1: { fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, proc_exit: () => {} } };
             WebAssembly.instantiate(m.wasm, imports).then(r => { const inst = r.instance || r; this.weng = new WasmEngine(inst, sampleRate); if (this.last) this.weng.setTarget(this.last); this.port.postMessage({ wasm: true }); })
               .catch(err => this.port.postMessage({ wasm: false, error: String(err) })); return; }
-          if (m.params) { this.last = m.params; this.ing = m.params.s && m.params.s.ing || 1; if (this.weng) this.weng.setTarget(m.params); else this.eng.setTarget(m.params); }
+          if (m.params) { this.last = m.params; if (this.weng) this.weng.setTarget(m.params); else this.eng.setTarget(m.params); }
           if ('bypass' in m) this.bypass = !!m.bypass;
           if ('match' in m) this.match = !!m.match; };
       }
@@ -211,8 +244,7 @@
         if (!this.bypass && md > 1e-8 && ma > 1e-8) this.gMatch = Math.min(100, Math.max(0.01, Math.sqrt(ma / md)));
         return this.match ? this.gMatch : 1;
       }
-      applyIng(buf, len) { let g = this.ingCur; const t = this.ing, st = Math.abs(t - g) / (0.02 * sampleRate);
-        for (let n = 0; n < len; n++) { if (g < t) g = Math.min(t, g + st); else if (g > t) g = Math.max(t, g - st); buf[n] *= g; } this.ingCur = g; }
+
       process(inputs, outputs) {
         const inp = inputs[0], out = outputs[0], eng = this.eng;
         if (!inp || inp.length === 0 || (!this.weng && !eng.sys)) { for (const ch of out) ch.fill(0); return true; }
@@ -220,22 +252,22 @@
         if (this.weng && this.weng.ready) {
           if (this.mono.length < len) this.mono = new Float32Array(len); const mo = this.mono;
           for (let n = 0; n < len; n++) { let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; mo[n] = u / inp.length; }
-          const dry = Float32Array.from(mo.subarray(0, len)); this.weng.process(mo, len); this.applyIng(mo, len); const gd = this.finish(dry, mo, len);
+          const dry = Float32Array.from(mo.subarray(0, len)); this.weng.process(mo, len); const gd = this.finish(dry, mo, len);
           for (let n = 0; n < len; n++) { if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
             const o = mix * mo[n] + (1 - mix) * gd * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o; }
-          this.mix = mix; return true;
+          this.mix = mix; if ((this.rep += len) >= sampleRate / 10) { this.rep = 0; this.port.postMessage({ peak: this.weng.takePeak() }); } return true;
         }
         if (this.mono.length < 2 * len) this.mono = new Float32Array(2 * len); const dry = this.mono.subarray(0, len), wet = this.mono.subarray(len, 2 * len);
         for (let n = 0; n < len; n++) {
           let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; u /= inp.length;     // Mono
           eng.tick(); dry[n] = u; wet[n] = eng.step(u);
         }
-        this.applyIng(wet, len); const gd = this.finish(dry, wet, len);
+        const gd = this.finish(dry, wet, len);
         for (let n = 0; n < len; n++) {
           if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
           const o = mix * wet[n] + (1 - mix) * gd * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o;
         }
-        this.mix = mix;
+        this.mix = mix; if ((this.rep += len) >= sampleRate / 10) { this.rep = 0; this.port.postMessage({ peak: eng.takePeak() }); }
         return true;
       }
     }
