@@ -642,10 +642,10 @@ const NLAMP = ((NL) => {
     step(u) {
       this.hist[this.hpos] = u; this.hpos = (this.hpos + 1) % this.hist.length; if (this.hfill < this.hist.length) this.hfill++;
       if (this.pend) { if (this.qlen >= this.q.length) { const q2 = new Float32Array(this.q.length * 2); q2.set(this.q); this.q = q2; } this.q[this.qlen++] = u; }
-      const ya = this.a.step(u); if (!this.b) return ya;
+      const ya = this.a.step(u); if (!this.b) return -ya;   // Polarität wie am Eingang (wie im C++-Kern)
       const yb = this.b.step(u); this.x += 1 / (0.03 * this.fs);
-      if (this.x >= 1) { this.a = this.b; this.b = null; this.bch = null; return yb; }
-      return (1 - this.x) * ya + this.x * yb;
+      if (this.x >= 1) { this.a = this.b; this.b = null; this.bch = null; return -yb; }
+      return -((1 - this.x) * ya + this.x * yb);
     }
     takePeaks() { return (this.b || this.a).takePeaks(); }
     rebuild() { if (this.a.rebuild) this.a.rebuild(); }

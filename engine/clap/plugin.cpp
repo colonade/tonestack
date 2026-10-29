@@ -31,6 +31,7 @@ struct Plugin {
   std::atomic<double> load{0}; std::atomic<double> pk[5]; double pkAcc[5] = {0,0,0,0,0}; int pkCnt = 0; std::vector<float> mono2;
   long quiet = 0; std::atomic<bool> sleeping{false};   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1;
+  uint32_t latencyReported = 0;   // zuletzt dem Host gemeldete Latenz (Überabtastungsfilter)
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::deque<std::pair<int,double>> guiQ; double guiW = 1200, guiH = 0; std::string diagTxt;
   Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)std::lround(val[P_TAPER]);
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
@@ -113,7 +114,7 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 // ---- Plugin ----
 static bool pl_init(const clap_plugin_t *) { return true; }
 static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gui) { pl->gui->destroy(); delete pl->gui; } if (pl->dpy) XCloseDisplay(pl->dpy); delete pl->eng; delete pl->eng2; delete pl; }
-static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; return true; }
+static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->latencyReported = (pl->val[P_NL].load() > 0.5 && std::lround(pl->val[P_OS].load()) > 0) ? 31 : 0; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *) { return true; }
 static void pl_stop(const clap_plugin_t *) {}
@@ -177,15 +178,20 @@ static void g_suggest_title(const clap_plugin_t *, const char *) {}
 static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
 static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); if (!pl->gui) return false; pl->gui->hide(); return true; }
 static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_destroy, g_set_scale, g_get_size, g_can_resize, g_resize_hints, g_adjust_size, g_set_size, g_set_parent, g_set_transient, g_suggest_title, g_show, g_hide};
-static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); if (pl->gui) { upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); pl->gui->pump(); } }
+// Latenz: Polyphasen-Eingangsfilter (15,5) plus Ausgangsfilter (16 − 1/os) Abtastwerte, nur mit Verzerrung und Überabtastung; sonst 0
+static uint32_t g_latency(const clap_plugin_t *p) { Plugin *pl = P(p); bool nl = pl->val[P_NL].load() > 0.5; int o = (int)std::lround(pl->val[P_OS].load()); return (nl && o > 0) ? 31 : 0; }
+static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
+static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p);
+  { uint32_t l = g_latency(p); if (l != pl->latencyReported) { pl->latencyReported = l; auto *hl = (const clap_host_latency_t*)pl->host->get_extension(pl->host, CLAP_EXT_LATENCY); if (hl) hl->changed(pl->host); } }
+  if (pl->gui) { upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); pl->gui->pump(); } }
 static const clap_plugin_timer_support_t EXT_TIMER = {on_timer};
 
 static const void *pl_ext(const clap_plugin_t *, const char *id) {
   if (!std::strcmp(id, CLAP_EXT_GUI)) return &EXT_GUI; if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &EXT_TIMER;
-  if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
+  if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_MONO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.4", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.5", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

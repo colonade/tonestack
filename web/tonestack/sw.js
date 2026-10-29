@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-10-29-5";
+const VERSION = "2026-10-29-6";
 const FILES = [
   "./",
   "index.html",

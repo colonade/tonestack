@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.4
+Version 3.5
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -76,6 +76,15 @@ Idle
   in linear mode about 1 s. On the next note it continues from the resting
   state, so the result does not depend on whether or how long it slept
   (deviation from uninterrupted processing below -115 dB).
+
+Polarity and latency (since 3.5)
+  The output has the same polarity as the input. The preamp itself inverts
+  (five inverting tube stages), which earlier versions reproduced; a sound
+  engineer pointed out that a plugin should not flip polarity, so the engine
+  now undoes it. Apart from the sign the output is identical to 3.4.
+  With tube distortion and oversampling the engine has 31 samples of latency
+  (oversampling filters); the plugin reports this to the host, so REAPER
+  compensates it automatically. Linear mode and 1x have no latency.
 
 Notes
   True stereo: left and right are processed by two independent engines. A

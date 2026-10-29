@@ -606,7 +606,7 @@ struct Engine {
       a->tick(); double y = a->step(x);
       if (b) { b->tick(); double yb = b->step(x);
         if (!replay) { xf += 1.0 / (0.03 * fs); if (xf >= 1) { delete a; a = b; b = nullptr; y = yb; } else y = y * (1 - xf) + yb * xf; } }
-      buf[i] = (float)y;
+      buf[i] = (float)-y;   // Polarität wie am Eingang: der Vorverstärker (5 invertierende Stufen) dreht das Signal, für Aufnahme und Vergleich wird das hier aufgehoben
     }
   }
 };

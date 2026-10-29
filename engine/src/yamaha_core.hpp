@@ -61,6 +61,6 @@ struct YCore {
   void tick() { if (!hasV || ++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < 9; i++) { double &c = yfield(cur, i), d = yfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = yfield(tgt, i); }
     if (moved) r.set(buildY(v, cur, fs), 1, true); }
-  void block(float *buf, int n) { if (!hasV) { for (int i = 0; i < n; i++) buf[i] = 0; return; } for (int i = 0; i < n; i++) { tick(); buf[i] = (float)r.step(buf[i]); } }
+  void block(float *buf, int n) { if (!hasV) { for (int i = 0; i < n; i++) buf[i] = 0; return; } for (int i = 0; i < n; i++) { tick(); buf[i] = (float)-r.step(buf[i]); } }   // Polarität wie am Eingang (das PA-Board invertiert)
 };
 } // namespace b100

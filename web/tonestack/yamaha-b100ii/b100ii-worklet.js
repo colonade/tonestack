@@ -169,7 +169,7 @@
     get cur() { return this.a.cur; }
     setTarget(m) { this.a.setTarget(m); }
     tick() { this.a.tick(); }
-    step(u) { return this.a.step(u); }
+    step(u) { return -this.a.step(u); }   // Polarität wie am Eingang (wie im C++-Kern)
     work() {}
     rebuild() { this.a.rebuild(); }
   }
