@@ -1,4 +1,4 @@
-# Erzeugt geo_gen.h und panel_jpg.h (Oberfläche des CLAP-Plugins) aus engine/gen/geo.json und panel.jpg
+# Erzeugt geo_gen.h/panel_jpg.h (Laney) und ygeo_gen.h/ypanel_jpg.h (Yamaha) für die Oberflächen der CLAP-Plugins aus engine/gen/*.json und *.jpg
 import json, os, sys
 G_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', 'gen')
 g = json.load(open(os.path.join(G_DIR, 'geo.json'))); G = g['_']; L = []
@@ -21,3 +21,17 @@ open(os.path.join(G_DIR, 'geo_gen.h'), 'w').write('\n'.join(L) + '\n')
 data = open(os.path.join(G_DIR, 'panel.jpg'), 'rb').read()
 open(os.path.join(G_DIR, 'panel_jpg.h'), 'w').write('static const unsigned char PANEL_JPG[] = {' + ','.join(str(b) for b in data) + '};\nstatic const unsigned int PANEL_JPG_LEN = %d;\n' % len(data))
 print('geo_gen.h', len(L), 'Zeilen; panel_jpg.h', len(data), 'Bytes')
+# Yamaha: Kappen (vol, t, m, b, e0..e4) und Buchsen auf dem Foto
+y = json.load(open(os.path.join(G_DIR, 'ygeo.json'))); F = y['front']; U = F['_']; L = []
+L.append('// erzeugt aus ygeo.json (Foto der Frontplatte des Yamaha B100-II, %s x %s)' % (U['w'], U['h']))
+L.append(f'static const double YFW = {U["w"]}, YFH = {U["h"]}, YPW = {U["pw"]}, YPIN = {U["pin"]}, YPOUT = {U["pout"]};')
+L.append('struct YKnobGeo { const char *key; double x, y, r; };')
+L.append('static const YKnobGeo YKG[9] = {')
+for k in ['vol','t','m','b','e0','e1','e2','e3','e4']:
+    d = F[k]; L.append(f'  {{"{k}", {d["x"]}, {d["y"]}, {d["r"]}}},')
+L.append('};')
+j = y['jacks']['high']; L.append(f'static const double YJACK_HIGH[3] = {{{j["x"]}, {j["y"]}, {j["r"]}}};'); j = y['jacks']['low']; L.append(f'static const double YJACK_LOW[3] = {{{j["x"]}, {j["y"]}, {j["r"]}}};')
+open(os.path.join(G_DIR, 'ygeo_gen.h'), 'w').write('\n'.join(L) + '\n')
+data = open(os.path.join(G_DIR, 'ypanel.jpg'), 'rb').read()
+open(os.path.join(G_DIR, 'ypanel_jpg.h'), 'w').write('static const unsigned char YPANEL_JPG[] = {' + ','.join(str(b) for b in data) + '};\nstatic const unsigned int YPANEL_JPG_LEN = %d;\n' % len(data))
+print('ygeo_gen.h', len(L), 'Zeilen; ypanel_jpg.h', len(data), 'Bytes')

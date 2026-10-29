@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 #include <functional>
-#include <ctime>
+#include <chrono>
 #include "geo_gen.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_JPEG
@@ -127,7 +127,7 @@ struct Gui {
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); font(c, 11, false); cairo_move_to(c, 260, y0 + 12); cairo_show_text(c, d.c_str()); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
     { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK};
-      for (int id : ks) kn += std::snprintf(kb + kn, sizeof kb - kn, "%.4g|", v[id]); std::string key(kb, kn); double now = (double)std::clock() / CLOCKS_PER_SEC;
+      for (int id : ks) kn += std::snprintf(kb + kn, sizeof kb - kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; } }
     { double ty0 = FH + STRIP; setrgb(c, 0x14161a); cairo_rectangle(c, 0, ty0, FW, PLOT); cairo_fill(c);
       // Röhrenbestückung: V101, V102, V103 (Taste schaltet den Typ durch), RESET = Bestückung wie im Gerät

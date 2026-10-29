@@ -14,6 +14,7 @@ for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100
         open('/tmp/_deployed.wasm', 'wb').write(emb(f)); import subprocess
         print(', Klangvergleich:'); print(subprocess.run(['node', os.path.join(R, 'engine/tests/wasmcompare.js'), p, '/tmp/_deployed.wasm'], capture_output=True, text=True).stdout)
     else: print()
-a = os.path.join(B, 'Laney_AOR50.clap'); b = os.path.join(R, 'reaper-clap', 'Laney_AOR50.clap')
-if os.path.exists(a): print('Laney_AOR50.clap: ' + ('identisch mit reaper-clap/' if open(a, 'rb').read() == open(b, 'rb').read() else 'ABWEICHEND von reaper-clap/'))
+for n in ['Laney_AOR50.clap', 'Yamaha_B100II.clap']:
+    a = os.path.join(B, n); b = os.path.join(R, 'reaper-clap', n)
+    if os.path.exists(a): print(n + ': ' + ('identisch mit reaper-clap/' if open(a, 'rb').read() == open(b, 'rb').read() else 'ABWEICHEND von reaper-clap/'))
 PY

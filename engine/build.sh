@@ -9,7 +9,9 @@ cd "$E"; mkdir -p build
 node tools/extract.js "$R"; python3 tools/gen_geo.py gen
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
-echo "CLAP: build/Laney_AOR50.clap"
+g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
+    -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Yamaha_B100II.clap $(pkg-config --cflags --libs cairo x11)
+echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap"
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
   $W -Wl,--export=aor_buffer -Wl,--export=aor_parts_buffer -Wl,--export=aor_target_buffer -Wl,--export=aor_peaks_buffer -Wl,--export=aor_parts_count \
@@ -22,4 +24,5 @@ g++ -O3 -std=c++17 -Isrc -Igen tests/harness.cpp -o build/harness
 g++ -O2 -std=c++17 -Ithird_party tests/hosttest.cpp -ldl -o build/hosttest
 g++ -O2 -std=c++17 -Ithird_party tests/defaults.cpp -ldl -o build/defaults
 g++ -O2 -std=c++17 -Ithird_party tests/guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/guitest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/guitest"
+g++ -O2 -std=c++17 -Ithird_party tests/yguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/yguitest
+echo "Testwerkzeuge: build/harness, build/hosttest, build/defaults, build/guitest, build/yguitest"

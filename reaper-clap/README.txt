@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.6
+Version 3.6.1
 
 Installation
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -87,6 +87,10 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.6.1
+  Frequency-response plot refreshes on the wall clock (before, it could lag
+  behind a knob move when the process used little CPU). Audio unchanged.
 
 Polarity and latency (since 3.5)
   The output has the same polarity as the input. The preamp itself inverts

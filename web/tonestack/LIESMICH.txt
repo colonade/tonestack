@@ -8,7 +8,7 @@ yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
 laney-aor50/                   Laney AOR 50 Klangregler-Simulator
 assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
 assets/icons/                  App-Symbole für den Startbildschirm
-download/                      REAPER-Plugin (CLAP) zum Herunterladen, verlinkt von der Übersichtsseite
+download/                      REAPER-Plugins (CLAP, Laney und Yamaha) zum Herunterladen, verlinkt von der Übersichtsseite
 sw.js                          Service Worker für Offline-Betrieb
 .htaccess                      Apache-Einstellungen (versteckte Datei!)
 

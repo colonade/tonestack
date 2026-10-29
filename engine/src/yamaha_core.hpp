@@ -10,11 +10,16 @@ struct YParts {
   YPARTS_LIST(X)
 #undef X
   bool operator==(const YParts &o) const { return std::memcmp(this, &o, sizeof(YParts)) == 0; }
+  static YParts orig() { YParts p;   // Werte des Service Manuals (wie in der Web-Seite), für das Plugin
+#define X(n, val) p.n = val;
+    YPARTS_DEFAULTS(X)
+#undef X
+    return p; }
 };
 struct YSetting { double t = 1, b = 1, m = 1, vol = 1, e[5] = {0.5,0.5,0.5,0.5,0.5};
   double vin = 0.1, ing = 1; bool pwr = false, spk = false; };   // vin: Spitzenpegel an der Buchse (V), ing: Eingangsteiler HIGH/LOW, pwr: Endstufe (MA-Board) mit absolutem Pegel, spk: Lautsprecher
 inline double &yfield(YSetting &s, int i) { double *f[] = {&s.t, &s.b, &s.m, &s.vol, &s.e[0], &s.e[1], &s.e[2], &s.e[3], &s.e[4]}; return *f[i]; }
-inline LinSys buildY(const YParts &v, const YSetting &s, double fs) {
+inline LinNet netY(const YParts &v, const YSetting &s, double fs) {   // Netz des PA-Boards (Zeitbereich und, über responseAt, Frequenzgang)
   LinNet o; o.N("in");
   auto bjt = [&](const std::string &b, const std::string &c, const std::string &e, double ic) { o.bjt(b, c, e, ic / VT, v.hfe); };
   o.R("in","src",v.rs);
@@ -46,8 +51,13 @@ inline LinSys buildY(const YParts &v, const YSetting &s, double fs) {
     o.R("gb"+K,"0",110e3); o.C("gb"+K,"ge"+K,v.cg,fs); o.R("ge"+K,"0",10e3);
     bjt("gb"+K,"0","ge"+K,1.44e-3); }
   o.RC("c5","o",10e3,4.7e-6,fs); o.R("o","0",100e3);
-  return o.compile("o", {});
+  return o;
 }
+inline LinSys buildY(const YParts &v, const YSetting &s, double fs) { return netY(v, s, fs).compile("o", {}); }
+// Eingangsteiler: HIGH 15 kΩ auf 330 kΩ (Bezug 1), LOW 47 kΩ auf 15 kΩ ∥ (1 kΩ + 330 kΩ): 0,245 = −12,2 dB (Service Manual Tabelle 3: 12 ± 3 dB)
+constexpr double ING_LOW = (1 / (1 / 15e3 + 1 / 331e3)) / (47e3 + 1 / (1 / 15e3 + 1 / 331e3)) / (330e3 / 345e3);
+// Kleinsignal-Betrag Eingang → Ausgang O (mit Eingangsteiler und Lautsprecher, ohne Endstufe), wie ENGINE.H der Web-Seite
+inline double ymag(const LinNet &o, double f, const YSetting &s) { return std::abs(responseAt(o, f, "o")) * s.ing * (s.spk ? spkMag(f) : 1); }
 // ---------- Endstufe (MA-Board) und Lautsprecher ----------
 // Verstärkungskette, geeicht an Service Manual Tabelle 3 (0,775 mV an HIGH → 2,2 V am Lautsprecher, 69 dB bei Tabelle-1-Stellung):
 // TR101 (Source-Stufe 2SK30A, 5,6 kΩ) 8,7-fach, PA-Board laut Netz (+11,8 dB bei Tabelle 1), MA-Board 1 + 820 kΩ/10 kΩ = 83-fach (38,4 dB).
