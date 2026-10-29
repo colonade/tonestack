@@ -9,7 +9,7 @@ const fmt = x => String(x);
   const i = js.indexOf('const LANEY_PARTS'), j = js.indexOf('if (typeof module', i);
   const ctx = {}; vm.runInNewContext(js.slice(i, j).replace(/^const /gm, 'var '), ctx);
   const P = ctx.LANEY_PARTS, F = ctx.LANEY_FIXED, v = {...F}, vu = {...F};
-  for (const p of P) { v[p[0]] = p[4] * p[3]; vu[p[0]] = (p[5] !== null ? p[5] : p[4]) * p[3]; }
+  for (const p of P) { const k0 = p.length > 7 ? p[7] : p[4]; v[p[0]] = k0 * p[3]; vu[p[0]] = (p[5] !== null ? p[5] : k0) * p[3]; }   // p[7]: abweichender Standardwert für Plugin/Kern (Umbauideen, die nur mit Häkchen gelten)
   let out = '// erzeugt aus parts.js\n#define PARTS_LIST(X) \\\n'; for (const k of Object.keys(v)) out += '  X(' + k + ', ' + fmt(v[k]) + ', ' + fmt(vu[k]) + ') \\\n'; out += '\n';
   fs.writeFileSync(path.join(OUT, 'parts_gen.h'), out);
   const m = js.match(/const FRONT = (\{.*?\});\n/); fs.writeFileSync(path.join(OUT, 'geo.json'), m[1]);

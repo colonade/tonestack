@@ -161,7 +161,8 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vec
   o.R("t1","0", vt1R(v, 1 - s.ch1));
   o.R("t1","g2",v.vr101*(1-s.v1)); o.R("g2","0",v.vr101*s.v1);
   tri("g2","p2","k2",0.69e-3); o.R("k2","0",2.7e3); o.C("k2","0",v.c3,fs); o.R("p2","0",100e3);
-  o.C("p2", s.low ? "0" : "t2", v.ck, fs); o.R("t2","w2",v.vr102*(1-s.v2)); o.R("w2","0",v.vr102*s.v2); o.R("w2","g3",68e3);
+  if (!s.low && v.rpad > 0) { o.C("p2","t2p",v.ck,fs); o.R("t2p","t2",v.rpad); } else o.C("p2", s.low ? "0" : "t2", v.ck, fs);   // Umbauidee „Später": Vorwiderstand vor Preamp 2 Volume
+  o.R("t2","w2",v.vr102*(1-s.v2)); o.R("w2","0",v.vr102*s.v2); o.R("w2","g3",68e3);
   tri("g3","p3","k3",0.31e-3); o.R("k3","0",10e3); o.R("p3","0",100e3);
   o.C("p3","n12",v.c4,fs); o.R("n12","g4",470e3); o.C("n12","g4",v.c5,fs); o.R("g4","0",470e3);
   tri("g4","p4","k4",1.10e-3); o.R("k4","0",820); o.R("p4","0",100e3);
@@ -320,7 +321,8 @@ inline std::vector<Net> defs(const Parts &v, const Setting &s) {
     o.port("p1","k1"); o.port("g2","0"); o.port("0","k1"); o.probe("p1"); o.probe("k1"); o.probe("g2"); }
   { Net &o = S[2]; o.src("B"); o.r("B","p2",100e3); o.r("k2","0",2.7e3); o.c("k2","0",v.c3);
     o.src("lin"); o.r("lin","t2", s.low ? 1e-3 : 1e12);
-    o.c("p2", s.low ? "0" : "t2", v.ck); o.r("t2","w2",v.vr102*(1-s.v2)); o.r("w2","0",v.vr102*s.v2); o.r("w2","g3",68e3); o.c("g3","0",CMg3);
+    if (!s.low && v.rpad > 0) { o.c("p2","t2p",v.ck); o.r("t2p","t2",v.rpad); } else o.c("p2", s.low ? "0" : "t2", v.ck);   // Umbauidee „Später"
+    o.r("t2","w2",v.vr102*(1-s.v2)); o.r("w2","0",v.vr102*s.v2); o.r("w2","g3",68e3); o.c("g3","0",CMg3);
     o.port("p2","k2"); o.port("g3","0"); o.port("0","k2"); o.probe("p2"); o.probe("k2"); o.probe("g3"); }
   { Net &o = S[3]; o.src("B"); o.r("B","p3",100e3); o.r("k3","0",10e3);
     o.c("p3","n12",v.c4); o.r("n12","g4",470e3); o.c("n12","g4",v.c5); o.r("g4","0",470e3); o.c("g4","0",CMg4);

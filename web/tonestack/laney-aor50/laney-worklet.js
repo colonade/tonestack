@@ -101,7 +101,8 @@ const NLAMP = ((NL) => {
       o.port('p1','k1'); o.port('g2','0'); o.port('0','k1'); o.probe('p1'); o.probe('k1'); o.probe('g2'); S.push(o); }   // S1: V101A
     { const o = NL.net(); o.src('B'); o.r('B','p2',100e3); o.r('k2','0',2.7e3); o.c('k2','0',v.c3);
       o.src('lin'); o.r('lin','t2', s.low ? 1e-3 : 1e12);                       // LOW-Eingang direkt auf Preamp 2 Volume
-      o.c('p2', s.low ? '0' : 't2', v.ck); o.r('t2','w2',v.vr102*(1-s.v2)); o.r('w2','0',v.vr102*s.v2); o.r('w2','g3',68e3); o.c('g3','0',CM.g3);
+      if (!s.low && v.rpad > 0) { o.c('p2','t2p',v.ck); o.r('t2p','t2',v.rpad); } else o.c('p2', s.low ? '0' : 't2', v.ck);   // Umbauidee „Später"
+      o.r('t2','w2',v.vr102*(1-s.v2)); o.r('w2','0',v.vr102*s.v2); o.r('w2','g3',68e3); o.c('g3','0',CM.g3);
       o.port('p2','k2'); o.port('g3','0'); o.port('0','k2'); o.probe('p2'); o.probe('k2'); o.probe('g3'); S.push(o); }   // S2: V101B
     { const o = NL.net(); o.src('B'); o.r('B','p3',100e3); o.r('k3','0',10e3);
       o.c('p3','n12',v.c4); o.r('n12','g4',470e3); o.c('n12','g4',v.c5); o.r('g4','0',470e3); o.c('g4','0',CM.g4);
@@ -337,7 +338,8 @@ const NLAMP = ((NL) => {
     R('t1','0', vt1R(v, 1 - s.ch1));                          // VT1 leuchtet in Preamp 2
     R('t1','g2',v.vr101*(1-s.v1)); R('g2','0',v.vr101*s.v1);
     triode('g2','p2','k2',0.69e-3); R('k2','0',2.7e3); C('k2','0',v.c3); R('p2','0',100e3);
-    C('p2', s.low ? '0' : 't2', v.ck); R('t2','w2',v.vr102*(1-s.v2)); R('w2','0',v.vr102*s.v2); R('w2','g3',68e3);
+    if (!s.low && v.rpad > 0) { C('p2','t2p',v.ck); R('t2p','t2',v.rpad); } else C('p2', s.low ? '0' : 't2', v.ck);
+    R('t2','w2',v.vr102*(1-s.v2)); R('w2','0',v.vr102*s.v2); R('w2','g3',68e3);
     triode('g3','p3','k3',0.31e-3); R('k3','0',10e3); R('p3','0',100e3);
     C('p3','n12',v.c4); R('n12','g4',470e3); C('n12','g4',v.c5); R('g4','0',470e3);
     triode('g4','p4','k4',1.10e-3); R('k4','0',820); R('p4','0',100e3);   // Anodenstrom aus Plan: (260 V − 150 V) / 100 kΩ
@@ -649,7 +651,7 @@ const NLAMP = ((NL) => {
     rebuild() { if (this.a.rebuild) this.a.rebuild(); }
   }
   // WebAssembly-Kern (C++-Übersetzung desselben Modells): blockweise Verarbeitung, Überabtastung bis 8-fach
-  const PORDER = ["r1", "r5", "r6", "vr101", "vr102", "ronvt", "rts", "mu", "rp0", "ia0", "cgk", "cga", "vr108", "c110", "c19", "c20", "r38", "r105", "c2", "c3", "ck", "c4", "c5", "c6", "r18", "c7", "c8", "c11", "c10", "vr105", "vr106", "vr107", "c9", "c12", "c13", "c14", "c15", "c16", "c106", "vr104", "vr103", "c201", "c202", "c18", "c21", "gp"];
+  const PORDER = ["r1", "r5", "r6", "vr101", "vr102", "ronvt", "rts", "mu", "rp0", "ia0", "cgk", "cga", "vr108", "c110", "c19", "c20", "r38", "r105", "c2", "c3", "ck", "c4", "c5", "c6", "r18", "c7", "c8", "c11", "c10", "vr105", "vr106", "vr107", "c9", "c12", "c13", "c14", "c15", "c16", "c106", "vr104", "vr103", "c201", "c202", "c18", "c21", "gp", "rpad"];
   class WasmEngine {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.x.aor_init(fs); this.fs = fs; this.ready = false; }
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
