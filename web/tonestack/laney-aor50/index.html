@@ -345,7 +345,7 @@ select{max-width:100%}
   <details class="exp"><summary>Hinweise zu Pegel und Verarbeitung</summary>
   <div id="linnotes">
   <p class="note">Der Spitzenwert der Audiodatei wird dem eingestellten Instrumentenpegel gleichgesetzt. Den kennt der Simulator nicht; er hängt stark von Instrument und Spielweise ab und lässt sich am genauesten mit einem Oszilloskop am Instrumentenkabel messen. Grenze je Stufe: Die Spannung zwischen Gitter und Kathode erreicht die Vorspannung aus dem Schaltplan. Sobald eine Stufe übersteuert, ist das Signal dahinter in Wirklichkeit schon begrenzt; maßgeblich ist die erste rote Stufe.</p>
-  <p class="note">Bypass (auch Taste B) schaltet knackfrei zwischen Originaldatei und Verstärker um; mit „Pegel angleichen" bekommt das Original die Lautstärke des Verstärkerausgangs, sonst spielt es mit seinem eigenen Pegel. „Herunterladen" rechnet die Datei einmal vollständig durch denselben Kern wie die Wiedergabe (aktuelle Einstellung einschließlich Lautstärkeregler) und speichert sie als WAV, mono, 24 Bit, in der Abtastrate der Wiedergabe.</p>
+  <p class="note">Bypass (auch Taste B) schaltet knackfrei zwischen Originaldatei und Verstärker um; mit „Pegel angleichen" bekommt das Original die Lautstärke des Verstärkerausgangs, sonst spielt es mit seinem eigenen Pegel. „Herunterladen" rechnet die Datei einmal vollständig durch denselben Kern wie die Wiedergabe (aktuelle Einstellung einschließlich Lautstärkeregler) und speichert sie als WAV, mono, 24 Bit, in der Abtastrate der Wiedergabe. Voreinstellungen (Regler, Schalter, Bauteile, Röhren, Endstufe) lassen sich unter dem Diagramm mit Namen speichern; sie bleiben in diesem Browser und können als JSON-Datei weitergegeben werden.</p>
   <p class="note">Die Datei wird nur in deinem Browser verarbeitet und nirgendwohin hochgeladen, in Mono gerechnet und im Loop abgespielt. Die Wiedergabe ist auf die Grundstellung des jeweiligen Kanals eingepegelt; Regler, Boosts und Master ändern die Lautstärke also wie am echten Verstärker. Beim Kanalwechsel rechnet der Simulator den neuen Kanal zuerst auf das laufende Signal ein und blendet dann über, deshalb setzt er etwa 20 bis 40 ms verzögert ein.</p>
   </div>
   <div id="nlnotes" hidden>
@@ -363,6 +363,15 @@ select{max-width:100%}
   <button class="btn" type="button" id="pMid">Alle auf 5</button>
   <button class="btn" type="button" id="snap">Kurve merken</button>
   <button class="btn" type="button" id="unsnap" disabled>Gemerkte Kurve entfernen</button>
+</div>
+<div class="bar" id="presets" role="group" aria-label="Voreinstellungen">
+  <label for="preset">Voreinstellung <select id="preset"><option value="">– keine –</option></select></label>
+  <button class="btn" type="button" id="psave" title="Aktuelle Regler, Schalter, Bauteile, Röhren und Endstufe unter einem Namen speichern (im Browser)">Speichern unter …</button>
+  <button class="btn" type="button" id="pupd" disabled title="Gewählte Voreinstellung mit der aktuellen Einstellung überschreiben">Überschreiben</button>
+  <button class="btn" type="button" id="pdel" disabled>Löschen</button>
+  <button class="btn" type="button" id="pexp" disabled title="Alle Voreinstellungen als JSON-Datei speichern, z. B. zum Weitergeben">Exportieren</button>
+  <button class="btn" type="button" id="pimp" title="Voreinstellungen aus einer JSON-Datei hinzufügen">Importieren</button><input type="file" id="pfile" accept=".json,application/json" hidden>
+  <span class="note" id="pstatus" aria-live="polite"></span>
 </div>
 
 <div class="cols">
@@ -971,6 +980,53 @@ $('taper').value = S.taper; $('taper').onchange = e => { S.taper = e.target.valu
 $('showRef').checked = S.showRef; $('showRef').onchange = e => { S.showRef = e.target.checked; render(); };
 $('pDef').onclick = () => { S.knobs = {...KDEF}; updKnobs(); render(); };
 $('pMid').onclick = () => { S.knobs = Object.fromEntries(Object.keys(KDEF).map(k => [k, 5])); updKnobs(); render(); };
+
+// ---------- Voreinstellungen mit Namen (im Browser gespeichert, getrennt vom laufenden Zustand) ----------
+const PKEY = 'laneypre-presets';
+let PRESETS; try { PRESETS = JSON.parse(localStorage.getItem(PKEY) || '[]'); if (!Array.isArray(PRESETS)) PRESETS = []; } catch (e) { PRESETS = []; }
+const psave = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRESETS)); } catch (e) { $('pstatus').textContent = 'Speichern im Browser nicht möglich (Speicher voll oder gesperrt).'; } };
+const pstate = () => ({ knobs: {...S.knobs}, sw: {...S.sw}, parts: {...S.parts}, tubes: S.tubes.slice(), pa: !!S.pa });
+const pvalid = q => q && typeof q === 'object' && q.knobs && q.sw && q.parts;
+function papply(q) {
+  S.knobs = {...KDEF}; for (const k in KDEF) if (typeof q.knobs[k] === 'number') S.knobs[k] = Math.max(0, Math.min(10, q.knobs[k]));
+  S.sw = {...DEF.sw, ...q.sw}; S.sw.ch = S.sw.ch === 2 ? 2 : 1; if (S.sw.inp !== 'low') S.sw.inp = 'high';
+  for (const p of P) { const x = q.parts[p[0]]; if (typeof x === 'number' && x > 0) S.parts[p[0]] = x; }
+  pfs().forEach(d => d._set(S.parts[d._key]));
+  S.tubes = Array.isArray(q.tubes) && q.tubes.length === 3 ? q.tubes.map(t => Math.max(0, Math.min(TUBES.length - 1, Math.round(+t) || 0))) : [0, 0, 0];
+  S.pa = q.pa !== undefined ? !!q.pa : S.pa;
+  updKnobs(); render();
+}
+function plist(selectName) {
+  const sel = $('preset'); sel.innerHTML = '<option value="">– keine –</option>';
+  PRESETS.forEach((q, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = q.name; sel.appendChild(o); });
+  const i = PRESETS.findIndex(q => q.name === selectName); sel.value = i >= 0 ? String(i) : '';
+  $('pupd').disabled = $('pdel').disabled = sel.value === ''; $('pexp').disabled = PRESETS.length === 0;
+}
+$('preset').onchange = e => { const q = PRESETS[+e.target.value]; $('pupd').disabled = $('pdel').disabled = !q; if (q) { papply(q); $('pstatus').textContent = `„${q.name}" geladen.`; } };
+$('psave').onclick = () => {
+  const cur = PRESETS[+$('preset').value]; let name = prompt('Name der Voreinstellung:', cur ? cur.name : ''); if (name === null) return; name = name.trim().slice(0, 60); if (!name) return;
+  const i = PRESETS.findIndex(q => q.name === name);
+  if (i >= 0) { if (!confirm(`„${name}" gibt es schon. Überschreiben?`)) return; PRESETS[i] = { name, ...pstate() }; } else PRESETS.push({ name, ...pstate() });
+  PRESETS.sort((a, b) => a.name.localeCompare(b.name, 'de')); psave(); plist(name); $('pstatus').textContent = `„${name}" gespeichert.`;
+};
+$('pupd').onclick = () => { const q = PRESETS[+$('preset').value]; if (!q) return; Object.assign(q, pstate()); psave(); $('pstatus').textContent = `„${q.name}" überschrieben.`; };
+$('pdel').onclick = () => { const i = +$('preset').value, q = PRESETS[i]; if (!q || !confirm(`„${q.name}" löschen?`)) return; PRESETS.splice(i, 1); psave(); plist(''); $('pstatus').textContent = `„${q.name}" gelöscht.`; };
+$('pexp').onclick = () => {
+  const blob = new Blob([JSON.stringify({ format: 'laney-aor50-presets', version: 1, presets: PRESETS }, null, 1)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'laney-aor50-voreinstellungen.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+$('pimp').onclick = () => $('pfile').click();
+$('pfile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); const list = Array.isArray(j) ? j : j && Array.isArray(j.presets) ? j.presets : null; if (!list) throw new Error('kein Voreinstellungs-Format');
+    let n = 0; for (const q of list) { if (!pvalid(q) || typeof q.name !== 'string') continue; let name = q.name.trim().slice(0, 60) || 'Import'; let k = 2; const base = name; while (PRESETS.some(x => x.name === name)) name = `${base} (${k++})`;
+      PRESETS.push({ name, knobs: q.knobs, sw: q.sw, parts: q.parts, tubes: q.tubes, pa: q.pa }); n++; }
+    PRESETS.sort((a, b) => a.name.localeCompare(b.name, 'de')); psave(); plist($('preset').selectedOptions[0] ? $('preset').selectedOptions[0].textContent : '');
+    $('pstatus').textContent = n ? `${n} Voreinstellung${n === 1 ? '' : 'en'} importiert.` : 'Keine gültigen Voreinstellungen in der Datei.';
+  } catch (err) { $('pstatus').textContent = 'Import nicht möglich: ' + (err && err.message ? err.message : 'Datei nicht lesbar.'); }
+};
+plist('');
 $('snap').onclick = () => { cmp = {id:++cmpId, kn:{...S.knobs}, v:vals(), sw:{...S.sw}, tubes:S.tubes.slice()}; render(); };
 $('unsnap').onclick = () => { cmp = null; render(); };
 render();
