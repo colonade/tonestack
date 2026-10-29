@@ -163,16 +163,14 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vec
   tri("g2","p2","k2",0.69e-3); o.R("k2","0",2.7e3); o.C("k2","0",v.c3,fs); o.R("p2","0",100e3);
   o.C("p2", s.low ? "0" : "t2", v.ck, fs); o.R("t2","w2",v.vr102*(1-s.v2)); o.R("w2","0",v.vr102*s.v2); o.R("w2","g3",68e3);
   tri("g3","p3","k3",0.31e-3); o.R("k3","0",10e3); o.R("p3","0",100e3);
-  // Gitterstopper (Umbauidee): rgs1 vor V102B, rgs2 vor V103B; bei 0 bleibt das Netz unverändert (bitgleich zum bisherigen Stand)
-  const char *G4 = v.rgs1 > 0 ? "g4n" : "g4", *G6 = v.rgs2 > 0 ? "g6n" : "g6";
-  o.C("p3","n12",v.c4,fs); o.R("n12",G4,470e3); o.C("n12",G4,v.c5,fs); o.R(G4,"0",470e3); if (v.rgs1 > 0) o.R("g4n","g4",v.rgs1);
+  o.C("p3","n12",v.c4,fs); o.R("n12","g4",470e3); o.C("n12","g4",v.c5,fs); o.R("g4","0",470e3);
   tri("g4","p4","k4",1.10e-3); o.R("k4","0",820); o.R("p4","0",100e3);
   tri("p4","0","k5",1.5e-3); o.R("k5","0",100e3);
   o.C("k5","X",v.c6,fs); o.C("X","Z",v.c7,fs); o.RC("X","Z", blendR(1e-3, 10e6, s.mid, 1 / (2 * PI * 1000 * v.c8)), v.c8, fs);
   o.R("X","Y",v.r18); o.C("Y","W",v.c11,fs);
   o.R("Z","T",v.vr105*(1-s.t)); o.R("T","W",v.vr105*s.t); o.R("W","P",v.vr106*s.b);
   o.R("P","Mw",v.vr107*(1-s.m)); o.R("Mw","0",v.vr107*s.m); o.C("Y","Mw",v.c10,fs);
-  o.C("T","n19",v.c9,fs); o.R("n19",G6,1e6); o.R(G6,"0",1e6); o.R(G6,"n20",3.3e6); o.C("n20","p6",v.c12,fs); if (v.rgs2 > 0) o.R("g6n","g6",v.rgs2);
+  o.C("T","n19",v.c9,fs); o.R("n19","g6",1e6); o.R("g6","0",1e6); o.R("g6","n20",3.3e6); o.C("n20","p6",v.c12,fs);
   tri("g6","p6","k6",1.18e-3); o.R("k6","0",820); o.C("k6","0",v.c13,fs); o.R("p6","0",100e3);
   o.C("p6","n24",v.c14,fs); o.R("n24","J",68e3);
   o.R("J","Q",33e3); o.C("Q","0",v.c15,fs); o.R("Q","0", blendR(1e12, v.rts, s.bass, 33e3));
@@ -325,8 +323,7 @@ inline std::vector<Net> defs(const Parts &v, const Setting &s) {
     o.c("p2", s.low ? "0" : "t2", v.ck); o.r("t2","w2",v.vr102*(1-s.v2)); o.r("w2","0",v.vr102*s.v2); o.r("w2","g3",68e3); o.c("g3","0",CMg3);
     o.port("p2","k2"); o.port("g3","0"); o.port("0","k2"); o.probe("p2"); o.probe("k2"); o.probe("g3"); }
   { Net &o = S[3]; o.src("B"); o.r("B","p3",100e3); o.r("k3","0",10e3);
-    const char *G4 = v.rgs1 > 0 ? "g4n" : "g4";   // Gitterstopper vor V102B (Umbauidee); Miller-Kapazität bleibt am Gitter
-    o.c("p3","n12",v.c4); o.r("n12",G4,470e3); o.c("n12",G4,v.c5); o.r(G4,"0",470e3); if (v.rgs1 > 0) o.r("g4n","g4",v.rgs1); o.c("g4","0",CMg4);
+    o.c("p3","n12",v.c4); o.r("n12","g4",470e3); o.c("n12","g4",v.c5); o.r("g4","0",470e3); o.c("g4","0",CMg4);
     o.port("p3","k3"); o.port("g4","0"); o.port("0","k3"); o.probe("p3"); o.probe("k3"); o.probe("g4"); }
   { Net &o = S[4]; o.src("B");
     o.r("B","p4",100e3); o.r("k4","0",820);
@@ -335,8 +332,7 @@ inline std::vector<Net> defs(const Parts &v, const Setting &s) {
     o.r("X","Y",v.r18); o.c("Y","W",v.c11);
     o.r("Z","T",v.vr105*(1-s.t)); o.r("T","W",v.vr105*s.t); o.r("W","P",v.vr106*s.b);
     o.r("P","Mw",v.vr107*(1-s.m)); o.r("Mw","0",v.vr107*s.m); o.c("Y","Mw",v.c10);
-    const char *G6 = v.rgs2 > 0 ? "g6n" : "g6";   // Gitterstopper vor V103B (Umbauidee); Gegenkopplung R/C12 bleibt vor dem Stopper
-    o.c("T","n19",v.c9); o.r("n19",G6,1e6); o.r(G6,"0",1e6); o.r(G6,"n20",3.3e6); o.c("n20","p6",v.c12); if (v.rgs2 > 0) o.r("g6n","g6",v.rgs2);
+    o.c("T","n19",v.c9); o.r("n19","g6",1e6); o.r("g6","0",1e6); o.r("g6","n20",3.3e6); o.c("n20","p6",v.c12);
     o.r("B","p6",100e3); o.r("k6","0",820); o.c("k6","0",v.c13); o.c("g6","k6",cgk3); o.c("g6","p6",cga3);
     o.c("p6","n24",v.c14); o.r("n24","J",68e3); o.r("J","Q",33e3); o.c("Q","0",v.c15);
     o.r("Q","0", s.bass <= 0 ? v.rts : s.bass >= 1 ? 1e12 : blendR(1e12, v.rts, s.bass, 33e3));

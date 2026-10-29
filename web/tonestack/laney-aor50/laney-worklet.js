@@ -104,8 +104,7 @@ const NLAMP = ((NL) => {
       o.c('p2', s.low ? '0' : 't2', v.ck); o.r('t2','w2',v.vr102*(1-s.v2)); o.r('w2','0',v.vr102*s.v2); o.r('w2','g3',68e3); o.c('g3','0',CM.g3);
       o.port('p2','k2'); o.port('g3','0'); o.port('0','k2'); o.probe('p2'); o.probe('k2'); o.probe('g3'); S.push(o); }   // S2: V101B
     { const o = NL.net(); o.src('B'); o.r('B','p3',100e3); o.r('k3','0',10e3);
-      const G4 = v.rgs1 > 0 ? 'g4n' : 'g4';   // Gitterstopper vor V102B (Umbauidee)
-      o.c('p3','n12',v.c4); o.r('n12',G4,470e3); o.c('n12',G4,v.c5); o.r(G4,'0',470e3); if (v.rgs1 > 0) o.r('g4n','g4',v.rgs1); o.c('g4','0',CM.g4);
+      o.c('p3','n12',v.c4); o.r('n12','g4',470e3); o.c('n12','g4',v.c5); o.r('g4','0',470e3); o.c('g4','0',CM.g4);
       o.port('p3','k3'); o.port('g4','0'); o.port('0','k3'); o.probe('p3'); o.probe('k3'); o.probe('g4'); S.push(o); }   // S3: V102A
     { const o = NL.net(); o.src('B');
       o.r('B','p4',100e3); o.r('k4','0',820);                                            // V102B
@@ -114,8 +113,7 @@ const NLAMP = ((NL) => {
       o.r('X','Y',v.r18); o.c('Y','W',v.c11);
       o.r('Z','T',v.vr105*(1-s.t)); o.r('T','W',v.vr105*s.t); o.r('W','P',v.vr106*s.b);
       o.r('P','Mw',v.vr107*(1-s.m)); o.r('Mw','0',v.vr107*s.m); o.c('Y','Mw',v.c10);
-      const G6 = v.rgs2 > 0 ? 'g6n' : 'g6';   // Gitterstopper vor V103B (Umbauidee)
-      o.c('T','n19',v.c9); o.r('n19',G6,1e6); o.r(G6,'0',1e6); o.r(G6,'n20',3.3e6); o.c('n20','p6',v.c12); if (v.rgs2 > 0) o.r('g6n','g6',v.rgs2);
+      o.c('T','n19',v.c9); o.r('n19','g6',1e6); o.r('g6','0',1e6); o.r('g6','n20',3.3e6); o.c('n20','p6',v.c12);
       o.r('B','p6',100e3); o.r('k6','0',820); o.c('k6','0',v.c13); o.c('g6','k6',v.cgk); o.c('g6','p6',v.cga);   // V103B
       o.c('p6','n24',v.c14); o.r('n24','J',68e3); o.r('J','Q',33e3); o.c('Q','0',v.c15);
       o.r('Q','0', s.bass <= 0 ? v.rts : s.bass >= 1 ? 1e12 : blendR(1e12, v.rts, s.bass, 33e3));
@@ -341,15 +339,14 @@ const NLAMP = ((NL) => {
     triode('g2','p2','k2',0.69e-3); R('k2','0',2.7e3); C('k2','0',v.c3); R('p2','0',100e3);
     C('p2', s.low ? '0' : 't2', v.ck); R('t2','w2',v.vr102*(1-s.v2)); R('w2','0',v.vr102*s.v2); R('w2','g3',68e3);
     triode('g3','p3','k3',0.31e-3); R('k3','0',10e3); R('p3','0',100e3);
-    const G4 = v.rgs1 > 0 ? 'g4n' : 'g4', G6 = v.rgs2 > 0 ? 'g6n' : 'g6';   // Gitterstopper (Umbauidee), 0 = nicht vorhanden
-    C('p3','n12',v.c4); R('n12',G4,470e3); C('n12',G4,v.c5); R(G4,'0',470e3); if (v.rgs1 > 0) R('g4n','g4',v.rgs1);
+    C('p3','n12',v.c4); R('n12','g4',470e3); C('n12','g4',v.c5); R('g4','0',470e3);
     triode('g4','p4','k4',1.10e-3); R('k4','0',820); R('p4','0',100e3);   // Anodenstrom aus Plan: (260 V − 150 V) / 100 kΩ
     triode('p4','0','k5',1.5e-3); R('k5','0',100e3);
     C('k5','X',v.c6); C('X','Z',v.c7); RC('X','Z', blendR(1e-3, 10e6, s.mid, 1 / (2 * Math.PI * 1000 * v.c8)), v.c8);
     R('X','Y',v.r18); C('Y','W',v.c11);
     R('Z','T',v.vr105*(1-s.t)); R('T','W',v.vr105*s.t); R('W','P',v.vr106*s.b);
     R('P','Mw',v.vr107*(1-s.m)); R('Mw','0',v.vr107*s.m); C('Y','Mw',v.c10);
-    C('T','n19',v.c9); R('n19',G6,1e6); R(G6,'0',1e6); R(G6,'n20',3.3e6); C('n20','p6',v.c12); if (v.rgs2 > 0) R('g6n','g6',v.rgs2);
+    C('T','n19',v.c9); R('n19','g6',1e6); R('g6','0',1e6); R('g6','n20',3.3e6); C('n20','p6',v.c12);
     triode('g6','p6','k6',1.18e-3); R('k6','0',820); C('k6','0',v.c13); R('p6','0',100e3);
     C('p6','n24',v.c14); R('n24','J',68e3);
     R('J','Q',33e3); C('Q','0',v.c15); R('Q','0', blendR(1e12, v.rts, s.bass, 33e3));
@@ -652,7 +649,7 @@ const NLAMP = ((NL) => {
     rebuild() { if (this.a.rebuild) this.a.rebuild(); }
   }
   // WebAssembly-Kern (C++-Übersetzung desselben Modells): blockweise Verarbeitung, Überabtastung bis 8-fach
-  const PORDER = ["r1", "r5", "r6", "vr101", "vr102", "ronvt", "rts", "mu", "rp0", "ia0", "cgk", "cga", "vr108", "c110", "c19", "c20", "r38", "r105", "c2", "c3", "ck", "c4", "c5", "c6", "r18", "c7", "c8", "c11", "c10", "vr105", "vr106", "vr107", "c9", "c12", "c13", "c14", "c15", "c16", "c106", "vr104", "vr103", "c201", "c202", "c18", "c21", "gp", "rgs1", "rgs2"];
+  const PORDER = ["r1", "r5", "r6", "vr101", "vr102", "ronvt", "rts", "mu", "rp0", "ia0", "cgk", "cga", "vr108", "c110", "c19", "c20", "r38", "r105", "c2", "c3", "ck", "c4", "c5", "c6", "r18", "c7", "c8", "c11", "c10", "vr105", "vr106", "vr107", "c9", "c12", "c13", "c14", "c15", "c16", "c106", "vr104", "vr103", "c201", "c202", "c18", "c21", "gp"];
   class WasmEngine {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.x.aor_init(fs); this.fs = fs; this.ready = false; }
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }

@@ -24,8 +24,6 @@ Simulation zweier Bassverstärker von Nutzer: **Yamaha B100-115II** (Transistor-
 
 ## Prüfung der Verzerrung (2026-10-29)
 Anlass: Ein Nutzer hörte bei einer Gitarrendatei „nur die Spitzen stark verzerrt, der Rest sauber". Gemessen am C++-Kern: Löser konvergiert in jedem Teilschritt, keine numerischen Sprünge; die steilen Flanken entstehen in der Schaltung (V102A aus der Sperrung, V102B kippt, Kathodenfolger). Übergang sauber → stark verzerrt liegt innerhalb von 6 bis 12 dB Eingangspegel (Preamp 2, alles 5: Körper −12 dB THD −36 dB, Spitze 100 mV THD −15 dB; Preamp 1 Volume 1/1: −28 / −12 dB; LOW-Eingang −67 dB). Normalisierung der Datei ist unerheblich, weil der Spitzenwert immer dem Regler „Spitzenpegel" gleichgesetzt wird. Unsicher bleiben VT1-Durchlasswiderstand und fehlende Netzteil-Nachgiebigkeit. Werkzeuge dazu im Verlauf: Sinus-THD-Tabelle und Burst-Test mit `engine/build/harness`.
-Mit der Datei des Nutzers (Strum, 24 dB Crest, Spitzen = gedämpfte Anschläge, 74 % der Zeit unter −20 dB): Preamp 2 alles 5 folgt der Hüllkurve fast exakt, nur die obersten 6 dB jedes Anschlags werden begrenzt; Preamp 1 Volume 2/2 komprimiert die Ausklingphase auf −20…−30 dB. Beides ist das Verhalten der Schaltung, kein Fehler.
-Gitterstopper (Rgs1 vor V102B, Rgs2 vor V103B) im Kern eingebaut (`rgs1`, `rgs2` in PARTS_LIST, 0 = unverändert, bitgleich): wirkungslos für die Verzerrung (< 0,3 dB THD), weil 470 kΩ/1 MΩ schon davor liegen; wirksam sind C3 an V101B weglassen (Preamp 2: Spitze −16 → −31 dB THD, −2 dB Pegel), 5751/12AY7 in V101, LOW-Eingang. CLAP-Plugin unverändert (rgs = 0).
 
 ## Ideen, die besprochen, aber nicht gebaut wurden
 - CLAP-Plugin für den Yamaha (Kern vorhanden, Parameter und Oberfläche fehlen).
@@ -35,4 +33,4 @@ Gitterstopper (Rgs1 vor V102B, Rgs2 vor V103B) im Kern eingebaut (`rgs1`, `rgs2`
 - Bypass/Download/Einklappen auch für die Yamaha-Seite und die Laney-App (App braucht Signaturschlüssel).
 
 ## Versionsstand
-Web 2026-10-29-3 (Laney: Bypass mit Pegelangleich, WAV-Download durch den Verstärker (auch Firefox), Bauteilwerte eingeklappt, Gitterstopper Rgs1/Rgs2 als Bauteile mit Häkchen; App noch auf Stand 2026-10-10) · Apps 2.10 (versionCode 21) · CLAP 3.4 · JSFX eingefroren · letzter Commit siehe `git log`.
+Web 2026-10-29-1 (Laney: Bypass mit Pegelangleich, WAV-Download durch den Verstärker, Bauteilwerte eingeklappt; App noch auf Stand 2026-10-10) · Apps 2.10 (versionCode 21) · CLAP 3.4 · JSFX eingefroren · letzter Commit siehe `git log`.
