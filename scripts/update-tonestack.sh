@@ -157,13 +157,29 @@ fi
 if teil plugins; then
   echo; echo "== DAW-Plugins"
   CLAPDIR="${HOME}/.clap"; VST3DIR="${HOME}/.vst3"; GEF=0
-  for PZ in "$ORDNER"/Laney_AOR50_Plugin-*.zip "$ORDNER"/Yamaha_B100II_Plugin-*.zip "$ORDNER"/Laney_AOR50_CLAP-*.zip "$ORDNER"/Yamaha_B100II_CLAP-*.zip "$ORDNER"/Laney_AOR50_VST3-*.zip "$ORDNER"/Yamaha_B100II_VST3-*.zip; do
-    [ -f "$PZ" ] || continue; GEF=1; NAME="$(basename "$PZ" .zip)"
+  # Je Verstärker und Format nur das Paket mit der höchsten Versionsnummer (3.12 > 3.9): ältere ZIPs im Download-Ordner
+  # dürfen eine neue Fassung nicht wieder überschreiben.
+  neuestes() {   # $1 Verstärker, $2 Format (CLAP|VST3) → Pfad des neuesten Pakets, das dieses Format enthalten kann
+    local f v
+    for f in "$ORDNER/$1"_Plugin-*.zip "$ORDNER/$1_$2"-*.zip; do
+      [ -f "$f" ] || continue
+      v="$(basename "$f" .zip | sed -E 's/^.*_(Plugin|CLAP|VST3)-([0-9][0-9.]*).*$/\2/')"
+      printf '%s\t%s\n' "$v" "$f"
+    done | sort -V -k1,1 | tail -n1 | cut -f2-
+  }
+  for AMP in Laney_AOR50 Yamaha_B100II; do
+   for FMT in CLAP VST3; do
+    PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
+    GEF=1; NAME="$(basename "$PZ" .zip)"
+    ALTE="$(ls "$ORDNER/$AMP"_Plugin-*.zip "$ORDNER/${AMP}_$FMT"-*.zip 2>/dev/null | grep -vxF "$PZ" | wc -l)"
+    [ "$ALTE" -gt 0 ] && info "$AMP $FMT: neuestes Paket $NAME ($ALTE ältere im Ordner ignoriert)"
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     if command -v unzip >/dev/null; then unzip -q -o "$PZ" -d "$T" 2>/dev/null
     else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$PZ" "$T"; fi
     STAMP="$(date +%Y%m%d-%H%M%S)"
-    CL="$(find "$T" -maxdepth 1 -type f -name '*.clap' | head -n1)"
+    CL=""; V3=""
+    [ "$FMT" = CLAP ] && CL="$(find "$T" -maxdepth 1 -type f -name '*.clap' | head -n1)"
+    [ "$FMT" = VST3 ] && V3="$(find "$T" -maxdepth 1 -type d -name '*.vst3' | head -n1)"
     if [ -n "$CL" ]; then
       mkdir -p "$CLAPDIR"; ZIELCL="$CLAPDIR/$(basename "$CL")"
       if [ -f "$ZIELCL" ] && cmp -s "$CL" "$ZIELCL"; then info "$NAME: CLAP bereits aktuell"; merke "CLAP $NAME: bereits aktuell"
@@ -172,7 +188,6 @@ if teil plugins; then
         cp "$CL" "$ZIELCL"; chmod 755 "$ZIELCL"; info "$NAME: CLAP nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
       fi
     fi
-    V3="$(find "$T" -maxdepth 1 -type d -name '*.vst3' | head -n1)"
     if [ -n "$V3" ]; then
       SO="$(find "$V3/Contents/x86_64-linux" -maxdepth 1 -name '*.so' 2>/dev/null | head -n1)"
       if [ -z "$SO" ]; then rot "  $NAME: VST3-Ordner ohne x86_64-linux/*.so"; merke "VST3 $NAME: FEHLER"
@@ -186,8 +201,9 @@ if teil plugins; then
         fi
       fi
     fi
-    [ -n "$CL" ] || [ -n "$V3" ] || { rot "  $NAME: weder .clap noch .vst3 im Paket"; merke "Plugins $NAME: FEHLER"; }
+    [ -n "$CL" ] || [ -n "$V3" ] || { rot "  $NAME: kein $FMT im Paket"; merke "$FMT $NAME: FEHLER"; }
     rm -rf "$T"
+   done
   done
   [ $GEF -eq 1 ] && info "In REAPER: Options > Preferences > Plug-ins > CLAP bzw. VST > Re-scan (REAPER hält geladene Plugins bis zum Neustart)."
   [ $GEF -eq 1 ] || { info "kein Plugin-Paket gefunden – übersprungen"; merke "Plugins: übersprungen (kein Paket)"; }
