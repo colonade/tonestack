@@ -3,7 +3,7 @@
 #   1. Webserver:     tonestack-apache.zip      (über install-tonestack.sh, nur wenn neuer)
 #   2. Handy-Apps:    B100-II_Klangregler.apk, AOR50_Klangregler.apk   (per adb, Einstellungen bleiben)
 #   3. REAPER-Plugin: Laney_AOR50_REAPER.zip    (JSFX, nach ~/.config/REAPER/Effects)
-#   4. DAW-Plugins:   Laney_AOR50_Plugin-*.zip, Yamaha_B100II_Plugin-*.zip   (CLAP nach ~/.clap, VST3 nach ~/.vst3; danach neu scannen)
+#   4. DAW-Plugins:   <Name>_CLAP-*.zip, <Name>_VST3-*.zip (oder <Name>_Plugin-*.zip mit beiden)   (CLAP nach ~/.clap, VST3 nach ~/.vst3; danach REAPER neu starten)
 #
 #   bash update-tonestack.sh [Optionen]          (als normaler Benutzer; für den Webserver wird sudo abgefragt)
 #
@@ -157,7 +157,7 @@ fi
 if teil plugins; then
   echo; echo "== DAW-Plugins"
   CLAPDIR="${HOME}/.clap"; VST3DIR="${HOME}/.vst3"; GEF=0
-  for PZ in "$ORDNER"/Laney_AOR50_Plugin-*.zip "$ORDNER"/Yamaha_B100II_Plugin-*.zip "$ORDNER"/Laney_AOR50_CLAP-*.zip "$ORDNER"/Yamaha_B100II_CLAP-*.zip; do
+  for PZ in "$ORDNER"/Laney_AOR50_Plugin-*.zip "$ORDNER"/Yamaha_B100II_Plugin-*.zip "$ORDNER"/Laney_AOR50_CLAP-*.zip "$ORDNER"/Yamaha_B100II_CLAP-*.zip "$ORDNER"/Laney_AOR50_VST3-*.zip "$ORDNER"/Yamaha_B100II_VST3-*.zip; do
     [ -f "$PZ" ] || continue; GEF=1; NAME="$(basename "$PZ" .zip)"
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     if command -v unzip >/dev/null; then unzip -q -o "$PZ" -d "$T" 2>/dev/null

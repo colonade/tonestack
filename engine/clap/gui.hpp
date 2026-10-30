@@ -21,7 +21,7 @@
 namespace aorgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_COUNT };
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_COUNT };
 static const char *TUBE_SHORT[5] = {"12AX7", "12AT7", "12AU7", "5751", "12AY7"};
 static const int KPARAM[9] = {P_V1, P_V2, P_PL, P_MV, P_T, P_M, P_B, P_PRES, -1};   // Knopf → Parameter (Reverb: keiner)
 static const int PULLP[9] = {P_CH, -1, -1, -1, P_TOP, P_MID, P_BASS, -1, -1};       // Zugschalter je Knopf
@@ -32,8 +32,8 @@ constexpr double TUBEU = 46;    // Zeile Röhrenbestückung
 constexpr double PLOTU = 300;   // Frequenzgang-Diagramm
 static const double TOTALH = FH + (STRIPU + TUBEU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Foto-Einheiten
 constexpr double SW_Y = 88;     // Mittelpunkt der Schalter und kleinen Regler
-static const double SW_X[4] = {56, 168, 280, 392};   // BASS MOD, FX LOOP, DISTORTION, SPEAKER
-static const int SW_P[4] = {P_UMBAU, P_PA, P_NL, P_SPK};
+static const double SW_X[6] = {56, 168, 280, 392, 726, 838};   // BASS MOD, FX LOOP, DISTORTION, SPEAKER, SOFT, LATE
+static const int SW_P[6] = {P_UMBAU, P_PA, P_NL, P_SPK, P_SOFT, P_PAD};
 constexpr double OS_X = 506, TAP_X = 614;            // Überabtastung (Drehwahlschalter), Kennlinie (Kippschalter, 3 Stellungen)
 static const double KN_X[2] = {980, 1100};          // INPUT, OUTPUT
 static const char *REFLABEL = "original parts, stock tubes, all controls 5, boosts off";
@@ -120,31 +120,31 @@ struct Gui {
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *oo[2] = {"ON", "OFF"}, *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}, *osl[4] = {"1x", "2x", "4x", "8x"};
-      const char *tt[4] = {"BASS MOD", "FX LOOP", "DISTORTION", "SPEAKER"}, *ts[4] = {"bass capacitors", "+ power amp", "tube model", "15\" CB158, 78 l"};
-      for (int k = 0; k < 4; k++) tsw::toggle(c, SW_X[k], SW_Y, 2, v[SW_P[k]] > 0.5 ? 0 : 1, tt[k], oo, ts[k]);
+      const char *tt[6] = {"BASS MOD", "FX LOOP", "DISTORTION", "SPEAKER", "SOFT", "LATE"}, *ts[6] = {"bass capacitors", "+ power amp", "tube model", "15\" CB158, 78 l", "mod: C3 off", "mod: 2.2 M pad"};
+      for (int k = 0; k < 6; k++) tsw::toggle(c, SW_X[k], SW_Y, 2, v[SW_P[k]] > 0.5 ? 0 : 1, tt[k], oo, ts[k], k == 5 && low);   // LATE wirkt nur am HIGH-Eingang
       tsw::rotarySel(c, OS_X, SW_Y + 6, 4, osv, "OVERSAMPLING", osl, "distortion only", !nl);
       tsw::toggle(c, TAP_X, SW_Y, 3, tp, "TAPER", tl, "middle, presence"); }
-    // Röhrenaussteuerung: fünf Balken (1,0 = Übersteuerungseinsatz)
-    { const char *tn[5] = {"V101A","V101B","V102A","V102B","V103B"}; double mx0 = 716, bw = 36, gap = 9, bh = 56, by = 50;
-      setrgb(c, nl ? 0xdcdee2 : 0x6a6a68); tsw::text(c, "TUBE DRIVE", mx0, 38, 14, true);
-      for (int i = 0; i < 5; i++) { double bx = mx0 + i * (bw + gap); setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
-        double mv = meter[i], f = std::min(1.0, std::log10(1 + 9 * std::min(mv, 2.0) / 2));   // logarithmische Skala, 2,0 = voll
-        double h = (bh - 2) * f; setrgb(c, mv < 0.7 ? 0x3ec25a : mv < 1.0 ? 0xe8b23c : 0xff3b2a); cairo_rectangle(c, bx + 1, by + bh - 1 - h, bw - 2, h); cairo_fill(c);
-        double hm = (bh - 2) * std::log10(1 + 9 * 0.5); setrgb(c, 0xffffff, 0.4); cairo_rectangle(c, bx, by + bh - 1 - hm - 0.5, bw, 1); cairo_fill(c);   // Marke 1,0
-        setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], bx + bw / 2, by + bh + 16, 11.5, false, 1); } }
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
       tsw::smallKnob(c, KN_X[i], SW_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 9 + i || hover == 9 + i, i == 0 && !nl); }
     // Röhrenbestückung: V101, V102, V103 (Taste schaltet den Typ durch), RESET = Bestückung wie im Gerät
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x16181c); cairo_rectangle(c, 0, 0, tsw::UW, TUBEU); cairo_fill(c);
       setrgb(c, 0xdcdee2); tsw::text(c, "TUBES", 16, 28, 14, true);
-      for (int i = 0; i < 3; i++) { double bx = 84 + i * 196, by = 7, bw = 182, bh = 32; int tt = std::max(0, std::min(4, (int)std::lround(v[P_TUBE1 + i]))); bool stock = tt == 0;
+      for (int i = 0; i < 3; i++) { double bx = 84 + i * 160, by = 7, bw = 150, bh = 32; int tt = std::max(0, std::min(4, (int)std::lround(v[P_TUBE1 + i]))); bool stock = tt == 0;
         setrgb(c, 0x111317); tsw::rrect(c, bx, by, bw, bh, 4); cairo_fill_preserve(c); setrgb(c, stock ? 0x4d4d52 : 0xe8b23c); cairo_set_line_width(c, 1.5); cairo_stroke(c);
         char lbl[48]; std::snprintf(lbl, sizeof lbl, "V10%d  %s%s", i + 1, TUBE_SHORT[tt], aor::TUBE_MODELS[tt].fitted ? " *" : ""); setrgb(c, stock ? 0xc8ccd4 : 0xffd98a); tsw::text(c, lbl, bx + bw / 2, by + 21, 14, true, 1); }
-      { bool anyMod = v[P_TUBE1] > 0.5 || v[P_TUBE2] > 0.5 || v[P_TUBE3] > 0.5; double bx = 680, by = 7, bw = 150, bh = 32; setrgb(c, 0x111317); tsw::rrect(c, bx, by, bw, bh, 4); cairo_fill_preserve(c); setrgb(c, anyMod ? 0x9a9aa0 : 0x4d4d52); cairo_set_line_width(c, 1.5); cairo_stroke(c); setrgb(c, anyMod ? 0xececf0 : 0x6a6a68); tsw::text(c, "RESET TO STOCK", bx + bw / 2, by + 21, 13, true, 1); }
-      setrgb(c, 0x9a9ea6); tsw::text(c, "click to change · * = fitted to data sheet", 848, 28, 12, false); cairo_restore(c); }
+      { bool anyMod = v[P_TUBE1] > 0.5 || v[P_TUBE2] > 0.5 || v[P_TUBE3] > 0.5; double bx = 566, by = 7, bw = 132, bh = 32; setrgb(c, 0x111317); tsw::rrect(c, bx, by, bw, bh, 4); cairo_fill_preserve(c); setrgb(c, anyMod ? 0x9a9aa0 : 0x4d4d52); cairo_set_line_width(c, 1.5); cairo_stroke(c); setrgb(c, anyMod ? 0xececf0 : 0x6a6a68); tsw::text(c, "RESET TO STOCK", bx + bw / 2, by + 21, 13, true, 1); }
+      // Röhrenaussteuerung: fünf waagerechte Balken (1,0 = Übersteuerungseinsatz), logarithmisch, 2,0 = voll
+      { const char *tn[5] = {"V101A","V101B","V102A","V102B","V103B"}; double mx0 = 772, bw = 76, gap = 6, bh = 14, by = 8;
+        setrgb(c, nl ? 0xdcdee2 : 0x6a6a68); tsw::text(c, "DRIVE", 716, 28, 13, true);
+        for (int i = 0; i < 5; i++) { double bx = mx0 + i * (bw + gap); setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
+          double mv = meter[i], f = std::min(1.0, std::log10(1 + 9 * std::min(mv, 2.0) / 2)), wf = (bw - 2) * f;
+          setrgb(c, mv < 0.7 ? 0x3ec25a : mv < 1.0 ? 0xe8b23c : 0xff3b2a); cairo_rectangle(c, bx + 1, by + 1, wf, bh - 2); cairo_fill(c);
+          double wm = (bw - 2) * std::log10(1 + 9 * 0.5); setrgb(c, 0xffffff, 0.45); cairo_rectangle(c, bx + 1 + wm - 0.5, by, 1, bh); cairo_fill(c);   // Marke 1,0
+          setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], bx + bw / 2, by + bh + 15, 11, false, 1); } }
+      cairo_restore(c); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
-    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK};
+    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD};
       for (int id : ks) kn += std::snprintf(kb + kn, sizeof kb - kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; } }
     { cairo_save(c); cairo_translate(c, 0, STRIPU + TUBEU); setrgb(c, 0x14161a); cairo_rectangle(c, 0, 0, tsw::UW, PLOTU); cairo_fill(c);
@@ -165,10 +165,10 @@ struct Gui {
   int hitPull(double x, double y) const { double s = scale(); x /= s; y /= s; for (auto &l : LG) { int pp = -1; if (!std::strcmp(l.t, "PULL ON")) pp = P_CH; else if (!std::strcmp(l.t, "PULL BOOST")) pp = !std::strcmp(l.k, "t") ? P_TOP : !std::strcmp(l.k, "m") ? P_MID : P_BASS;
       if (pp >= 0 && x >= l.x - 8 && x <= l.x + l.w + 8 && y >= l.y - 10 && y <= l.y + l.h + 10) return pp; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J[2] = {JACK_HIGH, JACK_LOW}; for (int i = 0; i < 2; i++) { double dx = x - J[i][0], dy = y - J[i][1]; if (dx*dx + dy*dy <= (J[i][2] + 14) * (J[i][2] + 14)) return i; } return -1; }
-  int hitTube(double x, double y) const { double lx, ly; toLower(x, y, lx, ly); ly -= STRIPU; if (ly < 5 || ly > 41) return -1; for (int i = 0; i < 3; i++) if (lx >= 84 + i * 196 && lx <= 266 + i * 196) return i; if (lx >= 680 && lx <= 830) return 3; return -1; }
+  int hitTube(double x, double y) const { double lx, ly; toLower(x, y, lx, ly); ly -= STRIPU; if (ly < 5 || ly > 41) return -1; for (int i = 0; i < 3; i++) if (lx >= 84 + i * 160 && lx <= 234 + i * 160) return i; if (lx >= 566 && lx <= 698) return 3; return -1; }
   // Schalter im Modellstreifen: liefert Parameter und half (0 obere, 1 untere Hälfte)
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly);
-    for (int k = 0; k < 4; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; }
+    for (int k = 0; k < 6; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; }
     if (tsw::rotaryHit(lx, ly, OS_X, SW_Y + 6)) { half = 0; return P_OS; }
     half = tsw::toggleHit(lx, ly, TAP_X, SW_Y, 62); if (half >= 0) return P_TAPER; return -1; }
   // Schalter bewegen: dir −1 = nach oben / links, +1 = nach unten / rechts (zweistufig: oben = an); 0 = umschalten bzw. weiterdrehen

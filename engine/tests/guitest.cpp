@@ -42,15 +42,18 @@ int main(int argc, char **argv) {
   { auto drag = [&](int x, int y) { send(ButtonPress, x, y, 1); tim->on_timer(p, 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, x, y - i * 4, 0); tim->on_timer(p, 1); } send(ButtonRelease, x, y - 40, 1); tim->on_timer(p, 1); };
     drag(ux(980), uy(88)); drag(ux(1100), uy(88)); }
   // Röhren: V101 zweimal weiter (12AU7), V103 einmal (12AT7); Kippschalter: Verzerrung aus, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
-  send(ButtonPress, ux(175), uy(173), 1); send(ButtonRelease, ux(175), uy(173), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(175), uy(173), 1); send(ButtonRelease, ux(175), uy(173), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(567), uy(173), 1); send(ButtonRelease, ux(567), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(159), uy(173), 1); send(ButtonRelease, ux(159), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(159), uy(173), 1); send(ButtonRelease, ux(159), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(479), uy(173), 1); send(ButtonRelease, ux(479), uy(173), 1); tim->on_timer(p, 1);
+  // Umbauideen: SOFT und LATE an
+  send(ButtonPress, ux(726), uy(88), 1); send(ButtonRelease, ux(726), uy(88), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(838), uy(88), 1); send(ButtonRelease, ux(838), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(280), uy(88), 1); send(ButtonRelease, ux(280), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(392), uy(88), 1); send(ButtonRelease, ux(392), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(614), uy(110), 1); send(ButtonRelease, ux(614), uy(110), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
   { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argc > 3 ? argv[3] : "gui_tubes.png"); cairo_surface_destroy(xs); }
-  char t[64]; const int ids[] = {3, 1, 0, 18, 16, 23, 14, 17, 15, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
-  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(755), uy(173), 1); send(ButtonRelease, ux(755), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
+  char t[64]; const int ids[] = {3, 1, 0, 18, 16, 23, 14, 17, 15, 24, 25, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
+  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(632), uy(173), 1); send(ButtonRelease, ux(632), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   for (int id : {20, 21, 22}) { double v; params->get_value(p, id, &v); params->value_to_text(p, id, v, t, 64); printf("  nach RESET: Tube %d = %s\n", id - 19, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
   gui->hide(p); gui->destroy(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d); return 0;

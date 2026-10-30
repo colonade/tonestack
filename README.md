@@ -40,7 +40,7 @@ Bauen und prüfen:
 Voraussetzungen: g++ 13 (C++17), node, python3, pkg-config, libcairo2-dev, libx11-dev; wasi-sdk 24 für WebAssembly; cmake ≥ 3.21 und ninja für VST3.
 `embed_wasm.py` schreibt auch in `app/*/assets/index.html`; solange die Apps nicht neu gebaut werden, diese Änderung mit `git checkout app/laney/assets/index.html app/yamaha/assets/index.html` zurücknehmen.
 
-Neue Plugin-Fassung ausliefern: Version in `DESC` (plugin.cpp/yplugin.cpp), in `engine/vst3/CMakeLists.txt` und im README anheben; `VST3=1 bash engine/build.sh`; `engine/build/*.clap` nach `reaper-clap/`, `engine/build/vst3/*.vst3` nach `reaper-vst3/`; ZIP je Verstärker (`<Name>.clap`, Ordner `<Name>.vst3`, README als `README.txt`, `THIRD-PARTY-LICENSES.txt`) als `<Name>_Plugin-<Version>.zip` nach `web/tonestack/download/`; Link und Version in `web/tonestack/index.html`, `VERSION` in `web/tonestack/sw.js` erhöhen; `bash engine/verify.sh`. Installation beim Nutzer: `update-tonestack.sh --nur plugins` (CLAP nach `~/.clap`, VST3 nach `~/.vst3`).
+Neue Plugin-Fassung ausliefern: Version in `DESC` (plugin.cpp/yplugin.cpp), in `engine/vst3/CMakeLists.txt` und im README anheben; `VST3=1 bash engine/build.sh`; `engine/build/*.clap` nach `reaper-clap/`, `engine/build/vst3/*.vst3` nach `reaper-vst3/`; je Verstärker zwei ZIPs nach `web/tonestack/download/`: `<Name>_CLAP-<Version>.zip` (`<Name>.clap`) und `<Name>_VST3-<Version>.zip` (Ordner `<Name>.vst3`), jeweils mit README als `README.txt` und `THIRD-PARTY-LICENSES.txt`; Link und Version in `web/tonestack/index.html`, `VERSION` in `web/tonestack/sw.js` erhöhen; `bash engine/verify.sh`. Installation beim Nutzer: `update-tonestack.sh --nur plugins` (CLAP nach `~/.clap`, VST3 nach `~/.vst3`).
 
 ## Apps bauen
 

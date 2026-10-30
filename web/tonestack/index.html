@@ -28,6 +28,11 @@ p{color:var(--ink2);max-width:62ch;margin:0 0 26px}
 .card.dl{border-color:#1D5A94;background:linear-gradient(90deg,rgba(29,90,148,.08),transparent 60%)}
 .card.dl .ico{flex:none;width:72px;height:72px;border-radius:14px;background:#1D5A94;color:#fff;display:grid;place-items:center;font-stretch:80%;font-weight:700;font-size:1.05rem;letter-spacing:.02em}
 .card.dl small{display:block;color:var(--ink2);font-size:.85rem;margin-top:6px}
+.card.dl:hover{background:linear-gradient(90deg,rgba(29,90,148,.08),transparent 60%)}
+.dls{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.dlb{display:inline-block;padding:8px 14px;border-radius:7px;background:#1D5A94;color:#fff!important;font-weight:600;text-decoration:none;font-size:.95rem}
+.dlb:hover{background:#174a7a}
+.dlb:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 h2{font-stretch:80%;font-size:1.15rem;margin:30px 0 10px}
 footer{margin-top:30px;border-top:1px solid var(--line);padding-top:12px;font-size:.82rem;color:var(--ink2)}
 footer a{color:inherit}
@@ -47,14 +52,18 @@ footer a{color:inherit}
     <span><b>Laney AOR 50 Vorverstärker</b><span>Kompletter Röhren-Vorverstärker mit beiden Kanälen, Boosts, Umbau-Kondensatoren und Anhören eigener Audiodateien, optional mit geschätzter Röhrenverzerrung.</span></span>
   </a>
   <h2>Für die DAW</h2>
-  <a class="card dl" href="download/Laney_AOR50_Plugin-3.11.zip" download>
-    <span class="ico">CLAP<br>VST3</span>
-    <span><b>Laney AOR 50 Preamp als DAW-Plugin</b><span>Derselbe Rechenkern wie der Simulator als CLAP- und VST3-Plugin für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl, Lautsprecher.</span><small>Version 3.11 · ZIP mit beiden Formaten, 1,5 MB · Installation: <code>Laney_AOR50.clap</code> nach <code>~/.clap</code> oder den Ordner <code>Laney_AOR50.vst3</code> nach <code>~/.vst3</code> kopieren, in der DAW neu scannen. Anleitung liegt bei (README.txt). Braucht glibc 2.38 oder neuer, also Ubuntu 24.04, Debian 13 oder vergleichbar.</small></span>
-  </a>
-  <a class="card dl" href="download/Yamaha_B100II_Plugin-1.4.zip" download>
-    <span class="ico">CLAP<br>VST3</span>
-    <span><b>Yamaha B100-II Bass Amp als DAW-Plugin</b><span>Das PA-Board des Transistor-Combos (HIGH/LOW-Buchse, Volume, Treble, Middle, Bass, 5-Band-Equalizer) als CLAP- und VST3-Plugin, optional mit Endstufe (MA-Board, Begrenzung) und 15"-Lautsprecher; Frontplatte zum Drehen, Stereo, Frequenzgang.</span><small>Version 1.4 · ZIP mit beiden Formaten, 1,4 MB · Installation wie beim Laney (<code>Yamaha_B100II.clap</code> bzw. Ordner <code>Yamaha_B100II.vst3</code>). Anleitung liegt bei (README.txt). Gleiche Systemvoraussetzungen.</small></span>
-  </a>
+  <div class="card dl">
+    <span class="ico">PLUG<br>IN</span>
+    <span><b>Laney AOR 50 Preamp als DAW-Plugin</b><span>Derselbe Rechenkern wie der Simulator für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl, Lautsprecher, Umbauideen „Sanft" und „Später".</span>
+      <span class="dls"><a class="dlb" href="download/Laney_AOR50_CLAP-3.12.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Laney_AOR50_VST3-3.12.zip" download>VST3 herunterladen</a></span>
+      <small>Version 3.12 · je ZIP mit Anleitung (README.txt) · CLAP: <code>Laney_AOR50.clap</code> nach <code>~/.clap</code> · VST3: den Ordner <code>Laney_AOR50.vst3</code> nach <code>~/.vst3</code> · danach REAPER neu starten. Beide Formate klingen gleich; ein Format genügt. Braucht glibc 2.38 oder neuer (Ubuntu 24.04, Debian 13 oder vergleichbar).</small></span>
+  </div>
+  <div class="card dl">
+    <span class="ico">PLUG<br>IN</span>
+    <span><b>Yamaha B100-II Bass Amp als DAW-Plugin</b><span>Das PA-Board des Transistor-Combos (HIGH/LOW-Buchse, Volume, Treble, Middle, Bass, 5-Band-Equalizer), optional mit Endstufe (MA-Board, Begrenzung) und 15"-Lautsprecher; Frontplatte zum Drehen, Stereo, Frequenzgang.</span>
+      <span class="dls"><a class="dlb" href="download/Yamaha_B100II_CLAP-1.4.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Yamaha_B100II_VST3-1.4.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.4 · Installation wie beim Laney (<code>Yamaha_B100II.clap</code> bzw. Ordner <code>Yamaha_B100II.vst3</code>). Gleiche Systemvoraussetzungen.</small></span>
+  </div>
   <footer>Kleinsignalrechnung, gültig solange nichts verzerrt; Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
 </main>
 </body>

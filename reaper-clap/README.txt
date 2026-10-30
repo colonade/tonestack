@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.11
+Version 3.12
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -34,22 +34,25 @@ Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
   Treble, Middle, Bass, Master Volume, Mid/Top/Bass Boost, Bass mod,
   FX loop + power amp (Presence), Middle/Presence pot taper, Output level,
-  Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 4x),
-  Presence (active with "FX loop + power amp").
+  Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 8x),
+  Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
+  Soft and Late (circuit ideas, see 3.12).
   Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 8x oversampling,
-  bass mod on, FX loop + power amp on, stock tubes (3 x 12AX7).
+  bass mod on, FX loop + power amp on, stock tubes (3 x 12AX7), speaker, soft
+  and late off.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
   works too), double-click = centre. Click PULL ON / PULL BOOST for the pull
   switches, click the HIGH/LOW jack to choose the input. Model strip below
   (settings that do not exist on the amp): toggle switches for BASS MOD,
-  FX LOOP (+ power amp), DISTORTION and SPEAKER (lever up = on, click to
+  FX LOOP (+ power amp), DISTORTION, SPEAKER, SOFT and LATE (lever up = on, click to
   flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (click
   turns it on, wheel turns either way), a three-position toggle for the
   middle/presence pot TAPER (click the upper or lower half to move the
-  lever), the TUBE DRIVE meters, INPUT and OUTPUT. Below: the three tube
-  sockets (click to change the type) and the frequency response. Text in
+  lever), INPUT and OUTPUT. Below: the three tube sockets (click to change
+  the type; * = model fitted to the data sheet), the tube DRIVE meters and
+  the frequency response. Text in
   the lower part is sized for the screen (12-14 pixels at the default
   width), independent of the photo resolution. Every change is
   sent to REAPER as a parameter (automatable); REAPER's own parameter view
@@ -110,6 +113,16 @@ Speaker (since 3.6)
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
+3.12
+  The two circuit ideas from the web simulator as parameters and toggle
+  switches: SOFT ("Sanft": C3 at V101B removed - the cathode bypass of the
+  second stage, which makes that stage hit hardest; with it gone the stage
+  has less gain and saturates more gently) and LATE ("Später": a 2.2 MOhm
+  resistor before the Preamp 2 Volume pot, about -10 dB into the following
+  stages, so distortion starts later; only with the HIGH input). Both are
+  calculated exactly as in the web simulator. The tube drive meters moved
+  into the tube row to make room. Parameters 24 and 25 were appended, so
+  saved projects keep their settings.
 3.11 (crash fixes - please update)
   Fixes two ways the plugin could take REAPER down, in CLAP and VST3:
   - switching DISTORTION or OVERSAMPLING again while the previous switch
