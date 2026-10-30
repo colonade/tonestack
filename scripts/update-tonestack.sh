@@ -184,7 +184,7 @@ if teil plugins; then
       mkdir -p "$CLAPDIR"; ZIELCL="$CLAPDIR/$(basename "$CL")"
       if [ -f "$ZIELCL" ] && cmp -s "$CL" "$ZIELCL"; then info "$NAME: CLAP bereits aktuell"; merke "CLAP $NAME: bereits aktuell"
       else
-        if [ -f "$ZIELCL" ]; then SICH="$CLAPDIR/tonestack-sicherungen"; mkdir -p "$SICH"; cp -p "$ZIELCL" "$SICH/$(basename "$CL").$STAMP"; fi
+        if [ -f "$ZIELCL" ]; then SICH="$CLAPDIR/tonestack-sicherungen"; mkdir -p "$SICH"; SZ="$SICH/$(basename "$CL").$STAMP"; n=1; while [ -e "$SZ" ]; do SZ="$SICH/$(basename "$CL").$STAMP-$n"; n=$((n+1)); done; cp -p "$ZIELCL" "$SZ"; fi
         cp "$CL" "$ZIELCL"; chmod 755 "$ZIELCL"; info "$NAME: CLAP nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
       fi
     fi
@@ -196,8 +196,13 @@ if teil plugins; then
         if [ -f "$ZIELV3/Contents/x86_64-linux/$(basename "$SO")" ] && cmp -s "$SO" "$ZIELV3/Contents/x86_64-linux/$(basename "$SO")"; then info "$NAME: VST3 bereits aktuell"; merke "VST3 $NAME: bereits aktuell"
         else
           # Sicherung außerhalb von ~/.vst3: ein zweiter Ordner dort würde als weiteres Plugin gefunden
-          if [ -d "$ZIELV3" ]; then SICH="${HOME}/.vst3-tonestack-sicherungen"; mkdir -p "$SICH"; mv "$ZIELV3" "$SICH/$(basename "$V3").$STAMP"; fi
-          cp -r "$V3" "$ZIELV3"; chmod -R u+rwX,go+rX "$ZIELV3"; info "$NAME: VST3 nach $ZIELV3"; merke "VST3 $NAME: aktualisiert"
+          # eindeutiger Sicherungsname (zwei Läufe in derselben Sekunde); mv muss gelingen, sonst landete cp -r im alten Ordner
+          OKV3=1
+          if [ -d "$ZIELV3" ]; then SICH="${HOME}/.vst3-tonestack-sicherungen"; mkdir -p "$SICH"
+            SZ="$SICH/$(basename "$V3").$STAMP"; n=1; while [ -e "$SZ" ]; do SZ="$SICH/$(basename "$V3").$STAMP-$n"; n=$((n+1)); done
+            mv -T "$ZIELV3" "$SZ" || OKV3=0; fi
+          if [ $OKV3 -eq 1 ] && [ ! -e "$ZIELV3" ]; then cp -r "$V3" "$ZIELV3"; chmod -R u+rwX,go+rX "$ZIELV3"; info "$NAME: VST3 nach $ZIELV3"; merke "VST3 $NAME: aktualisiert"
+          else rot "  $NAME: alter VST3-Ordner $ZIELV3 ließ sich nicht wegsichern – nichts kopiert"; merke "VST3 $NAME: FEHLER"; fi
         fi
       fi
     fi
