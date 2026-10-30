@@ -1,11 +1,26 @@
-Laney AOR 50 Preamp - native CLAP plugin for REAPER (Linux x86-64)
-Version 3.7
+Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 3.8
 
-Installation
+Two formats, one engine
+  Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
+  (checked sample by sample). Use whichever your DAW prefers; REAPER
+  handles both. CLAP is the native format, the VST3 is built from it with
+  clap-wrapper (free-audio, MIT) and the VST3 SDK 3.8 (Steinberg, MIT) and
+  passes Steinberg's validator (47 of 47 tests). A project saved with one
+  format does not load its settings into the other.
+  Third-party licenses (all MIT or public domain): THIRD-PARTY-LICENSES.txt.
+
+Installation (CLAP)
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
   path if it is not there and press "Re-scan". The plugin then appears in
   the FX browser under CLAP as "Laney AOR 50 Preamp".
+
+Installation (VST3)
+  mkdir -p ~/.vst3 && cp -r Laney_AOR50.vst3 ~/.vst3/
+  (Laney_AOR50.vst3 is a folder - copy it as a whole.) REAPER searches ~/.vst3
+  by default; otherwise add it under Options > Preferences > Plug-ins >
+  VST, then "Re-scan". The plugin appears under VST3 as "Laney AOR 50 Preamp".
 
 What it is
   The same engine as the web simulator (linear network from schematic
@@ -88,6 +103,11 @@ Speaker (since 3.6)
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
+3.8
+  VST3 version (same engine, sound bit-identical to the CLAP). Knob drags
+  in the plugin window are now sent to the host as gestures (begin, values,
+  end), so REAPER records them as automation in touch/latch mode and a VST3
+  host learns about them at all. Audio unchanged.
 3.7 (code review)
   Fixed latency of 31 samples in every mode (see below). The tube tables and
   the operating-point cache are now built and used thread-safely (several

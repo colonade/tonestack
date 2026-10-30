@@ -34,7 +34,7 @@ inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1))
 
 struct Gui {
   Display *dpy = nullptr; Window win = 0, parent = 0; cairo_surface_t *xs = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0;
-  std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag;
+  std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;   // gesture: Ziehen beginnt/endet (Parameter-ID)
   double meter[5] = {0,0,0,0,0};
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;   // Kurven in dB (bezogen auf 1 kHz): aktuell, Original/alle 5
   std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0;
@@ -173,6 +173,7 @@ struct Gui {
   int hitTube(double x, double y) const { double s = scale(); x /= s; y /= s; double ty0 = FH + STRIP; if (y < ty0 + 8 || y > ty0 + 38) return -1; for (int i = 0; i < 3; i++) if (x >= 150 + i * 300 && x <= 420 + i * 300) return i; if (x >= 1060 && x <= 1210) return 3; if (x >= 1760 && x <= 2180) return 4; return -1; }
   int hitButton(double x, double y) const { double s = scale(); x /= s; y /= s; if (y < FH + 28 || y > FH + 64) return -1; const double bx[5] = {14, 214, 514, 724, 964}, bw[5] = {190, 290, 200, 230, 270}; const int bp[5] = {P_UMBAU, P_PA, P_NL, P_OS, P_TAPER};
     for (int i = 0; i < 5; i++) if (x >= bx[i] && x <= bx[i] + bw[i]) return bp[i]; return -1; }
+  int knobParam(int i) const { return i < 9 ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
   double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
   void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 9) { if (KPARAM[i] >= 0) setP(KPARAM[i], std::round(u * 10) / 10); } else if (i == 9) setP(P_VIN, std::round(std::pow(1000, u / 10))); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
   // ---- Ereignisse: liefert true, wenn neu gezeichnet werden soll ----
@@ -183,7 +184,7 @@ struct Gui {
         if (ev.xbutton.button == 4 || ev.xbutton.button == 5) { int k = hitKnob(x, y); if (k >= 0 && k != 8) setKnob(k, knobVal(k) + (ev.xbutton.button == 4 ? 0.2 : -0.2)); return true; }
         if (ev.xbutton.button != 1) return false;
         int k = hitKnob(x, y); double now = ev.xbutton.time / 1000.0;
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture && k != 8) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_INP, j == 0 ? 0 : 1); return true; }
         int tb2 = hitTube(x, y); if (tb2 == 3) { for (int i = 0; i < 3; i++) setP(P_TUBE1 + i, 0); return true; } if (tb2 == 4) { setP(P_SPK, getP(P_SPK) > 0.5 ? 0 : 1); return true; } if (tb2 >= 0) { setP(P_TUBE1 + tb2, std::fmod(std::lround(getP(P_TUBE1 + tb2)) + 1, 5)); return true; }
@@ -192,7 +193,7 @@ struct Gui {
       case MotionNotify: { double x = ev.xmotion.x, y = ev.xmotion.y;
         if (drag >= 0 && drag != 8) { setKnob(drag, dragV0 + (dragY0 - y) / scale() * (10.0 / 250)); return true; }
         int h = hitKnob(x, y); bool changed = h != hover; hover = h; showTip = h >= 0; return changed; }
-      case ButtonRelease: if (ev.xbutton.button == 1 && drag >= 0) { drag = -1; return true; } return false;
+      case ButtonRelease: if (ev.xbutton.button == 1 && drag >= 0) { if (gesture) gesture(knobParam(drag), false); drag = -1; return true; } return false;
       case LeaveNotify: { bool changed = hover >= 0; hover = -1; if (drag < 0) showTip = false; return changed; }
       default: return false;
     }

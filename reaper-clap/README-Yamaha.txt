@@ -1,11 +1,26 @@
-Yamaha B100-II Bass Amp - native CLAP plugin for REAPER (Linux x86-64)
-Version 1.1
+Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.2
 
-Installation
+Two formats, one engine
+  Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
+  (checked sample by sample). Use whichever your DAW prefers; REAPER
+  handles both. CLAP is the native format, the VST3 is built from it with
+  clap-wrapper (free-audio, MIT) and the VST3 SDK 3.8 (Steinberg, MIT) and
+  passes Steinberg's validator (47 of 47 tests). A project saved with one
+  format does not load its settings into the other.
+  Third-party licenses (all MIT or public domain): THIRD-PARTY-LICENSES.txt.
+
+Installation (CLAP)
   mkdir -p ~/.clap && cp Yamaha_B100II.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
   path if it is not there and press "Re-scan". The plugin then appears in
   the FX browser under CLAP as "Yamaha B100-II Bass Amp".
+
+Installation (VST3)
+  mkdir -p ~/.vst3 && cp -r Yamaha_B100II.vst3 ~/.vst3/
+  (Yamaha_B100II.vst3 is a folder - copy it as a whole.) REAPER searches ~/.vst3
+  by default; otherwise add it under Options > Preferences > Plug-ins >
+  VST, then "Re-scan". The plugin appears under VST3 as "Yamaha B100-II Bass Amp".
 
 What it is
   The same engine as the web simulator (https://borg.fluxstatus.de/tonestack/
@@ -69,6 +84,11 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
   the plot (it is flat apart from the 9 Hz high-pass).
 
+1.2
+  VST3 version (same engine, sound bit-identical to the CLAP). Knob drags
+  in the plugin window are now sent to the host as gestures (begin, values,
+  end), so REAPER records them as automation in touch/latch mode and a VST3
+  host learns about them at all. Audio unchanged.
 1.1 (code review)
   Non-finite input samples are treated as silence and a diverged circuit
   state restarts the filter instead of outputting NaN; denormals are

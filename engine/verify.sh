@@ -16,9 +16,13 @@ for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100
 for n in ['Laney_AOR50.clap', 'Yamaha_B100II.clap']:
     a = os.path.join(B, n); b = os.path.join(R, 'reaper-clap', n)
     if os.path.exists(a): print(n + ': ' + ('identisch mit reaper-clap/' if open(a, 'rb').read() == open(b, 'rb').read() else 'ABWEICHEND von reaper-clap/'))
+for n in ['Laney_AOR50', 'Yamaha_B100II']:   # VST3 (nur wenn mit VST3=1 gebaut)
+    a = os.path.join(B, 'vst3', n + '.vst3', 'Contents', 'x86_64-linux', n + '.so'); b = os.path.join(R, 'reaper-vst3', n + '.vst3', 'Contents', 'x86_64-linux', n + '.so')
+    if os.path.exists(a) and os.path.exists(b): print(n + '.vst3: ' + ('identisch mit reaper-vst3/' if open(a, 'rb').read() == open(b, 'rb').read() else 'ABWEICHEND von reaper-vst3/'))
 import zipfile, glob
 for z in sorted(glob.glob(os.path.join(R, 'web/tonestack/download/*.zip'))):   # Download-Pakete der Übersichtsseite müssen die ausgelieferten Plugins enthalten
     with zipfile.ZipFile(z) as zf:
         for n in zf.namelist():
             if n.endswith('.clap'): print(os.path.basename(z) + ' / ' + n + ': ' + ('identisch mit reaper-clap/' if zf.read(n) == open(os.path.join(R, 'reaper-clap', n), 'rb').read() else 'ABWEICHEND von reaper-clap/'))
+            if n.endswith('.so') and '.vst3/' in n: print(os.path.basename(z) + ' / ' + n.split('/')[0] + ': ' + ('identisch mit reaper-vst3/' if zf.read(n) == open(os.path.join(R, 'reaper-vst3', n), 'rb').read() else 'ABWEICHEND von reaper-vst3/'))
 PY

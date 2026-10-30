@@ -3,12 +3,12 @@
 #   1. Webserver:     tonestack-apache.zip      (über install-tonestack.sh, nur wenn neuer)
 #   2. Handy-Apps:    B100-II_Klangregler.apk, AOR50_Klangregler.apk   (per adb, Einstellungen bleiben)
 #   3. REAPER-Plugin: Laney_AOR50_REAPER.zip    (JSFX, nach ~/.config/REAPER/Effects)
-#   4. CLAP-Plugins:  Laney_AOR50_CLAP-*.zip, Yamaha_B100II_CLAP-*.zip   (nach ~/.clap, danach in REAPER neu scannen)
+#   4. DAW-Plugins:   Laney_AOR50_Plugin-*.zip, Yamaha_B100II_Plugin-*.zip   (CLAP nach ~/.clap, VST3 nach ~/.vst3; danach neu scannen)
 #
 #   bash update-tonestack.sh [Optionen]          (als normaler Benutzer; für den Webserver wird sudo abgefragt)
 #
 # Optionen:
-#   --nur web|app|reaper|clap   nur diesen Teil (mehrfach möglich)
+#   --nur web|app|reaper|plugins   nur diesen Teil (mehrfach möglich; clap = plugins)
 #   --ordner PFAD          wo die Dateien liegen        (Standard: Ordner dieses Skripts)
 #   --ziel PFAD            Installationsordner Web      (Standard: /var/www/html/tonestack)
 #   --url PFAD             URL-Pfad Web                 (Standard: /tonestack)
@@ -34,7 +34,7 @@ info() { printf '  %s\n' "$*"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --nur)      case "${2:-}" in web|app|reaper|clap) NUR="$NUR $2";; *) rot "Unbekannter Teil: ${2:-} (web, app, reaper oder clap)"; exit 1;; esac; shift 2 ;;
+    --nur)      case "${2:-}" in web|app|reaper|plugins) NUR="$NUR $2";; clap|vst3) NUR="$NUR plugins";; *) rot "Unbekannter Teil: ${2:-} (web, app, reaper oder plugins)"; exit 1;; esac; shift 2 ;;
     --ordner)   [ -d "${2:-}" ] || { rot "Ordner nicht gefunden: ${2:-}"; exit 1; }; ORDNER="$(cd "$2" && pwd)"; shift 2 ;;
     --ziel)     ZIEL="${2%/}"; shift 2 ;;
     --url)      URLPFAD="$2"; shift 2 ;;
@@ -152,27 +152,45 @@ if teil reaper; then
   fi
 fi
 
-# ---------- 4. CLAP-Plugins ----------
-if teil clap; then
-  echo; echo "== CLAP-Plugins"
-  CLAPDIR="${HOME}/.clap"; GEF=0
-  for CZ in "$ORDNER"/Laney_AOR50_CLAP-*.zip "$ORDNER"/Yamaha_B100II_CLAP-*.zip; do
-    [ -f "$CZ" ] || continue; GEF=1; NAME="$(basename "$CZ" .zip)"
+# ---------- 4. DAW-Plugins (CLAP und VST3) ----------
+# Ein Paket je Verstärker: <Name>.clap (Datei) und <Name>.vst3 (Ordner). Alte Fassungen werden gesichert, gleiche übersprungen.
+if teil plugins; then
+  echo; echo "== DAW-Plugins"
+  CLAPDIR="${HOME}/.clap"; VST3DIR="${HOME}/.vst3"; GEF=0
+  for PZ in "$ORDNER"/Laney_AOR50_Plugin-*.zip "$ORDNER"/Yamaha_B100II_Plugin-*.zip "$ORDNER"/Laney_AOR50_CLAP-*.zip "$ORDNER"/Yamaha_B100II_CLAP-*.zip; do
+    [ -f "$PZ" ] || continue; GEF=1; NAME="$(basename "$PZ" .zip)"
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-    if command -v unzip >/dev/null; then unzip -q -o "$CZ" '*.clap' -d "$T" 2>/dev/null
-    else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); [z.extract(n, sys.argv[2]) for n in z.namelist() if n.endswith('.clap') and '/' not in n]" "$CZ" "$T"; fi
-    CL="$(find "$T" -maxdepth 1 -name '*.clap' | head -n1)"
-    if [ -z "$CL" ]; then rot "  $NAME: keine .clap-Datei im Paket"; merke "CLAP $NAME: FEHLER"; rm -rf "$T"; continue; fi
-    mkdir -p "$CLAPDIR"; ZIELCL="$CLAPDIR/$(basename "$CL")"
-    if [ -f "$ZIELCL" ] && cmp -s "$CL" "$ZIELCL"; then info "$NAME: bereits aktuell"; merke "CLAP $NAME: bereits aktuell"
-    else
-      if [ -f "$ZIELCL" ]; then SICH="$CLAPDIR/tonestack-sicherungen"; mkdir -p "$SICH"; cp -p "$ZIELCL" "$SICH/$(basename "$CL").$(date +%Y%m%d-%H%M%S)"; info "alte Fassung gesichert in $SICH"; fi
-      cp "$CL" "$ZIELCL"; chmod 755 "$ZIELCL"; info "$NAME: kopiert nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
+    if command -v unzip >/dev/null; then unzip -q -o "$PZ" -d "$T" 2>/dev/null
+    else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$PZ" "$T"; fi
+    STAMP="$(date +%Y%m%d-%H%M%S)"
+    CL="$(find "$T" -maxdepth 1 -type f -name '*.clap' | head -n1)"
+    if [ -n "$CL" ]; then
+      mkdir -p "$CLAPDIR"; ZIELCL="$CLAPDIR/$(basename "$CL")"
+      if [ -f "$ZIELCL" ] && cmp -s "$CL" "$ZIELCL"; then info "$NAME: CLAP bereits aktuell"; merke "CLAP $NAME: bereits aktuell"
+      else
+        if [ -f "$ZIELCL" ]; then SICH="$CLAPDIR/tonestack-sicherungen"; mkdir -p "$SICH"; cp -p "$ZIELCL" "$SICH/$(basename "$CL").$STAMP"; fi
+        cp "$CL" "$ZIELCL"; chmod 755 "$ZIELCL"; info "$NAME: CLAP nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
+      fi
     fi
+    V3="$(find "$T" -maxdepth 1 -type d -name '*.vst3' | head -n1)"
+    if [ -n "$V3" ]; then
+      SO="$(find "$V3/Contents/x86_64-linux" -maxdepth 1 -name '*.so' 2>/dev/null | head -n1)"
+      if [ -z "$SO" ]; then rot "  $NAME: VST3-Ordner ohne x86_64-linux/*.so"; merke "VST3 $NAME: FEHLER"
+      else
+        mkdir -p "$VST3DIR"; ZIELV3="$VST3DIR/$(basename "$V3")"
+        if [ -f "$ZIELV3/Contents/x86_64-linux/$(basename "$SO")" ] && cmp -s "$SO" "$ZIELV3/Contents/x86_64-linux/$(basename "$SO")"; then info "$NAME: VST3 bereits aktuell"; merke "VST3 $NAME: bereits aktuell"
+        else
+          # Sicherung außerhalb von ~/.vst3: ein zweiter Ordner dort würde als weiteres Plugin gefunden
+          if [ -d "$ZIELV3" ]; then SICH="${HOME}/.vst3-tonestack-sicherungen"; mkdir -p "$SICH"; mv "$ZIELV3" "$SICH/$(basename "$V3").$STAMP"; fi
+          cp -r "$V3" "$ZIELV3"; chmod -R u+rwX,go+rX "$ZIELV3"; info "$NAME: VST3 nach $ZIELV3"; merke "VST3 $NAME: aktualisiert"
+        fi
+      fi
+    fi
+    [ -n "$CL" ] || [ -n "$V3" ] || { rot "  $NAME: weder .clap noch .vst3 im Paket"; merke "Plugins $NAME: FEHLER"; }
     rm -rf "$T"
   done
-  [ $GEF -eq 1 ] && info "In REAPER: Options > Preferences > Plug-ins > CLAP > Clear cache/re-scan (REAPER hält geladene Plugins bis zum Neustart)."
-  [ $GEF -eq 1 ] || { info "kein CLAP-Paket gefunden – übersprungen"; merke "CLAP: übersprungen (kein Paket)"; }
+  [ $GEF -eq 1 ] && info "In REAPER: Options > Preferences > Plug-ins > CLAP bzw. VST > Re-scan (REAPER hält geladene Plugins bis zum Neustart)."
+  [ $GEF -eq 1 ] || { info "kein Plugin-Paket gefunden – übersprungen"; merke "Plugins: übersprungen (kein Paket)"; }
 fi
 
 echo; echo "== Zusammenfassung"

@@ -34,7 +34,7 @@ struct Plugin {
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT;   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
   long quiet = 0; std::atomic<bool> sleeping{false};   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1;
-  aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::deque<std::pair<int,double>> guiQ; double guiW = 1200, guiH = 0; std::string diagTxt;
+  aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt;
   Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)std::lround(val[P_TAPER]);
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
     t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
@@ -91,8 +91,9 @@ static void apply_events(Plugin *pl, const clap_input_events_t *in) {
 }
 static void emit_gui(Plugin *pl, const clap_output_events_t *out) {
   std::lock_guard<std::mutex> lk(pl->qm);
-  while (!pl->guiQ.empty()) { auto [id, v] = pl->guiQ.front(); pl->guiQ.pop_front(); if (!out) continue;
-    clap_event_param_value_t e{}; e.header.size = sizeof e; e.header.type = CLAP_EVENT_PARAM_VALUE; e.header.space_id = CLAP_CORE_EVENT_SPACE_ID; e.param_id = id; e.value = v; e.note_id = -1; e.port_index = -1; e.channel = -1; e.key = -1; out->try_push(out, &e.header); }
+  while (!pl->guiQ.empty()) { auto q = pl->guiQ.front(); pl->guiQ.pop_front(); if (!out) continue;
+    if (q.kind) { clap_event_param_gesture_t g{}; g.header.size = sizeof g; g.header.type = q.kind == 1 ? CLAP_EVENT_PARAM_GESTURE_BEGIN : CLAP_EVENT_PARAM_GESTURE_END; g.header.space_id = CLAP_CORE_EVENT_SPACE_ID; g.param_id = q.id; out->try_push(out, &g.header); continue; }
+    clap_event_param_value_t e{}; e.header.size = sizeof e; e.header.type = CLAP_EVENT_PARAM_VALUE; e.header.space_id = CLAP_CORE_EVENT_SPACE_ID; e.param_id = q.id; e.value = q.v; e.note_id = -1; e.port_index = -1; e.channel = -1; e.key = -1; out->try_push(out, &e.header); }
 }
 static void par_flush(const clap_plugin_t *p, const clap_input_events_t *in, const clap_output_events_t *out) { apply_events(P(p), in); emit_gui(P(p), out); }
 static const clap_plugin_params_t EXT_PARAMS = {par_count, par_info, par_value, par_v2t, par_t2v, par_flush};
@@ -156,12 +157,17 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
   try { r = pl_process_impl(p, pr); } catch (...) { zeroOut(pr); r = CLAP_PROCESS_CONTINUE; }
   _mm_setcsr(csr); return r; }
 // ---- Oberfläche (X11, eingebettet) ----
-static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true; { std::lock_guard<std::mutex> lk(pl->qm); pl->guiQ.push_back({id, v}); }
+static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
+  { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }   // Geste, damit der Host (VST3: performEdit, Automation „Touch“) die Änderung zuordnet
+  auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
+// Ziehen an einem Knopf: eine Geste vom Drücken bis zum Loslassen
+static void gui_gesture(Plugin *pl, int id, bool begin) { if (id < 0 || id >= P_COUNT) return;
+  { std::lock_guard<std::mutex> lk(pl->qm); if (begin) { if (pl->gestId >= 0) pl->guiQ.push_back({pl->gestId, 0, 2}); pl->gestId = id; pl->guiQ.push_back({id, 0, 1}); } else if (pl->gestId == id) { pl->gestId = -1; pl->guiQ.push_back({id, 0, 2}); } else return; }
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
 static bool g_supported(const clap_plugin_t *, const char *api, bool floating) { return !std::strcmp(api, CLAP_WINDOW_API_X11) && !floating; }
 static bool g_preferred(const clap_plugin_t *, const char **api, bool *floating) { *api = CLAP_WINDOW_API_X11; *floating = false; return true; }
 static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); if (std::strcmp(api, CLAP_WINDOW_API_X11) || floating) return false;
-  if (!pl->dpy) pl->dpy = XOpenDisplay(nullptr); if (!pl->dpy) return false; if (!pl->gui) { pl->gui = new aorgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
+  if (!pl->dpy) pl->dpy = XOpenDisplay(nullptr); if (!pl->dpy) return false; if (!pl->gui) { pl->gui = new aorgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) {   // Kleinsignal-Frequenzgang wie im Web-Simulator
       Target t = pl->target(); double fs = pl->fs; auto curveOf = [&](const Parts &v, const Setting &s, bool pa, std::vector<double> &out) {
         std::vector<TriSS> ss; const std::vector<TriSS> *sp = nullptr; if (!stockTubes(s)) { ss = smallSignal(v, s, fs); sp = &ss; }
@@ -172,7 +178,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
   pl->guiH = pl->guiW * aorgui::TOTALH / FW;
   auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId == CLAP_INVALID_ID) ht->register_timer(pl->host, 33, &pl->timerId);
   return true; }
-static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
+static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
   if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } if (pl->dpy) { XFlush(pl->dpy); } }
 static void upd_diag(Plugin *pl) { char b[160]; int o = (int)std::lround(pl->val[P_OS]); std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling · %.0f Hz · stereo%s", pl->load.load() * 100, o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); pl->diagTxt = b; }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
@@ -200,7 +206,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.7", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.8", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }
@@ -209,4 +215,10 @@ static const clap_plugin_descriptor_t *fac_desc(const clap_plugin_factory_t *, u
 static const clap_plugin_factory_t FACTORY = {fac_count, fac_desc, create};
 static bool entry_init(const char *) { return true; } static void entry_deinit() {}
 static const void *entry_factory(const char *id) { return std::strcmp(id, CLAP_PLUGIN_FACTORY_ID) ? nullptr : &FACTORY; }
+#ifdef TONESTACK_CLAP_FIRST   // VST3 über clap-wrapper (engine/vst3): Einstieg als normale Funktionen, clap_entry legt der Wrapper an
+extern "C" bool laney_entry_init(const char *p) { return entry_init(p); }
+extern "C" void laney_entry_deinit() { entry_deinit(); }
+extern "C" const void *laney_entry_factory(const char *id) { return entry_factory(id); }
+#else
 extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, entry_init, entry_deinit, entry_factory};
+#endif

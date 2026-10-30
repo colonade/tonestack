@@ -1,5 +1,6 @@
 #!/bin/bash
-# Baut CLAP-Plugin und WebAssembly-Kerne aus den Quellen.  bash engine/build.sh [--wasi /pfad/zu/wasi-sdk]
+# Baut CLAP-Plugins und WebAssembly-Kerne aus den Quellen.  bash engine/build.sh [--wasi /pfad/zu/wasi-sdk]
+# Mit VST3=1 zusätzlich die VST3-Fassungen (cmake, ninja; holt beim ersten Mal clap-wrapper und VST3-SDK aus GitHub) → engine/build/vst3/*.vst3
 # Voraussetzungen: g++ (C++17), node, python3, pkg-config, libcairo2-dev, libx11-dev; für WebAssembly das wasi-sdk 24
 # (https://github.com/WebAssembly/wasi-sdk/releases, Standard /opt/wasi-sdk). Ergebnis in engine/build/.
 set -euo pipefail
@@ -12,6 +13,10 @@ g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libs
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Yamaha_B100II.clap $(pkg-config --cflags --libs cairo x11)
 echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap"
+if [ "${VST3:-0}" = 1 ]; then
+  cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
+  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3"
+fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
   $W -Wl,--export=aor_buffer -Wl,--export=aor_parts_buffer -Wl,--export=aor_target_buffer -Wl,--export=aor_peaks_buffer -Wl,--export=aor_parts_count \
