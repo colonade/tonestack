@@ -12,3 +12,6 @@ App-Signaturschluessel.zip
 tonestack-apache.zip
 *.pem
 *.p12
+
+# Bilder der GUI-Tests (engine/tests/guitest)
+engine/gui_*.png
