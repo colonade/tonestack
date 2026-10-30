@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.9
+Version 3.10
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -110,6 +110,10 @@ Speaker (since 3.6)
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
+3.10
+  Latency is now exactly 31 samples with oversampling too (was 1/os
+  sample short); the output of the oversampled modes is shifted by that
+  fraction of a sample, otherwise unchanged. Linear and 1x bit-identical.
 3.9
   Model strip with toggle switches (bass mod, FX loop, distortion,
   speaker, taper) and a rotary selector for oversampling; speaker moved
@@ -146,6 +150,14 @@ Polarity and latency (since 3.5)
   and delays the linear and 1x paths by the same amount, so the latency
   never changes while the plugin is active (which CLAP forbids) and
   switching modes stays click-free; REAPER compensates it automatically.
+  Measured (3.10): the delay is exactly 31 samples in every mode - linear,
+  1x, 2x, 4x and 8x - to within 0.02 samples, at any sample rate (0.70 ms
+  at 44.1 kHz, 0.65 ms at 48 kHz, 0.32 ms at 96 kHz). With oversampling the
+  output starts to move 8-10 samples before that: the pre-ringing of the
+  linear-phase oversampling filters, far below audibility. Before 3.10 the
+  oversampled paths were 1/os sample short of 31 (30.5 at 2x, 30.75 at 4x,
+  30.875 at 8x), which only mattered when blending with the dry signal
+  (about -2 dB at 20 kHz in a 50/50 mix).
 
 Notes
   True stereo: left and right are processed by two independent engines. A

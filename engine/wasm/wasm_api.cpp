@@ -13,7 +13,8 @@ int aor_parts_count() { int n = 0;
   PARTS_LIST(X)
 #undef X
   return n; }
-void aor_init(double fs) { delete E; E = new Engine(fs); fsG = fs; haveT = false; }
+void aor_init(double fs) { delete E; E = new Engine(fs); E->pad = 31; fsG = fs; haveT = false; }   // feste Latenz 31 in jedem Modus, wie im Plugin
+int aor_latency() { return 31; }
 // Ziel setzen: partsG = Bauteile in PARTS_LIST-Reihenfolge; tgtG = v1,v2,t,m,b,mv,pl,pres(mit Kennlinie),mid,top,bass,ch1,low,pa,vin,nl,os,tube1,tube2,tube3,spk (21 Werte)
 void aor_set_target() {
   if (!E) return; Parts p; double *q = partsG; int i = 0;

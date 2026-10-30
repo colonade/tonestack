@@ -293,7 +293,7 @@ const NLAMP = ((NL) => {
         d = Math.abs(this.g4 - dc[4]); if (d > pk[4]) pk[4] = d; return y; }
       const h0 = this.h0, h1 = this.h1, L0 = h0.length, xb = this.xb, L = this.h.length, yb = this.yb, h = this.h;
       this.xi = this.xi === 0 ? L0 - 1 : this.xi - 1; xb[this.xi] = xb[this.xi + L0] = x;
-      const base = this.xi, pk = this.peak, dc = this.vgkDC;
+      const base = this.xi, pk = this.peak, dc = this.vgkDC; let out = 0;
       for (let ph = 0; ph < 2; ph++) {
         const hh = ph === 0 ? h0 : h1; let u = 0;
         for (let k = 0; k < hh.length; k++) u += hh[k] * xb[base + k];
@@ -303,8 +303,8 @@ const NLAMP = ((NL) => {
         d = Math.abs(this.g2 - dc[2]); if (d > pk[2]) pk[2] = d; d = Math.abs(this.g3 - dc[3]); if (d > pk[3]) pk[3] = d;
         d = Math.abs(this.g4 - dc[4]); if (d > pk[4]) pk[4] = d;
         this.yi = this.yi === 0 ? L - 1 : this.yi - 1; yb[this.yi] = yb[this.yi + L] = y;
+        if (ph === 0) { const yo = this.yi; for (let k = 0; k < L; k++) out += h[k] * yb[yo + k]; }   // nach der ersten Teilphase abgreifen: Latenz genau 31 wie im C++-Kern
       }
-      let out = 0; const yo = this.yi; for (let k = 0; k < L; k++) out += h[k] * yb[yo + k];
       return out;
     }
   }

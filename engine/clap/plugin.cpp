@@ -193,7 +193,7 @@ static void g_suggest_title(const clap_plugin_t *, const char *) {}
 static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
 static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); if (!pl->gui) return false; pl->gui->hide(); return true; }
 static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_destroy, g_set_scale, g_get_size, g_can_resize, g_resize_hints, g_adjust_size, g_set_size, g_set_parent, g_set_transient, g_suggest_title, g_show, g_hide};
-// Latenz: Polyphasen-Eingangsfilter (15,5) plus Ausgangsfilter (16 − 1/os) Abtastwerte, nur mit Verzerrung und Überabtastung; sonst 0
+// Latenz: Überabtastungsfilter genau 31 Abtastwerte (Amp::step); linear und 1-fach werden im Kern um 31 verzögert (Engine::pad)
 static uint32_t g_latency(const clap_plugin_t *) { return LATENCY; }   // fest, unabhängig vom Modus (CLAP: Latenz darf sich nur beim Aktivieren ändern)
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p);
@@ -206,7 +206,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.9", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.10", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

@@ -20,7 +20,7 @@ fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
   $W -Wl,--export=aor_buffer -Wl,--export=aor_parts_buffer -Wl,--export=aor_target_buffer -Wl,--export=aor_peaks_buffer -Wl,--export=aor_parts_count \
-     -Wl,--export=aor_init -Wl,--export=aor_set_target -Wl,--export=aor_process -Wl,--export=aor_take_peaks -Wl,--export=aor_ss_buffer -Wl,--export=aor_small_signal -Wl,--initial-memory=16777216 wasm/wasm_api.cpp -o build/laney-core.wasm
+     -Wl,--export=aor_init -Wl,--export=aor_set_target -Wl,--export=aor_process -Wl,--export=aor_take_peaks -Wl,--export=aor_ss_buffer -Wl,--export=aor_small_signal -Wl,--export=aor_latency -Wl,--initial-memory=16777216 wasm/wasm_api.cpp -o build/laney-core.wasm
   $W -Wl,--export=y_buffer -Wl,--export=y_parts_buffer -Wl,--export=y_target_buffer -Wl,--export=y_parts_count -Wl,--export=y_init \
      -Wl,--export=y_set_target -Wl,--export=y_process -Wl,--export=y_take_peak -Wl,--initial-memory=8388608 wasm/yamaha_wasm.cpp -o build/b100ii-core.wasm
   echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm"

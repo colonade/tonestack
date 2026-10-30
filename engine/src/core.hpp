@@ -511,9 +511,13 @@ struct Amp {
   double step(double x) {
     if (os == 1) { double y = run(x, false) - w3DC; trackPeak(); return y; }
     xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x;
+    // Laufzeit: Interpolation + Dezimation (symmetrische Filter) ergeben 31 − 1/os Abtastwerte (gemessen); die Dezimation wird deshalb
+    // nach der vorletzten Teilphase abgegriffen (+1/os), so ist die Latenz in jeder Überabtastung genau 31 (= Engine::pad, gemeldete Plugin-Latenz)
+    double out = 0;
     for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
-      double y = run(os * u, false) - w3DC; trackPeak(); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = y; }
-    double out = 0; for (int k = 0; k < L; k++) out += h[k] * yb[yi + k]; return out;
+      double y = run(os * u, false) - w3DC; trackPeak(); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = y;
+      if (ph == os - 2) for (int k = 0; k < L; k++) out += h[k] * yb[yi + k]; }
+    return out;
   }
 };
 
