@@ -157,6 +157,19 @@ input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:24p
 input[type=checkbox]:checked{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 34' width='24' height='34'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232c2f34'/%3E%3Cstop offset='1' stop-color='%23141518'/%3E%3C/linearGradient%3E%3ClinearGradient id='n' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e6e6e8'/%3E%3Cstop offset='.5' stop-color='%239ea1a6'/%3E%3Cstop offset='1' stop-color='%23616368'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237f8287'/%3E%3Cstop offset='.45' stop-color='%23f7f7f9'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/linearGradient%3E%3CradialGradient id='b' cx='.38' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fff'/%3E%3Cstop offset='.6' stop-color='%23c7c9cd'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect x='.6' y='.6' width='22.8' height='32.8' rx='4.5' fill='url(%23p)' stroke='%2343464d' stroke-width='1.2'/%3E%3Ccircle cx='19.6' cy='5.5' r='1.6' fill='%23ffd98a'/%3E%3Ccircle cx='19.6' cy='28.5' r='1.6' fill='%2350535a'/%3E%3Cpolygon points='15.72,20.30 10.00,23.60 4.28,20.30 4.28,13.70 10.00,10.40 15.72,13.70' fill='url(%23n)' stroke='%232b2c30' stroke-width='.6'/%3E%3Ccircle cx='10' cy='17' r='3.7' fill='%231b1c1f'/%3E%3Cpolygon points='8.2,17 7.1,4.6 12.9,4.6 11.8,17' fill='url(%23h)'/%3E%3Ccircle cx='10' cy='4.6' r='3.6' fill='url(%23b)'/%3E%3C/svg%3E")}
 input[type=checkbox]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 input[type=checkbox]:disabled{opacity:.45;cursor:default}
+/* Schalterleiste unter der Frontplatte (wie im Plugin): die Kästchen der Modell-Optionen werden per Skript hierher verschoben */
+.kipp{margin-top:8px;border-radius:6px;border:1px solid #2a2d33;background:#191b1f;color:#dcdee2;padding:10px 14px 12px;line-height:1.3}
+.kippkopf{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;color:#8d919a;margin-bottom:8px}
+.kippreihe{display:flex;flex-wrap:wrap;gap:14px 26px}
+.ki{display:flex;flex-direction:column;align-items:flex-start;min-width:92px}
+.kt{font-size:.8rem;font-weight:700;letter-spacing:.03em;margin-bottom:5px;white-space:nowrap}
+.kk{display:flex;align-items:stretch;gap:7px}
+.kipp input[type=checkbox]{width:32px;height:46px;margin:0;background-size:32px 46px}
+.kp{display:flex;flex-direction:column;justify-content:space-between;font-size:.74rem;color:#8d919a;padding:2px 0}
+.kk input:checked+.kp .on,.kk input:not(:checked)+.kp .off{color:#ffd98a;font-weight:700}
+.ks{font-size:.72rem;color:#8d919a;margin-top:5px;white-space:nowrap}
+.kref{flex:none;align-self:flex-start;font-size:.68rem;font-weight:700;letter-spacing:.04em;color:#dcdee2;background:#2a2d33;border-radius:4px;padding:2px 6px;margin-top:2px;white-space:nowrap}
+label.opt[for]{cursor:pointer}
 .opt{display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:.92rem}
 .nlrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;max-width:none}
 .tubemenu{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:.88rem}
@@ -267,6 +280,7 @@ select{max-width:100%}
     <div class="fselzeile"><button class="btn fselb" type="button" id="fselMinus" aria-label="Weniger">−</button><input type="range" id="fselRange" min="0" max="10" step="0.1"><button class="btn fselb" type="button" id="fselPlus" aria-label="Mehr">+</button></div>
     <div class="fselpull" id="fselPullRow" hidden><button class="btn" type="button" id="fselPull" aria-pressed="false"></button><small id="fselPullTxt"></small></div>
   </div>
+  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="mod"><span class="kt">BASS MOD</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Bass-Kondensatoren</span></div><div class="ki" data-for="pa"><span class="kt">FX LOOP</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">+ Endstufe</span></div><div class="ki" data-for="anl"><span class="kt">DISTORTION</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Röhrenmodell</span></div><div class="ki" data-for="spk"><span class="kt">SPEAKER</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">15" CB158, 78 l</span></div><div class="ki" data-for="soft"><span class="kt">SOFT</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Umbau: C3 ab</span></div><div class="ki" data-for="pad"><span class="kt">LATE</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Umbau: 2,2 MΩ</span></div></div></div>
   <figcaption><details class="exp"><summary>Bedienung der Frontplatte</summary>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler, bei Bass, Middle, Treble und Preamp 1 Volume mit dem Zugschalter. Zugschalter auch durch Antippen der Aufschrift PULL BOOST / PULL ON, Eingang durch Antippen der Buchse LOW oder HIGH. Die Kontrollleuchte zeigt Preamp 1 an. Abgedunkelt ist, was gerade nichts bewirkt; PRESENCE wirkt mit der Option „Effektweg + Endstufe“ (Gegenkopplung der Endstufe); REVERB (Hall) ist nicht im Modell. Aufdruck als Vektorgrafik neu gesetzt.</details></figcaption>
 </figure>
 
@@ -1386,4 +1400,10 @@ function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.val
   const st = $('astatus'); if (A.wasm && !st.dataset.wasm) { st.dataset.wasm = '1'; st.textContent += ' WebAssembly-Kern aktiv (4- und 8-fach möglich).'; } }
 })();
 </script><script>if("serviceWorker"in navigator&&location.protocol==="https:")addEventListener("load",()=>navigator.serviceWorker.register("../sw.js").catch(()=>{}));</script>
+<script>
+/* Modell-Schalter in die Leiste unter der Frontplatte verschieben; die Beschreibung bleibt an ihrem Platz und schaltet weiter mit (label for) */
+(() => { for (const d of document.querySelectorAll('#kipp .ki')) { const inp = document.getElementById(d.dataset.for); if (!inp) { d.remove(); continue; }
+  const lab = inp.closest('label'); d.querySelector('.kk').prepend(inp);
+  if (lab) { lab.htmlFor = inp.id; const r = document.createElement('span'); r.className = 'kref'; r.textContent = d.querySelector('.kt').textContent + ' ▲'; r.title = 'Schalter in der Leiste unter der Frontplatte'; lab.prepend(r); } } })();
+</script>
 </body></html>
