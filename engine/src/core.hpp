@@ -652,7 +652,7 @@ struct Engine {
     if (!a) { a = make(t); return; }
     CoreBase *newest = b ? b : a;
     bool chChange = newest->chOf() != (t.s.ch1 > 0.5 ? 1 : 2);
-    if (b && replay && (kind != kindOfCore(b) || chChange)) { delete b; b = nullptr; replay = false; }   // während des Nachrechnens erneut geändert: verwerfen
+    if (b && replay && (kind != kindOfCore(b) || chChange)) { delete b; b = nullptr; replay = false; newest = a; chChange = a->chOf() != (t.s.ch1 > 0.5 ? 1 : 2); }   // während des Nachrechnens erneut geändert: verwerfen (newest zeigte auf b)
     if (!b && (kind != kindOfCore(newest) || chChange)) {
       b = make(t); qlen = std::min(hfill, (int)hist.size()); qpos = (hpos - qlen + (int)hist.size()) % (int)hist.size(); qdone = 0; replay = true; xf = 0;
     } else { a->setTarget(t); if (b) b->setTarget(t); }

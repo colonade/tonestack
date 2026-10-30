@@ -30,4 +30,6 @@ g++ -O2 -std=c++17 -Ithird_party tests/hosttest.cpp -ldl -o build/hosttest
 g++ -O2 -std=c++17 -Ithird_party tests/defaults.cpp -ldl -o build/defaults
 g++ -O2 -std=c++17 -Ithird_party tests/guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/guitest
 g++ -O2 -std=c++17 -Ithird_party tests/yguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/yguitest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/defaults, build/guitest, build/yguitest"
+g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
+g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
+echo "Testwerkzeuge: build/harness, build/hosttest, build/defaults, build/guitest, build/yguitest, build/clapstress, build/switchtest"

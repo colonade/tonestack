@@ -22,12 +22,12 @@ Ein gemeinsamer C++-Kern für alle Fassungen: CLAP-Plugins (nativ) und WebAssemb
 |---|---|
 | `engine/src/core.hpp` | Laney: lineares Netz, Röhrenkern (Koren-Modelle, Newton), Endstufe mit Presence, Überabtastung, Überblendung; Lautsprechermodell (auch vom Yamaha genutzt) |
 | `engine/src/yamaha_core.hpp` | Yamaha B100-II: PA-Board als lineares Netz (Transistoren, Gyrator-Bänder), Endstufe (MA-Board) mit Begrenzung |
-| `engine/clap/` | CLAP-Plugins: Laney `plugin.cpp` + `gui.hpp`, Yamaha `yplugin.cpp` + `ygui.hpp` (X11/Cairo-Oberflächen), gemeinsame Bedienelemente `widgets.hpp` |
+| `engine/clap/` | CLAP-Plugins: Laney `plugin.cpp` + `gui.hpp`, Yamaha `yplugin.cpp` + `ygui.hpp` (X11/Cairo-Oberflächen), gemeinsame Bedienelemente `widgets.hpp`, X11-Absicherung `x11safe.hpp` |
 | `engine/vst3/` | VST3-Bau: `CMakeLists.txt` holt clap-wrapper (fester Commit) und VST3-SDK 3.8 (MIT), baut die Plugin-Quellen mit `TONESTACK_CLAP_FIRST` als statische Bibliothek; Einstiegsdateien, `exports.map` |
 | `engine/wasm/` | C-Schnittstellen für WebAssembly (`wasm_api.cpp` Laney, `yamaha_wasm.cpp` Yamaha) |
 | `engine/tools/` | `extract.js` (Bauteile, Geometrie, Fotos aus den Web-Seiten), `gen_geo.py`, `embed_wasm.py` |
 | `engine/gen/` | erzeugte Dateien (nicht von Hand ändern; Quelle sind die Web-Seiten; werden von `build.sh` neu erzeugt und mit eingecheckt) |
-| `engine/tests/` | `harness` (Kern), `hosttest` (CLAP-Host), `defaults`, `guitest`/`yguitest` (Oberflächen unter Xvfb), `wasmcompare.js`/`ywasmcompare.js` |
+| `engine/tests/` | `harness` (Kern), `hosttest` (CLAP-Host), `defaults`, `guitest`/`yguitest` (Oberflächen unter Xvfb), `clapstress` (Belastung wie in REAPER), `switchtest` (Moduswechsel, mit AddressSanitizer), `wasmcompare.js`/`ywasmcompare.js` |
 | `engine/third_party/` | CLAP-Header 1.2.2 (MIT), stb_image (Public Domain/MIT) |
 
 Bauen und prüfen:

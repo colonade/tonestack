@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.10
+Version 3.11
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -110,6 +110,21 @@ Speaker (since 3.6)
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
+3.11 (crash fixes - please update)
+  Fixes two ways the plugin could take REAPER down, in CLAP and VST3:
+  - switching DISTORTION or OVERSAMPLING again while the previous switch
+    was still being prepared (fast clicks) used an engine that had just
+    been deleted (use-after-free; present since 2.x, made likely by the
+    toggle switches);
+  - an X11 error on the plugin's own window (drawing into or destroying a
+    window the host had already removed, e.g. when closing the editor)
+    went to Xlib's default handler, which ends the whole process. The
+    plugin now ignores X errors on its own display connection, notices
+    when the host destroys its window, and serialises all editor calls
+    (with VST3 the wrapper may call the timer from a helper thread).
+  INPUT and OUTPUT knobs can be turned again (3.9 missed them when hit-
+  testing). Checked with AddressSanitizer under stress (audio thread
+  running, editor opened and closed repeatedly, random clicks).
 3.10
   Latency is now exactly 31 samples with oversampling too (was 1/os
   sample short); the output of the oversampled modes is shifted by that

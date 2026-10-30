@@ -35,6 +35,9 @@ int main(int argc, char **argv) {
   // Treble nach oben ziehen; LOW antippen; Endstufe, Lautsprecher, Taper antippen; über 60-Hz-Knopf schweben
   send(ButtonPress, kx(456.7), kx(119.3), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(456.7), kx(119.3) - i * 8, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(456.7), kx(39), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(217), kx(120), 1); send(ButtonRelease, kx(217), kx(120), 1); tim->on_timer(p, 1);
+  // INPUT und OUTPUT nach oben ziehen (bis 1.3 nicht getroffen)
+  { auto drag = [&](int x, int y) { send(ButtonPress, x, y, 1); tim->on_timer(p, 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, x, y - i * 4, 0); tim->on_timer(p, 1); } send(ButtonRelease, x, y - 40, 1); tim->on_timer(p, 1); };
+    drag(ux(830), uy(88)); drag(ux(1046), uy(88)); }
   // Kippschalter: Endstufe an, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
   send(ButtonPress, ux(64), uy(88), 1); send(ButtonRelease, ux(64), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(186), uy(88), 1); send(ButtonRelease, ux(186), uy(88), 1); tim->on_timer(p, 1);

@@ -59,9 +59,9 @@ struct Gui {
       cairo_surface_mark_dirty(img); stbi_image_free(px); }
     return true;
   }
-  void show() { if (win) { XMapWindow(dpy, win); XFlush(dpy); } }
+  void show() { if (win && xs) { XMapWindow(dpy, win); XFlush(dpy); } }
   void hide() { if (win) { XUnmapWindow(dpy, win); XFlush(dpy); } }
-  void resize(int w, int h) { W = w; H = h; if (win) { XResizeWindow(dpy, win, w, h); cairo_xlib_surface_set_size(xs, w, h); } }
+  void resize(int w, int h) { W = w; H = h; if (win && xs) { XResizeWindow(dpy, win, w, h); cairo_xlib_surface_set_size(xs, w, h); } }
   void destroy() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } if (win) { XDestroyWindow(dpy, win); win = 0; } }
   // ---- Hilfen ----
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
@@ -128,8 +128,8 @@ struct Gui {
     cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy);
   }
   // ---- Treffer ----
-  int hitKnob(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 9; i++) { double dx = x - YKG[i].x, dy = y - YKG[i].y; if (dx*dx + dy*dy <= YKG[i].r * YKG[i].r * 1.69) return i; }
-    double lx, ly; toLower(x, y, lx, ly); for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - SW_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
+  int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < 9; i++) { double dx = x - YKG[i].x, dy = y - YKG[i].y; if (dx*dx + dy*dy <= YKG[i].r * YKG[i].r * 1.69) return i; }
+    double lx, ly; toLower(px, py, lx, ly); /* Fensterpixel, nicht Foto-Einheiten */ for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - SW_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J[2] = {YJACK_HIGH, YJACK_LOW}; for (int i = 0; i < 2; i++) { double dx = x - J[i][0], dy = y - J[i][1]; if (dx*dx + dy*dy <= (J[i][2] + 14) * (J[i][2] + 14)) return i; } return -1; }
   // Kippschalter: liefert Parameter und half (0 obere, 1 untere Hälfte)
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 3; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, k == 2 ? 62 : 30); if (half >= 0) return SW_P[k]; } return -1; }
@@ -151,7 +151,7 @@ struct Gui {
         { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
       case MotionNotify: { double x = ev.xmotion.x, y = ev.xmotion.y;
-        if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) / scale() * (10.0 / 250)); return true; }
+        if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }   /* Foto-Knöpfe: 250 Foto-Einheiten, INPUT/OUTPUT: 200 Pixel bei Standardgröße für den ganzen Weg */
         int h = hitKnob(x, y); bool changed = h != hover; hover = h; showTip = h >= 0; return changed; }
       case ButtonRelease: if (ev.xbutton.button == 1 && drag >= 0) { if (gesture) gesture(knobParam(drag), false); drag = -1; return true; } return false;
       case LeaveNotify: { bool changed = hover >= 0; hover = -1; if (drag < 0) showTip = false; return changed; }
@@ -161,7 +161,9 @@ struct Gui {
   std::string lastSig;
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) n += std::snprintf(b + n, sizeof b - n, "%.4g|", getP(i));
     n += std::snprintf(b + n, sizeof b - n, "%.2f|%d|%d|%d|%d|%d", meter, meterOn ? 1 : 0, drag, hover, showTip ? 1 : 0, W); std::string s(b, n); if (diag) s += diag(); return s; }
-  void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (ev.xany.window == win && handle(ev)) redraw = true; }
+  // Fenster vom Host mit dem Containerfenster zerstört: nicht mehr zeichnen und nicht noch einmal zerstören
+  void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
+  void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }
     if (!win) return; std::string sig = signature(); if (redraw || sig != lastSig) { lastSig = sig; draw(); } }
 };
 } // namespace ygui
