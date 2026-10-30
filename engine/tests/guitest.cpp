@@ -30,18 +30,24 @@ int main(int argc, char **argv) {
   Window r, pr; Window *ch; unsigned nch; XQueryTree(d, par, &r, &pr, &ch, &nch); Window win = nch ? ch[0] : 0; printf("Kindfenster: %lu\n", (unsigned long)win);
   auto send = [&](int type, int x, int y, int button) { XEvent e{}; e.type = type; e.xbutton.window = win; e.xbutton.display = d; e.xbutton.x = x; e.xbutton.y = y; e.xbutton.button = button; e.xbutton.time = 1000; e.xbutton.same_screen = True; if (type == MotionNotify) { e.xmotion.x = x; e.xmotion.y = y; e.xmotion.window = win; } XSendEvent(d, win, True, type == MotionNotify ? PointerMotionMask : (type == ButtonPress ? ButtonPressMask : ButtonReleaseMask), &e); XFlush(d); };
   double s = w / 2430.0; auto kx = [&](double v) { return (int)(v * s); };
-  // Preamp 2 Volume nach unten ziehen; PULL ON antippen; LOW antippen; Überabtastungs-Taste
+  // unterer Bereich in UI-Einheiten (1200 breit), beginnt unter dem Foto (Höhe 358 Foto-Einheiten)
+  double uu = w / 1200.0; auto ux = [&](double v) { return (int)(v * uu); }; auto uy = [&](double v) { return (int)(358 * s + v * uu); };
+  // Preamp 2 Volume nach unten ziehen; PULL ON antippen; LOW antippen; Überabtastung weiterdrehen
   send(ButtonPress, kx(613.7), kx(167.1), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(613.7), kx(167.1) + i * 10, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(613.7), kx(267), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(430), kx(52), 1); send(ButtonRelease, kx(430), kx(52), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(272), kx(218), 1); send(ButtonRelease, kx(272), kx(218), 1); tim->on_timer(p, 1);
-  send(ButtonPress, kx(800), kx(358 + 46), 1); send(ButtonRelease, kx(800), kx(358 + 46), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(506), uy(94), 1); send(ButtonRelease, ux(506), uy(94), 1); tim->on_timer(p, 1);
   send(MotionNotify, kx(1145), kx(190), 0); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
-  send(ButtonPress, kx(585), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(585), kx(358 + 70 + 23), 1); tim->on_timer(p, 1);
-  send(ButtonPress, kx(585), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(585), kx(358 + 70 + 23), 1); tim->on_timer(p, 1);
-  send(ButtonPress, kx(885), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(885), kx(358 + 70 + 23), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
+  // Röhren: V101 zweimal weiter (12AU7), V103 einmal (12AT7); Kippschalter: Verzerrung aus, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
+  send(ButtonPress, ux(175), uy(173), 1); send(ButtonRelease, ux(175), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(175), uy(173), 1); send(ButtonRelease, ux(175), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(567), uy(173), 1); send(ButtonRelease, ux(567), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(280), uy(88), 1); send(ButtonRelease, ux(280), uy(88), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(392), uy(88), 1); send(ButtonRelease, ux(392), uy(88), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(614), uy(110), 1); send(ButtonRelease, ux(614), uy(110), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
   { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argc > 3 ? argv[3] : "gui_tubes.png"); cairo_surface_destroy(xs); }
-  char t[64]; const int ids[] = {3, 1, 0, 18, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
-  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, kx(1135), kx(358 + 70 + 23), 1); send(ButtonRelease, kx(1135), kx(358 + 70 + 23), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
+  char t[64]; const int ids[] = {3, 1, 0, 18, 16, 23, 14, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
+  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(755), uy(173), 1); send(ButtonRelease, ux(755), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   for (int id : {20, 21, 22}) { double v; params->get_value(p, id, &v); params->value_to_text(p, id, v, t, 64); printf("  nach RESET: Tube %d = %s\n", id - 19, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
   gui->hide(p); gui->destroy(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d); return 0;

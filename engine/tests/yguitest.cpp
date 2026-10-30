@@ -30,12 +30,15 @@ int main(int argc, char **argv) {
   Window r, pr; Window *ch; unsigned nch; XQueryTree(d, par, &r, &pr, &ch, &nch); Window win = nch ? ch[0] : 0; printf("Kindfenster: %lu\n", (unsigned long)win);
   auto send = [&](int type, int x, int y, int button) { XEvent e{}; e.type = type; e.xbutton.window = win; e.xbutton.display = d; e.xbutton.x = x; e.xbutton.y = y; e.xbutton.button = button; e.xbutton.time = 1000; e.xbutton.same_screen = True; if (type == MotionNotify) { e.xmotion.x = x; e.xmotion.y = y; e.xmotion.window = win; } XSendEvent(d, win, True, type == MotionNotify ? PointerMotionMask : (type == ButtonPress ? ButtonPressMask : ButtonReleaseMask), &e); XFlush(d); };
   double s = w / 1800.0; auto kx = [&](double v) { return (int)(v * s); };
+  // unterer Bereich in UI-Einheiten (1200 breit), beginnt unter dem Foto (Höhe 227 Foto-Einheiten)
+  double uu = w / 1200.0; auto ux = [&](double v) { return (int)(v * uu); }; auto uy = [&](double v) { return (int)(227 * s + v * uu); };
   // Treble nach oben ziehen; LOW antippen; Endstufe, Lautsprecher, Taper antippen; über 60-Hz-Knopf schweben
   send(ButtonPress, kx(456.7), kx(119.3), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(456.7), kx(119.3) - i * 8, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(456.7), kx(39), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(217), kx(120), 1); send(ButtonRelease, kx(217), kx(120), 1); tim->on_timer(p, 1);
-  send(ButtonPress, kx(150), kx(227 + 46), 1); send(ButtonRelease, kx(150), kx(227 + 46), 1); tim->on_timer(p, 1);
-  send(ButtonPress, kx(470), kx(227 + 46), 1); send(ButtonRelease, kx(470), kx(227 + 46), 1); tim->on_timer(p, 1);
-  send(ButtonPress, kx(780), kx(227 + 46), 1); send(ButtonRelease, kx(780), kx(227 + 46), 1); tim->on_timer(p, 1);
+  // Kippschalter: Endstufe an, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
+  send(ButtonPress, ux(64), uy(88), 1); send(ButtonRelease, ux(64), uy(88), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(186), uy(88), 1); send(ButtonRelease, ux(186), uy(88), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(306), uy(110), 1); send(ButtonRelease, ux(306), uy(110), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(982.4), kx(119.8), 4); tim->on_timer(p, 1); send(ButtonPress, kx(982.4), kx(119.8), 4); tim->on_timer(p, 1);
   send(MotionNotify, kx(982.4), kx(119.8), 0); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
   char t[64]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }

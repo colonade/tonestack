@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.8
+Version 3.9
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -42,9 +42,16 @@ Parameters
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
   works too), double-click = centre. Click PULL ON / PULL BOOST for the pull
-  switches, click the HIGH/LOW jack to choose the input. Model strip below:
-  bass mod, FX loop + power amp, distortion, oversampling (button cycles
-  1x > 2x > 4x > 8x), pot taper, instrument and output level. Every change is
+  switches, click the HIGH/LOW jack to choose the input. Model strip below
+  (settings that do not exist on the amp): toggle switches for BASS MOD,
+  FX LOOP (+ power amp), DISTORTION and SPEAKER (lever up = on, click to
+  flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (click
+  turns it on, wheel turns either way), a three-position toggle for the
+  middle/presence pot TAPER (click the upper or lower half to move the
+  lever), the TUBE DRIVE meters, INPUT and OUTPUT. Below: the three tube
+  sockets (click to change the type) and the frequency response. Text in
+  the lower part is sized for the screen (12-14 pixels at the default
+  width), independent of the photo resolution. Every change is
   sent to REAPER as a parameter (automatable); REAPER's own parameter view
   stays available via its UI button. The window can be resized horizontally.
   Dimmed controls have no effect in the current setting; REVERB is not
@@ -93,7 +100,7 @@ Idle
   (deviation from uninterrupted processing below -115 dB).
 
 Speaker (since 3.6)
-  The SPEAKER button in the tube row (also the parameter "Speaker") adds a
+  The SPEAKER toggle in the model strip (parameter "Speaker") adds a
   15" bass speaker after the preamp/power amp: Eminence Legend CB158, Thiele-
   Small data from the data sheet (Fs 34 Hz, Qts 0.34, Vas 336 l, Re 6.15 ohm,
   Le 0.33 mH), in a 78 l vented box tuned to 50 Hz, the size of an Ampeg
@@ -103,6 +110,12 @@ Speaker (since 3.6)
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
 
+3.9
+  Model strip with toggle switches (bass mod, FX loop, distortion,
+  speaker, taper) and a rotary selector for oversampling; speaker moved
+  from the tube row into the strip; all text below the photo enlarged and
+  sized in screen pixels (before: down to about 5 pixels at the default
+  width). Audio unchanged.
 3.8
   VST3 version (same engine, sound bit-identical to the CLAP). Knob drags
   in the plugin window are now sent to the host as gestures (begin, values,

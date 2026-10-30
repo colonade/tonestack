@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -42,8 +42,13 @@ Parameters
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
   works too), double-click = centre. Click the HIGH or LOW jack to plug in
-  there. Model strip below: POWER AMP, SPEAKER, pot taper (button cycles),
-  INPUT (instrument level) and OUTPUT (level in dB). Every change is sent to
+  there. Model strip below (settings that do not exist on the amp): toggle
+  switches for POWER AMP and SPEAKER (lever up = on, click to flip, mouse
+  wheel up/down), a three-position toggle for the POT TAPER (log 15 %,
+  log 10 %, linear; click the upper or lower half to move the lever), the
+  power amp peak meter, INPUT (instrument level) and OUTPUT (level in dB).
+  Text in the lower part is sized for the screen (12-14 pixels at the
+  default width), independent of the photo resolution. Every change is sent to
   REAPER as a parameter (automatable); REAPER's own parameter view stays
   available via its UI button. The window can be resized.
   Needs libcairo2 and libX11 (present anyway with REAPER on Linux).
@@ -66,7 +71,7 @@ Power amp (MA board)
   (0 dB = 42 V) and turns red when it clips.
 
 Speaker
-  The SPEAKER button (parameter "Speaker") adds a 15" bass speaker after the
+  The SPEAKER toggle (parameter "Speaker") adds a 15" bass speaker after the
   amp: Eminence Legend CB158, Thiele-Small data from the data sheet (Fs 34 Hz,
   Qts 0.34, Vas 336 l, Re 6.15 ohm, Le 0.33 mH), in a 78 l vented box tuned to
   50 Hz, the size of an Ampeg Portaflex cabinet and Eminence's own
@@ -84,6 +89,10 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
   the plot (it is flat apart from the 9 Hz high-pass).
 
+1.3
+  Model strip with toggle switches (power amp, speaker, three-position pot
+  taper); all text below the photo enlarged and sized in screen pixels
+  (before: about 7 pixels at the default width). Audio unchanged.
 1.2
   VST3 version (same engine, sound bit-identical to the CLAP). Knob drags
   in the plugin window are now sent to the host as gestures (begin, values,
