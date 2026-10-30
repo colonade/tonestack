@@ -219,11 +219,12 @@
         if (init && init.params) this.eng.setTarget(init.params);
         if (init && 'bypass' in init) { this.bypass = !!init.bypass; this.mix = this.bypass ? 0 : 1; }
         if (init && 'match' in init) this.match = !!init.match;
-        this.weng = null; this.last = init && init.params ? init.params : null; this.mono = new Float32Array(128);
+        this.weng = null; this.last = init && init.params ? init.params : null; this.mono = new Float32Array(128); this.dryb = new Float32Array(128); this.zero = [new Float32Array(128)]; this.idle = 0;
         this.port.onmessage = e => { const m = e.data;
           if (m.wasm) { const imports = { wasi_snapshot_preview1: { fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, proc_exit: () => {} } };
             WebAssembly.instantiate(m.wasm, imports).then(r => { const inst = r.instance || r; this.weng = new WasmEngine(inst, sampleRate); if (this.last) this.weng.setTarget(this.last); this.port.postMessage({ wasm: true }); })
               .catch(err => this.port.postMessage({ wasm: false, error: String(err) })); return; }
+          if (m.params) this.idle = Math.round(0.5 * sampleRate);   // nach jeder Änderung ohne Wiedergabe noch kurz weiterrechnen: Umschalten wird fertig, Zustand kommt zur Ruhe
           if (m.params) { this.last = m.params; if (this.weng) this.weng.setTarget(m.params); else this.eng.setTarget(m.params); }
           if ('bypass' in m) this.bypass = !!m.bypass;
           if ('match' in m) this.match = !!m.match; };
@@ -237,13 +238,17 @@
       }
 
       process(inputs, outputs) {
-        const inp = inputs[0], out = outputs[0], eng = this.eng;
-        if (!inp || inp.length === 0 || (!this.weng && !eng.sys)) { for (const ch of out) ch.fill(0); return true; }
+        let inp = inputs[0]; const out = outputs[0], eng = this.eng;
+        // Ohne Eingang (keine Wiedergabe) noch 0,5 s mit Stille weiterrechnen: Ausklingen statt hartem Schnitt am Ende, laufende Umschaltungen
+        // werden fertig und die Schaltung kommt zur Ruhe, sodass die nächste Wiedergabe sauber anfängt. Danach ruht die Rechnung.
+        if (!inp || inp.length === 0) { if (this.idle <= 0 || (!this.weng && !eng.sys)) { for (const ch of out) ch.fill(0); return true; }
+          if (this.zero[0].length !== out[0].length) this.zero = [new Float32Array(out[0].length)]; inp = this.zero; this.idle -= out[0].length; }
+        else { this.idle = Math.round(0.5 * sampleRate); if (!this.weng && !eng.sys) { for (const ch of out) ch.fill(0); return true; } }
         const len = out[0].length, target = this.bypass ? 0 : 1, step = 1 / (0.02 * sampleRate); let mix = this.mix;
         if (this.weng && this.weng.ready) {
           if (this.mono.length < len) this.mono = new Float32Array(len); const mo = this.mono;
           for (let n = 0; n < len; n++) { let u = 0; for (let c = 0; c < inp.length; c++) u += inp[c][n]; mo[n] = u / inp.length; }
-          const dry = Float32Array.from(mo.subarray(0, len)); this.weng.process(mo, len); const gd = this.finish(dry, mo, len);
+          if (this.dryb.length < len) this.dryb = new Float32Array(len); const dry = this.dryb; dry.set(mo.subarray(0, len)); this.weng.process(mo, len); const gd = this.finish(dry, mo, len);
           for (let n = 0; n < len; n++) { if (mix < target) mix = Math.min(target, mix + step); else if (mix > target) mix = Math.max(target, mix - step);
             const o = mix * mo[n] + (1 - mix) * gd * dry[n]; for (let c = 0; c < out.length; c++) out[c][n] = o; }
           this.mix = mix; if ((this.rep += len) >= sampleRate / 10) { this.rep = 0; this.port.postMessage({ peak: this.weng.takePeak() }); } return true;

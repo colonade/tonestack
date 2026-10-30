@@ -327,7 +327,7 @@ select{max-width:100%}
         <button class="btn" type="button" id="tubereset" title="Bestückung wie im Gerät: 3 × ECC83">Zurücksetzen</button>
       </div>
     </div>
-<div class="avol" style="margin-top:8px"><label for="aos">Überabtastung</label> <select id="aos"><option value="2">2-fach (weniger Störtöne; mit WebAssembly-Kern ist 8-fach Standard)</option><option value="1">1-fach (braucht etwa halb so viel Rechenleistung)</option><option value="4" disabled>4-fach</option><option value="8" disabled>8-fach</option></select></div>
+<div class="avol" style="margin-top:8px"><label for="aos">Überabtastung</label> <select id="aos"><option value="2">2-fach (weniger Störtöne)</option><option value="1">1-fach (braucht etwa halb so viel Rechenleistung)</option><option value="4" disabled>4-fach</option><option value="8" disabled>8-fach</option></select></div>
     <p class="note" id="tubenote" style="margin:4px 0 0">Röhren je Fassung (Doppeltrioden); * = an den Datenblatt-Arbeitspunkt angepasstes Modell, abseits davon weniger gesichert.</p>
     <details class="exp" id="nlexp"><summary>Was die Verzerrung rechnet, Röhrenmodelle, Überabtastung</summary>
     <p id="nloff" style="margin:6px 0 0">Aus: Alle sechs Röhrenstufen werden linear gerechnet. Du hörst exakt die Klangformung durch Kanäle, Klangregler, Boosts, Master und Kondensatoren, aber keinen Overdrive.</p>
@@ -1135,7 +1135,8 @@ async function ensureCtx() {
   A.ready = (async () => {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) throw new Error('Dieser Browser unterstützt kein Web Audio.');
-    A.ctx = new AC();
+    // „playback“: größerer Ausgabepuffer, damit es auf Handys nicht knackt, wenn der Audio-Thread kurz warten muss (Regler wirken dafür etwa 0,1 s später)
+    try { A.ctx = new AC({ latencyHint: 'playback' }); } catch (e) { A.ctx = new AC(); }
     A.gain = A.ctx.createGain(); A.gain.gain.value = Math.pow(10, +$('avol').value / 20);
     A.an = A.ctx.createAnalyser(); A.an.fftSize = 2048;
     A.gain.connect(A.an); A.an.connect(A.ctx.destination);
@@ -1172,7 +1173,7 @@ async function ensureCtx() {
       setInterval(() => { if (A.playing) showPeaks(A.eng.takePeaks()); }, 100);
       A.sp.connect(A.gain);
     }
-    send();
+    send(); if (!A.wasmReady) setTimeout(autoOs, 0);   // ohne WebAssembly-Kern: Rechentest mit dem JavaScript-Kern (sonst nach dem Laden des Kerns)
   })();
   return A.ready;
 }
@@ -1195,8 +1196,12 @@ async function loadFile(file) {
     status(err && /Web Audio/.test(err.message) ? err.message : 'Diese Datei konnte der Browser nicht lesen. Bitte ein anderes Format versuchen, zum Beispiel WAV oder MP3.');
   }
 }
+// Quelle weich ausblenden (8 ms) und danach anhalten; hartes Abschneiden mitten im Signal knackt
+const FADE = 0.008;
+function fadeOut(s) { if (!s) return; s.onended = () => { try { s.disconnect(); if (s.g) s.g.disconnect(); } catch (e) {} };
+  try { const t = A.ctx.currentTime, g = s.g.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + FADE); s.stop(t + FADE + 0.004); } catch (e) { try { s.stop(); } catch (e2) {} } }
 function stop() {
-  if (A.src) { try { A.src.stop(); } catch (e) {} A.src.disconnect(); A.src = null; }
+  if (A.src) { fadeOut(A.src); A.src = null; }
   A.playing = false; A.offset = 0; if (typeof setButtons === 'function') { setButtons(); drawWave(); } showPeaks([0,0,0,0,0]);
 }
 async function play() {
@@ -1206,13 +1211,13 @@ async function play() {
 }
 let clipUntil = 0;
 function meter() {
-  if (!A.playing) { $('ameter').style.width = '0%'; A.mraf = 0; return; }
-  const arr = new Float32Array(A.an.fftSize); A.an.getFloatTimeDomainData(arr);
+  if (!A.playing) { $('ameter').style.width = '0%'; A.mw = '0%'; A.mraf = 0; return; }
+  const arr = A.marr || (A.marr = new Float32Array(A.an.fftSize)); A.an.getFloatTimeDomainData(arr);
   let pk = 0; for (const v of arr) pk = Math.max(pk, Math.abs(v));
   const dbfs = pk > 0 ? 20 * Math.log10(pk) : -99;
-  $('ameter').style.width = Math.max(0, Math.min(100, (dbfs + 48) / 48 * 100)) + '%';
+  { const w = Math.round(Math.max(0, Math.min(100, (dbfs + 48) / 48 * 100))) + '%'; if (w !== A.mw) { A.mw = w; $('ameter').style.width = w; } }   // nur bei Änderung: spart Neuberechnungen
   const now = performance.now(); if (pk >= 0.999) clipUntil = now + 1500;
-  $('aclip').hidden = now > clipUntil; $('ameter').classList.toggle('hot', now <= clipUntil);
+  const hot = now <= clipUntil; if (hot !== A.mhot) { A.mhot = hot; $('aclip').hidden = !hot; $('ameter').classList.toggle('hot', hot); }
   A.mraf = requestAnimationFrame(meter);
 }
 $('apick').onclick = () => $('afile').click();
@@ -1308,7 +1313,7 @@ const nlUI = () => { const on = $('anl').checked; $('nloff').hidden = on; $('nlo
   $('sth').textContent = on ? 'Wie stark wird jede Röhrenstufe ausgesteuert?' : 'Würde die Röhrenstufe übersteuern?'; };
 // Rechentest beim ersten Einschalten: Anteil eines Prozessorkerns im ungünstigen Fall (Preamp 1, HIGH)
 let benchJs = false;
-async function bench(os) {
+async function bench(os, wasm) {
   // zwei Läufe (0,25 s und 1 s Audio); die Differenz enthält den einmaligen Tabellenaufbau nicht
   const L = window.LANEY, cur = L.current(), fs = 48000;
   const prm = { v: cur.v, s: { v1:1, v2:1, t:1, b:1, m:1, mv:.5, pl:1 }, sw: { ch:1, inp:'high', mid:false, top:false, bass:false }, pa:false, normP1:1, normP2:1, vin:0.3, nl:true, os };   // ungünstigster Fall: High-Gain-Kanal Preamp 1
@@ -1316,6 +1321,7 @@ async function bench(os) {
     if (window.OfflineAudioContext && window.AudioWorkletNode && !A.fallback && !benchJs && !/[?&]fallback\b/.test(location.search)) {
       const oc = new OfflineAudioContext(1, Math.round(fs * secs), fs); await oc.audioWorklet.addModule('laney-worklet.js');
       const node = new AudioWorkletNode(oc, 'laney-preamp', { outputChannelCount:[1], processorOptions:{ params: prm, bypass: false } });
+      if (wasm) await new Promise((res, rej) => { node.port.onmessage = e => { if (e.data && 'wasm' in e.data) (e.data.wasm ? res() : rej(new Error('WebAssembly'))); }; node.port.start(); node.port.postMessage({ wasm: wasmBin().buffer }); });   // denselben Kern messen, der in Echtzeit läuft
       const g = oc.createGain(); g.gain.value = 0.5; g.connect(node); node.connect(oc.destination);
       for (const f of [82.4, 392]) { const o = oc.createOscillator(); o.frequency.value = f; o.connect(g); o.start(); }   // tiefer + hoher Ton, stark übersteuert
       const t0 = performance.now(); await oc.startRendering(); return performance.now() - t0;
@@ -1329,21 +1335,29 @@ async function bench(os) {
   return Math.max(0, (b - a) / 1000 / 0.75 * 100);
 }
 let benched = false;
-$('anl').onchange = async () => {
-  nlUI();
-  if ($('anl').checked && !benched) {
-    if (A.wasm) { benched = true; status('WebAssembly-Kern: 2-, 4- und 8-fache Überabtastung laufen in Echtzeit (Standard 8-fach).'); if (+$('aos').value < 8 && !$('aos').dataset.user) $('aos').value = '8'; send(); return; }
-    benched = true; status('Rechentest läuft …');
-    try {
-      const l2 = await bench(2), l1 = l2 > 45 ? await bench(1) : null;
-      const pct = x => Math.round(x) + ' %';
-      if (l2 <= 45) { $('aos').value = '2'; status(`Rechentest: 2-fache Überabtastung braucht auf diesem Gerät etwa ${pct(l2)} eines Prozessorkerns. 2-fach ist eingestellt.`); }
-      else if (l1 <= 60) { $('aos').value = '1'; status(`Rechentest: 2-fach bräuchte etwa ${pct(l2)} eines Prozessorkerns, zu viel für eine sichere Wiedergabe. 1-fach ist eingestellt (etwa ${pct(l1)}).`); }
-      else { $('aos').value = '1'; status(`Rechentest: Auch 1-fach braucht etwa ${pct(l1)} eines Prozessorkerns. Auf diesem Gerät wird die Wiedergabe mit Röhrenverzerrung wahrscheinlich aussetzen.`); }
-    } catch (err) { status('Rechentest nicht möglich; 2-fach ist eingestellt. Wenn es aussetzt: 1-fach wählen.'); }
-  }
-  send();
-};
+// Überabtastung passend zu diesem Gerät: gemessen wird 2-fach mit dem Kern, der auch in Echtzeit läuft; die anderen Stufen
+// sind daraus geschätzt (Verhältnisse am WebAssembly-Kern gemessen: 1x 0,56 · 4x 2 · 8x 3,5). Gemessen wird der ungünstigste Fall (Preamp 1 voll
+// aufgedreht, zwei laute Töne); höchstens 50 % eines Prozessorkerns darin lassen auch Handys genug Reserve. Eine eigene Wahl im Menü bleibt unangetastet.
+async function autoOs() {
+  if (benched || !$('anl').checked) return; benched = true;
+  await ensureCtx(); const wasm = !!(A.wasmReady ? await A.wasmReady : A.wasm) && !!wasmBin();
+  status('Rechentest läuft …'); const pct = x => Math.round(x) + ' %', user = !!$('aos').dataset.user;
+  try {
+    if (wasm) {
+      const l2 = await bench(2, true), F = { 8: 3.5, 4: 2, 2: 1, 1: 0.56 }, os = [8, 4, 2, 1].find(o => l2 * F[o] <= 50) || 1;
+      if (!user) { $('aos').value = String(os); send(); }
+      status(`Rechentest (WebAssembly-Kern): 2-fache Überabtastung braucht auf diesem Gerät etwa ${pct(l2)} eines Prozessorkerns. ` + (user ? 'Deine Wahl im Menü bleibt.' : `${os}-fach ist eingestellt (etwa ${pct(l2 * F[os])}).`) + (l2 * F[1] > 60 ? ' Auf diesem Gerät wird die Wiedergabe mit Röhrenverzerrung wahrscheinlich aussetzen.' : ''));
+      return;
+    }
+    const l2 = await bench(2), l1 = l2 > 45 ? await bench(1) : null;
+    if (user) status(`Rechentest: 2-fache Überabtastung braucht auf diesem Gerät etwa ${pct(l2)} eines Prozessorkerns. Deine Wahl im Menü bleibt.`);
+    else if (l2 <= 45) { $('aos').value = '2'; status(`Rechentest: 2-fache Überabtastung braucht auf diesem Gerät etwa ${pct(l2)} eines Prozessorkerns. 2-fach ist eingestellt.`); }
+    else if (l1 <= 60) { $('aos').value = '1'; status(`Rechentest: 2-fach bräuchte etwa ${pct(l2)} eines Prozessorkerns, zu viel für eine sichere Wiedergabe. 1-fach ist eingestellt (etwa ${pct(l1)}).`); }
+    else { $('aos').value = '1'; status(`Rechentest: Auch 1-fach braucht etwa ${pct(l1)} eines Prozessorkerns. Auf diesem Gerät wird die Wiedergabe mit Röhrenverzerrung wahrscheinlich aussetzen.`); }
+    send();
+  } catch (err) { status('Rechentest nicht möglich; 2-fach ist eingestellt. Wenn es knackt oder aussetzt: 1-fach wählen.'); if (!user) { $('aos').value = '2'; send(); } }
+}
+$('anl').onchange = () => { nlUI(); send(); autoOs(); };
 $('aos').onchange = e => { e.target.dataset.user = '1'; }; $('aos').addEventListener('change', () => send());
 nlUI();
 window.LANEY.onChange(); showPeaks([0,0,0,0,0]);
@@ -1361,30 +1375,42 @@ function makePeaks(buf) {   // je Spalte: Spitze und Effektivwert der Kanalsumme
     pk[c] = p; rm[c] = Math.sqrt(s / (i1 - i0)); }
   return {pk, rm, cols};
 }
+// Wellenform: die beiden Farbfassungen (gespielt/offen) einmal je Größe und Farbschema vorzeichnen; pro Bild nur kopieren
+// und die Abspielposition setzen (sparsam für Handys, wo der Audio-Thread sich den Prozessor mit der Oberfläche teilt)
+function waveLayers(W, H) {
+  const key = W + 'x' + H + (matchMedia('(prefers-color-scheme: dark)').matches ? 'd' : 'l') + (document.documentElement.dataset.theme || '');
+  if (A.wl && A.wl.key === key && A.wl.peaks === A.peaks) return A.wl;
+  const cs = getComputedStyle(document.documentElement), ink = cs.getPropertyValue('--curve').trim() || '#1f5fa8', ink2 = cs.getPropertyValue('--ink2').trim() || '#777';
+  const {pk, rm, cols} = A.peaks, mid = H / 2;
+  const mk = (col, tint) => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    if (tint) { g.fillStyle = ink; g.globalAlpha = 0.18; g.fillRect(0, 0, W, H); }
+    g.fillStyle = col; for (let x = 0; x < W; x++) { const k = Math.min(cols - 1, Math.floor(x / W * cols));
+      g.globalAlpha = 0.45; const hp = pk[k] * mid * 0.95; g.fillRect(x, mid - hp, 1, 2 * hp || 1);
+      g.globalAlpha = 1; const hr = rm[k] * mid * 0.95; g.fillRect(x, mid - hr, 1, 2 * hr || 1); }
+    return c; };
+  A.wl = { key, peaks: A.peaks, open: mk(ink2, false), done: mk(ink, true) }; return A.wl;
+}
 function drawWave() {
   const cv = $('wavec'); if (!A.peaks || !cv) return;
-  const box = cv.parentElement.getBoundingClientRect(), dpr = devicePixelRatio || 1, W = Math.max(10, Math.round(box.width * dpr)), H = Math.round(box.height * dpr);
+  const dpr = devicePixelRatio || 1, W = Math.max(10, Math.round(cv.parentElement.clientWidth * dpr)), H = Math.round(cv.parentElement.clientHeight * dpr);
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-  const g = cv.getContext('2d'), cs = getComputedStyle(document.documentElement), ink = cs.getPropertyValue('--curve').trim() || '#1f5fa8', ink2 = cs.getPropertyValue('--ink2').trim() || '#777';
-  g.clearRect(0, 0, W, H);
-  const {pk, rm, cols} = A.peaks, mid = H / 2, p = dur() ? pos() / dur() : 0, px = Math.round(p * W);
-  g.fillStyle = ink; g.globalAlpha = 0.18; g.fillRect(0, 0, px, H); g.globalAlpha = 1;   // abgespielter Bereich
-  for (let x = 0; x < W; x++) { const c = Math.min(cols - 1, Math.floor(x / W * cols));
-    g.fillStyle = x < px ? ink : ink2; g.globalAlpha = 0.45; const hp = pk[c] * mid * 0.95; g.fillRect(x, mid - hp, 1, 2 * hp || 1);
-    g.globalAlpha = 1; const hr = rm[c] * mid * 0.95; g.fillRect(x, mid - hr, 1, 2 * hr || 1); }
-  g.globalAlpha = 1; g.fillStyle = '#E0382A'; g.fillRect(px - dpr, 0, 2 * dpr, H);   // Abspielposition
-  $('atime').textContent = fmtT(pos()) + ' / ' + fmtT(dur()); cv.setAttribute('aria-valuenow', Math.round(pos())); cv.setAttribute('aria-valuetext', fmtT(pos()) + ' von ' + fmtT(dur()));
+  const L = waveLayers(W, H), g = cv.getContext('2d'), p = dur() ? pos() / dur() : 0, px = Math.max(0, Math.min(W, Math.round(p * W)));
+  g.clearRect(0, 0, W, H); g.drawImage(L.open, 0, 0); if (px > 0) g.drawImage(L.done, 0, 0, px, H, 0, 0, px, H);
+  g.fillStyle = '#E0382A'; g.fillRect(px - dpr, 0, 2 * dpr, H);   // Abspielposition
+  const t = fmtT(pos()) + ' / ' + fmtT(dur());   // Text nur bei Änderung setzen: jede Änderung kostet ein Neulayout
+  if (t !== A.wt) { A.wt = t; $('atime').textContent = t; cv.setAttribute('aria-valuenow', Math.round(pos())); cv.setAttribute('aria-valuetext', fmtT(pos()) + ' von ' + fmtT(dur())); }
 }
-function animate() { drawWave(); if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }
+function animate(ts) { if (!(ts - (A.lastDraw || 0) < 33)) { A.lastDraw = ts || 0; drawWave(); } if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }   // höchstens 30 Bilder je Sekunde
 function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd','abyp']) $(id).disabled = !on; $('adl').disabled = !on || A.rendering;
   $('aplay').textContent = A.playing ? '❚❚ Pause' : '▶ Abspielen'; $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
 function startSource(from) {
   A.src = A.ctx.createBufferSource(); A.src.buffer = A.buf; A.src.loop = $('aloop').checked;
-  const me = A.src; me.onended = () => { if (A.src === me && A.playing && !me.loop) { A.playing = false; A.src = null; A.offset = 0; setButtons(); drawWave(); } };
-  A.src.connect(A.node || A.sp); send(); A.src.start(0, from); A.startAt = A.ctx.currentTime; A.offset = from;
+  const me = A.src; me.onended = () => { try { me.disconnect(); me.g.disconnect(); } catch (e) {} if (A.src === me && A.playing && !me.loop) { A.playing = false; A.src = null; A.offset = 0; setButtons(); drawWave(); } };
+  const t = A.ctx.currentTime; me.g = A.ctx.createGain(); me.g.gain.setValueAtTime(0, t); me.g.gain.linearRampToValueAtTime(1, t + FADE);   // weich einblenden
+  me.connect(me.g); me.g.connect(A.node || A.sp); send(); me.start(t, from); A.startAt = t; A.offset = from;
 }
-function pause() { if (!A.playing) return; A.offset = pos(); const s = A.src; A.src = null; A.playing = false; try { s.stop(); } catch (e) {} s.disconnect(); setButtons(); drawWave(); }
-function seek(t) { if (!A.buf) return; t = Math.max(0, Math.min(dur() - 0.01, t)); if (A.playing) { const s = A.src; A.src = null; try { s.stop(); } catch (e) {} s.disconnect(); startSource(t); } else A.offset = t; drawWave(); }
+function pause() { if (!A.playing) return; A.offset = pos(); const s = A.src; A.src = null; A.playing = false; fadeOut(s); setButtons(); drawWave(); }
+function seek(t) { if (!A.buf) return; t = Math.max(0, Math.min(dur() - 0.01, t)); if (A.playing) { const s = A.src; A.src = null; fadeOut(s); startSource(t); } else A.offset = t; drawWave(); }
 $('astop').onclick = () => { stop(); A.offset = 0; setButtons(); drawWave(); };
 $('aback').onclick = () => seek(pos() - 5); $('afwd').onclick = () => seek(pos() + 5);
 $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
@@ -1396,8 +1422,8 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
   cv.addEventListener('keydown', e => { const m = {ArrowLeft:-5, ArrowRight:5, PageDown:-30, PageUp:30}[e.key]; if (m) { seek(pos() + m); e.preventDefault(); } else if (e.key === 'Home') { seek(0); e.preventDefault(); } else if (e.key === ' ' || e.key === 'Enter') { A.playing ? pause() : play(); e.preventDefault(); } });
   addEventListener('resize', drawWave); }
 
-function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.value >= 4) o.disabled = !A.wasm; if (!A.wasm && +sel.value >= 4) { sel.value = '2'; send(); } if (A.wasm && !sel.dataset.user && +sel.value < 8) { sel.value = '8'; send(); }
-  const st = $('astatus'); if (A.wasm && !st.dataset.wasm) { st.dataset.wasm = '1'; st.textContent += ' WebAssembly-Kern aktiv (4- und 8-fach möglich).'; } }
+function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.value >= 4) o.disabled = !A.wasm; if (!A.wasm && +sel.value >= 4) { sel.value = '2'; send(); }
+  const st = $('astatus'); if (A.wasm && !st.dataset.wasm) { st.dataset.wasm = '1'; st.textContent += ' WebAssembly-Kern aktiv (4- und 8-fach möglich).'; } autoOs(); }
 })();
 </script><script>if("serviceWorker"in navigator&&location.protocol==="https:")addEventListener("load",()=>navigator.serviceWorker.register("../sw.js").catch(()=>{}));</script>
 <script>
