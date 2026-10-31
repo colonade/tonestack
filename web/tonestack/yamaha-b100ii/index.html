@@ -154,6 +154,41 @@ footer.panel{border-style:dashed;margin-top:18px;max-width:none}
 .kipp .stg .sv{color:#9a9ea6;font-size:.74rem;white-space:nowrap}.kipp .stg .sv.over{color:#ff8a7a}
 @media (max-width:640px){.kipp .stages{grid-template-columns:repeat(3,minmax(0,1fr))}.kipp .stg .sn small{display:none}.kin input[type=range]{width:120px}}
 .ypk{min-width:240px;flex:1;max-width:420px}.ypk .stg .sb::after{left:100%;display:none}
+
+/* Breitbild-Ansicht (ab 1200 px): Frontplatte, Leiste, Player und Diagramm auf einen Blick; Elemente werden per Skript umgehängt */
+body.cockpit .wrap{max-width:1400px}
+.cockpit{margin-top:8px}
+.ckgrid{display:grid;grid-template-columns:minmax(500px,5fr) minmax(0,7fr);gap:14px;align-items:start;margin-top:12px}
+.cockpit .kipp{margin-top:0}
+.cockpit .kippmain{display:flex;gap:0 22px;align-items:stretch}
+.cockpit .kippmain .kippreihe{flex:0 1 auto}
+.cockpit .kippmain .kipp2{flex:1 1 0;margin-top:0;padding-top:0;border-top:0;border-left:1px solid #2a2d33;padding-left:22px;min-width:0}
+.cockpit .kdrive{margin-top:8px;padding-top:8px}
+.cockpit .kipp2 .ks{display:none}
+.kgrp[hidden]{display:none!important}
+.cockpit .ypk .stg{flex:1 1 auto;min-width:180px}
+.cockpit .kipp2{display:grid;grid-template-columns:auto 1fr;gap:10px 22px;align-content:start}
+.cockpit .kipp2 .kgrp:first-child{grid-column:1/-1}
+.cockpit .kipp2 .kgrp{flex-direction:row;align-items:center;gap:10px}
+.cockpit .kipp2 .kgrp>.kt{min-width:0}
+.cockpit .kippkopf{margin-bottom:4px}
+.cockpit .ki .ks{font-size:.72rem}
+.cockpit .deck .drop{padding:7px 12px}
+.cockpit .dmain{padding:10px 12px 4px}
+.cockpit .dmix{padding:8px 12px 10px;gap:8px 12px}
+.cockpit .dfoot{padding:6px 12px}
+.cockpit .front figcaption{margin-top:6px}
+.cockpit .deck{margin-top:0}
+.cockpit #sec-plot{margin:0;padding:12px 16px 14px}
+.cockpit #sec-plot .ph{margin-bottom:6px}
+.cockpit #sec-plot .ph p{display:none}
+.cockpit #sec-plot .bar{margin-bottom:6px;gap:6px 12px}
+.cockpit #sec-plot .bar label{font-size:.86rem}
+.cockpit #sec-plot .seg button{padding:5px 10px;font-size:.84rem}
+.cockpit #sec-plot select{font-size:.84rem}
+.cockpit #sec-plot .legend{font-size:.8rem;margin-top:4px}
+.cockpit #sec-plot .readout{margin-top:8px}
+.cockpit #astatus{margin:6px 2px 0}
 .kref{flex:none;align-self:flex-start;font-size:.68rem;font-weight:700;letter-spacing:.04em;color:#dcdee2;background:#2a2d33;border-radius:4px;padding:2px 6px;margin-top:2px;white-space:nowrap}
 label.opt[for]{cursor:pointer}
 .opt{display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:.92rem}@media (max-width:640px){.stg{grid-template-columns:90px 1fr}.stg .sv{grid-column:1/-1}}
@@ -683,7 +718,7 @@ function render() {
   if (typeof updFront === 'function') updFront();
   const v = vals();
   const cw = svg.clientWidth || 1000;
-  if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }
+  if (window.__plotH) { W = Math.max(600, Math.round(cw)); Ht = window.__plotH; } else if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }   // Breitbild-Ansicht: Höhe passend zum Player, Maßstab 1:1
   svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640);
   const cur = curve(S.knobs, v);
   const refK = {t:10,m:10,b:10,e0:5,e1:5,e2:5,e3:5,e4:5}, refKey = S.mode + '|' + S.sw.inp + '|' + S.sw.spk + '|' + S.taper + '|' + JSON.stringify(v);
@@ -1223,5 +1258,31 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
 (() => { for (const d of document.querySelectorAll('#kipp .ki')) { const inp = document.getElementById(d.dataset.for); if (!inp) { d.remove(); continue; }
   const lab = inp.closest('label'); d.querySelector('.kk').prepend(inp);
   if (lab) { lab.htmlFor = inp.id; const r = document.createElement('span'); r.className = 'kref'; r.textContent = d.querySelector('.kt').textContent + ' ▲'; r.title = 'Schalter in der Leiste unter der Frontplatte'; lab.prepend(r); } } })();
+</script>
+<script>
+/* Breitbild-Ansicht: ab 1200 px Breite Leiste, Player und Diagramm direkt unter die Frontplatte holen (Elemente werden verschoben, nicht kopiert) */
+(() => { const mq = matchMedia('(min-width:1200px)'), $ = id => document.getElementById(id);
+  const front = $('front'), kipp = $('kipp'), deck = $('deck'), st = $('astatus'), plot = $('sec-plot'), svg = $('plot');
+  if (!front || !kipp || !deck || !plot || !svg) return;
+  const marks = new Map(); for (const el of [kipp, deck, st, plot]) { if (!el) continue; const c = document.createComment('ck'); el.before(c); marks.set(el, c); }
+  const reihe = kipp.querySelector('.kippreihe'), k2 = kipp.querySelector('.kipp2');
+  const main = document.createElement('div'); main.className = 'kippmain';
+  const ck = document.createElement('div'); ck.className = 'cockpit'; ck.innerHTML = '<div class="ckgrid"><div class="ckl"></div><div class="ckr"></div></div>';
+  const L = ck.querySelector('.ckl'), Rr = ck.querySelector('.ckr');
+  const fit = () => { if (!document.body.classList.contains('cockpit')) { window.__plotH = 0; return; }
+    const target = Math.max(L.getBoundingClientRect().bottom, front.getBoundingClientRect().top + innerHeight - 16), top = svg.getBoundingClientRect().top, below = Rr.getBoundingClientRect().bottom - svg.getBoundingClientRect().bottom;
+    const ro = plot.querySelector('.readout'); const rh = ro ? ro.getBoundingClientRect().height + 8 : 0;
+    window.__plotH = Math.max(220, Math.min(620, Math.round(target - top - (below - rh)))); };
+  function apply() {
+    if (mq.matches) { if (k2 && reihe) { reihe.before(main); main.append(reihe, k2); }
+      (front.querySelector('figcaption') || front.lastChild).before(ck); ck.prepend(kipp); L.append(deck); if (st) L.append(st); Rr.append(plot); document.body.classList.add('cockpit'); }
+    else { if (k2 && reihe && main.parentNode) { main.before(reihe); reihe.after(k2); main.remove(); }
+      for (const [el, c] of marks) c.after(el); ck.remove(); document.body.classList.remove('cockpit'); }
+    window.__plotH = 0; requestAnimationFrame(() => { fit(); dispatchEvent(new Event('resize')); requestAnimationFrame(() => { fit(); dispatchEvent(new Event('resize')); }); });
+  }
+  addEventListener('resize', e => { if (e.isTrusted) fit(); });
+  if (window.ResizeObserver) new ResizeObserver(() => { const h = window.__plotH; fit(); if (Math.abs((window.__plotH || 0) - (h || 0)) > 4) dispatchEvent(new Event('resize')); }).observe(L);
+  mq.addEventListener ? mq.addEventListener('change', apply) : mq.addListener(apply); apply();
+})();
 </script>
 </body></html>
