@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.15
+Version 3.16
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -114,6 +114,15 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.16 (new default setting)
+  A newly inserted plugin starts with: Preamp 1 (high gain) with all pull
+  switches on (Preamp 1, Treble/Top Boost, Middle/Mid Boost, Bass/Bass
+  Boost), Preamp 1 Volume 2, Preamp 2 Volume 2, Preamp 1 Level 2, Treble,
+  Middle, Bass, Master and Presence 5 (12 o'clock), tubes 3 x 5751, Soft on,
+  Late off, FX loop + power amp on, bass mod on, tube distortion on.
+  Projects saved earlier keep their settings. Sound otherwise identical to
+  3.15. "RESET TO STOCK" still sets the tubes of the real amp (3 x 12AX7).
 
 3.15 (softer onset of distortion, power amp and output transformer)
   - Grid current of the preamp tubes after Dempwolf/Zoelzer (2011, fitted to

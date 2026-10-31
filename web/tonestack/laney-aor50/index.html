@@ -413,7 +413,7 @@ select{max-width:100%}
 </div>
 <div class="legend">
   <span><i></i>Aktuelle Einstellung</span>
-  <span><i class="r"></i>Original-Bauteile, gleicher Kanal, alle Regler wie Grundstellung, Schalter aus</span>
+  <span><i class="r"></i>Original-Bauteile, gleicher Kanal, alle Regler auf 5, Schalter aus</span>
   <span id="lgCmp" hidden><i class="c"></i>Gemerkte Kurve</span>
 </div>
 
@@ -749,10 +749,11 @@ if (typeof module !== 'undefined') module.exports = {LANEY_PARTS, LANEY_FIXED};
 const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
 const P = LANEY_PARTS;
-const KDEF = {v1:5, v2:5, t:5, m:5, b:5, mv:5, pl:5, pres:5};
-const DEF = { knobs:{...KDEF}, sw:{ch:1, inp:'high', mid:false, top:false, bass:false, soft:false, pad:false}, spk:false, mode:'rel1k', taper:'a15', showRef:true, tubes:[0,0,0], pa:true,
-  parts:Object.fromEntries(P.map(p=>[p[0], p[5] !== null ? p[5] : p[4]])) };   // Grundstellung: Bass-Umbau, Effektweg + Endstufe an
-let S; try { S = JSON.parse(localStorage.getItem('laneypre-v3') || 'null'); } catch(e) { S = null; }   // v3: neue Grundstellung (2026-10-06)
+const KDEF = {v1:5, v2:5, t:5, m:5, b:5, mv:5, pl:5, pres:5};   // Bezug: alle Regler auf 5 (Einpegeln, Originalkurve)
+const KSTART = {v1:2, v2:2, t:5, m:5, b:5, mv:5, pl:2, pres:5};   // Grundstellung beim ersten Aufruf und mit „Grundstellung“
+const DEF = { knobs:{...KSTART}, sw:{ch:1, inp:'high', mid:true, top:true, bass:true, soft:true, pad:false}, spk:false, mode:'rel1k', taper:'a15', showRef:true, tubes:[3,3,3], pa:true,
+  parts:Object.fromEntries(P.map(p=>[p[0], p[5] !== null ? p[5] : p[4]])) };   // Grundstellung: Preamp 1 (Zug), Volumes und Level 2, Rest 5, alle Zugschalter an, Sanft an, Später aus, 3 × 5751, Bass-Umbau, Effektweg + Endstufe an
+let S; try { S = JSON.parse(localStorage.getItem('laneypre-v4') || 'null'); } catch(e) { S = null; }   // v4: neue Grundstellung (2026-10-31)
 // Umbau-Stand Revision 5: C6, C9, C13, C21 gehören nicht mehr zum Bass-Umbau. Stehen sie noch genau auf den alten Umbauwerten, zurück auf Original.
 if (S && S.parts) for (const [k, alt] of [['c6', 1000], ['c9', 22], ['c13', 22], ['c21', 47]]) {
   const p = LANEY_PARTS.find(q => q[0] === k); if (p && S.parts[k] === alt) S.parts[k] = p[4];
@@ -768,7 +769,7 @@ if (!Array.isArray(S.tubes) || S.tubes.length !== 3) S.tubes = [0,0,0];   // äl
 const TUBES = [['ECC83 / 12AX7', false], ['ECC81 / 12AT7', false], ['ECC82 / 12AU7', false], ['5751', true], ['12AY7', true]];
 const stockTubes = t => t.every(x => +x === 0);
 let cmp = null, cmpId = 0;
-const save = () => { try { localStorage.setItem('laneypre-v3', JSON.stringify(S)); } catch(e) {} };
+const save = () => { try { localStorage.setItem('laneypre-v4', JSON.stringify(S)); } catch(e) {} };
 const valsOf = parts => { const v = {...LANEY_FIXED}; for (const p of P) v[p[0]] = parts[p[0]] * p[3]; return v; };
 // Umbauideen als Schalter: „Sanft" trennt C3 ab (Kathode V101B ohne Kondensator, gerechnet als 1 nF), „Später" legt Rpad vor Preamp 2 Volume
 const modsApply = (v, sw = S.sw) => { if (sw.soft) v.c3 = 1e-9; if (!sw.pad) v.rpad = 0; return v; };
@@ -1142,7 +1143,7 @@ const syncTubes = () => { for (let i = 0; i < 3; i++) { const sel = $('tube' + i
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { S.mode = b.dataset.mode; render(); });
 $('taper').value = S.taper; $('taper').onchange = e => { S.taper = e.target.value; cache.clear(); updKnobs(); render(); };
 $('showRef').checked = S.showRef; $('showRef').onchange = e => { S.showRef = e.target.checked; render(); };
-$('pDef').onclick = () => { S.knobs = {...KDEF}; updKnobs(); render(); };
+$('pDef').onclick = () => { S.knobs = {...KSTART}; updKnobs(); render(); };
 $('pMid').onclick = () => { S.knobs = Object.fromEntries(Object.keys(KDEF).map(k => [k, 5])); updKnobs(); render(); };
 
 // ---------- Voreinstellungen mit Namen (im Browser gespeichert, getrennt vom laufenden Zustand) ----------

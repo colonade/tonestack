@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.15"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.16"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "gui.hpp"
 #include <deque>
@@ -21,15 +21,15 @@ static const char *N_TAP[] = {"Log 15 %", "Log 10 %", "Linear"}; static const ch
 static const char *N_TUBE[] = {"12AX7 / ECC83 (stock)", "12AT7 / ECC81", "12AU7 / ECC82", "5751 (fitted model)", "12AY7 (fitted model)"};
 static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 1, 0, N_INP, 2}, {"Channel", 0, 1, 0, N_CH, 2},
-  {"Preamp 1 Volume", 0, 10, 5, 0, 0}, {"Preamp 2 Volume", 0, 10, 5, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 5, 0, 0},
+  {"Preamp 1 Volume", 0, 10, 2, 0, 0}, {"Preamp 2 Volume", 0, 10, 2, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 2, 0, 0},
   {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Master Volume", 0, 10, 5, 0, 0},
-  {"Mid Boost (S105)", 0, 1, 0, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 0, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 0, N_ONOFF, 2},
+  {"Mid Boost (S105)", 0, 1, 1, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 1, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 1, N_ONOFF, 2},
   {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Middle/Presence pot taper", 0, 2, 0, N_TAP, 3},
   {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
   {"Oversampling (distortion)", 0, 3, 1, N_OS, 4}, {"Presence", 0, 10, 5, 0, 0},
-  {"Tube V101", 0, 4, 0, N_TUBE, 5}, {"Tube V102", 0, 4, 0, N_TUBE, 5}, {"Tube V103", 0, 4, 0, N_TUBE, 5},
+  {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
-  {"Soft (mod: C3 at V101B removed)", 0, 1, 0, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2} };
+  {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2} };
 
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
