@@ -3,6 +3,7 @@
 #import <Foundation/Foundation.h>
 #import <ImageIO/ImageIO.h>
 #include <cstdio>
+#include "yamaha_core.hpp"   // Rechenkerne (die Oberflächen nutzen Röhrenliste und Konstanten)
 #include TS_GUI_HDR
 using namespace TS_NS;
 int main(int argc, char **argv) {

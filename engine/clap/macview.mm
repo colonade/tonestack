@@ -38,7 +38,7 @@
 namespace tsmac {
 void *create(void *parent, int w, int h, Client *c) {
   TS_VIEW_CLASS *v = [[TS_VIEW_CLASS alloc] initWithFrame:NSMakeRect(0, 0, w, h)]; v->client = c; v->wheelAcc = 0;
-  if (parent) [(NSView *)parent addSubview:v];
+  if (parent) [(__bridge NSView *)parent addSubview:v];
   return (__bridge_retained void *)v; }
 void setSize(void *view, int w, int h) { if (!view) return; TS_VIEW_CLASS *v = (__bridge TS_VIEW_CLASS *)view; [v setFrameSize:NSMakeSize(w, h)]; [v setNeedsDisplay:YES]; }
 void show(void *view) { if (view) { TS_VIEW_CLASS *v = (__bridge TS_VIEW_CLASS *)view; [v setHidden:NO]; [v setNeedsDisplay:YES]; } }
