@@ -26,7 +26,19 @@ jobs:
         run: |
           set -o pipefail
           bash mac/package.sh build-mac out 2>&1 | tee pack.log || { python3 mac/annot.py Packen pack.log; exit 1; }
+      - name: Installerpaket bauen und probehalber installieren
+        run: |
+          set -o pipefail
+          { bash mac/make_pkg.sh build-mac out
+            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component
+            sudo installer -pkg out/*.pkg -target /
+            ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3
+            killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
+            for sub in Lany B100; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
+          } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
       - uses: actions/upload-artifact@v5
         with:
           name: tonestack-mac
-          path: out/*.zip
+          path: |
+            out/*.zip
+            out/*.pkg

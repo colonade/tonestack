@@ -11,6 +11,21 @@ Für Logic genügt die .component. Beide Fassungen klingen gleich.
 Läuft auf Apple-Silicon- und Intel-Macs ab macOS 11 (Big Sur).
 
 
+0. Am einfachsten: das Installerpaket
+--------------------------------------
+
+Gibt es dazu eine Datei  tonestack-Plugins-Mac_….pkg , genügt diese:
+Doppelklick → durch den Installer klicken (Administrator-Passwort) → Logic
+neu starten. Schritt 1 und 2 unten entfallen dann.
+
+Weil das Paket nicht bei Apple beglaubigt ist, verweigert macOS beim ersten
+Doppelklick das Öffnen. Dann:
+  - macOS 15 (Sequoia) und neuer: Systemeinstellungen → Datenschutz &
+    Sicherheit → ganz unten bei der Meldung zum Paket „Dennoch öffnen“.
+  - macOS 11 bis 14: Rechtsklick (Ctrl-Klick) auf das Paket → „Öffnen“ →
+    noch einmal „Öffnen“.
+
+
 1. Installieren
 ---------------
 
