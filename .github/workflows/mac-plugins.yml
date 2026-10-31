@@ -11,16 +11,22 @@ jobs:
   build:
     runs-on: macos-15   # macos-14 wird am 2026-11-02 abgeschaltet
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Werkzeuge
         run: brew install ninja
       - name: Konfigurieren
-        run: cmake -S engine/vst3 -B build-mac -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: |
+          set -o pipefail
+          cmake -S engine/vst3 -B build-mac -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee cfg.log || { python3 mac/annot.py Konfigurieren cfg.log; exit 1; }
       - name: Bauen
-        run: cmake --build build-mac
+        run: |
+          set -o pipefail
+          cmake --build build-mac 2>&1 | tee build.log || { python3 mac/annot.py Bauen build.log 40 'error|Error|FAILED'; exit 1; }
       - name: Prüfen, signieren (ad hoc), packen
-        run: bash mac/package.sh build-mac out
-      - uses: actions/upload-artifact@v4
+        run: |
+          set -o pipefail
+          bash mac/package.sh build-mac out 2>&1 | tee pack.log || { python3 mac/annot.py Packen pack.log; exit 1; }
+      - uses: actions/upload-artifact@v5
         with:
           name: tonestack-mac
           path: out/*.zip
