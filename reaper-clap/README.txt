@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.14
+Version 3.15
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -114,6 +114,24 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.15 (softer onset of distortion, power amp and output transformer)
+  - Grid current of the preamp tubes after Dempwolf/Zoelzer (2011, fitted to
+    measured 12AX7): it now sets in gradually from about -0.5 V instead of
+    as a sharp diode at 0 V. Measured with a 110 Hz sine (8x oversampling),
+    the range from 1 % to 10 % distortion widens from 8 to 10-12 dB, and the
+    distortion starts a little earlier and grows more gradually.
+  - With "FX loop + power amp" and tube distortion on, the power amp is no
+    longer linear: the output tubes limit softly at about 30 V peak into
+    8 ohms (about 56 W) inside the negative feedback loop, and the output
+    transformer saturates at low notes (magnetising inductance 0.08 H
+    referred to 8 ohms, saturation flux 0.09 V*s: at full power it starts
+    below about 50 Hz, i.e. low E and low B). With the clean channel at
+    Preamp 2 Volume 5 and Master 10 the power amp reaches its limit from
+    about 100 mV instrument level. All values are estimates (no measurement
+    of the real amp); the frequency-response plot stays small-signal.
+  - Not modelled: power supply sag.
+  - CPU load about 2-3 % of a core higher. Sound in linear mode unchanged.
 
 3.14
   The plugin version is shown in the plugin window (model strip, "PLUGIN

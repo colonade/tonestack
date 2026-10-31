@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.14"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.15"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "gui.hpp"
 #include <deque>
@@ -59,7 +59,7 @@ static double restDev(Engine *E) {
     std::string key = NlCore::cacheKey(n->v, n->fs, n->os, n->cur.tube); NlCore::CacheLock lk;
     auto &ca = NlCore::cache(); auto it = ca.find(key); if (it == ca.end()) return 1e9;
     const Snapshot &s = it->second; for (size_t k = 0; k < n->amp.st.size() && k < s.st.size(); k++) for (size_t i = 0; i < n->amp.st[k].vc.size() && i < s.st[k].vc.size(); i++) d = std::max(d, std::fabs(n->amp.st[k].vc[i] - s.st[k].vc[i]));
-    if (n->pa) lin(n->paC.r); }
+    if (n->pa) d = std::max(d, n->paC.restDev()); }
   else { LinCore *l = (LinCore*)c; lin(l->r); if (l->pa) lin(l->paC.r); }
   return d;
 }
@@ -68,7 +68,7 @@ static void settle(Engine *E) {
   if (c->isNl()) { NlCore *n = (NlCore*)c;
     std::string key = NlCore::cacheKey(n->v, n->fs, n->os, n->cur.tube); NlCore::CacheLock lk;
     auto &ca = NlCore::cache(); auto it = ca.find(key); if (it != ca.end()) n->amp.initFrom(n->v, n->cur, it->second); else n->amp.init(n->v, n->cur);
-    n->amp.blending = false; std::fill(n->amp.xb.begin(), n->amp.xb.end(), 0.0); std::fill(n->amp.yb.begin(), n->amp.yb.end(), 0.0); settleRunner(n->paC.r); }
+    n->amp.blending = false; std::fill(n->amp.xb.begin(), n->amp.xb.end(), 0.0); std::fill(n->amp.yb.begin(), n->amp.yb.end(), 0.0); n->paC.settle(); }
   else { LinCore *l = (LinCore*)c; settleRunner(l->r); settleRunner(l->paC.r); }
 }
 

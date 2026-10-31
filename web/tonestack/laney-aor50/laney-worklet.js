@@ -33,9 +33,12 @@ const NL = (() => {
     out[1] = (vgk - G0 < 0) ? 0 : (cd - ab) / GS;
     out[2] = (vpk - P0 < 0) ? 0 : ((b - a) + ((d - c) - (b - a)) * fx) / PS;
   }
-  function grid(v, out) {                          // Gitterstrom und Ableitung
-    const x = v / SG; if (x > 35) { out[0] = v / RGI; out[1] = 1 / RGI; return; }
-    const e = Math.exp(x); out[0] = SG * Math.log1p(e) / RGI; out[1] = e / (1 + e) / RGI;
+  function grid(v, out) {                          // Gitterstrom und Ableitung (Dempwolf/Zölzer 2011, an gemessenen 12AX7 angepasst; wie der C++-Kern)
+    const GG = 6.177e-4, CG = 9.901, XI = 1.314, x = CG * v; let sp, sg;
+    if (x < -30) { out[0] = 0; out[1] = 0; return; }
+    if (x < -8) { const i = GG * Math.pow(CG, -XI) * Math.exp(XI * x); out[0] = i; out[1] = XI * CG * i; return; }
+    if (x > 35) { sp = x; sg = 1; } else { const e = Math.exp(x); sp = Math.log1p(e); sg = e / (1 + e); }
+    const s = sp / CG, p = Math.pow(s, XI - 1); out[0] = GG * p * s; out[1] = GG * XI * p * sg;
   }
   // --- linearer Abschnitt ---------------------------------------------------------------
   function net() {

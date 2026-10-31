@@ -201,6 +201,55 @@ inline LinNet netPA(const Parts &v, double pres, double fs) {
   return o;
 }
 inline LinSys buildPA(const Parts &v, double pres, double fs) { return netPA(v, pres, fs).compile("br", {}); }
+// Endstufe für den Röhrenmodus: dasselbe Netz, aber der braune Abgriff wird von außen gespeist (Quelle br = Vs/Gp), damit Endröhren und
+// Übertrager innerhalb der Gegenkopplung nichtlinear gerechnet werden können. srcBr = false: Eingang u, br an Masse; true: Quelle an br, u an Masse.
+inline LinSys buildPAx(const Parts &v, double pres, double fs, bool srcBr) {
+  LinNet o; const std::string U = srcBr ? "u0" : "in", BR = srcBr ? "in" : "br";
+  auto buf = [&](const std::string &a, const std::string &b) { o.vccs(a, "0", b, 1); o.R(b, "0", 1); };
+  o.N("in"); o.R(U,"fa",1e3); o.C("fa","fb",v.c201,fs); o.C("fb","fc",v.c202,fs); o.R("fc","0",1/(1/39e3+1/55e3));
+  buf("fc","bb"); o.R("bb","ga0",1e3); o.C("ga0","ga",v.c18,fs); o.R("ga","n",1e6); o.R("gb","n",1e6); o.R("n","k",470); o.R("n","x",10e3);
+  o.triode("ga","pa","k",1.23e-3,v,fs); o.triode("gb","pb","k",1.17e-3,v,fs); o.R("pa","0",82e3); o.R("pb","0",100e3); o.C("pa","pb",v.c20,fs);
+  o.C("pa","g1",v.c21,fs); o.R("g1","0",220e3); o.C("pb","g2",v.c21,fs); o.R("g2","0",220e3);
+  o.C("gb","x",v.c19,fs); o.R("x","0",v.r105); o.R("x","px",v.vr108*(1-pres)); o.C("px","0",v.c110,fs);
+  o.R(srcBr ? "u0" : "br", "0", 1e-3);   // die jeweils andere Quelle liegt auf 0
+  o.R(BR,"x", v.r38 * 0.5 / std::max(v.gp, 1e-6));
+  return o.compile("x", {{"g2","g1"}});
+}
+// Endröhren und Ausgangsübertrager (Schätzung, auf die Sekundärseite bezogen, 8-Ω-Last):
+//   Röhren: Leerlaufspannung E = Gp·(1 + RS/RL)·(Gitterdifferenz), weich begrenzt (Knie ab 75 %, höchstens 30 V Spitze an 8 Ω ≈ 56 W);
+//   Innenwiderstand RS = 8 Ω (Pentoden ohne Gegenkopplung, Dämpfungsfaktor etwa 1);
+//   Übertrager: Hauptinduktivität LM = 0,08 H (≈ 40 H primär bei 4 kΩ : 8 Ω), Sättigung über den Fluss φ = ∫Vs dt:
+//   Magnetisierungsstrom φ/LM·(1 + (|φ|/PHIS)^6), PHIS = 0,09 V·s (Sättigungseinsatz bei Volllast, 28 V Spitze, unterhalb etwa 50 Hz; Gitarrenübertrager).
+//   Der Magnetisierungsstrom fließt über RS und fehlt an der Last; die Gegenkopplung (R38) gleicht aus, bis die Röhren begrenzen.
+struct PaNl {
+  static constexpr double RL = 8, RS = 8, LM = 0.08, PHIS = 0.09, EMAX = 30, KNEE = 0.75;
+  double fs; LinSys su, sb; std::vector<double> Ih, vc; double cur = 0, tgt = 0; Parts v; bool hasV = false; int cnt = 0; double norm = 1;
+  double Vs = 0, phi = 0, peak = 0;   // peak: höchste Spannung an der Last (V) seit dem letzten Abholen
+  explicit PaNl(double fs_) : fs(fs_) {}
+  void build() { su = buildPAx(v, cur, fs, false); sb = buildPAx(v, cur, fs, true); if ((int)Ih.size() != su.nc) { Ih.assign(su.nc, 0); vc.assign(su.nc, 0); } }
+  void setTarget(const Parts &pv, double pres, double nrm) { tgt = pres; norm = nrm; if (!hasV || !(pv == v)) { v = pv; if (!hasV) cur = pres; hasV = true; build(); } }
+  void tick() { if (++cnt < 256) return; cnt = 0; double d = tgt - cur; if (d == 0) return; double a = 1 - std::exp(-256 / (0.015 * fs));
+    if (std::fabs(d) > 1e-5) cur += d * a; else cur = tgt; build(); }
+  static void mag(double ph, double &i, double &di) { double r = std::fabs(ph) / PHIS, r6 = r * r * r; r6 *= r6; i = ph / LM * (1 + r6); di = (1 + 7 * r6) / LM; }
+  static void clip(double x, double emax, double &e, double &de) { double kn = KNEE * emax, a = std::fabs(x);
+    if (a <= kn) { e = x; de = 1; return; } double t = std::tanh((a - kn) / (emax - kn)); e = (x < 0 ? -1 : 1) * (kn + (emax - kn) * t); de = 1 - t * t; }
+  double restDev() const { double d = std::max(std::fabs(Vs), std::fabs(phi)); for (double x : vc) d = std::max(d, std::fabs(x)); return d; }   // Abstand von der Ruhe (Schlafzustand im Plugin)
+  void settle() { std::fill(Ih.begin(), Ih.end(), 0.0); std::fill(vc.begin(), vc.end(), 0.0); Vs = 0; phi = 0; }
+  double step(double u) {   // u: Spannung am Vorverstärkerausgang (V); Rückgabe wie PaCore (normiert)
+    const int nc = su.nc; const double g = std::max(v.gp, 1e-6), A = 1 + RS / RL, h = 0.5 / fs, emax = EMAX * A;
+    double a = su.md[0] * u; for (int j = 0; j < nc; j++) a += su.mc[0][j] * Ih[j];
+    const double b = sb.md[0];
+    double x = Vs; for (int it = 0; it < 40; it++) {
+      double ph = phi + h * (Vs + x), im, dim, e, de; mag(ph, im, dim); clip(g * A * (a + b * x / g), emax, e, de);
+      double f = A * x + RS * im - e, df = A + RS * dim * h - de * A * b; double dx = f / df; x -= dx; if (std::fabs(dx) < 1e-9 * (1 + std::fabs(x))) break; }
+    if (!std::isfinite(x)) x = 0;
+    phi += h * (Vs + x); Vs = x; peak = std::max(peak, std::fabs(x));
+    const double br = x / g;
+    for (int i = 0; i < nc; i++) { double s1 = su.k[i] * u + sb.k[i] * br; int o = i * nc; for (int j = 0; j < nc; j++) s1 += su.K[o + j] * Ih[j]; vc[i] = s1; }
+    for (int i = 0; i < nc; i++) Ih[i] = su.G2[i] * vc[i] - Ih[i];
+    return br / 20 / norm;
+  }
+};
 
 // Zustandsrechner für ein lineares Netz mit Überblendung bei Neuaufbau
 struct LinRunner {
@@ -260,8 +309,14 @@ struct Tube {
     out[1] = (vgk - G0 < 0) ? 0 : (cd - ab) / GS;
     out[2] = (vpk - P0 < 0) ? 0 : ((b - a) + ((d - c) - (b - a)) * fx) / PS;
   }
-  static void grid(double v, double *out) { double x = v / SG; if (x > 35) { out[0] = v / RGI; out[1] = 1 / RGI; return; }
-    double e = std::exp(x); out[0] = SG * std::log1p(e) / RGI; out[1] = e / (1 + e) / RGI; }
+  // Gitterstrom nach Dempwolf/Zölzer (2011), an gemessenen 12AX7 angepasst: setzt etwa 0,3…0,5 V vor 0 V allmählich ein (Potenz 1,314)
+  // statt als scharfe Diode bei 0 V (bis 3.14: weiche Diode mit 20 mV Knie und 2 kΩ); rundet den Übersteuerungseinsatz ab
+  static constexpr double GG = 6.177e-4, CG = 9.901, XI = 1.314;
+  static void grid(double v, double *out) { double x = CG * v, sp, sg;
+    if (x < -30) { out[0] = 0; out[1] = 0; return; }   // unter −3 V: kleiner als 1e-20 A
+    if (x < -8) { const double K = GG * std::pow(CG, -XI); double i = K * std::exp(XI * x); out[0] = i; out[1] = XI * CG * i; return; }   // Sperrbereich (Arbeitspunkt): ln(1+eˣ) ≈ eˣ, eine Exponentialfunktion statt drei
+    if (x > 35) { sp = x; sg = 1; } else { double e = std::exp(x); sp = std::log1p(e); sg = e / (1 + e); }
+    double s = sp / CG, p = std::pow(s, XI - 1); out[0] = GG * p * s; out[1] = GG * XI * p * sg; }
 };
 // Röhrentabellen je Typ, einmal je Prozess. Nativ (mehrere Threads, mehrere Plugin-Instanzen): alle fünf beim ersten Zugriff auf einmal,
 // thread-sicher über die statische Initialisierung; warmTubes() ruft das im Haupt-Thread auf, damit es nicht im Audio-Thread passiert.
@@ -608,7 +663,7 @@ struct LinCore : CoreBase {
 };
 
 struct NlCore : CoreBase {
-  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaCore paC; Norms N;
+  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaNl paC; Norms N;
   static std::map<std::string, Snapshot> &cache() { static std::map<std::string, Snapshot> c; return c; }
   static std::string cacheKey(const Parts &v, double fs, int os, const int tube[3]) { std::string key(reinterpret_cast<const char*>(&v), sizeof v); return key + std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(tube[0]) + std::to_string(tube[1]) + std::to_string(tube[2]); }
 #ifdef __wasm__
@@ -632,7 +687,7 @@ struct NlCore : CoreBase {
     for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (tgt.ch1 != cur.ch1) { cur.ch1 = tgt.ch1; moved = true; }
     if (moved) amp.retarget(v, cur); }
-  double step(double u) override { double y = amp.step(u * vin) / 20; if (pa) { paC.tick(); y = paC.step(y); } for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }
+  double step(double u) override { double y = amp.step(u * vin) / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // Endstufe mit Röhrenbegrenzung und Übertragersättigung (absolute Spannung)
   CoreBase *clone() const override { return new NlCore(*this); }
   bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
