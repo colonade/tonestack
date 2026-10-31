@@ -9,7 +9,7 @@ on:
     paths: ['engine/**', 'mac/**', '.github/workflows/mac-plugins.yml']
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15   # macos-14 wird am 2026-11-02 abgeschaltet
     steps:
       - uses: actions/checkout@v4
       - name: Werkzeuge
