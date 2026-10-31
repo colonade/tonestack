@@ -10,7 +10,8 @@ AddCharset utf-8 .html .js .webmanifest .txt
     AddType application/manifest+json .webmanifest
     AddType text/javascript .js
     AddType font/woff2 .woff2
-    AddType application/octet-stream .pkg   # Mac-Installerpaket: als Datei laden, nicht anzeigen
+    # Mac-Installerpaket: als Datei laden, nicht anzeigen
+    AddType application/octet-stream .pkg
 </IfModule>
 
 # Kompression
