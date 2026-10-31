@@ -82,6 +82,7 @@ seiten_pruefen() {
   pruefe "/laney-aor50/" "AOR 50" "Laney AOR 50"
   pruefe "/yamaha-b100ii/b100ii-worklet.js" "registerProcessor" "Yamaha-Rechenkern"
   pruefe "/laney-aor50/laney-worklet.js" "registerProcessor" "Laney-Rechenkern"
+  pruefe "/laney-aor50/laney-render.js" "importScripts" "Laney-Rechen-Thread"
   code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASIS/.htaccess" 2>/dev/null || true)"
   if [ "$code" = "403" ] || [ "$code" = "404" ]; then info "ok   .htaccess nicht abrufbar ($code)"; else rot "  .htaccess ist öffentlich abrufbar (Status $code)"; PROBLEME=$((PROBLEME+1)); fi
   typ="$("${CURL[@]}" -o /dev/null -w '%{content_type}' "$BASIS/yamaha-b100ii/b100ii-worklet.js" 2>/dev/null || true)"
@@ -129,7 +130,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 if command -v unzip >/dev/null; then unzip -q "$ZIP" -d "$TMP"
 else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$ZIP" "$TMP"; fi
 NEU="$TMP/tonestack"
-for f in index.html sw.js .htaccess yamaha-b100ii/index.html yamaha-b100ii/b100ii-worklet.js laney-aor50/index.html laney-aor50/laney-worklet.js assets/fonts/archivo-latin.woff2; do
+for f in index.html sw.js .htaccess yamaha-b100ii/index.html yamaha-b100ii/b100ii-worklet.js laney-aor50/index.html laney-aor50/laney-worklet.js laney-aor50/laney-render.js assets/fonts/archivo-latin.woff2; do
   [ -f "$NEU/$f" ] || fehler "Im ZIP fehlt tonestack/$f – ist es das richtige Paket?"
 done
 ls "$NEU"/download/*.zip >/dev/null 2>&1 || gelb "Hinweis: im ZIP liegt kein download/*.zip (Plugin-Downloads der Übersichtsseite)"

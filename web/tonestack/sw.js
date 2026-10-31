@@ -1,11 +1,12 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-10-31-1";
+const VERSION = "2026-10-31-2";
 const FILES = [
   "./",
   "index.html",
   "assets/fonts/archivo-latin.woff2",
   "yamaha-b100ii/b100ii-worklet.js",
   "laney-aor50/laney-worklet.js",
+  "laney-aor50/laney-render.js",
   "yamaha-b100ii/",
   "yamaha-b100ii/index.html",
   "yamaha-b100ii/manifest.webmanifest",

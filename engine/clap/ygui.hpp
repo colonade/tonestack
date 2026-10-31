@@ -1,5 +1,8 @@
 // Oberfläche des Yamaha-CLAP-Plugins: X11-Fenster (im Host eingebettet), gezeichnet mit Cairo. Foto der Frontplatte (Kappen retuschiert), Zeiger, Buchsen, Modellstreifen, Frequenzgang.
 #pragma once
+#ifndef TS_VERSION
+#define TS_VERSION "?"
+#endif
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <cairo/cairo.h>
@@ -92,7 +95,7 @@ struct Gui {
     char vt[2][40]; std::snprintf(vt[0], 40, "%.0f mV at 0 dBFS", v[P_VIN]); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]);
     cairo_save(c); cairo_translate(c, 0, YFH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true);
+    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *oo[2] = {"ON", "OFF"}, *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"};
       tsw::toggle(c, SW_X[0], SW_Y, 2, pwr ? 0 : 1, "POWER AMP", oo, "MA board");

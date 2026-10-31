@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -88,6 +88,18 @@ Frequency response
   treble, middle, bass 10, EQ flat) with the same jack and speaker. E and B
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
   the plot (it is flat apart from the 9 Hz high-pass).
+
+1.6
+  The plugin version is shown in the plugin window (model strip, "PLUGIN
+  VERSION 1.6"), so you can check in REAPER which build is loaded.
+  Pot values checked once more against the schematic and the parts list of
+  the service manual (PA board): Volume A25K, Treble A25K, Bass A25K (wired
+  as variable resistor), Middle A1K (variable resistor), equalizer 5 x G50K
+  with center click. All values and connections match the model; POT TAPER
+  applies to volume, treble, middle and bass (the A pots). The service
+  manual does not define the "G" curve of the equalizer pots; they are
+  modelled linear (the end positions +-10 dB do not depend on it).
+  Sound unchanged (bit-identical to 1.5).
 
 1.5
   Tested like the web simulators (latency, CPU load, every parameter,

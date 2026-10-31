@@ -153,10 +153,11 @@ footer{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
 .panel{grid-template-columns:1fr}
 .readout{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
 /* Kippschalter statt Kästchen (wie in den Plugins): Hebel oben = an */
-input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:24px;height:34px;margin:-6px 2px 0 0;vertical-align:middle;cursor:pointer;border-radius:5px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 34' width='24' height='34'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232c2f34'/%3E%3Cstop offset='1' stop-color='%23141518'/%3E%3C/linearGradient%3E%3ClinearGradient id='n' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e6e6e8'/%3E%3Cstop offset='.5' stop-color='%239ea1a6'/%3E%3Cstop offset='1' stop-color='%23616368'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237f8287'/%3E%3Cstop offset='.45' stop-color='%23f7f7f9'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/linearGradient%3E%3CradialGradient id='b' cx='.38' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fff'/%3E%3Cstop offset='.6' stop-color='%23c7c9cd'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect x='.6' y='.6' width='22.8' height='32.8' rx='4.5' fill='url(%23p)' stroke='%2343464d' stroke-width='1.2'/%3E%3Ccircle cx='19.6' cy='5.5' r='1.6' fill='%2350535a'/%3E%3Ccircle cx='19.6' cy='28.5' r='1.6' fill='%23ffd98a'/%3E%3Cpolygon points='15.72,20.30 10.00,23.60 4.28,20.30 4.28,13.70 10.00,10.40 15.72,13.70' fill='url(%23n)' stroke='%232b2c30' stroke-width='.6'/%3E%3Ccircle cx='10' cy='17' r='3.7' fill='%231b1c1f'/%3E%3Cpolygon points='8.2,17 7.1,29.4 12.9,29.4 11.8,17' fill='url(%23h)'/%3E%3Ccircle cx='10' cy='29.4' r='3.6' fill='url(%23b)'/%3E%3C/svg%3E") center/24px 34px no-repeat}
-input[type=checkbox]:checked{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 34' width='24' height='34'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232c2f34'/%3E%3Cstop offset='1' stop-color='%23141518'/%3E%3C/linearGradient%3E%3ClinearGradient id='n' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e6e6e8'/%3E%3Cstop offset='.5' stop-color='%239ea1a6'/%3E%3Cstop offset='1' stop-color='%23616368'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237f8287'/%3E%3Cstop offset='.45' stop-color='%23f7f7f9'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/linearGradient%3E%3CradialGradient id='b' cx='.38' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fff'/%3E%3Cstop offset='.6' stop-color='%23c7c9cd'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect x='.6' y='.6' width='22.8' height='32.8' rx='4.5' fill='url(%23p)' stroke='%2343464d' stroke-width='1.2'/%3E%3Ccircle cx='19.6' cy='5.5' r='1.6' fill='%23ffd98a'/%3E%3Ccircle cx='19.6' cy='28.5' r='1.6' fill='%2350535a'/%3E%3Cpolygon points='15.72,20.30 10.00,23.60 4.28,20.30 4.28,13.70 10.00,10.40 15.72,13.70' fill='url(%23n)' stroke='%232b2c30' stroke-width='.6'/%3E%3Ccircle cx='10' cy='17' r='3.7' fill='%231b1c1f'/%3E%3Cpolygon points='8.2,17 7.1,4.6 12.9,4.6 11.8,17' fill='url(%23h)'/%3E%3Ccircle cx='10' cy='4.6' r='3.6' fill='url(%23b)'/%3E%3C/svg%3E")}
-input[type=checkbox]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-input[type=checkbox]:disabled{opacity:.45;cursor:default}
+.opt input{margin-top:4px}
+.kipp input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:24px;height:34px;margin:-6px 2px 0 0;vertical-align:middle;cursor:pointer;border-radius:5px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 34' width='24' height='34'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232c2f34'/%3E%3Cstop offset='1' stop-color='%23141518'/%3E%3C/linearGradient%3E%3ClinearGradient id='n' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e6e6e8'/%3E%3Cstop offset='.5' stop-color='%239ea1a6'/%3E%3Cstop offset='1' stop-color='%23616368'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237f8287'/%3E%3Cstop offset='.45' stop-color='%23f7f7f9'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/linearGradient%3E%3CradialGradient id='b' cx='.38' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fff'/%3E%3Cstop offset='.6' stop-color='%23c7c9cd'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect x='.6' y='.6' width='22.8' height='32.8' rx='4.5' fill='url(%23p)' stroke='%2343464d' stroke-width='1.2'/%3E%3Ccircle cx='19.6' cy='5.5' r='1.6' fill='%2350535a'/%3E%3Ccircle cx='19.6' cy='28.5' r='1.6' fill='%23ffd98a'/%3E%3Cpolygon points='15.72,20.30 10.00,23.60 4.28,20.30 4.28,13.70 10.00,10.40 15.72,13.70' fill='url(%23n)' stroke='%232b2c30' stroke-width='.6'/%3E%3Ccircle cx='10' cy='17' r='3.7' fill='%231b1c1f'/%3E%3Cpolygon points='8.2,17 7.1,29.4 12.9,29.4 11.8,17' fill='url(%23h)'/%3E%3Ccircle cx='10' cy='29.4' r='3.6' fill='url(%23b)'/%3E%3C/svg%3E") center/24px 34px no-repeat}
+.kipp input[type=checkbox]:checked{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 34' width='24' height='34'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232c2f34'/%3E%3Cstop offset='1' stop-color='%23141518'/%3E%3C/linearGradient%3E%3ClinearGradient id='n' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e6e6e8'/%3E%3Cstop offset='.5' stop-color='%239ea1a6'/%3E%3Cstop offset='1' stop-color='%23616368'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237f8287'/%3E%3Cstop offset='.45' stop-color='%23f7f7f9'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/linearGradient%3E%3CradialGradient id='b' cx='.38' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fff'/%3E%3Cstop offset='.6' stop-color='%23c7c9cd'/%3E%3Cstop offset='1' stop-color='%2373767b'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect x='.6' y='.6' width='22.8' height='32.8' rx='4.5' fill='url(%23p)' stroke='%2343464d' stroke-width='1.2'/%3E%3Ccircle cx='19.6' cy='5.5' r='1.6' fill='%23ffd98a'/%3E%3Ccircle cx='19.6' cy='28.5' r='1.6' fill='%2350535a'/%3E%3Cpolygon points='15.72,20.30 10.00,23.60 4.28,20.30 4.28,13.70 10.00,10.40 15.72,13.70' fill='url(%23n)' stroke='%232b2c30' stroke-width='.6'/%3E%3Ccircle cx='10' cy='17' r='3.7' fill='%231b1c1f'/%3E%3Cpolygon points='8.2,17 7.1,4.6 12.9,4.6 11.8,17' fill='url(%23h)'/%3E%3Ccircle cx='10' cy='4.6' r='3.6' fill='url(%23b)'/%3E%3C/svg%3E")}
+.kipp input[type=checkbox]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.kipp input[type=checkbox]:disabled{opacity:.45;cursor:default}
 /* Schalterleiste unter der Frontplatte (wie im Plugin): die Kästchen der Modell-Optionen werden per Skript hierher verschoben */
 .kipp{margin-top:8px;border-radius:6px;border:1px solid #2a2d33;background:#191b1f;color:#dcdee2;padding:10px 14px 12px;line-height:1.3}
 .kippkopf{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;color:#8d919a;margin-bottom:8px}
@@ -610,7 +611,9 @@ if (typeof module !== 'undefined') module.exports = ENGINE;
 const LANEY_PARTS = [
  ['c2','C2 Auskopplung V101A','nF',1e-9,22,100,'e'],
  ['c3','C3 Kathode V101B','µF',1e-6,0.68,22,'e'],
+ ['vr101','VR101 Preamp 1 Volume (100KB, lin)','kΩ',1e3,100,null,'e'],
  ['ck','Kopplung V101B → Preamp 2 Volume','nF',1e-9,22,null,'e'],
+ ['vr102','VR102 Preamp 2 Volume (1MB, lin)','kΩ',1e3,1000,null,'e'],
  ['c4','C4 Auskopplung V102A','nF',1e-9,22,null,'d'],
  ['c5','C5 Höhenanhebung vor V102B','pF',1e-12,470,null,'d'],
  ['c6','C6 Kathodenfolger → Klangregler','nF',1e-9,220,null,'k'],
@@ -619,9 +622,9 @@ const LANEY_PARTS = [
  ['c8','C8 Mid Boost','nF',1e-9,22,null,'k'],
  ['c11','C11 Bass','nF',1e-9,22,null,'k'],
  ['c10','C10 Middle','nF',1e-9,22,null,'k'],
- ['vr105','VR105 Treble-Poti (lin)','kΩ',1e3,220,null,'k'],
- ['vr106','VR106 Bass-Poti (lin)','kΩ',1e3,1000,null,'k'],
- ['vr107','VR107 Middle-Poti (log)','kΩ',1e3,22,null,'k'],
+ ['vr105','VR105 Treble-Poti (220KB, lin)','kΩ',1e3,220,null,'k'],
+ ['vr106','VR106 Bass-Poti (1MB, lin, als regelbarer Widerstand)','kΩ',1e3,1000,null,'k'],
+ ['vr107','VR107 Middle-Poti (22KA, log)','kΩ',1e3,22,null,'k'],
  ['c9','C9 Klangregler → V103B','nF',1e-9,10,null,'v'],
  ['c12','C12 Gegenkopplung V103B','nF',1e-9,22,null,'v'],
  ['c13','C13 Kathode V103B','µF',1e-6,2.2,null,'v'],
@@ -629,12 +632,13 @@ const LANEY_PARTS = [
  ['c15','C15 Bass-Boost-Glied','nF',1e-9,15,null,'a'],
  ['c16','C16 unter Master','nF',1e-9,220,null,'a'],
  ['c106','C106 Top Boost','nF',1e-9,1,null,'a'],
- ['vr104','VR104 Master Volume (lin)','kΩ',1e3,100,null,'a'],
- ['vr103','VR103 Preamp 1 Level (lin)','kΩ',1e3,100,null,'a'],
+ ['vr104','VR104 Master Volume (100KB, lin)','kΩ',1e3,100,null,'a'],
+ ['vr103','VR103 Preamp 1 Level (100KB, lin)','kΩ',1e3,100,null,'a'],
  ['c201','C201 Effektweg','µF',1e-6,2.2,null,'p'],
  ['c202','C202 Effektweg','µF',1e-6,2.2,null,'p'],
  ['c18','C18 Eingang Phasenumkehr','nF',1e-9,22,null,'p'],
  ['c21','C21 / C22 Endröhrengitter','nF',1e-9,22,null,'p'],
+ ['vr108','VR108 Presence-Poti (22KA, log, als regelbarer Widerstand)','kΩ',1e3,22,null,'p'],
  ['gp','Gp Endstufe: Gitterdifferenz → brauner Abgriff (Schätzung, am Gerät eichen)','×',1,0.45,null,'p'],
  ['rpad','Rpad Vorwiderstand vor Preamp 2 Volume, wirkt nur mit Häkchen „Später"','kΩ',1e3,2200,null,'u',0],   // letzter Wert: Standard im Kern/Plugin (ohne Häkchen = 0)
 ];
@@ -815,7 +819,7 @@ svg.addEventListener('pointerleave', () => { tip.style.display='none'; hoverLine
 const ang = v => -150 + v*30;
 const el2 = (tag, cls, parent) => { const n = document.createElement(tag); if (cls) n.className = cls; parent.appendChild(n); return n; };
 const FRONT = {"_": {"w": 2430, "h": 358, "seg0": 0.884, "seg1": 1.103, "segha": 18.5, "dig0": 0.889, "dig1": 1.094, "capem": 0.686, "ink": "#D3D2CC", "ptr": "#CFC5AE", "tick": "#F2F2EE"}, "v1": {"rx": 434.8, "ry": 166.1, "R": 65.5, "px": 417.1, "py": 156.1, "kind": "black"}, "v2": {"rx": 613.7, "ry": 167.1, "R": 65.1, "px": 602.2, "py": 156.8, "kind": "black"}, "pl": {"rx": 790.7, "ry": 167.6, "R": 64.6, "px": 785.3, "py": 157.2, "kind": "black"}, "mv": {"rx": 967.6, "ry": 168.3, "R": 64.4, "px": 973.4, "py": 161.0, "kind": "red", "cap": 24.5, "skirt": 42.7}, "t": {"rx": 1145.3, "ry": 168.6, "R": 64.5, "px": 1152.1, "py": 157.9, "kind": "black"}, "m": {"rx": 1321.3, "ry": 168.6, "R": 64.1, "px": 1334.2, "py": 157.7, "kind": "black"}, "b": {"rx": 1495.9, "ry": 169.1, "R": 64.1, "px": 1514.9, "py": 158.0, "kind": "black"}, "pres": {"rx": 1666.9, "ry": 167.0, "R": 63.3, "px": 1686.0, "py": 161.4, "kind": "purple", "cap": 23.8, "skirt": 43.6}, "rev": {"rx": 1839.8, "ry": 168.3, "R": 63.5, "px": 1870.6, "py": 156.9, "kind": "black"}, "jack_high": {"x": 116, "y": 218, "r": 44}, "jack_low": {"x": 272, "y": 218, "r": 42}, "led": {"x": 313.8, "y": 62.9, "r": 10.5}, "pullline": {"x1": 334.5, "x2": 393.8, "y": 52, "w": 3}, "labels": [{"t": "PULL BOOST", "k": "t", "x": 1101, "y": 48, "w": 87, "h": 13}, {"t": "PULL BOOST", "k": "m", "x": 1278, "y": 47, "w": 88, "h": 14}, {"t": "PULL BOOST", "k": "b", "x": 1455, "y": 48, "w": 86, "h": 13}, {"t": "INPUTS", "k": "", "x": 142, "y": 64, "w": 61, "h": 14}, {"t": "PREAMP 1 VOLUME", "k": "v1", "x": 354, "y": 64, "w": 153, "h": 16}, {"t": "PREAMP 2 VOLUME", "k": "v2", "x": 534, "y": 64, "w": 154, "h": 16}, {"t": "PREAMP 1 LEVEL", "k": "pl", "x": 722, "y": 65, "w": 137, "h": 16}, {"t": "MASTER VOLUME", "k": "mv", "x": 897, "y": 66, "w": 139, "h": 16}, {"t": "TREBLE", "k": "t", "x": 1112, "y": 66, "w": 65, "h": 15}, {"t": "MIDDLE", "k": "m", "x": 1291, "y": 66, "w": 63, "h": 15}, {"t": "BASS", "k": "b", "x": 1477, "y": 66, "w": 43, "h": 15}, {"t": "PRESENCE", "k": "pres", "x": 1628, "y": 66, "w": 85, "h": 15}, {"t": "REVERB", "k": "rev", "x": 1811, "y": 67, "w": 65, "h": 15}, {"t": "STANDBY", "k": "", "x": 1966, "y": 67, "w": 72, "h": 15}, {"t": "POWER", "k": "", "x": 2120, "y": 68, "w": 60, "h": 14}, {"t": "SENSITIVITY", "k": "", "x": 122, "y": 102, "w": 106, "h": 15}, {"t": "HIGH", "k": "jh", "x": 78, "y": 154, "w": 43, "h": 15}, {"t": "LOW", "k": "jl", "x": 235, "y": 154, "w": 36, "h": 15}, {"t": "MADE IN ENGLAND", "k": "", "x": 117, "y": 291, "w": 134, "h": 13}, {"t": "PULL ON", "k": "v1", "x": 401, "y": 46, "w": 57, "h": 12}]};
-const KINFO = {v1:['PREAMP 1 VOLUME','VR101, 100 kΩ lin'], v2:['PREAMP 2 VOLUME','VR102, 1 MΩ lin'], pl:['PREAMP 1 LEVEL','VR103, nur Preamp 1'],
+const KINFO = {v1:['PREAMP 1 VOLUME','VR101, 100 kΩ lin'], v2:['PREAMP 2 VOLUME','VR102, 1 MΩ lin'], pl:['PREAMP 1 LEVEL','VR103, 100 kΩ lin, nur Preamp 1'],
   t:['TREBLE','VR105, 220 kΩ lin'], m:['MIDDLE','VR107, 22 kΩ log'], b:['BASS','VR106, 1 MΩ lin'], mv:['MASTER VOLUME','VR104, 100 kΩ lin'],
   pres:['PRESENCE','VR108, 22 kΩ log, Gegenkopplung der Endstufe']};
 const FKEYS = ['v1','v2','pl','mv','t','m','b','pres'];
@@ -1114,6 +1118,7 @@ function send() {
   if (!A.ctx) return;
   const msg = { params: params(), bypass: A.mode === 'off', match: $('amatch').checked };
   if (A.node) A.node.port.postMessage(msg);
+  if (A.worker) A.worker.postMessage({ params: msg.params });
   if (A.eng) { A.eng.setTarget(msg.params); A.bypass = msg.bypass; A.match = msg.match; }
 }
 // Stufenanzeige
@@ -1146,9 +1151,20 @@ async function ensureCtx() {
       try {
         await A.ctx.audioWorklet.addModule('laney-worklet.js');
         A.node = new AudioWorkletNode(A.ctx, 'laney-preamp', {numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[2], channelCount:2, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{params: params(), bypass: A.mode === 'off', match: $('amatch').checked}});
-        { const bin = wasmBin(); if (bin) { A.wasm = null; let okW; A.wasmReady = new Promise(r => { okW = r; });
-            A.node.port.addEventListener('message', ev => { if (ev.data && 'wasm' in ev.data) { A.wasm = !!ev.data.wasm; okW(A.wasm); updOs(); } }); A.node.port.start(); A.node.port.postMessage({ wasm: bin.buffer }); } }
-        A.node.port.onmessage = e => { if (e.data.peaks) showPeaks(e.data.peaks); };
+        { const bin = wasmBin(); if (bin) { A.wasm = null; let okW; A.wasmReady = new Promise(r => { okW = r; }); const done = ok => { A.wasm = ok; okW(ok); updOs(); };
+            // Kern im Audio-Thread (Rückfall, wenn kein Worker möglich ist)
+            const direct = () => { A.node.port.addEventListener('message', ev => { if (ev.data && 'wasm' in ev.data) done(!!ev.data.wasm); }); A.node.port.start(); A.node.port.postMessage({ wasm: bin.buffer.slice(0) }); };
+            // bevorzugt: Kern in eigenem Rechen-Thread; der Audio-Thread spielt nur noch mit Vorlauf ab (kein Knacken durch Neuaufbau des Kerns oder Lastspitzen)
+            let w = null; try { if (window.Worker && window.MessageChannel && !/[?&]noworker\b/.test(location.search)) w = new Worker('laney-render.js'); } catch (e) { w = null; }
+            if (!w) direct(); else { let settled = false;
+              const fail = () => { if (settled) return; settled = true; try { w.terminate(); } catch (e) {} direct(); };
+              w.onmessage = ev => { const d = ev.data || {};
+                if ('wasm' in d && !settled) { if (!d.wasm) return fail(); settled = true; const ch = new MessageChannel();
+                  w.postMessage({ link: ch.port1 }, [ch.port1]); A.node.port.postMessage({ link: ch.port2, prefill: Math.round(A.ctx.sampleRate * (0.04 + 2 * (A.ctx.baseLatency || 0.02))) }, [ch.port2]);   /* Vorlauf: zwei Ausgabepuffer (das Gerät holt sie stoßweise ab) plus 40 ms Reserve */ A.worker = w; send(); done(true); }
+                if (d.peaks) showPeaks(d.peaks); };
+              w.onerror = fail; w.postMessage({ params: params(), wasm: bin.buffer.slice(0), fs: A.ctx.sampleRate }); } } }
+        A.node.port.onmessage = e => { if (e.data.peaks) showPeaks(e.data.peaks);
+          if (e.data.xrun) status(`Das Gerät kam kurz nicht nach; der Rechenvorlauf ist jetzt ${Math.round(e.data.xrun * 1000)} ms (Regler wirken entsprechend später).`); };
         A.node.connect(A.gain);
         workletOk = true;
       } catch (err) { A.node = null; }   // z. B. wenn das Modul nicht geladen werden kann: Ausweichbetrieb

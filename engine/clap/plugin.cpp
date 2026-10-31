@@ -1,5 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64)
 #include "clap-1.2.2/include/clap/clap.h"
+#define TS_VERSION "3.14"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "gui.hpp"
 #include <deque>
@@ -222,7 +223,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", "3.13", "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.laney-aor50", "Laney AOR 50 Preamp", "tonestack", "", "", "", TS_VERSION, "Preamp simulation from schematic DRG 1054 with tube distortion, power amp feedback (presence) and selectable tubes", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }
