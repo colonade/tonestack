@@ -125,6 +125,35 @@ footer.panel{border-style:dashed;margin-top:18px;max-width:none}
 .kp{display:flex;flex-direction:column;justify-content:space-between;font-size:.74rem;color:#8d919a;padding:2px 0}
 .kk input:checked+.kp .on,.kk input:not(:checked)+.kp .off{color:#ffd98a;font-weight:700}
 .ks{font-size:.72rem;color:#8d919a;margin-top:5px;white-space:nowrap}
+
+/* zweite Zeile der Modell-Leiste: Röhren, Überabtastung, Eingangspegel; dritte Zeile: Aussteuerung je Stufe (wie im Plugin) */
+.kipp2{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 26px;margin-top:12px;padding-top:10px;border-top:1px solid #2a2d33}
+.kgrp{display:flex;flex-direction:column;gap:6px;min-width:0}
+.kgrp>.kt,.kdrive>.kt{font-weight:700;font-size:.82rem;letter-spacing:.02em;color:#dcdee2}
+.kgrp .ks,.kdrive .ks{font-size:.72rem;color:#8d919a}
+.kipp .tubemenu{gap:6px 8px;font-size:.82rem}
+.kipp .tubemenu label{color:#9a9ea6;gap:4px}
+.kipp .tubemenu select,.kipp select.ksel{font:inherit;font-size:.84rem;font-weight:600;padding:3px 6px;border-radius:5px;background:#111317;color:#e8eaee;border:1.5px solid #4d4d52}
+.kipp .tubemenu select.t0{border-color:#4d4d52}
+.kipp .tubemenu.mod select:not(.t0){color:#ffd98a}
+.kipp .tubemenu option{background:#111317;color:#e8eaee}
+.kipp .kbtn{font:inherit;font-size:.74rem;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:5px;border:1.5px solid #6a6a68;background:#111317;color:#ececf0;cursor:pointer}
+.kipp .kbtn:disabled{opacity:.4;cursor:default}
+.kin{display:flex;align-items:center;gap:8px;font-size:.84rem;color:#dcdee2}
+.kin input[type=range]{width:150px;accent-color:#ffd98a}
+.kin output{min-width:4.2em;font-variant-numeric:tabular-nums}
+.kdrive{margin-top:12px;padding-top:10px;border-top:1px solid #2a2d33}
+.kdrive .khead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:6px}
+.kipp .stages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0}
+.kipp .stg{display:flex;flex-direction:column;align-items:stretch;gap:4px;font-size:.78rem;grid-template-columns:none}.kipp .stg>span{display:block}
+.kipp .stg .sn{font-weight:700;color:#c8ccd4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kipp .stg .sn small{display:inline;margin-left:5px;color:#8d919a;font-size:.7rem;font-weight:400}
+.kipp .stg .sb{height:8px;background:#2a2d33;border:0;border-radius:4px}
+.kipp .stg .sb::after{border-left:2px solid #8d919a}
+.kipp .stg .sb i{background:#5bbf7a}.kipp .stg .sb i.over{background:#e0564a}
+.kipp .stg .sv{color:#9a9ea6;font-size:.74rem;white-space:nowrap}.kipp .stg .sv.over{color:#ff8a7a}
+@media (max-width:640px){.kipp .stages{grid-template-columns:repeat(3,minmax(0,1fr))}.kipp .stg .sn small{display:none}.kin input[type=range]{width:120px}}
+.ypk{min-width:240px;flex:1;max-width:420px}.ypk .stg .sb::after{left:100%;display:none}
 .kref{flex:none;align-self:flex-start;font-size:.68rem;font-weight:700;letter-spacing:.04em;color:#dcdee2;background:#2a2d33;border-radius:4px;padding:2px 6px;margin-top:2px;white-space:nowrap}
 label.opt[for]{cursor:pointer}
 .opt{display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:.92rem}@media (max-width:640px){.stg{grid-template-columns:90px 1fr}.stg .sv{grid-column:1/-1}}
@@ -207,6 +236,43 @@ details.exp>summary::-webkit-details-marker{display:none}
 .wave canvas:focus-visible{box-shadow:inset 0 0 0 2px #FFD34D}
 .player{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
 .atime{font-variant-numeric:tabular-nums;color:var(--ink2);min-width:7.5em}
+
+/* ---- Player (Deck): Datei, großer Abspielknopf, Wellenform, Transport; darunter Hören/Vergleich und Lautstärke ---- */
+.deck{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--field);overflow:hidden}
+.deck .drop{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 14px;gap:8px 12px;background:var(--paper)}
+.deck .drop.over{background:var(--paper2)}
+.deck .drop .btn{min-height:32px;padding:5px 12px;font-size:.86rem}
+.deck .drop #aname{font-size:.88rem;min-width:0;overflow-wrap:anywhere}
+.dmain{display:flex;gap:14px;align-items:center;padding:14px 14px 6px}
+.pbig{flex:none;width:58px;height:58px;border-radius:50%;border:0;background:var(--go);color:var(--goink);font-size:1.35rem;line-height:1;cursor:pointer;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.pbig:hover{filter:brightness(1.1)}
+.pbig:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.pbig:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.pbig[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.dwave{flex:1;min-width:0}
+.deck .wave{margin:0;height:72px;border-radius:8px}
+.wempty{height:72px;border:1.5px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--ink2);font-size:.88rem;text-align:center;padding:0 8px}
+.wave:not([hidden])+.wempty{display:none}
+.dtrans{display:flex;flex-wrap:wrap;align-items:center;gap:6px 6px;margin-top:6px}
+.ib{font:inherit;font-size:.82rem;font-weight:600;min-width:40px;height:30px;padding:0 9px;border-radius:15px;border:1.5px solid var(--btnline);background:transparent;color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.ib:hover{background:var(--paper2)}
+.ib:disabled{opacity:.4;cursor:not-allowed}
+.ib.red{color:var(--red);border-color:var(--red)}
+.dtrans .atime{margin-left:auto;min-width:0;font-size:.86rem}
+.dtrans .opt{margin:0 0 0 8px;font-size:.86rem;align-items:center}
+.dtrans .opt input{margin-top:0}
+.dmix{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px 12px;border-top:1px solid var(--line);margin-top:8px}
+.dmix .opt{margin:0;font-size:.88rem;align-items:center}
+.dmix .opt input{margin-top:0}
+.dvol{margin-left:auto;display:flex;flex-direction:column;gap:5px;align-items:stretch}
+.dvol .meter{width:auto;height:6px}
+.dmix .btn.abyp{min-height:32px;padding:5px 12px;font-size:.86rem}
+.dfoot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:9px 14px;border-top:1px solid var(--line);background:var(--paper)}
+.dfoot .btn{min-height:30px;padding:4px 12px;font-size:.84rem}
+.dfoot .note{margin:0}
+.deck+.note{margin-top:8px}
+@media (max-width:640px){.dmain{padding:12px 12px 4px;gap:10px}.pbig{width:50px;height:50px;font-size:1.15rem}.dmix{padding:10px 12px}.dvol{margin-left:0;width:100%}.dtrans .atime{margin-left:auto}}
+.after{margin-top:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 select{max-width:100%}
 .bar label{flex-wrap:wrap;max-width:100%}
@@ -237,7 +303,7 @@ select{max-width:100%}
     <div class="fselkopf"><span class="fseltext"><span class="fselname" id="fselName"></span><span class="fselval" id="fselVal"></span></span><span class="fselsp"></span><button class="btn" type="button" id="fselMitte">Mitte</button><button class="btn fselb" type="button" id="fselZu" aria-label="Feinregler schließen">✕</button></div>
     <div class="fselzeile"><button class="btn fselb" type="button" id="fselMinus" aria-label="Weniger">−</button><input type="range" id="fselRange" min="0" max="10" step="0.1"><button class="btn fselb" type="button" id="fselPlus" aria-label="Mehr">+</button></div>
   </div>
-  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="pwr"><span class="kt">POWER AMP</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">MA-Board</span></div><div class="ki" data-for="spk"><span class="kt">SPEAKER</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">15" CB158, 78 l</span></div></div></div>
+  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="pwr"><span class="kt">POWER AMP</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">MA-Board</span></div><div class="ki" data-for="spk"><span class="kt">SPEAKER</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">15" CB158, 78 l</span></div></div><div class="kipp2"><div class="kgrp"><label class="kt" for="avin">INPUT</label><span class="kin"><input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></span><span class="ks">Spitzenpegel deines Instruments (mit POWER AMP)</span></div><div class="kgrp ypk" id="pwrrow" hidden><span class="kt">POWER AMP PEAK</span><div class="stg"><span class="sb"><i id="pwrbar"></i></span><span class="sv" id="pwrv">–</span></div><span class="ks">vor der Begrenzung, Grenze 42 V (Strich)</span></div></div></div>
   <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Mittelstellung. Eingang durch Antippen der Buchse HIGH oder LOW (roter Ring = Stecker drin). POWER und ON/OFF sind nur Bild.</figcaption>
 </figure>
 
@@ -261,7 +327,7 @@ select{max-width:100%}
 </div>
 
 <div class="plotbox" id="plotbox">
-  <svg id="plot" viewBox="0 0 1000 440" role="img" aria-label="Frequenzgang des Klangreglers"></svg>
+  <svg id="plot" viewBox="0 0 1000 300" role="img" aria-label="Frequenzgang des Klangreglers"></svg>
   <div class="tip" id="tip"></div>
 </div>
 <div class="legend">
@@ -276,52 +342,57 @@ select{max-width:100%}
 
 <section class="listen panel p-listen" id="listen" aria-labelledby="lh">
   <div class="ph"><h2 id="lh">Anhören</h2><p>Eigene Aufnahme durch den Klangregler spielen, umschalten, vergleichen, herunterladen.</p></div>
-  <div class="sub" id="pwrbox">
-    <h3>Endstufe und Lautsprecher</h3>
-    <label class="opt"><input type="checkbox" id="pwr"> <span><b>Endstufe (MA-Board) einrechnen</b>: absoluter Pegel über die ganze Kette, Begrenzung an der Versorgung bei ±42 V (100 W an 8 Ω), Ausgangselko. Vollaussteuerung der Wiedergabe = 48 V am Lautsprecher.</span></label>
-    <div id="pwrrow" hidden>
-      <div class="avol" style="margin:6px 0"><label for="avin">Spitzenpegel deines Instruments</label> <input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></div>
-      <div class="stg"><span class="sn">Endstufe<small>Spitze vor der Begrenzung</small></span><span class="sb"><i id="pwrbar"></i></span><span class="sv" id="pwrv">–</span></div>
+  <div class="deck" id="deck">
+  <div class="drop" id="drop">
+    <input type="file" id="afile" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac" hidden>
+    <button class="btn file" type="button" id="apick">Audiodatei wählen</button>
+    <span id="aname">oder hierher ziehen (MP3, WAV, FLAC, OGG, M4A)</span>
+  </div>
+  <div class="dmain">
+    <button class="pbig" type="button" id="aplay" disabled aria-pressed="false" aria-label="Abspielen">▶</button>
+    <div class="dwave">
+      <div class="wave" id="wave" hidden>
+    <canvas id="wavec" tabindex="0" role="slider" aria-label="Abspielposition" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
+  </div>
+      <div class="wempty">Noch keine Datei geladen</div>
+      <div class="dtrans">
+        <button class="ib" type="button" id="aback" disabled aria-label="5 Sekunden zurück" title="5 Sekunden zurück">−5 s</button>
+        <button class="ib red" type="button" id="astop" disabled aria-label="Stopp, zurück zum Anfang" title="Stopp, zurück zum Anfang">■</button>
+        <button class="ib" type="button" id="afwd" disabled aria-label="5 Sekunden vor" title="5 Sekunden vor">+5 s</button>
+        <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
+        <span class="atime" id="atime">0:00 / 0:00</span>
+      </div>
     </div>
+  </div>
+  <div class="dmix">
+    <div class="seg lseg" role="group" aria-label="Was ist zu hören">
+      <button type="button" data-lm="on" aria-pressed="true">Mit Klangregler</button>
+      <button type="button" data-lm="cmp" aria-pressed="false" disabled>Gemerkte Einstellung</button>
+      <button type="button" data-lm="off" aria-pressed="false">Ohne Klangregler</button>
+    </div>
+    <button class="btn abyp red" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Klangregler umschalten">Bypass</button>
+    <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Klangregler-Ausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten)"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
+    <div class="dvol">
+    <div class="avol"><label for="avol">Lautstärke</label> <input type="range" id="avol" min="-30" max="6" step="1" value="-6"> <output id="avolv" for="avol">−6 dB</output></div>
+    <div class="meter" aria-hidden="true"><div id="ameter"></div></div>
+    </div>
+    <span class="clip" id="aclip" hidden>Übersteuert: Lautstärke senken</span>
+  </div>
+  <div class="dfoot">
+    <button class="btn file o" type="button" id="adl" disabled title="Die Datei einmal durch die Schaltung rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">⤓ Gerechnet als WAV speichern</button>
+    <span class="note" id="adlstatus" aria-live="polite"></span>
+  </div>
+  </div>
+  <p class="note" id="astatus" aria-live="polite"></p>
+  <div class="sub after" id="pwrbox">
+    <h3>Zu den Schaltern POWER AMP und SPEAKER</h3>
+    <label class="opt"><input type="checkbox" id="pwr"> <span><b>Endstufe (MA-Board) einrechnen</b>: absoluter Pegel über die ganze Kette, Begrenzung an der Versorgung bei ±42 V (100 W an 8 Ω), Ausgangselko. Vollaussteuerung der Wiedergabe = 48 V am Lautsprecher.</span></label>
     <label class="opt"><input type="checkbox" id="spk"> <span><b>Lautsprecher einrechnen</b>: 15" Eminence Legend CB158 im Bassreflexgehäuse der Ampeg-Portaflex-Größe (78 l, 50 Hz), aus den Thiele-Small-Daten des Datenblatts gerechnet; oberer Abfall ab 3 kHz geschätzt. Wirkt auf Wiedergabe, Download und Diagramm.</span></label>
     <details class="exp"><summary>Woher die Zahlen kommen</summary>
     <p class="note">Endstufe: Das MA-Board ist ein gegengekoppelter Transistorverstärker (TR301…TR312) mit Mittenspannung 45 V (Service Manual, Abgleich B470K). Verstärkung 1 + 820 kΩ/10 kΩ = 83 (38,4 dB); dazu passt der Abgleich „−6 dB bei 1 kHz am 6-poligen Stecker ergibt eine gerade abgerundete Kurve", also Begrenzung bei 0,39 V × 83 ≈ 32 V effektiv (128 W). Begrenzt wird bei ±42 V mit weichem Knie ab 38 V; 100 W an 8 Ω sind 40 V Spitze, 140 W bei 10 % Klirr. Der Ausgangselko 2200 µF an 8 Ω gibt einen Hochpass bei 9 Hz. Die Kette davor ist an Tabelle 3 geeicht: 0,775 mV am HIGH-Eingang ergeben 2,2 V am Lautsprecher (69 dB) bei Tabelle-1-Stellung; das PA-Board liefert dort laut Netz +11,8 dB, also bleiben für TR101 (Source-Stufe 2SK30A an 5,6 kΩ) 8,7-fach, im Rahmen der Datenblattstreuung. Unsicherheit der Kette etwa ±3 dB (Toleranz der Tabelle).</p>
     <p class="note">Lautsprecher: Für den originalen Lautsprecher eines Ampeg Portaflex (B-15) gibt es keine veröffentlichten Messungen. Verwendet wird der Eminence Legend CB158, der übliche 15"-Ersatz für diese Boxen, mit den Thiele-Small-Daten des Herstellers (Fs 34 Hz, Qts 0,34, Vas 336 l, Re 6,15 Ω, Le 0,33 mH, nutzbar 47 Hz bis 3 kHz), im Bassreflexgehäuse mit 78 l und 50 Hz Abstimmung, wie es Eminence für dieses Chassis empfiehlt und wie es der Portaflex-Größe entspricht; untere Grenzfrequenz −3 dB bei 61 Hz. Gerechnet wird das akustische Ersatzschaltbild (Masse, Nachgiebigkeit, Gehäuse, Rohr, Verlustgüte 7). Oberhalb: Schwingspuleninduktivität (3 kHz) und ein geschätzter Abfall 2. Ordnung bei 4 kHz für den Membranaufbruch. Raum, Mikrofon und Richtwirkung sind nicht enthalten.</p>
     </details>
   </div>
-  <div class="drop" id="drop">
-    <input type="file" id="afile" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac" hidden>
-    <button class="btn file" type="button" id="apick">Audiodatei wählen</button>
-    <span id="aname">oder hierher ziehen (MP3, WAV, FLAC, OGG, M4A)</span>
-  </div>
-  <div class="wave" id="wave" hidden>
-    <canvas id="wavec" tabindex="0" role="slider" aria-label="Abspielposition" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
-  </div>
-  <div class="player" id="player">
-    <button class="btn aplay go" type="button" id="aplay" disabled aria-pressed="false">Abspielen</button>
-    <button class="btn red" type="button" id="astop" disabled aria-label="Stopp, zurück zum Anfang">■ Stopp</button>
-    <button class="btn" type="button" id="aback" disabled aria-label="5 Sekunden zurück">−5 s</button>
-    <button class="btn" type="button" id="afwd" disabled aria-label="5 Sekunden vor">+5 s</button>
-    <span class="atime" id="atime">0:00 / 0:00</span>
-    <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
-  </div>
-  <div class="player" id="player2">
-    <button class="btn abyp red" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Klangregler umschalten">Bypass: aus</button>
-    <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Klangregler-Ausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten)"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
-    <button class="btn file" type="button" id="adl" disabled title="Die Datei einmal durch die Schaltung rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">Durch den Klangregler gerechnet herunterladen (WAV)</button>
-    <span class="note" id="adlstatus" aria-live="polite"></span>
-  </div>
-  <div class="abar">
-    <div class="seg" role="group" aria-label="Was ist zu hören">
-      <button type="button" data-lm="on" aria-pressed="true">Mit Klangregler</button>
-      <button type="button" data-lm="cmp" aria-pressed="false" disabled>Gemerkte Einstellung</button>
-      <button type="button" data-lm="off" aria-pressed="false">Ohne Klangregler</button>
-    </div>
-    <div class="avol"><label for="avol">Lautstärke</label> <input type="range" id="avol" min="-30" max="6" step="1" value="-6"> <output id="avolv" for="avol">−6 dB</output></div>
-    <div class="meter" aria-hidden="true"><div id="ameter"></div></div>
-    <span class="clip" id="aclip" hidden>Übersteuert: Lautstärke senken</span>
-  </div>
-  <p class="note" id="astatus" aria-live="polite"></p>
   <details class="exp"><summary>Hinweise zu Eingängen, Bypass, Download und Verarbeitung</summary>
   <p class="note">Die Datei wird nur in deinem Browser verarbeitet und nirgendwohin hochgeladen. Sie läuft im Loop und wird so behandelt, als käme ihr Signal aus der Stufe vor dem Klangregler (TR101). Klangregler und TR102 zusammen haben bei 1 kHz fast genau 0 dB Verstärkung, deshalb ist „Ohne Klangregler" etwa gleich laut. Gerechnet wird die Schaltung Abtastwert für Abtastwert; Reglerbewegungen werden wie bei einem echten Poti ohne Knacken übernommen. Am besten klingt es mit einer trocken aufgenommenen Bass-Spur (direkt aus dem Instrument, ohne Verstärker).</p>
   <p class="note">Eingänge: HIGH geht über 15 kΩ auf das Gate von TR101 (330 kΩ nach Masse), LOW über 47 kΩ; die leere HIGH-Buchse legt dabei ihre 15 kΩ an Masse, so dass LOW um 12,2 dB leiser ist (Service Manual Tabelle 3: 12 ± 3 dB). Im Simulator wirkt LOW als Pegel −12,2 dB, hörbar in der Wiedergabe und sichtbar im Diagramm „Absolut"; an einem echten passiven Bass belastet LOW den Tonabnehmer zusätzlich mit etwa 62 kΩ statt 345 kΩ, was Resonanz und Höhen dämpft und hier nicht nachgebildet ist. Bypass (auch Taste B) schaltet knackfrei zwischen Originaldatei und Schaltung um, „Herunterladen" rechnet die Datei einmal vollständig durch denselben Kern und speichert sie als WAV (mono, 24 Bit, Lautstärkeregler eingerechnet). Voreinstellungen (Regler, Eingang, Bauteile) lassen sich unten mit Namen speichern und als JSON-Datei weitergeben.</p>
@@ -555,7 +626,7 @@ const fmtHz = f => f >= 1000 ? (f/1000).toFixed(f >= 10000 ? 0 : 1).replace('.',
 // Schnittstelle für den Audioteil (nur in der Apache-Fassung genutzt)
 window.B100 = { current: () => ({ s: setting(S.knobs), v: vals() }), snapshot: () => cmp ? { s: setting(cmp.kn, cmp.inp), v: cmp.v } : null, onChange: null };
 // ---------- Plot ----------
-let W = 1000, Ht = 440; const L = 58, R = 16, T = 14, B = 40;
+let W = 1000, Ht = 300; const L = 58, R = 16, T = 14, B = 40;
 const F0 = 20, F1 = 20000, NP = 260;
 const FREQS = Array.from({length:NP}, (_,i) => F0 * Math.pow(F1/F0, i/(NP-1)));
 const xOf = f => L + Math.log10(f/F0) / Math.log10(F1/F0) * (W-L-R);
@@ -612,7 +683,7 @@ function render() {
   if (typeof updFront === 'function') updFront();
   const v = vals();
   const cw = svg.clientWidth || 1000;
-  if (cw < 700) { W = 640; Ht = 520; } else { W = 1000; Ht = 440; }
+  if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }
   svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640);
   const cur = curve(S.knobs, v);
   const refK = {t:10,m:10,b:10,e0:5,e1:5,e2:5,e3:5,e4:5}, refKey = S.mode + '|' + S.sw.inp + '|' + S.sw.spk + '|' + S.taper + '|' + JSON.stringify(v);
@@ -899,7 +970,7 @@ function showPower(pk) {
   if (!on) { el.textContent = '–'; bar.style.width = '0%'; bar.classList.remove('over'); $('pwrv').classList.remove('over'); return; }
   const db = pk > 0 ? 20 * Math.log10(pk / V_LIM) : -99; bar.style.width = Math.max(0, Math.min(100, (db + 40) / 40 * 100)) + '%';
   const over = pk >= V_LIM; bar.classList.toggle('over', over); el.classList.toggle('over', over);
-  el.textContent = pk < 0.05 ? '–' : over ? `übersteuert: ${pk.toFixed(0)} V verlangt, ${(pk / V_LIM).toFixed(1).replace('.', ',')}-fach über der Grenze` : `${pk.toFixed(1).replace('.', ',')} V Spitze, ${Math.abs(db).toFixed(1).replace('.', ',')} dB unter der Grenze`;
+  el.textContent = pk < 0.05 ? '–' : over ? `${pk.toFixed(0)} V verlangt, ${(pk / V_LIM).toFixed(1).replace('.', ',')}× zu viel` : `${pk.toFixed(1).replace('.', ',')} V, ${Math.abs(db).toFixed(1).replace('.', ',')} dB Reserve`;
 }
 function send() {
   if (!A.ctx) return;
@@ -1011,7 +1082,7 @@ $('aplay').onclick = () => A.playing ? pause() : play();
 function setMode(m) {
   if (m !== 'off') A.prevMode = m;
   A.mode = m; document.querySelectorAll('[data-lm]').forEach(x => x.setAttribute('aria-pressed', x.dataset.lm === m));
-  const bp = $('abyp'), on = m === 'off'; bp.setAttribute('aria-pressed', on ? 'true' : 'false'); bp.textContent = on ? 'Bypass: an (Original)' : 'Bypass: aus';
+  const bp = $('abyp'), on = m === 'off'; bp.setAttribute('aria-pressed', on ? 'true' : 'false'); bp.textContent = on ? 'Bypass an' : 'Bypass';
   send();
 }
 document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => setMode(b.dataset.lm));
@@ -1126,7 +1197,7 @@ function drawWave() {
 }
 function animate(ts) { if (!(ts - (A.lastDraw || 0) < 33)) { A.lastDraw = ts || 0; drawWave(); } if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }   // höchstens 30 Bilder je Sekunde
 function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd','abyp']) $(id).disabled = !on; $('adl').disabled = !on || A.rendering;
-  $('aplay').textContent = A.playing ? '❚❚ Pause' : '▶ Abspielen'; $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
+  $('aplay').textContent = A.playing ? '❚❚' : '▶'; $('aplay').setAttribute('aria-label', A.playing ? 'Pause' : 'Abspielen'); $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
 function startSource(from) {
   A.src = A.ctx.createBufferSource(); A.src.buffer = A.buf; A.src.loop = $('aloop').checked;
   const me = A.src; me.onended = () => { try { me.disconnect(); me.g.disconnect(); } catch (e) {} if (A.src === me && A.playing && !me.loop) { A.playing = false; A.src = null; A.offset = 0; setButtons(); drawWave(); } };

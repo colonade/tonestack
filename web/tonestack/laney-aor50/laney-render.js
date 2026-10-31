@@ -15,10 +15,10 @@ onmessage = async e => {
     return;
   }
   if (m.link) {
-    m.link.onmessage = ev => { const b = ev.data;
-      if (eng && eng.ready) eng.process(b, b.length); else b.fill(0);
+    m.link.onmessage = ev => { const b = ev.data, n = b.length;   // n vor dem Zurückgeben merken: danach ist der Puffer übertragen (Länge 0)
+      if (eng && eng.ready) eng.process(b, n); else b.fill(0);
       m.link.postMessage(b, [b.buffer]);
-      if (eng && eng.ready && (rep += b.length) >= fs / 10) { rep = 0; postMessage({ peaks: eng.takePeaks() }); } };
+      if (eng && eng.ready && (rep += n) >= fs / 10) { rep = 0; postMessage({ peaks: eng.takePeaks() }); } };
     return;
   }
 };

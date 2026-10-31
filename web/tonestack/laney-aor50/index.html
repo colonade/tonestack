@@ -169,6 +169,34 @@ footer{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
 .kp{display:flex;flex-direction:column;justify-content:space-between;font-size:.74rem;color:#8d919a;padding:2px 0}
 .kk input:checked+.kp .on,.kk input:not(:checked)+.kp .off{color:#ffd98a;font-weight:700}
 .ks{font-size:.72rem;color:#8d919a;margin-top:5px;white-space:nowrap}
+
+/* zweite Zeile der Modell-Leiste: Röhren, Überabtastung, Eingangspegel; dritte Zeile: Aussteuerung je Stufe (wie im Plugin) */
+.kipp2{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 26px;margin-top:12px;padding-top:10px;border-top:1px solid #2a2d33}
+.kgrp{display:flex;flex-direction:column;gap:6px;min-width:0}
+.kgrp>.kt,.kdrive>.kt{font-weight:700;font-size:.82rem;letter-spacing:.02em;color:#dcdee2}
+.kgrp .ks,.kdrive .ks{font-size:.72rem;color:#8d919a}
+.kipp .tubemenu{gap:6px 8px;font-size:.82rem}
+.kipp .tubemenu label{color:#9a9ea6;gap:4px}
+.kipp .tubemenu select,.kipp select.ksel{font:inherit;font-size:.84rem;font-weight:600;padding:3px 6px;border-radius:5px;background:#111317;color:#e8eaee;border:1.5px solid #4d4d52}
+.kipp .tubemenu select.t0{border-color:#4d4d52}
+.kipp .tubemenu.mod select:not(.t0){color:#ffd98a}
+.kipp .tubemenu option{background:#111317;color:#e8eaee}
+.kipp .kbtn{font:inherit;font-size:.74rem;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:5px;border:1.5px solid #6a6a68;background:#111317;color:#ececf0;cursor:pointer}
+.kipp .kbtn:disabled{opacity:.4;cursor:default}
+.kin{display:flex;align-items:center;gap:8px;font-size:.84rem;color:#dcdee2}
+.kin input[type=range]{width:150px;accent-color:#ffd98a}
+.kin output{min-width:4.2em;font-variant-numeric:tabular-nums}
+.kdrive{margin-top:12px;padding-top:10px;border-top:1px solid #2a2d33}
+.kdrive .khead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:6px}
+.kipp .stages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0}
+.kipp .stg{display:flex;flex-direction:column;align-items:stretch;gap:4px;font-size:.78rem;grid-template-columns:none}.kipp .stg>span{display:block}
+.kipp .stg .sn{font-weight:700;color:#c8ccd4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kipp .stg .sn small{display:inline;margin-left:5px;color:#8d919a;font-size:.7rem;font-weight:400}
+.kipp .stg .sb{height:8px;background:#2a2d33;border:0;border-radius:4px}
+.kipp .stg .sb::after{border-left:2px solid #8d919a}
+.kipp .stg .sb i{background:#5bbf7a}.kipp .stg .sb i.over{background:#e0564a}
+.kipp .stg .sv{color:#9a9ea6;font-size:.74rem;white-space:nowrap}.kipp .stg .sv.over{color:#ff8a7a}
+@media (max-width:640px){.kipp .stages{grid-template-columns:repeat(3,minmax(0,1fr))}.kipp .stg .sn small{display:none}.kin input[type=range]{width:120px}}
 .kref{flex:none;align-self:flex-start;font-size:.68rem;font-weight:700;letter-spacing:.04em;color:#dcdee2;background:#2a2d33;border-radius:4px;padding:2px 6px;margin-top:2px;white-space:nowrap}
 label.opt[for]{cursor:pointer}
 .opt{display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:.92rem}
@@ -244,6 +272,43 @@ table.chk td.z{color:var(--ink2)}
 .player{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
 .abyp[aria-pressed="true"]{background:#E0382A;color:#fff;border-color:#E0382A}
 .atime{font-variant-numeric:tabular-nums;color:var(--ink2);min-width:7.5em}
+
+/* ---- Player (Deck): Datei, großer Abspielknopf, Wellenform, Transport; darunter Hören/Vergleich und Lautstärke ---- */
+.deck{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--field);overflow:hidden}
+.deck .drop{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 14px;gap:8px 12px;background:var(--paper)}
+.deck .drop.over{background:var(--paper2)}
+.deck .drop .btn{min-height:32px;padding:5px 12px;font-size:.86rem}
+.deck .drop #aname{font-size:.88rem;min-width:0;overflow-wrap:anywhere}
+.dmain{display:flex;gap:14px;align-items:center;padding:14px 14px 6px}
+.pbig{flex:none;width:58px;height:58px;border-radius:50%;border:0;background:var(--go);color:var(--goink);font-size:1.35rem;line-height:1;cursor:pointer;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.pbig:hover{filter:brightness(1.1)}
+.pbig:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.pbig:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.pbig[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.dwave{flex:1;min-width:0}
+.deck .wave{margin:0;height:72px;border-radius:8px}
+.wempty{height:72px;border:1.5px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--ink2);font-size:.88rem;text-align:center;padding:0 8px}
+.wave:not([hidden])+.wempty{display:none}
+.dtrans{display:flex;flex-wrap:wrap;align-items:center;gap:6px 6px;margin-top:6px}
+.ib{font:inherit;font-size:.82rem;font-weight:600;min-width:40px;height:30px;padding:0 9px;border-radius:15px;border:1.5px solid var(--btnline);background:transparent;color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.ib:hover{background:var(--paper2)}
+.ib:disabled{opacity:.4;cursor:not-allowed}
+.ib.red{color:var(--red);border-color:var(--red)}
+.dtrans .atime{margin-left:auto;min-width:0;font-size:.86rem}
+.dtrans .opt{margin:0 0 0 8px;font-size:.86rem;align-items:center}
+.dtrans .opt input{margin-top:0}
+.dmix{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px 12px;border-top:1px solid var(--line);margin-top:8px}
+.dmix .opt{margin:0;font-size:.88rem;align-items:center}
+.dmix .opt input{margin-top:0}
+.dvol{margin-left:auto;display:flex;flex-direction:column;gap:5px;align-items:stretch}
+.dvol .meter{width:auto;height:6px}
+.dmix .btn.abyp{min-height:32px;padding:5px 12px;font-size:.86rem}
+.dfoot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:9px 14px;border-top:1px solid var(--line);background:var(--paper)}
+.dfoot .btn{min-height:30px;padding:4px 12px;font-size:.84rem}
+.dfoot .note{margin:0}
+.deck+.note{margin-top:8px}
+@media (max-width:640px){.dmain{padding:12px 12px 4px;gap:10px}.pbig{width:50px;height:50px;font-size:1.15rem}.dmix{padding:10px 12px}.dvol{margin-left:0;width:100%}.dtrans .atime{margin-left:auto}}
+.after{margin-top:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* schmale Bildschirme */
@@ -281,7 +346,10 @@ select{max-width:100%}
     <div class="fselzeile"><button class="btn fselb" type="button" id="fselMinus" aria-label="Weniger">−</button><input type="range" id="fselRange" min="0" max="10" step="0.1"><button class="btn fselb" type="button" id="fselPlus" aria-label="Mehr">+</button></div>
     <div class="fselpull" id="fselPullRow" hidden><button class="btn" type="button" id="fselPull" aria-pressed="false"></button><small id="fselPullTxt"></small></div>
   </div>
-  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="mod"><span class="kt">BASS MOD</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Bass-Kondensatoren</span></div><div class="ki" data-for="pa"><span class="kt">FX LOOP</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">+ Endstufe</span></div><div class="ki" data-for="anl"><span class="kt">DISTORTION</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Röhrenmodell</span></div><div class="ki" data-for="spk"><span class="kt">SPEAKER</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">15" CB158, 78 l</span></div><div class="ki" data-for="soft"><span class="kt">SOFT</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Umbau: C3 ab</span></div><div class="ki" data-for="pad"><span class="kt">LATE</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Umbau: 2,2 MΩ</span></div></div></div>
+  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="mod"><span class="kt">BASS MOD</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Bass-Kondensatoren</span></div><div class="ki" data-for="pa"><span class="kt">FX LOOP</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">+ Endstufe</span></div><div class="ki" data-for="anl"><span class="kt">DISTORTION</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Röhrenmodell</span></div><div class="ki" data-for="spk"><span class="kt">SPEAKER</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">15" CB158, 78 l</span></div><div class="ki" data-for="soft"><span class="kt">SOFT</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Umbau: C3 ab</span></div><div class="ki" data-for="pad"><span class="kt">LATE</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">Umbau: 2,2 MΩ</span></div></div><div class="kipp2"><div class="kgrp"><span class="kt">TUBES</span><div class="tubemenu" id="tubesel" aria-label="Röhrenbestückung">
+        <label>V101 <select id="tube0"></select></label><label>V102 <select id="tube1"></select></label><label>V103 <select id="tube2"></select></label>
+        <button class="kbtn" type="button" id="tubereset" title="Bestückung wie im Gerät: 3 × ECC83">RESET</button>
+      </div><span class="ks">Bestückung je Fassung (* = an Datenblatt angepasst)</span></div><div class="kgrp"><label class="kt" for="aos">OVERSAMPLING</label><select id="aos" class="ksel"><option value="2">2x</option><option value="1">1x</option><option value="4" disabled>4x</option><option value="8" disabled>8x</option></select><span class="ks">nur mit DISTORTION</span></div><div class="kgrp"><label class="kt" for="avin">INPUT</label><span class="kin"><input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></span><span class="ks">Spitzenpegel deines Instruments</span></div></div><div class="kdrive"><div class="khead"><span class="kt" id="sth">DRIVE</span><span class="ks" id="sthk">Aussteuerung jeder Röhrenstufe, 100 % = Grenze (Strich)</span></div><div class="stages" id="stages"></div></div></div>
   <figcaption><details class="exp"><summary>Bedienung der Frontplatte</summary>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler, bei Bass, Middle, Treble und Preamp 1 Volume mit dem Zugschalter. Zugschalter auch durch Antippen der Aufschrift PULL BOOST / PULL ON, Eingang durch Antippen der Buchse LOW oder HIGH. Die Kontrollleuchte zeigt Preamp 1 an. Abgedunkelt ist, was gerade nichts bewirkt; PRESENCE wirkt mit der Option „Effektweg + Endstufe“ (Gegenkopplung der Endstufe); REVERB (Hall) ist nicht im Modell. Aufdruck als Vektorgrafik neu gesetzt.</details></figcaption>
 </figure>
 
@@ -305,7 +373,7 @@ select{max-width:100%}
 </div>
 
 <div class="plotbox" id="plotbox">
-  <svg id="plot" viewBox="0 0 1000 440" role="img" aria-label="Frequenzgang des Laney AOR 50 Vorverstärkers"></svg>
+  <svg id="plot" viewBox="0 0 1000 300" role="img" aria-label="Frequenzgang des Laney AOR 50 Vorverstärkers"></svg>
   <div class="tip" id="tip"></div>
 </div>
 <div class="legend">
@@ -319,16 +387,51 @@ select{max-width:100%}
 
 <section class="listen panel p-listen" id="listen" aria-labelledby="lh">
   <div class="ph"><h2 id="lh">Anhören</h2><p>Eigene Aufnahme durch den Verstärker spielen, umschalten, vergleichen, herunterladen.</p></div>
-  <div class="sub">
-    <h3>Röhrenverzerrung</h3>
-    <div class="nlrow">
-      <label class="opt" style="margin:0"><input type="checkbox" id="anl" checked> <span><b>Röhrenverzerrung einrechnen (Schätzung)</b></span></label>
-      <div class="tubemenu" id="tubesel" aria-label="Röhrenbestückung">
-        <label>V101 <select id="tube0"></select></label><label>V102 <select id="tube1"></select></label><label>V103 <select id="tube2"></select></label>
-        <button class="btn" type="button" id="tubereset" title="Bestückung wie im Gerät: 3 × ECC83">Zurücksetzen</button>
+  <div class="deck" id="deck">
+  <div class="drop" id="drop">
+    <input type="file" id="afile" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac" hidden>
+    <button class="btn file" type="button" id="apick">Audiodatei wählen</button>
+    <span id="aname">oder hierher ziehen (MP3, WAV, FLAC, OGG, M4A)</span>
+  </div>
+  <div class="dmain">
+    <button class="pbig" type="button" id="aplay" disabled aria-pressed="false" aria-label="Abspielen">▶</button>
+    <div class="dwave">
+      <div class="wave" id="wave" hidden>
+    <canvas id="wavec" tabindex="0" role="slider" aria-label="Abspielposition" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
+  </div>
+      <div class="wempty">Noch keine Datei geladen</div>
+      <div class="dtrans">
+        <button class="ib" type="button" id="aback" disabled aria-label="5 Sekunden zurück" title="5 Sekunden zurück">−5 s</button>
+        <button class="ib red" type="button" id="astop" disabled aria-label="Stopp, zurück zum Anfang" title="Stopp, zurück zum Anfang">■</button>
+        <button class="ib" type="button" id="afwd" disabled aria-label="5 Sekunden vor" title="5 Sekunden vor">+5 s</button>
+        <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
+        <span class="atime" id="atime">0:00 / 0:00</span>
       </div>
     </div>
-<div class="avol" style="margin-top:8px"><label for="aos">Überabtastung</label> <select id="aos"><option value="2">2-fach (weniger Störtöne)</option><option value="1">1-fach (braucht etwa halb so viel Rechenleistung)</option><option value="4" disabled>4-fach</option><option value="8" disabled>8-fach</option></select></div>
+  </div>
+  <div class="dmix">
+    <div class="seg lseg" role="group" aria-label="Was ist zu hören">
+      <button type="button" data-lm="on" aria-pressed="true">Mit Vorverstärker</button>
+      <button type="button" data-lm="cmp" aria-pressed="false" disabled>Gemerkte Einstellung</button>
+      <button type="button" data-lm="off" aria-pressed="false">Ohne Vorverstärker</button>
+    </div>
+    <button class="btn abyp red" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Verstärker umschalten">Bypass</button>
+    <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Verstärkerausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten), damit der Vergleich die Klangfarbe zeigt und nicht die Lautstärke"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
+    <div class="dvol">
+    <div class="avol"><label for="avol">Lautstärke</label> <input type="range" id="avol" min="-30" max="6" step="1" value="-6"> <output id="avolv" for="avol">−6 dB</output></div>
+    <div class="meter" aria-hidden="true"><div id="ameter"></div></div>
+    </div>
+    <span class="clip" id="aclip" hidden>Übersteuert: Lautstärke senken</span>
+  </div>
+  <div class="dfoot">
+    <button class="btn file o" type="button" id="adl" disabled title="Die Datei einmal durch den Verstärker rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">⤓ Gerechnet als WAV speichern</button>
+    <span class="note" id="adlstatus" aria-live="polite"></span>
+  </div>
+  </div>
+  <p class="note" id="astatus" aria-live="polite"></p>
+  <div class="sub after">
+    <h3>Zu den Schaltern DISTORTION, TUBES und SPEAKER</h3>
+    <label class="opt"><input type="checkbox" id="anl" checked> <span><b>Röhrenverzerrung einrechnen (Schätzung)</b></span></label>
     <p class="note" id="tubenote" style="margin:4px 0 0">Röhren je Fassung (Doppeltrioden); * = an den Datenblatt-Arbeitspunkt angepasstes Modell, abseits davon weniger gesichert.</p>
     <details class="exp" id="nlexp"><summary>Was die Verzerrung rechnet, Röhrenmodelle, Überabtastung</summary>
     <p id="nloff" style="margin:6px 0 0">Aus: Alle sechs Röhrenstufen werden linear gerechnet. Du hörst exakt die Klangformung durch Kanäle, Klangregler, Boosts, Master und Kondensatoren, aber keinen Overdrive.</p>
@@ -338,47 +441,8 @@ select{max-width:100%}
       <p class="note" style="margin:6px 0 0">Verzerrung erzeugt Obertöne oberhalb der halben Abtastrate, die als unharmonische Störtöne zurückgespiegelt werden. Gemessen bei 100 mV: in Preamp 1 bei 2-facher Überabtastung −64 bis −87 dB, in Preamp 2 bei hohen Tönen nur −32 dB, bei 1-fach −23 dB. Rechenlast auf einem aktuellen Rechner bei 2-fach etwa 37 bis 51 % eines Prozessorkerns mit Bass-typischen Signalen, bei hohen, stark verzerrten Tönen bis 74 %; 1-fach braucht rund die Hälfte. Beim Einschalten misst die Seite ihr Gerät und wählt entsprechend. Wenn es trotzdem knackt oder aussetzt: 1-fach wählen.</p>
     </div>
     </details>
-  </div>
-  <div class="sub">
-    <h3>Lautsprecher</h3>
     <label class="opt"><input type="checkbox" id="spk"> <span><b>Lautsprecher einrechnen</b>: 15" Eminence Legend CB158 im Bassreflexgehäuse der Ampeg-Portaflex-Größe (78 l, 50 Hz), aus den Thiele-Small-Daten des Datenblatts gerechnet (−3 dB bei 61 Hz, Schwingspule 3 kHz, Membranaufbruch ab 4 kHz geschätzt). Wirkt auf Wiedergabe, Download und Diagramm, nach Vorverstärker bzw. Endstufe; Raum und Mikrofon nicht enthalten. Dieselbe Box wie im Yamaha-Simulator, dort steht die Herleitung.</span></label>
   </div>
-  <div class="drop" id="drop">
-    <input type="file" id="afile" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac" hidden>
-    <button class="btn file" type="button" id="apick">Audiodatei wählen</button>
-    <span id="aname">oder hierher ziehen (MP3, WAV, FLAC, OGG, M4A)</span>
-  </div>
-  <div class="wave" id="wave" hidden>
-    <canvas id="wavec" tabindex="0" role="slider" aria-label="Abspielposition" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
-  </div>
-  <div class="player" id="player">
-    <button class="btn aplay go" type="button" id="aplay" disabled aria-pressed="false">Abspielen</button>
-    <button class="btn red" type="button" id="astop" disabled aria-label="Stopp, zurück zum Anfang">■ Stopp</button>
-    <button class="btn" type="button" id="aback" disabled aria-label="5 Sekunden zurück">−5 s</button>
-    <button class="btn" type="button" id="afwd" disabled aria-label="5 Sekunden vor">+5 s</button>
-    <span class="atime" id="atime">0:00 / 0:00</span>
-    <label class="opt"><input type="checkbox" id="aloop" checked> <span>Schleife</span></label>
-  </div>
-  <div class="player" id="player2">
-    <button class="btn abyp red" type="button" id="abyp" disabled aria-pressed="false" title="Taste B: zwischen Originaldatei und Verstärker umschalten">Bypass: aus</button>
-    <label class="opt" title="Im Bypass wird das Original auf die Lautstärke des Verstärkerausgangs gebracht (Verhältnis der Effektivwerte, über etwa eine Sekunde gemittelt, eingefroren beim Umschalten), damit der Vergleich die Klangfarbe zeigt und nicht die Lautstärke"><input type="checkbox" id="amatch" checked> <span>Pegel angleichen</span></label>
-    <button class="btn file" type="button" id="adl" disabled title="Die Datei einmal durch den Verstärker rechnen und als WAV speichern (mono, 24 Bit, aktuelle Einstellung)">Durch den Verstärker gerechnet herunterladen (WAV)</button>
-    <span class="note" id="adlstatus" aria-live="polite"></span>
-  </div>
-  <div class="abar">
-    <div class="seg lseg" role="group" aria-label="Was ist zu hören">
-      <button type="button" data-lm="on" aria-pressed="true">Mit Vorverstärker</button>
-      <button type="button" data-lm="cmp" aria-pressed="false" disabled>Gemerkte Einstellung</button>
-      <button type="button" data-lm="off" aria-pressed="false">Ohne Vorverstärker</button>
-    </div>
-    <div class="avol"><label for="avol">Lautstärke</label> <input type="range" id="avol" min="-30" max="6" step="1" value="-6"> <output id="avolv" for="avol">−6 dB</output></div>
-    <div class="meter" aria-hidden="true"><div id="ameter"></div></div>
-    <span class="clip" id="aclip" hidden>Übersteuert: Lautstärke senken</span>
-  </div>
-  <p class="note" id="astatus" aria-live="polite"></p>
-  <h3 class="sth" id="sth">Würde die Röhrenstufe übersteuern?</h3>
-  <div class="avol"><label for="avin">Spitzenpegel deines Instruments</label> <input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></div>
-  <div class="stages" id="stages"></div>
   <details class="exp"><summary>Hinweise zu Pegel und Verarbeitung</summary>
   <div id="linnotes">
   <p class="note">Der Spitzenwert der Audiodatei wird dem eingestellten Instrumentenpegel gleichgesetzt. Den kennt der Simulator nicht; er hängt stark von Instrument und Spielweise ab und lässt sich am genauesten mit einem Oszilloskop am Instrumentenkabel messen. Grenze je Stufe: Die Spannung zwischen Gitter und Kathode erreicht die Vorspannung aus dem Schaltplan. Sobald eine Stufe übersteuert, ist das Signal dahinter in Wirklichkeit schon begrenzt; maßgeblich ist die erste rote Stufe.</p>
@@ -701,7 +765,7 @@ const NORMS = Object.fromEntries(['high', 'low'].map(inp => [inp, [1, 2].map(ch 
 window.LANEY = { current: () => ({ v: vals(), s: {...setting(S.knobs), tubes: S.tubes.slice()}, sw: {...S.sw}, pa: S.pa, spk: !!S.spk }), normPa: () => ENGINE.paRef(vals()),
   snapshot: () => cmp ? { v: cmp.v, s: {...setting(cmp.kn), tubes: (cmp.tubes || [0,0,0])}, sw: {...cmp.sw}, pa: S.pa } : null, norms: () => NORMS[S.sw.inp || 'high'], onChange: null };
 // ---------- Diagramm ----------
-let W = 1000, Ht = 440; const L = 58, R = 16, T = 14, B = 40, F0 = 20, F1 = 20000, NP = 160;
+let W = 1000, Ht = 300; const L = 58, R = 16, T = 14, B = 40, F0 = 20, F1 = 20000, NP = 160;
 const FREQS = Array.from({length:NP}, (_,i) => F0 * Math.pow(F1/F0, i/(NP-1)));
 const xOf = f => L + Math.log10(f/F0) / Math.log10(F1/F0) * (W-L-R);
 const fOf = x => F0 * Math.pow(F1/F0, (x-L)/(W-L-R));
@@ -745,7 +809,7 @@ function render() {
   ENGINE.setSpk(!!S.spk);
   if (typeof updFront === 'function') updFront();
   const cw = svg.clientWidth || 1000;
-  if (cw < 700) { W = 640; Ht = 520; } else { W = 1000; Ht = 440; }
+  if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }
   svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640);
   const v = vals(), ev = evalFor(S.knobs, v, S.sw, S.pa, S.tubes), cur = FREQS.map(ev);
   const refC = S.showRef ? cached(`ref|${S.mode}|${S.sw.ch}|${S.sw.inp}|${S.pa}`, () => { const e = evalFor(refKnobs(), ORIG, {ch:S.sw.ch, inp:S.sw.inp}, S.pa); return FREQS.map(e); }) : null;
@@ -1129,7 +1193,8 @@ function showPeaks(r) {
     const pos = x > 0 ? Math.max(0, Math.min(1, (Math.log10(x) + 2) / 5)) : 0;       // 0,01 … 1000
     const bar = $('sb' + i); bar.style.width = (pos * 100) + '%'; bar.classList.toggle('over', x >= 1);
     const nl = $('anl').checked;
-    $('sv' + i).textContent = !A.playing ? '–' : x >= 1 ? `${nl ? 'übersteuert' : 'würde übersteuern'}, ${x >= 10 ? Math.round(x) : x.toFixed(1).replace('.', ',')}-fach` : `${nl ? 'unter der Grenze' : 'linear'} (${Math.round(x * 100)} % der Grenze)`;
+    const sv = $('sv' + i); sv.textContent = !A.playing ? '–' : x >= 1 ? `${x >= 10 ? Math.round(x) : x.toFixed(1).replace('.', ',')}× ${nl ? 'über' : 'zu viel'}` : `${Math.round(x * 100)} %`;
+    sv.title = !A.playing ? '' : x >= 1 ? `${nl ? 'übersteuert' : 'würde übersteuern'}, ${x.toFixed(1).replace('.', ',')}-fach über der Grenze` : `${Math.round(x * 100)} % der Grenze`;
     $('sv' + i).classList.toggle('over', x >= 1 && A.playing);
   });
 }
@@ -1246,7 +1311,7 @@ $('aplay').onclick = () => A.playing ? pause() : play();
 function setMode(m) {
   if (m !== 'off') A.prevMode = m;
   A.mode = m; document.querySelectorAll('[data-lm]').forEach(x => x.setAttribute('aria-pressed', x.dataset.lm === m));
-  const bp = $('abyp'), on = m === 'off'; bp.setAttribute('aria-pressed', on ? 'true' : 'false'); bp.textContent = on ? 'Bypass: an (Original)' : 'Bypass: aus';
+  const bp = $('abyp'), on = m === 'off'; bp.setAttribute('aria-pressed', on ? 'true' : 'false'); bp.textContent = on ? 'Bypass an' : 'Bypass';
   send();
 }
 document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => setMode(b.dataset.lm));
@@ -1326,7 +1391,7 @@ window.LANEY.onChange = () => {
   send();
 };
 const nlUI = () => { const on = $('anl').checked; $('nloff').hidden = on; $('nlon').hidden = !on; $('linnotes').hidden = on; $('nlnotes').hidden = !on;
-  $('sth').textContent = on ? 'Wie stark wird jede Röhrenstufe ausgesteuert?' : 'Würde die Röhrenstufe übersteuern?'; };
+  $('sth').textContent = 'DRIVE'; $('sthk').textContent = on ? 'Aussteuerung jeder Röhrenstufe, 100 % = Grenze (Strich)' : 'linear gerechnet: würde die Stufe übersteuern? 100 % = Grenze (Strich)'; };
 // Rechentest beim ersten Einschalten: Anteil eines Prozessorkerns im ungünstigen Fall (Preamp 1, HIGH)
 let benchJs = false;
 async function bench(os, wasm) {
@@ -1418,7 +1483,7 @@ function drawWave() {
 }
 function animate(ts) { if (!(ts - (A.lastDraw || 0) < 33)) { A.lastDraw = ts || 0; drawWave(); } if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }   // höchstens 30 Bilder je Sekunde
 function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd','abyp']) $(id).disabled = !on; $('adl').disabled = !on || A.rendering;
-  $('aplay').textContent = A.playing ? '❚❚ Pause' : '▶ Abspielen'; $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
+  $('aplay').textContent = A.playing ? '❚❚' : '▶'; $('aplay').setAttribute('aria-label', A.playing ? 'Pause' : 'Abspielen'); $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
 function startSource(from) {
   A.src = A.ctx.createBufferSource(); A.src.buffer = A.buf; A.src.loop = $('aloop').checked;
   const me = A.src; me.onended = () => { try { me.disconnect(); me.g.disconnect(); } catch (e) {} if (A.src === me && A.playing && !me.loop) { A.playing = false; A.src = null; A.offset = 0; setButtons(); drawWave(); } };
