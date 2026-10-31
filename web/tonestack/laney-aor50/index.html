@@ -1574,4 +1574,18 @@ function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.val
   mq.addEventListener ? mq.addEventListener('change', apply) : mq.addListener(apply); apply();
 })();
 </script>
+<script>
+/* Beim Aufrufen langsam zur Frontplatte scrollen (nicht bei Sprungmarke in der Adresse, nicht beim Zurückkehren auf eine gescrollte Stelle);
+   bricht ab, sobald man selbst scrollt oder tippt; bei „Bewegung reduzieren" ohne Animation */
+(() => { const f = document.getElementById('front'); if (!f || location.hash) return;
+  const go = () => { if (scrollY > 40) return;
+    const target = Math.max(0, f.getBoundingClientRect().top + scrollY - 8), start = scrollY, d = target - start; if (d < 20) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { scrollTo(0, target); return; }
+    let stop = false, t0 = null; const halt = () => { stop = true; };
+    for (const ev of ['wheel', 'touchstart', 'keydown', 'mousedown']) addEventListener(ev, halt, { once: true, passive: true });
+    const dur = 1100, ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    const step = ts => { if (stop) return; if (t0 === null) t0 = ts; const k = Math.min(1, (ts - t0) / dur); scrollTo(0, start + d * ease(k)); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step); };
+  if (document.readyState === 'complete') setTimeout(go, 350); else addEventListener('load', () => setTimeout(go, 350), { once: true }); })();
+</script>
 </body></html>
