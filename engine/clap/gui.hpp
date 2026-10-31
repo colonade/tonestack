@@ -3,10 +3,15 @@
 #ifndef TS_VERSION
 #define TS_VERSION "?"
 #endif
+#ifdef __APPLE__
+#include "cairo_cg.hpp"   // Cairo-Teilmenge auf CoreGraphics
+#include "macview.h"
+#else
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <cairo/cairo.h>
 #include <cairo/cairo-xlib.h>
+#endif
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -43,8 +48,13 @@ static const char *REFLABEL = "original parts, stock tubes, all controls 5, boos
 constexpr int NF = 120;        // Stützstellen des Diagramms (20 Hz … 20 kHz, logarithmisch)
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
 
+#ifdef __APPLE__
+struct Gui : tsmac::Client {
+  void *win = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0; std::function<void()> onTick;   // win: NSView; onTick: Anzeigen auffrischen (Plugin)
+#else
 struct Gui {
   Display *dpy = nullptr; Window win = 0, parent = 0; cairo_surface_t *xs = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0;
+#endif
   std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;   // gesture: Ziehen beginnt/endet (Parameter-ID)
   double meter[5] = {0,0,0,0,0};
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;   // Kurven in dB (bezogen auf 1 kHz): aktuell, Original/alle 5
@@ -54,21 +64,36 @@ struct Gui {
   double uscale() const { return (double)W / tsw::UW; }
   // Fensterpixel → UI-Einheiten des unteren Bereichs
   void toLower(double x, double y, double &lx, double &ly) const { double u = uscale(); lx = x / u; ly = (y - FH * scale()) / u; }
+  void loadImg() {
+    if (!img) { int iw, ih, nch; unsigned char *px = stbi_load_from_memory(PANEL_JPG, (int)PANEL_JPG_LEN, &iw, &ih, &nch, 3);
+      img = cairo_image_surface_create(CAIRO_FORMAT_RGB24, iw, ih); unsigned char *dst = cairo_image_surface_get_data(img); int stride = cairo_image_surface_get_stride(img);
+      for (int y = 0; y < ih; y++) for (int x = 0; x < iw; x++) { unsigned char *s = px + (y * iw + x) * 3; unsigned char *t = dst + y * stride + x * 4; t[0] = s[2]; t[1] = s[1]; t[2] = s[0]; t[3] = 255; }
+      cairo_surface_mark_dirty(img); stbi_image_free(px); }
+  }
+#ifdef __APPLE__
+  bool attach(void *parentView, int w, int h) { W = w; H = h; loadImg(); win = tsmac::create(parentView, w, h, this); return win != nullptr; }
+  void show() { tsmac::show(win); }
+  void hide() { tsmac::hide(win); }
+  void resize(int w, int h) { W = w; H = h; tsmac::setSize(win, w, h); }
+  void destroy() { if (win) { tsmac::destroy(win); win = nullptr; } }
+  void draw() { tsmac::redraw(win); }
+  void drawCG(void *cg, double, double) override { cairo_t *c = cairo_cg_create((CGContextRef)cg); drawTo(c); cairo_destroy(c); }
+  bool mouse(int kind, double x, double y, int button, double t) override { return onMouse(kind, x, y, button, t); }
+  bool tick() override { if (onTick) onTick(); std::string sig = signature(); if (sig != lastSig) { lastSig = sig; return true; } return false; }
+#else
   bool init(Display *d, Window par, int w, int h) {
     dpy = d; parent = par; W = w; H = h;
     int scr = DefaultScreen(dpy); XSetWindowAttributes a{}; a.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | LeaveWindowMask | StructureNotifyMask; a.background_pixmap = None;
     win = XCreateWindow(dpy, par ? par : RootWindow(dpy, scr), 0, 0, w, h, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask | CWBackPixmap, &a);
     xs = cairo_xlib_surface_create(dpy, win, DefaultVisual(dpy, scr), w, h);
-    if (!img) { int iw, ih, nch; unsigned char *px = stbi_load_from_memory(PANEL_JPG, (int)PANEL_JPG_LEN, &iw, &ih, &nch, 3);
-      img = cairo_image_surface_create(CAIRO_FORMAT_RGB24, iw, ih); unsigned char *dst = cairo_image_surface_get_data(img); int stride = cairo_image_surface_get_stride(img);
-      for (int y = 0; y < ih; y++) for (int x = 0; x < iw; x++) { unsigned char *s = px + (y * iw + x) * 3; unsigned char *t = dst + y * stride + x * 4; t[0] = s[2]; t[1] = s[1]; t[2] = s[0]; t[3] = 255; }
-      cairo_surface_mark_dirty(img); stbi_image_free(px); }
+    loadImg();
     return true;
   }
   void show() { if (win && xs) { XMapWindow(dpy, win); XFlush(dpy); } }
   void hide() { if (win) { XUnmapWindow(dpy, win); XFlush(dpy); } }
   void resize(int w, int h) { W = w; H = h; if (win && xs) { XResizeWindow(dpy, win, w, h); cairo_xlib_surface_set_size(xs, w, h); } }
   void destroy() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } if (win) { XDestroyWindow(dpy, win); win = 0; } }
+#endif
   // ---- Hilfen ----
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
   static double ang(double v) { return (-150 + 30 * v) * PI / 180; }
@@ -80,8 +105,12 @@ struct Gui {
   }
   void textC(cairo_t *c, const char *t, double x, double y, double px, bool bold = true) { font(c, px, bold); cairo_text_extents_t e; cairo_text_extents(c, t, &e); cairo_move_to(c, x - e.width / 2 - e.x_bearing, y + e.height / 2); cairo_show_text(c, t); }
   // ---- Zeichnen ----
-  void draw() {
-    if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
+#ifndef __APPLE__
+  void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
+    cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy); }
+#endif
+  void drawTo(cairo_t *c) {
+    double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
     bool ch1 = v[P_CH] < 0.5, low = v[P_INP] > 0.5, pa = v[P_PA] > 0.5;
     setrgb(c, 0x0a0a0a); cairo_paint(c);
     cairo_save(c); cairo_scale(c, s, s);
@@ -160,7 +189,6 @@ struct Gui {
       if (i < 9) { const KnobGeo &g = KG[i]; ax = g.rx * s; ay = (g.ry - g.R * 1.12) * s; if (i == 8) std::snprintf(buf, 96, "REVERB: not modelled"); else if (i == 7 && !pa) std::snprintf(buf, 96, "PRESENCE %.1f (needs FX loop + power amp)", v[P_PRES]); else std::snprintf(buf, 96, "%s %.1f", KNAME[i], v[KPARAM[i]]); }
       else { ax = KN_X[i - 9] * u; ay = FH * s + (SW_Y - 30) * u; std::snprintf(buf, 96, "%s", vt[i - 9]); }
       tsw::tip(c, buf, ax, ay, u, W); }
-    cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy);
   }
   // ---- Treffer ----
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < 9; i++) { double dx = x - KG[i].rx, dy = y - KG[i].ry; if (dx*dx + dy*dy <= KG[i].R * KG[i].R * 1.1) return i; }
@@ -183,33 +211,45 @@ struct Gui {
   double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
   void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 9) { if (KPARAM[i] >= 0) setP(KPARAM[i], std::round(u * 10) / 10); } else if (i == 9) setP(P_VIN, std::round(std::pow(1000, u / 10))); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
   // ---- Ereignisse: liefert true, wenn neu gezeichnet werden soll ----
+#ifndef __APPLE__
   bool handle(XEvent &ev) {
     switch (ev.type) {
       case Expose: return true;
-      case ButtonPress: { double x = ev.xbutton.x, y = ev.xbutton.y;
-        if (ev.xbutton.button == 4 || ev.xbutton.button == 5) { int k = hitKnob(x, y); if (k >= 0 && k != 8) setKnob(k, knobVal(k) + (ev.xbutton.button == 4 ? 0.2 : -0.2)); else if (k < 0) { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, p == P_OS ? (ev.xbutton.button == 4 ? 1 : -1) : (ev.xbutton.button == 4 ? -1 : 1)); } return true; }
-        if (ev.xbutton.button != 1) return false;
-        int k = hitKnob(x, y); double now = ev.xbutton.time / 1000.0;
+      case ButtonPress: return onMouse(0, ev.xbutton.x, ev.xbutton.y, (int)ev.xbutton.button, ev.xbutton.time / 1000.0);
+      case MotionNotify: return onMouse(1, ev.xmotion.x, ev.xmotion.y, 0, 0);
+      case ButtonRelease: return onMouse(2, ev.xbutton.x, ev.xbutton.y, (int)ev.xbutton.button, ev.xbutton.time / 1000.0);
+      case LeaveNotify: return onMouse(3, 0, 0, 0, 0);
+      default: return false; } }
+#endif
+  // kind 0 drücken (button 1 links, 4/5 Mausrad), 1 bewegen, 2 loslassen, 3 verlassen; now in Sekunden
+  bool onMouse(int kind, double x, double y, int button, double now) {
+    switch (kind) {
+      case 0: {
+        if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0 && k != 8) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else if (k < 0) { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, p == P_OS ? (button == 4 ? 1 : -1) : (button == 4 ? -1 : 1)); } return true; }
+        if (button != 1) return false;
+        int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture && k != 8) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_INP, j == 0 ? 0 : 1); return true; }
         int tb2 = hitTube(x, y); if (tb2 == 3) { for (int i = 0; i < 3; i++) setP(P_TUBE1 + i, 0); return true; } if (tb2 >= 0) { setP(P_TUBE1 + tb2, std::fmod(std::lround(getP(P_TUBE1 + tb2)) + 1, 5)); return true; }
         { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
-      case MotionNotify: { double x = ev.xmotion.x, y = ev.xmotion.y;
+      case 1: {
         if (drag >= 0 && drag != 8) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }   /* Foto-Knöpfe: 250 Foto-Einheiten, INPUT/OUTPUT: 200 Pixel bei Standardgröße für den ganzen Weg */
         int h = hitKnob(x, y); bool changed = h != hover; hover = h; showTip = h >= 0; return changed; }
-      case ButtonRelease: if (ev.xbutton.button == 1 && drag >= 0) { if (gesture) gesture(knobParam(drag), false); drag = -1; return true; } return false;
-      case LeaveNotify: { bool changed = hover >= 0; hover = -1; if (drag < 0) showTip = false; return changed; }
+      case 2: if (button == 1 && drag >= 0) { if (gesture) gesture(knobParam(drag), false); drag = -1; return true; } return false;
+      case 3: { bool changed = hover >= 0; hover = -1; if (drag < 0) showTip = false; return changed; }
       default: return false;
     }
   }
   std::string lastSig;
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) n += std::snprintf(b + n, sizeof b - n, "%.4g|", getP(i));
     for (int i = 0; i < 5; i++) n += std::snprintf(b + n, sizeof b - n, "%.2f|", meter[i]); n += std::snprintf(b + n, sizeof b - n, "%d|%d|%d|%d", drag, hover, showTip ? 1 : 0, W); std::string s(b, n); if (diag) s += diag(); return s; }
+#ifndef __APPLE__
   // Fenster vom Host mit dem Containerfenster zerstört: nicht mehr zeichnen und nicht noch einmal zerstören
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
   void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }
     if (!win) return; std::string sig = signature(); if (redraw || sig != lastSig) { lastSig = sig; draw(); } }
+#endif
 };
 } // namespace aorgui

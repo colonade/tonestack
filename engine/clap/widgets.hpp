@@ -1,7 +1,11 @@
 // Gemeinsame Bedienelemente der Plugin-Oberflächen (unterer Bereich): Kippschalter, Drehwahlschalter, Textausgabe.
 // Koordinaten in "UI-Einheiten": bei Standardgröße (1200 Pixel breit) ist 1 Einheit = 1 Pixel, Schriftgrößen also in Pixeln.
 #pragma once
+#ifdef __APPLE__
+#include "cairo_cg.hpp"
+#else
 #include <cairo/cairo.h>
+#endif
 #include <cmath>
 #include <algorithm>
 #include <vector>

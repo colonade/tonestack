@@ -6,7 +6,7 @@
 #   cmake --build engine/build/vst3
 #   → engine/build/vst3/Laney_AOR50.vst3, engine/build/vst3/Yamaha_B100II.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
 # macOS (Xcode-Befehlszeilenwerkzeuge, cmake, ninja): dieselben Befehle; gebaut werden VST3 und Audio Unit (AUv2, .component)
-# für Apple Silicon und Intel, ohne eigene Oberfläche (TS_NO_GUI, der Host zeigt seine Reglerliste).
+# für Apple Silicon und Intel, mit Frontplatte (NSView + CoreGraphics: clap/macview.mm, clap/cairo_cg.hpp).
 cmake_minimum_required(VERSION 3.21)
 if (APPLE)
   set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
@@ -41,13 +41,18 @@ endif()
 
 set(E ${CMAKE_CURRENT_SOURCE_DIR}/..)
 function(tonestack_plugin name src entry outname bundle version aucode)
-  add_library(${name}-impl STATIC ${E}/clap/${src})
+  if (APPLE)
+    add_library(${name}-impl STATIC ${E}/clap/${src} ${E}/clap/macview.mm)
+    set_source_files_properties(${E}/clap/macview.mm TARGET_DIRECTORY ${name}-impl PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  else()
+    add_library(${name}-impl STATIC ${E}/clap/${src})
+  endif()
   target_include_directories(${name}-impl PRIVATE ${E}/src ${E}/gen ${E}/third_party)
   target_compile_definitions(${name}-impl PRIVATE TONESTACK_CLAP_FIRST=1)
   target_compile_options(${name}-impl PRIVATE -O3 -fmacro-prefix-map=${E}/third_party/=)
   if (APPLE)
-    target_compile_definitions(${name}-impl PRIVATE TS_NO_GUI=1)
-    target_link_libraries(${name}-impl PUBLIC clap)
+    target_compile_definitions(${name}-impl PRIVATE TS_VIEW_CLASS=TSView_${name})   # eigener Klassenname je Plugin
+    target_link_libraries(${name}-impl PUBLIC clap "-framework Cocoa" "-framework CoreGraphics" "-framework CoreText")
     set(FORMATS CLAP VST3 AUV2)
   else()
     target_link_libraries(${name}-impl PUBLIC PkgConfig::GUI clap)   # clap: Header für die Einstiegsdatei

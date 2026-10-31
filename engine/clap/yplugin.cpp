@@ -14,7 +14,7 @@ namespace ygui { struct Gui; }
 #include <cstring>
 #include <mutex>
 #include <atomic>
-#ifndef TS_NO_GUI
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
 #include "x11safe.hpp"
 #endif
 using namespace b100;
@@ -95,7 +95,11 @@ static void newEngines(Plugin *pl) { delete pl->eng; delete pl->eng2; pl->eng = 
 static bool pl_init(const clap_plugin_t *) { return true; }
 static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); 
 #ifndef TS_NO_GUI
-  { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } tsx::close(pl->dpy); pl->dpy = nullptr; }
+  { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
+#ifndef __APPLE__
+  tsx::close(pl->dpy); pl->dpy = nullptr;
+#endif
+  }
 #endif
   delete pl->eng; delete pl->eng2; delete pl; }
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; newEngines(pl); pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); return true; }
@@ -136,7 +140,8 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
   try { r = pl_process_impl(p, pr); } catch (...) { zeroOut(pr); r = CLAP_PROCESS_CONTINUE; }
   return r; }
 #ifndef TS_NO_GUI
-// ---- Oberfläche (X11, eingebettet) ----
+// ---- Oberfläche (Linux: X11, macOS: NSView; eingebettet) ----
+static void gui_tick(Plugin *pl);
 static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
   { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }   // Geste, damit der Host (VST3: performEdit, Automation „Touch“) die Änderung zuordnet
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
@@ -144,11 +149,19 @@ static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std
 static void gui_gesture(Plugin *pl, int id, bool begin) { if (id < 0 || id >= P_COUNT) return;
   { std::lock_guard<std::mutex> lk(pl->qm); if (begin) { if (pl->gestId >= 0) pl->guiQ.push_back({pl->gestId, 0, 2}); pl->gestId = id; pl->guiQ.push_back({id, 0, 1}); } else if (pl->gestId == id) { pl->gestId = -1; pl->guiQ.push_back({id, 0, 2}); } else return; }
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
-static bool g_supported(const clap_plugin_t *, const char *api, bool floating) { return !std::strcmp(api, CLAP_WINDOW_API_X11) && !floating; }
-static bool g_preferred(const clap_plugin_t *, const char **api, bool *floating) { *api = CLAP_WINDOW_API_X11; *floating = false; return true; }
-static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); if (std::strcmp(api, CLAP_WINDOW_API_X11) || floating) return false;
+#ifdef __APPLE__
+#define TS_WINAPI CLAP_WINDOW_API_COCOA
+#else
+#define TS_WINAPI CLAP_WINDOW_API_X11
+#endif
+static bool g_supported(const clap_plugin_t *, const char *api, bool floating) { return !std::strcmp(api, TS_WINAPI) && !floating; }
+static bool g_preferred(const clap_plugin_t *, const char **api, bool *floating) { *api = TS_WINAPI; *floating = false; return true; }
+static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); if (std::strcmp(api, TS_WINAPI) || floating) return false;
   { std::lock_guard<std::recursive_mutex> glk(pl->gm);
-  if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false; if (!pl->gui) { pl->gui = new ygui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
+#ifndef __APPLE__
+  if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
+#endif
+  if (!pl->gui) { pl->gui = new ygui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) {   // Kleinsignal-Frequenzgang wie im Web-Simulator (ohne Endstufe)
       YSetting t = pl->target(); t.pwr = false; double fs = pl->fs; YParts v = YParts::orig();
       auto curveOf = [&](const YSetting &s, std::vector<double> &out) { LinNet o = netY(v, s, fs); double r = ymag(o, 1000, s); out.resize(ygui::NF); for (int i = 0; i < ygui::NF; i++) out[i] = 20 * std::log10(std::max(1e-12, ymag(o, ygui::freqAt(i), s) / r)); };
@@ -156,18 +169,33 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
       const double flat[5] = {5, 5, 5, 5, 5}; YSetting rs = pl->setting(10, 10, 10, 10, flat, t.ing < 1, false, t.spk); curveOf(rs, ref); }; }
   pl->guiH = pl->guiW * ygui::TOTALH / YFW;
   }   // Timer außerhalb der Sperre anmelden (der Host kann darin schon einen Takt auslösen)
+#ifdef __APPLE__
+  { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) pl->gui->onTick = [pl]() { gui_tick(pl); }; }   // die NSView taktet selbst (30/s)
+#else
   auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId == CLAP_INVALID_ID) ht->register_timer(pl->host, 33, &pl->timerId);
+#endif
   return true; }
 static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
-  std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } if (pl->dpy) { XSync(pl->dpy, False); } }
+  std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
+#ifndef __APPLE__
+  if (pl->dpy) { XSync(pl->dpy, False); }
+#endif
+  }
 static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %.0f Hz · stereo%s", pl->load.load() * 100, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); pl->diagTxt = b; }
+// Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
+static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; upd_diag(pl); pl->gui->meterOn = pl->val[P_PWR].load() > 0.5 && !pl->sleeping; pl->gui->meter = std::max(pl->pk.load(), pl->gui->meter * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }
 static bool g_resize_hints(const clap_plugin_t *, clap_gui_resize_hints_t *h) { h->can_resize_horizontally = true; h->can_resize_vertically = true; h->preserve_aspect_ratio = true; h->aspect_ratio_width = (uint32_t)YFW; h->aspect_ratio_height = (uint32_t)ygui::TOTALH; return true; }
 static bool g_adjust_size(const clap_plugin_t *, uint32_t *w, uint32_t *h) { double ww = std::max(600.0, std::min(2600.0, (double)*w)); *w = (uint32_t)std::lround(ww); *h = (uint32_t)std::lround(ww * ygui::TOTALH / YFW); return true; }
 static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
-static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui || !pl->dpy) return false; if (pl->gui->win) pl->gui->destroy(); return pl->gui->init(pl->dpy, (Window)win->x11, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
+static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
+#ifdef __APPLE__
+  return pl->gui->attach(win->cocoa, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
+#else
+  if (!pl->dpy) return false; return pl->gui->init(pl->dpy, (Window)win->x11, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
+#endif
 static bool g_set_transient(const clap_plugin_t *, const clap_window_t *) { return false; }
 static void g_suggest_title(const clap_plugin_t *, const char *) {}
 static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
@@ -176,15 +204,18 @@ static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_
 #endif
 static uint32_t g_latency(const clap_plugin_t *) { return 0; }   // keine Überabtastung, keine Filterlaufzeit
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
-#ifndef TS_NO_GUI
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
-  try { if (pl->gui) { upd_diag(pl); pl->gui->meterOn = pl->val[P_PWR].load() > 0.5 && !pl->sleeping; pl->gui->meter = std::max(pl->pk.load(), pl->gui->meter * 0.85); pl->gui->pump(); } } catch (...) {} }
+  try { if (pl->gui) { gui_tick(pl); pl->gui->pump(); } } catch (...) {} }
 static const clap_plugin_timer_support_t EXT_TIMER = {on_timer};
 #endif
 
 static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #ifndef TS_NO_GUI
-  if (!std::strcmp(id, CLAP_EXT_GUI)) return &EXT_GUI; if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &EXT_TIMER;
+  if (!std::strcmp(id, CLAP_EXT_GUI)) return &EXT_GUI;
+#endif
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+  if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &EXT_TIMER;
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}

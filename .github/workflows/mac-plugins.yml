@@ -16,6 +16,10 @@ jobs:
       - uses: actions/checkout@v5
       - name: Werkzeuge
         run: brew install ninja
+      - name: Prüfbilder der Oberfläche
+        run: |
+          set -o pipefail
+          bash mac/test/run.sh 2>&1 | tee render.log || { python3 mac/annot.py Pruefbild render.log; exit 1; }
       - name: Konfigurieren
         run: |
           set -o pipefail
@@ -52,4 +56,5 @@ jobs:
           rm -f web/tonestack/download/tonestack-Plugins-Mac_*.pkg
           cp out/*.pkg web/tonestack/download/
           git add -A web/tonestack/download
-          git commit -m "Mac-Installerpaket für die Download-Seite: $(basename out/*.pkg) [skip ci]" && git push origin HEAD:main || echo "nichts zu übernehmen"
+          git add -f mac/test/out/*.png
+          git commit -m "Mac-Installerpaket für die Download-Seite und Prüfbilder: $(basename out/*.pkg) [skip ci]" && git push origin HEAD:main || echo "nichts zu übernehmen"
