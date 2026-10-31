@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.12
+Version 3.13
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -27,17 +27,19 @@ What it is
   DRG 1054, tube stage with Koren 12AX7 model and Newton solver, power amp
   with negative feedback and presence), translated to C++. Verified against
   the simulator: linear within -137 dB, tube stage 2x oversampling bit-exact.
-  About 20 times faster than the JSFX version, so 8x oversampling runs in
-  real time without trouble.
+  About 20 times faster than the JSFX version. CPU load measured on a
+  2.1 GHz Xeon core at 48 kHz (bass DI, mono or identical L/R, see 3.13):
+  linear 3 %, tube distortion 1x 9 %, 2x 17 %, 4x 29 %, 8x 52 % of one core.
+  A current desktop CPU needs roughly half of that.
 
 Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
   Treble, Middle, Bass, Master Volume, Mid/Top/Bass Boost, Bass mod,
   FX loop + power amp (Presence), Middle/Presence pot taper, Output level,
-  Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 8x),
+  Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 2x),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12).
-  Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 8x oversampling,
+  Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 2x oversampling,
   bass mod on, FX loop + power amp on, stock tubes (3 x 12AX7), speaker, soft
   and late off.
 
@@ -112,6 +114,39 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.13 (load and switching - please update)
+  Tested like the web simulators: latency, CPU load, every parameter,
+  clicks when switching. Findings and changes:
+  - Latency is what the plugin reports: 31 samples (0.65 ms at 48 kHz) in
+    every mode, block size and sample rate, also on the first note after a
+    pause (idle). That is not audible. What can feel like a delay is the
+    circuit itself: its coupling capacitors delay the lowest notes (group
+    delay at 41 Hz about 8 ms, at 82 Hz about 4 ms; with SPEAKER 14 ms and
+    9 ms), as a real amp and cabinet do. The Yamaha has about 2 ms at 41 Hz.
+  - The real problem was CPU load: the default 8x oversampling needed more
+    than a whole core in stereo on the test machine. With a small buffer that
+    means dropouts, and a larger buffer means latency. Now:
+    * Identical left and right input (a mono track, or a bass DI on a stereo
+      track) is computed once instead of twice: half the load. As soon as
+      the channels differ, the right engine takes over the state of the left
+      one and runs separately; back to single processing only once both
+      give the same output again, so nothing jumps.
+    * Default oversampling 2x instead of 8x (new instances; saved projects
+      keep their value - set OVERSAMPLING to 2x there if REAPER struggles).
+      4x/8x remain available, e.g. for mixing or rendering.
+    * Mode switches (channel, input, distortion, oversampling) recompute the
+      new circuit at playback speed instead of three times faster, so a
+      switch no longer overloads small buffers; it takes effect after about
+      0.2 s instead of 0.1 s.
+  - Clicks when switching: SPEAKER was switched hard (now cross-faded over
+    20 ms), and with tube distortion BASS MOD, SOFT, LATE and the tube
+    selectors restarted the circuit from its operating point (now a fresh
+    circuit is computed and cross-faded like a mode switch). Measured jump
+    at the switch, relative to the steepest slope of the music: SPEAKER
+    4.6 -> 1.0, BASS MOD 4.5 -> 1.0, tubes 1.4-1.8 -> 1.0-1.1.
+  Sound otherwise unchanged: left channel bit-identical to 3.12 with the
+  same settings; CLAP and VST3 bit-identical; ASan stress tests clean.
 
 3.12
   The two circuit ideas from the web simulator as parameters and toggle
@@ -188,8 +223,9 @@ Polarity and latency (since 3.5)
   (about -2 dB at 20 kHz in a 50/50 mix).
 
 Notes
-  True stereo: left and right are processed by two independent engines. A
-  mono input is sent to both channels.
+  True stereo: left and right are processed by two independent engines;
+  identical channels are computed once (3.13). A mono input is sent to both
+  channels.
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer); if REAPER
   does not find the plugin after scanning, tell me your distribution and I
   will build against an older glibc.

@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -88,6 +88,15 @@ Frequency response
   treble, middle, bass 10, EQ flat) with the same jack and speaker. E and B
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
   the plot (it is flat apart from the 9 Hz high-pass).
+
+1.5
+  Tested like the web simulators (latency, CPU load, every parameter,
+  clicks when switching). Latency 0 samples, CPU about 3 % of one core.
+  Fixed: switching POWER AMP and SPEAKER produced a click (the power amp
+  path and the speaker filter were switched hard and reset). Both are now
+  cross-faded over 20 ms and the speaker filter keeps running; the jump at
+  the switch went from 21x and 99x the steepest slope of the music to 1.5x
+  and 1.1x. Sound otherwise unchanged; CLAP and VST3 bit-identical.
 
 1.4 (crash fixes - please update)
   An X11 error on the plugin's own window (drawing into or destroying a

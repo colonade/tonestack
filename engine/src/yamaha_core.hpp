@@ -68,7 +68,7 @@ inline double clipMA(double x) { double a = std::fabs(x); if (a <= V_KNEE) retur
 // Glättung alle 256 Abtastwerte mit Überblendung; Bauteiltausch sofort mit erhaltenen Kondensatorspannungen
 struct YCore {
   double fs; LinRunner r; YSetting cur, tgt; YParts v; bool hasV = false; int cnt = 0;
-  Speaker spk; IIR hpOut; double ingCur = 1, pkPre = 0; bool spkWas = false, pwrWas = false;   // Endstufe/Lautsprecher: Zustände; pkPre = Spitze am MA-Ausgang vor der Begrenzung (V)
+  Speaker spk; IIR hpOut; double ingCur = 1, pkPre = 0, pwrMix = -1, spkMix = -1;   // pwrMix/spkMix: Anteil von Endstufe/Lautsprecher, gleiten in 20 ms (kein Knacken beim Schalten); −1 = noch nicht gesetzt   // Endstufe/Lautsprecher: Zustände; pkPre = Spitze am MA-Ausgang vor der Begrenzung (V)
   explicit YCore(double fs_) : fs(fs_) { spk.design(fs_); double b1[2] = {0, 2200e-6 * 8}, a1[2] = {1, 2200e-6 * 8}; hpOut.n = 1; bilinear(b1, a1, 1, fs_, hpOut.b, hpOut.a); }
   void setTarget(const YParts &pv, const YSetting &s) {
     bool partsChanged = !hasV || !(pv == v); tgt = s;
@@ -81,17 +81,20 @@ struct YCore {
     for (int i = 0; i < 9; i++) { double &c = yfield(cur, i), d = yfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = yfield(tgt, i); }
     if (moved) r.set(buildY(v, cur, fs), 1, true); }
   void block(float *buf, int n) { if (!hasV) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
-    const double ingT = tgt.ing, step = 1.0 / (0.02 * fs); const bool pwr = tgt.pwr, sp = tgt.spk;   // Eingangsteiler mit fester Flanke (1,0 je 20 ms)
-    if (pwr != pwrWas) { hpOut.reset(); pwrWas = pwr; } if (sp != spkWas) { spk.lo.reset(); spk.le.reset(); spk.cone.reset(); spkWas = sp; }
+    const double ingT = tgt.ing, step = 1.0 / (0.02 * fs); const double pwrT = tgt.pwr ? 1 : 0, spkT = tgt.spk ? 1 : 0;   // Eingangsteiler mit fester Flanke (1,0 je 20 ms)
+    if (pwrMix < 0) pwrMix = pwrT; if (spkMix < 0) spkMix = spkT;
+    const double kMA = tgt.vin * G_TR101 * G_MA;   // die Schaltung ist linear: Endstufenpfad = Ausgang · Pegel · Verstärkung, dann Begrenzung
     for (int i = 0; i < n; i++) { tick(); if (!std::isfinite(buf[i])) buf[i] = 0;
       if (ingCur < ingT) ingCur = std::min(ingT, ingCur + step); else if (ingCur > ingT) ingCur = std::max(ingT, ingCur - step);
-      double y;
-      if (pwr) { double vo = r.step(buf[i] * tgt.vin * ingCur * G_TR101) * G_MA; double a = std::fabs(vo); if (a > pkPre) pkPre = a; y = hpOut.step(clipMA(vo)) / V_FS; }
-      else y = r.step(buf[i]) * ingCur;
-      if (sp) y = spk.step(y);
+      if (pwrMix < pwrT) pwrMix = std::min(pwrT, pwrMix + step); else if (pwrMix > pwrT) pwrMix = std::max(pwrT, pwrMix - step);
+      if (spkMix < spkT) spkMix = std::min(spkT, spkMix + step); else if (spkMix > spkT) spkMix = std::max(spkT, spkMix - step);
+      double lin = r.step(buf[i]) * ingCur, y = lin;
+      if (pwrMix > 0) { double vo = lin * kMA; double a = std::fabs(vo); if (a > pkPre) pkPre = a; double yp = hpOut.step(clipMA(vo)) / V_FS; y = pwrMix >= 1 ? yp : lin + pwrMix * (yp - lin); }
+      else hpOut.step(0);   // Ausgangselko ohne Endstufe in Ruhe halten
+      { double ys = spk.step(y); if (spkMix >= 1) y = ys; else if (spkMix > 0) y += spkMix * (ys - y); }   // Lautsprecherfilter läuft immer mit
       if (!std::isfinite(y)) { recover(); for (; i < n; i++) buf[i] = 0; return; }
       buf[i] = (float)-y; } }   // Polarität wie am Eingang (das PA-Board invertiert)
-  void recover() { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; hpOut.reset(); spk.lo.reset(); spk.le.reset(); spk.cone.reset(); pkPre = 0; }
+  void recover() { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; hpOut.reset(); spk.lo.reset(); spk.le.reset(); spk.cone.reset(); pkPre = 0; pwrMix = spkMix = -1; }
   double takePeak() { double p = pkPre; pkPre = 0; return p; }
 };
 } // namespace b100

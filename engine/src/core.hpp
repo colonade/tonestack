@@ -578,7 +578,8 @@ struct PaCore {
 };
 
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
-  std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0}; };
+  std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0};
+  virtual CoreBase *clone() const = 0; };   // vollständige Kopie samt Zustand (Plugin: rechter Kanal übernimmt den linken)
 
 struct LinCore : CoreBase {
   double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaCore paC; Norms N; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
@@ -602,6 +603,7 @@ struct LinCore : CoreBase {
     for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (moved) rebuild(true); }
   double step(double u) override { double y = r.step(u, peaks); if (pa) { paC.tick(); y = paC.step(y); } return y; }
+  CoreBase *clone() const override { return new LinCore(*this); }
   bool isNl() const override { return false; } int osOf() const override { return 1; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
 
@@ -631,41 +633,49 @@ struct NlCore : CoreBase {
     if (tgt.ch1 != cur.ch1) { cur.ch1 = tgt.ch1; moved = true; }
     if (moved) amp.retarget(v, cur); }
   double step(double u) override { double y = amp.step(u * vin) / 20; if (pa) { paC.tick(); y = paC.step(y); } for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }
+  CoreBase *clone() const override { return new NlCore(*this); }
   bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
 
 // Moduswechsel (linear/Röhre, Überabtastung, Buchse, Kanal): neue Schaltung rechnet die letzten 150 ms nach und wird über 30 ms eingeblendet
 struct Engine {
   double fs; CoreBase *a = nullptr, *b = nullptr; double xf = 0; std::vector<float> hist; int hpos = 0, hfill = 0; int qpos = 0, qlen = 0, qdone = 0; bool replay = false; Target last; bool hasLast = false;
-  Speaker spk; bool spkOn = false;
+  Speaker spk; bool spkOn = false; double spkMix = 0;   // spkMix: Anteil des Lautsprecherpfads, gleitet in 20 ms zu spkOn (kein Knacken beim Schalten)
   explicit Engine(double fs_) : fs(fs_) { hist.assign((int)std::lround(0.15 * fs), 0); spk.design(fs_); }
   ~Engine() { delete a; delete b; }
-  void recover() { delete a; delete b; a = b = nullptr; replay = false; xf = 0; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); if (hasLast) a = make(last); }
+  Engine(const Engine &o) : fs(o.fs), a(o.a ? o.a->clone() : nullptr), b(o.b ? o.b->clone() : nullptr), xf(o.xf), hist(o.hist), hpos(o.hpos), hfill(o.hfill), qpos(o.qpos), qlen(o.qlen), qdone(o.qdone),
+    replay(o.replay), last(o.last), hasLast(o.hasLast), spk(o.spk), spkOn(o.spkOn), spkMix(o.spkMix), pad(o.pad) {}   // tiefe Kopie (Kerne geklont)
+  Engine &operator=(const Engine &) = delete;
+  void recover() { delete a; delete b; a = b = nullptr; replay = false; xf = 0; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); spkMix = spkOn ? 1 : 0; if (hasLast) a = make(last); }
   static std::string kindOf(bool nl, int os, bool low) { return (nl ? "nl" + std::to_string(os) : std::string("lin")) + (low ? "|low" : "|high"); }
   std::string kindOfCore(const CoreBase *c) const { return kindOf(c->isNl(), c->osOf(), c->lowOf()); }
   int pad = 0;   // Plugin: feste Gesamtlatenz; Kerne ohne eigene Laufzeit (linear, 1-fach) werden um pad Abtastwerte verzögert, damit die Latenz nicht mit dem Modus wechselt
   CoreBase *make(const Target &t) { CoreBase *c = t.nl ? (CoreBase*)new NlCore(fs, t.os, &tubeOf(0)) : (CoreBase*)new LinCore(fs); c->setTarget(t); c->prepDelay(ownLatency(c) == 0 ? pad : 0); return c; }
   static int ownLatency(const CoreBase *c) { return c->isNl() && c->osOf() > 1 ? 31 : 0; }
   void setTarget(const Target &t) {
-    last = t; hasLast = true; if (t.spk != spkOn) { spkOn = t.spk; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); }
+    // Bauteil- oder Röhrenwechsel im Röhrenmodus: der Kern müsste neu in den Arbeitspunkt (Sprung im Signal) → wie ein Moduswechsel frisch nachrechnen und überblenden
+    bool nlParts = hasLast && t.nl && last.nl && (!(t.v == last.v) || t.s.tube[0] != last.s.tube[0] || t.s.tube[1] != last.s.tube[1] || t.s.tube[2] != last.s.tube[2]);
+    last = t; hasLast = true; spkOn = t.spk;
     std::string kind = kindOf(t.nl, t.os, t.s.low > 0.5);
-    if (!a) { a = make(t); return; }
+    if (!a) { a = make(t); spkMix = spkOn ? 1 : 0; return; }
     CoreBase *newest = b ? b : a;
     bool chChange = newest->chOf() != (t.s.ch1 > 0.5 ? 1 : 2);
-    if (b && replay && (kind != kindOfCore(b) || chChange)) { delete b; b = nullptr; replay = false; newest = a; chChange = a->chOf() != (t.s.ch1 > 0.5 ? 1 : 2); }   // während des Nachrechnens erneut geändert: verwerfen (newest zeigte auf b)
-    if (!b && (kind != kindOfCore(newest) || chChange)) {
+    if (b && replay && (kind != kindOfCore(b) || chChange || nlParts)) { delete b; b = nullptr; replay = false; newest = a; chChange = a->chOf() != (t.s.ch1 > 0.5 ? 1 : 2); }   // während des Nachrechnens erneut geändert: verwerfen (newest zeigte auf b)
+    if (!b && (kind != kindOfCore(newest) || chChange || nlParts)) {
       b = make(t); qlen = std::min(hfill, (int)hist.size()); qpos = (hpos - qlen + (int)hist.size()) % (int)hist.size(); qdone = 0; replay = true; xf = 0;
     } else { a->setTarget(t); if (b) b->setTarget(t); }
   }
   void block(float *buf, int n) {
     if (!a) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
-    if (b && replay) { int todo = std::min(384, qlen - qdone); for (int i = 0; i < todo; i++) { b->tick(); b->delayed(b->step(hist[qpos])); qpos = (qpos + 1) % (int)hist.size(); qdone++; } if (qdone >= qlen) replay = false; }
+    if (b && replay) { int todo = std::min(std::max(n, 64), qlen - qdone);   // höchstens ein Block (mindestens 64) je Aufruf: Umschaltlast bleibt auch bei kleinen Puffern begrenzt
+      for (int i = 0; i < todo; i++) { b->tick(); b->delayed(b->step(hist[qpos])); qpos = (qpos + 1) % (int)hist.size(); qdone++; } if (qdone >= qlen) replay = false; }
     for (int i = 0; i < n; i++) {
       double x = buf[i]; if (!std::isfinite(x)) x = 0; hist[hpos] = (float)x; hpos = (hpos + 1) % (int)hist.size(); if (hfill < (int)hist.size()) hfill++;
       a->tick(); double y = a->delayed(a->step(x));
       if (b) { b->tick(); double yb = b->delayed(b->step(x));
         if (!replay) { xf += 1.0 / (0.03 * fs); if (xf >= 1) { delete a; a = b; b = nullptr; y = yb; } else y = y * (1 - xf) + yb * xf; } }
-      if (spkOn) y = spk.step(y);
+      { double ys = spk.step(y), tg = spkOn ? 1.0 : 0.0; if (spkMix != tg) { double st = 1.0 / (0.02 * fs); spkMix = spkOn ? std::min(1.0, spkMix + st) : std::max(0.0, spkMix - st); }
+        y = spkMix >= 1 ? ys : spkMix <= 0 ? y : y + spkMix * (ys - y); }   // Lautsprecherfilter läuft immer mit (billig), Umschalten über 20 ms
       if (!std::isfinite(y)) { recover(); for (; i < n; i++) buf[i] = 0; return; }   // Löser entgleist (z. B. nach unsinnigen Bauteilwerten): Schaltung neu aufsetzen, Rest des Blocks still
       buf[i] = (float)-y;   // Polarität wie am Eingang: der Vorverstärker (5 invertierende Stufen) dreht das Signal, für Aufnahme und Vergleich wird das hier aufgehoben
     }
