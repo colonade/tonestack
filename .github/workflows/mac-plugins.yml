@@ -7,6 +7,8 @@ on:
   push:
     branches: [main]
     paths: ['engine/**', 'mac/**', '.github/workflows/mac-plugins.yml']
+permissions:
+  contents: write   # Installerpaket für die Download-Seite zurück ins Repo
 jobs:
   build:
     runs-on: macos-15   # macos-14 wird am 2026-11-02 abgeschaltet
@@ -42,3 +44,12 @@ jobs:
           path: |
             out/*.zip
             out/*.pkg
+      - name: Installerpaket für die Webseite ablegen (web/tonestack/download)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "tonestack-mac-bau"; git config user.email "actions@users.noreply.github.com"
+          git pull --rebase origin main
+          rm -f web/tonestack/download/tonestack-Plugins-Mac_*.pkg
+          cp out/*.pkg web/tonestack/download/
+          git add -A web/tonestack/download
+          git commit -m "Mac-Installerpaket für die Download-Seite: $(basename out/*.pkg) [skip ci]" && git push origin HEAD:main || echo "nichts zu übernehmen"
