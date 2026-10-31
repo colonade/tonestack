@@ -1,6 +1,6 @@
 // Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.6"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.7"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "yamaha_core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI

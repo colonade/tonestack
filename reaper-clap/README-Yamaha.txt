@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.6
+Version 1.7
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -88,6 +88,11 @@ Frequency response
   treble, middle, bass 10, EQ flat) with the same jack and speaker. E and B
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
   the plot (it is flat apart from the 9 Hz high-pass).
+
+1.7
+  The plugin now also exists for macOS (Audio Unit for Logic and VST3,
+  Apple Silicon and Intel, from macOS 11) with the same front panel. Linux:
+  internal restructuring only, sound and panel identical to 1.6.
 
 1.6
   The plugin version is shown in the plugin window (model strip, "PLUGIN

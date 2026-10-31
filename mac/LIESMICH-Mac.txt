@@ -89,11 +89,18 @@ suchen lassen).
 5. Bedienung
 ------------
 
-Diese Mac-Fassung hat noch keine Frontplatte. Logic zeigt die Regler als
-Liste (oben im Plugin-Fenster „Steuerungen“ statt „Editor“). Die Namen
-sind englisch, z. B. Preamp 1 Volume, Treble, Middle, Bass, Master Volume,
-Tube distortion, Oversampling, Speaker. Der Klang ist derselbe wie in der
-Linux-Fassung mit Frontplatte.
+Das Plugin-Fenster zeigt die Frontplatte wie das Original, darunter die
+Modell-Leiste (Kippschalter für Umbauten, Lautsprecher usw.), die
+Röhrenauswahl bzw. Endstufenanzeige und den Frequenzgang.
+
+  Knopf drehen:   nach oben/unten ziehen, oder Mausrad/Trackpad
+  Mittelstellung: Doppelklick auf den Knopf
+  Zugschalter:    auf die rote Aufschrift PULL BOOST / PULL ON klicken
+  Eingang:        auf die Buchse HIGH oder LOW klicken
+  Kippschalter:   anklicken (bei drei Stellungen obere/untere Hälfte)
+
+Alle Regler gibt es auch in Logics Reglerliste („Steuerungen“) und für
+die Automation.
 
 Wichtig für den Pegel: „Instrument level at 0 dBFS“ sagt dem Plugin, wie
 viel Volt ein voll ausgesteuertes Signal am Instrumentenkabel hätte
