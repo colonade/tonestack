@@ -5,7 +5,13 @@
 #   cmake -S engine/vst3 -B engine/build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release
 #   cmake --build engine/build/vst3
 #   → engine/build/vst3/Laney_AOR50.vst3, engine/build/vst3/Yamaha_B100II.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
+# macOS (Xcode-Befehlszeilenwerkzeuge, cmake, ninja): dieselben Befehle; gebaut werden VST3 und Audio Unit (AUv2, .component)
+# für Apple Silicon und Intel, ohne eigene Oberfläche (TS_NO_GUI, der Host zeigt seine Reglerliste).
 cmake_minimum_required(VERSION 3.21)
+if (APPLE)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
+endif()
 project(tonestack-vst3 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,16 +31,25 @@ FetchContent_Declare(clap-wrapper
   GIT_TAG 806bba0a5f792e3966b99c1561ab9952d3316d7c)
 FetchContent_MakeAvailable(clap-wrapper)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GUI REQUIRED IMPORTED_TARGET cairo x11)
+if (NOT APPLE)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(GUI REQUIRED IMPORTED_TARGET cairo x11)
+endif()
 
 set(E ${CMAKE_CURRENT_SOURCE_DIR}/..)
-function(tonestack_plugin name src entry outname bundle version)
+function(tonestack_plugin name src entry outname bundle version aucode)
   add_library(${name}-impl STATIC ${E}/clap/${src})
   target_include_directories(${name}-impl PRIVATE ${E}/src ${E}/gen ${E}/third_party)
   target_compile_definitions(${name}-impl PRIVATE TONESTACK_CLAP_FIRST=1)
   target_compile_options(${name}-impl PRIVATE -O3 -fmacro-prefix-map=${E}/third_party/=)
-  target_link_libraries(${name}-impl PUBLIC PkgConfig::GUI clap)   # clap: Header für die Einstiegsdatei
+  if (APPLE)
+    target_compile_definitions(${name}-impl PRIVATE TS_NO_GUI=1)
+    target_link_libraries(${name}-impl PUBLIC clap)
+    set(FORMATS CLAP VST3 AUV2)
+  else()
+    target_link_libraries(${name}-impl PUBLIC PkgConfig::GUI clap)   # clap: Header für die Einstiegsdatei
+    set(FORMATS CLAP VST3)
+  endif()
   make_clapfirst_plugins(
     TARGET_NAME ${name}
     IMPL_TARGET ${name}-impl
@@ -43,11 +58,17 @@ function(tonestack_plugin name src entry outname bundle version)
     BUNDLE_IDENTIFIER "${bundle}"
     BUNDLE_VERSION "${version}"
     COPY_AFTER_BUILD FALSE
-    PLUGIN_FORMATS CLAP VST3   # CLAP verlangt der Wrapper hier; ausgeliefert wird die CLAP aus engine/build.sh
+    PLUGIN_FORMATS ${FORMATS}   # CLAP verlangt der Wrapper hier; unter Linux wird die CLAP aus engine/build.sh ausgeliefert
+    AUV2_MANUFACTURER_NAME "tonestack"
+    AUV2_MANUFACTURER_CODE "Tnst"
+    AUV2_SUBTYPE_CODE "${aucode}"
+    AUV2_INSTRUMENT_TYPE "aufx"
     ASSET_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-  # wie die CLAP-Fassung: libstdc++/libgcc statisch, damit nur glibc ≥ 2.38 nötig ist
-  target_link_options(${name}_vst3 PRIVATE -static-libgcc -static-libstdc++ -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
+  if (NOT APPLE)
+    # wie die CLAP-Fassung: libstdc++/libgcc statisch, damit nur glibc ≥ 2.38 nötig ist
+    target_link_options(${name}_vst3 PRIVATE -static-libgcc -static-libstdc++ -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
+  endif()
 endfunction()
 
-tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   3.16)
-tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Yamaha_B100II de.tonestack.yamaha-b100ii.vst3 1.6)
+tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   3.16 Lany)
+tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Yamaha_B100II de.tonestack.yamaha-b100ii.vst3 1.6  B100)

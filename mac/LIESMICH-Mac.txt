@@ -1,0 +1,92 @@
+tonestack – Verstärker-Simulation für den Mac (Logic Pro und andere)
+=====================================================================
+
+Im Ordner liegen zwei Fassungen desselben Plugins:
+
+  <Name>.component   Audio Unit – für Logic Pro, GarageBand, MainStage
+  <Name>.vst3        VST3 – für Ableton Live, Cubase, Reaper, Studio One
+                     und in Logic über Waves StudioRack
+
+Für Logic genügt die .component. Beide Fassungen klingen gleich.
+Läuft auf Apple-Silicon- und Intel-Macs ab macOS 11 (Big Sur).
+
+
+1. Installieren
+---------------
+
+Im Finder: Menü „Gehe zu“ → „Gehe zum Ordner …“ (Umschalt-Befehl-G) und
+eintippen:
+
+    ~/Library/Audio/Plug-Ins/Components
+
+→ die Datei  <Name>.component  hineinziehen.
+
+Für die VST3 entsprechend:
+
+    ~/Library/Audio/Plug-Ins/VST3
+
+→ den Ordner  <Name>.vst3  hineinziehen.
+
+(Fehlt einer der Ordner, einfach anlegen.)
+
+
+2. Einmal freigeben (wichtig)
+-----------------------------
+
+Das Plugin ist nicht bei Apple beglaubigt (das kostet eine Jahresgebühr).
+macOS sperrt es deshalb nach dem Herunterladen. Die Sperre einmal aufheben:
+Programm „Terminal“ öffnen (Programme → Dienstprogramme) und eingeben
+(für den Laney; beim Yamaha den Namen Yamaha_B100II einsetzen):
+
+    xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component
+    xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Laney_AOR50.vst3
+
+Ein Neustart des Macs ist nicht nötig; es genügt, Logic neu zu starten.
+
+
+3. In Logic Pro verwenden
+-------------------------
+
+Logic starten. Beim ersten Start prüft Logic neue Audio Units (dauert ein
+paar Sekunden). Dann in einer Audiospur:
+
+    Audio-FX-Platz → Audio Units → tonestack → Laney AOR 50 Preamp
+                                             (bzw. Yamaha B100-II Bass Amp)
+
+Erscheint es nicht: Logic Pro → Einstellungen → Plug-in-Manager → das
+Plugin unter „tonestack“ suchen → „Zurücksetzen & erneut prüfen“.
+
+Kontrolle im Terminal (sollte mit „AU VALIDATION SUCCEEDED“ enden):
+
+    auval -v aufx Lany Tnst      (Laney)
+    auval -v aufx B100 Tnst      (Yamaha)
+
+
+4. Über Waves StudioRack (VST3)
+-------------------------------
+
+StudioRack als Plugin in die Spur einsetzen → im Rack „Load Plugin“ →
+VST3 → Laney AOR 50 Preamp. StudioRack muss VST3-Plugins von anderen
+Herstellern zulassen (in den StudioRack-Einstellungen nach neuen Plugins
+suchen lassen).
+
+
+5. Bedienung
+------------
+
+Diese Mac-Fassung hat noch keine Frontplatte. Logic zeigt die Regler als
+Liste (oben im Plugin-Fenster „Steuerungen“ statt „Editor“). Die Namen
+sind englisch, z. B. Preamp 1 Volume, Treble, Middle, Bass, Master Volume,
+Tube distortion, Oversampling, Speaker. Der Klang ist derselbe wie in der
+Linux-Fassung mit Frontplatte.
+
+Wichtig für den Pegel: „Instrument level at 0 dBFS“ sagt dem Plugin, wie
+viel Volt ein voll ausgesteuertes Signal am Instrumentenkabel hätte
+(Standard 100 mV). Höher = Röhren werden stärker angesteuert.
+„Output level“ regelt nur die Lautstärke am Ausgang.
+
+Rechenlast: Röhrenverzerrung mit 2-facher Überabtastung braucht etwa
+15 bis 20 % eines Prozessorkerns; 4- und 8-fach entsprechend mehr.
+
+
+Lizenzen der mitgelieferten Fremdbibliotheken: THIRD-PARTY-LICENSES.txt

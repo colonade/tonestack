@@ -2,15 +2,21 @@
 #include "clap-1.2.2/include/clap/clap.h"
 #define TS_VERSION "3.16"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
+#include "platform.hpp"
+#ifndef TS_NO_GUI
 #include "gui.hpp"
+#else
+namespace aorgui { struct Gui; }
+#endif
 #include <deque>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <atomic>
-#include <xmmintrin.h>
+#ifndef TS_NO_GUI
 #include "x11safe.hpp"
+#endif
 using namespace aor;
 
 enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_COUNT };
@@ -121,7 +127,11 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----
 static bool pl_init(const clap_plugin_t *) { warmTubes(); return true; }   // Röhrentabellen jetzt (Haupt-Thread), nicht erst im Audio-Thread
-static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } tsx::close(pl->dpy); pl->dpy = nullptr; } delete pl->eng; delete pl->eng2; delete pl; }
+static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); 
+#ifndef TS_NO_GUI
+  { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } tsx::close(pl->dpy); pl->dpy = nullptr; }
+#endif
+  delete pl->eng; delete pl->eng2; delete pl; }
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *) { return true; }
@@ -168,9 +178,10 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
 }
 // Hülle: Denormals abschalten (FTZ/DAZ, danach wiederherstellen); eine Ausnahme darf nie die C-Grenze zum Host überschreiten
 static clap_process_status pl_process(const clap_plugin_t *p, const clap_process_t *pr) {
-  unsigned csr = _mm_getcsr(); _mm_setcsr(csr | 0x8040); clap_process_status r;
+  DenormGuard dg; clap_process_status r;
   try { r = pl_process_impl(p, pr); } catch (...) { zeroOut(pr); r = CLAP_PROCESS_CONTINUE; }
-  _mm_setcsr(csr); return r; }
+  return r; }
+#ifndef TS_NO_GUI
 // ---- Oberfläche (X11, eingebettet) ----
 static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
   { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }   // Geste, damit der Host (VST3: performEdit, Automation „Touch“) die Änderung zuordnet
@@ -210,16 +221,21 @@ static void g_suggest_title(const clap_plugin_t *, const char *) {}
 static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
 static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->hide(); return true; }
 static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_destroy, g_set_scale, g_get_size, g_can_resize, g_resize_hints, g_adjust_size, g_set_size, g_set_parent, g_set_transient, g_suggest_title, g_show, g_hide};
+#endif
 // Latenz: Überabtastungsfilter genau 31 Abtastwerte (Amp::step); linear und 1-fach werden im Kern um 31 verzögert (Engine::pad)
 static uint32_t g_latency(const clap_plugin_t *) { return LATENCY; }   // fest, unabhängig vom Modus (CLAP: Latenz darf sich nur beim Aktivieren ändern)
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
+#ifndef TS_NO_GUI
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
   try {
   if (pl->gui) { upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); pl->gui->pump(); } } catch (...) {} }
 static const clap_plugin_timer_support_t EXT_TIMER = {on_timer};
+#endif
 
 static const void *pl_ext(const clap_plugin_t *, const char *id) {
+#ifndef TS_NO_GUI
   if (!std::strcmp(id, CLAP_EXT_GUI)) return &EXT_GUI; if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &EXT_TIMER;
+#endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static void pl_main(const clap_plugin_t *) {}
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
