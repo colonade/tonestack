@@ -29,7 +29,7 @@ jobs:
       - name: Installerpaket bauen und probehalber installieren
         run: |
           set -o pipefail
-          { bash mac/make_pkg.sh build-mac out
+          { set -e; bash mac/make_pkg.sh build-mac out
             rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component
             sudo installer -pkg out/*.pkg -target /
             ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3

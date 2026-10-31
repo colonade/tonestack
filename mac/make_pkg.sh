@@ -24,7 +24,7 @@ one() {   # one <Name> <id> <Version> <component|vst3>
   local n; n=$(plutil -extract . raw -o - "$W/$ID-$KIND.plist" 2>/dev/null || echo 1)
   for ((i = 0; i < n; i++)); do plutil -replace "$i.BundleIsRelocatable" -bool NO "$W/$ID-$KIND.plist"; done   # immer an den festen Ort
   local SC=(); [ "$KIND" = component ] && SC=(--scripts "$W/scripts")
-  pkgbuild --root "$R" --component-plist "$W/$ID-$KIND.plist" --identifier "de.tonestack.$ID.$KIND" --version "$V" --install-location / "${SC[@]}" "$W/pkgs/$ID-$KIND.pkg"
+  pkgbuild --root "$R" --component-plist "$W/$ID-$KIND.plist" --identifier "de.tonestack.$ID.$KIND" --version "$V" --install-location / ${SC[@]+"${SC[@]}"} "$W/pkgs/$ID-$KIND.pkg"
 }
 one Laney_AOR50 laney "$LV" component; one Laney_AOR50 laney "$LV" vst3
 one Yamaha_B100II yamaha "$YV" component; one Yamaha_B100II yamaha "$YV" vst3
