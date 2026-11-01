@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.6
+Version 1.7
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -101,6 +101,12 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.7
+  - Mono tracks: input and output can now be mono or stereo (1->1, 1->2,
+    2->1, 2->2). Logic offers Audio Units on a mono track only with a mono
+    input; with stereo only, the plugin most likely did not show up there.
+    Sound unchanged (the engine works in mono anyway).
 
 1.6
   - 6SL7 computed with the triode formula of Dempwolf and Zoelzer (2011),

@@ -66,7 +66,12 @@ Logic starten. Beim ersten Start prüft Logic neue Audio Units (dauert ein
 paar Sekunden). Dann in einer Audiospur:
 
     Audio-FX-Platz → Audio Units → tonestack → Laney AOR 50 Preamp
-                                             (bzw. Yamaha B100-II Bass Amp)
+                                             (bzw. Yamaha B100-II Bass Amp,
+                                              AmpFett B-15NF Bass Amp)
+
+Die Plugins laufen auf Mono- und Stereospuren (ab Laney 3.22 / Yamaha 1.10 /
+AmpFett 1.7; vorher nur Stereo, auf Mono-Spuren erschienen sie nicht). Auf
+einer Mono-Spur stehen sie unter „Mono“ (Ausgang mono) bzw. „Mono → Stereo“.
 
 Erscheint es nicht: Logic Pro → Einstellungen → Plug-in-Manager → das
 Plugin unter „tonestack“ suchen → „Zurücksetzen & erneut prüfen“.

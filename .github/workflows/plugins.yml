@@ -77,7 +77,7 @@ jobs:
             sudo installer -pkg out/*.pkg -target /
             ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
-            for sub in Lany B100 AFB1; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
+            for sub in Lany B100 AFB1; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; echo "::notice title=auval $sub Kanäle::$(auval -v aufx $sub Tnst | grep -i -A2 "channel capabilities" | tr '\n' ' ')"; done
           } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
       - name: Prüfsummen
         run: |

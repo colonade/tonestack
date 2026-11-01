@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.9
+Version 1.10
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -89,6 +89,12 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+1.10
+  - Mono tracks: input and output can now be mono or stereo (1->1, 1->2,
+    2->1, 2->2). Logic offers Audio Units on a mono track only with a mono
+    input; with stereo only, the plugin most likely did not show up there.
+    Sound unchanged (the engine works in mono anyway).
 
 1.9
   - Switching the FX off and on again in REAPER: the circuit resumed from

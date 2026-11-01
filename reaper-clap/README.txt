@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.21
+Version 3.22
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -123,6 +123,12 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.22
+  - Mono tracks: input and output can now be mono or stereo (1->1, 1->2,
+    2->1, 2->2). Logic offers Audio Units on a mono track only with a mono
+    input; with stereo only, the plugin most likely did not show up there.
+    Sound unchanged (the engine works in mono anyway).
 
 3.21 (remaining simplifications of the model removed)
   - Preamp supply: the preamp rails (260 / 252 / 240 V behind R26, R14, R4
