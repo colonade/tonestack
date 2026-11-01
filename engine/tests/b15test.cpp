@@ -6,7 +6,7 @@
 using namespace b15;
 static double v_mains(Core &c) { return c.v.mains_hz * 2; }
 static void dc(Core &c) {
-  std::vector<double> u = {0, std::sqrt(2.0) * c.v.hv_rms * std::sin(c.t), 0}; u[2] = -u[1];
+  std::vector<double> u = {0, std::sqrt(2.0) * c.v.hv_rms * std::sin(c.t), 0, 0}; u[2] = -u[1]; u[3] = u[1];
   auto v = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip);
   auto V = [&](const char *n) { return v[c.net.idx.at(n)]; };
   printf("Knoten        Rechnung  Technical Data\n");

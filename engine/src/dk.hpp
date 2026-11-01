@@ -5,6 +5,7 @@
 // Das lineare Netz wird bei Änderungen (Potis) neu übersetzt; die Zustände (Kondensatorspannungen, Spulenströme) bleiben erhalten.
 #pragma once
 #include <cmath>
+#include <complex>
 #include <cstring>
 #include <map>
 #include <string>
@@ -117,6 +118,35 @@ inline Vec nodeVoltages(const Net &net, double fs, const Vec &h, const Vec &u, c
     v[k + 1] = y; }
   return v; }
 
+// Kleinsignal-Frequenzgang: Netz mit linearisierten Geräten (Ableitungsblöcke J je Gerät im Arbeitspunkt), Eingang `in` mit 1 V,
+// Ausgang = Spannung zwischen a und b. Komplexe Knotenanalyse.
+inline std::complex<double> acResponse(const Net &net, const std::vector<std::vector<double>> &Jdev, const std::vector<std::pair<int,int>> &devPorts, double f, int in, int oa, int ob) {
+  typedef std::complex<double> C; int N = net.nn; std::vector<C> Y((size_t)N * N, C(0, 0)), b(N, C(0, 0)); double w = 2 * 3.14159265358979323846 * f;
+  auto add = [&](int r_, int c_, C v) { if (r_ && c_) Y[(size_t)(r_-1) * N + c_-1] += v; };
+  auto stamp = [&](int a, int bb, C g) { add(a, a, g); add(bb, bb, g); add(a, bb, -g); add(bb, a, -g); };
+  for (auto &x : net.R) stamp(x.a, x.b, 1 / x.v);
+  for (auto &x : net.C) stamp(x.a, x.b, C(0, w * x.v));
+  for (auto &x : net.S) { stamp(x.a, 0, 1 / x.r); if (x.in == in && x.a) b[x.a-1] += 1 / x.r; }
+  for (auto &x : net.G) { add(x.a, x.c, x.g); add(x.a, x.d, -x.g); add(x.b, x.c, -x.g); add(x.b, x.d, x.g); }
+  for (auto &g : net.L) { int k = g.L.r; std::vector<C> Z((size_t)k * k); for (int i = 0; i < k * k; i++) Z[i] = C(0, w) * g.L.d[i];
+    // Z invertieren (klein)
+    std::vector<C> I((size_t)k * k, C(0, 0)); for (int i = 0; i < k; i++) I[i * k + i] = 1;
+    for (int c = 0; c < k; c++) { int p = c; for (int i = c + 1; i < k; i++) if (std::abs(Z[i * k + c]) > std::abs(Z[p * k + c])) p = i;
+      if (p != c) for (int j = 0; j < k; j++) { std::swap(Z[c * k + j], Z[p * k + j]); std::swap(I[c * k + j], I[p * k + j]); }
+      C iv = C(1, 0) / Z[c * k + c]; for (int j = 0; j < k; j++) { Z[c * k + j] *= iv; I[c * k + j] *= iv; }
+      for (int i = 0; i < k; i++) if (i != c) { C fct = Z[i * k + c]; for (int j = 0; j < k; j++) { Z[i * k + j] -= fct * Z[c * k + j]; I[i * k + j] -= fct * I[c * k + j]; } } }
+    for (int i = 0; i < k; i++) for (int j = 0; j < k; j++) { C v = I[i * k + j]; int ai = g.w[i].first, bi = g.w[i].second, aj = g.w[j].first, bj = g.w[j].second; add(ai, aj, v); add(ai, bj, -v); add(bi, aj, -v); add(bi, bj, v); } }
+  for (size_t d = 0; d < devPorts.size(); d++) { int p0 = devPorts[d].first, np = devPorts[d].second; const std::vector<double> &J = Jdev[d];
+    for (int a = 0; a < np; a++) for (int bb = 0; bb < np; bb++) { double v = J[a * np + bb]; if (v == 0) continue; int ra = net.P[p0 + a].a, rb = net.P[p0 + a].b, ca = net.P[p0 + bb].a, cb = net.P[p0 + bb].b;
+      add(ra, ca, v); add(ra, cb, -v); add(rb, ca, -v); add(rb, cb, v); } }
+  for (int i = 0; i < N; i++) if (Y[(size_t)i * N + i] == C(0, 0)) Y[(size_t)i * N + i] = 1e-12;
+  for (int c = 0; c < N; c++) { int p = c; double mx = std::abs(Y[(size_t)c * N + c]); for (int i = c + 1; i < N; i++) if (std::abs(Y[(size_t)i * N + c]) > mx) { mx = std::abs(Y[(size_t)i * N + c]); p = i; }
+    if (p != c) { for (int j = 0; j < N; j++) std::swap(Y[(size_t)c * N + j], Y[(size_t)p * N + j]); std::swap(b[c], b[p]); }
+    C iv = C(1, 0) / Y[(size_t)c * N + c];
+    for (int i = c + 1; i < N; i++) { C fct = Y[(size_t)i * N + c] * iv; if (fct == C(0, 0)) continue; for (int j = c; j < N; j++) Y[(size_t)i * N + j] -= fct * Y[(size_t)c * N + j]; b[i] -= fct * b[c]; } }
+  for (int c = N - 1; c >= 0; c--) { C sum = b[c]; for (int j = c + 1; j < N; j++) sum -= Y[(size_t)c * N + j] * b[j]; b[c] = sum / Y[(size_t)c * N + c]; }
+  return (oa ? b[oa-1] : C(0, 0)) - (ob ? b[ob-1] : C(0, 0)); }
+
 // Laufzeit: Zustand h (Verlaufsströme), letzte Torspannungen als Newton-Startwert.
 // Gerät: wertet seine Tore aus (Ströme und Ableitungen dI/dV innerhalb des Geräts, Blockdiagonale).
 struct Dev { int kind; int p0; int np; const void *model; };
@@ -128,9 +158,9 @@ static inline void axpy(int n, double a, const double *__restrict x, double *__r
 // (z. B. Vorstufe, Endstufe, Netzteil), daher genügen meist ein bis zwei Durchgänge, und die Gleichungssysteme bleiben klein.
 struct Runner {
   Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 40; double tol = 1e-6; int lastIt = 0, fails = 0;
-  std::vector<std::vector<int>> grpDev, grpPort; std::vector<int> devGrp;   // devGrp: Gruppe je Gerät (vom Aufrufer gesetzt, sonst alle in einer)
+  std::vector<std::vector<int>> grpDev, grpPort; std::vector<int> devGrp; std::vector<int> capOut; Vec capI;   // capOut: Kondensatoren, deren Strom (a→b) mit ausgegeben wird   // devGrp: Gruppe je Gerät (vom Aufrufer gesetzt, sonst alle in einer)
   void set(const Sys &ns) { bool first = h.empty() || (int)h.size() != ns.nh; s = ns; if (first) { h.assign(s.nh, 0.0); } if ((int)vp.size() != s.m) { vp.assign(s.m, 0.0); ip.assign(s.m, 0.0); }
-    vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
+    vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); if (Jd.size() != (size_t)s.m * 16) Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
     int ng = 0; for (size_t k = 0; k < dev.size(); k++) ng = std::max(ng, k < devGrp.size() ? devGrp[k] + 1 : 1);
     grpDev.assign(ng, {}); grpPort.assign(ng, {});
     for (size_t k = 0; k < dev.size(); k++) { int G = k < devGrp.size() ? devGrp[k] : 0; grpDev[G].push_back((int)k); for (int q = 0; q < dev[k].np; q++) grpPort[G].push_back(dev[k].p0 + q); } }
@@ -170,6 +200,7 @@ struct Runner {
     std::fill(vb.begin(), vb.end(), 0.0); for (int j = 0; j < nh; j++) axpy(nh, h[j], &s.tPbh.d[(size_t)j * nh], vb.data());
     for (int j = 0; j < nu; j++) axpy(nh, u[j], &s.tPbu.d[(size_t)j * nh], vb.data()); for (int j = 0; j < m; j++) axpy(nh, ip[j], &s.tPbi.d[(size_t)j * nh], vb.data());
     for (int o = 0; o < s.no; o++) { double a = 0; for (int j = 0; j < nh; j++) a += s.Ooh(o, j) * h[j]; for (int j = 0; j < nu; j++) a += s.Oou(o, j) * u[j]; for (int j = 0; j < m; j++) a += s.Ooi(o, j) * ip[j]; y[o] = a; }
+    capI.resize(capOut.size()); for (size_t k = 0; k < capOut.size(); k++) { int c = capOut[k]; capI[k] = s.gc[c] * vb[c] + h[c]; }
     for (int k = 0; k < s.ncap; k++) h[k] = -(2 * s.gc[k] * vb[k] + h[k]);
     for (size_t gi = 0; gi < s.gl.size(); gi++) { const Mat &G = s.gl[gi]; int o = s.glOff[gi];
       double t[16]; for (int i = 0; i < G.r; i++) { double a = 0; for (int j = 0; j < G.c; j++) a += G(i, j) * vb[o + j]; t[i] = 2 * a + h[o + i]; }

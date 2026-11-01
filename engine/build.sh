@@ -7,7 +7,7 @@ set -euo pipefail
 E="$(cd "$(dirname "$0")" && pwd)"; R="$(dirname "$E")"; WASI="${WASI:-/opt/wasi-sdk}"
 [ "${1:-}" = "--wasi" ] && WASI="$2"
 cd "$E"; mkdir -p build
-node tools/extract.js "$R"; python3 tools/gen_geo.py gen
+node tools/extract.js "$R"; python3 tools/gen_geo.py gen; python3 tools/b15_panel.py "$R" >/dev/null
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
@@ -23,7 +23,9 @@ if [ -x "$WASI/bin/clang++" ]; then
      -Wl,--export=aor_init -Wl,--export=aor_set_target -Wl,--export=aor_process -Wl,--export=aor_take_peaks -Wl,--export=aor_ss_buffer -Wl,--export=aor_small_signal -Wl,--export=aor_latency -Wl,--initial-memory=16777216 wasm/wasm_api.cpp -o build/laney-core.wasm
   $W -Wl,--export=y_buffer -Wl,--export=y_parts_buffer -Wl,--export=y_target_buffer -Wl,--export=y_parts_count -Wl,--export=y_init \
      -Wl,--export=y_set_target -Wl,--export=y_process -Wl,--export=y_take_peak -Wl,--initial-memory=8388608 wasm/yamaha_wasm.cpp -o build/b100ii-core.wasm
-  echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm"
+  $W -Wl,--export=bf_buffer -Wl,--export=bf_target_buffer -Wl,--export=bf_peaks_buffer -Wl,--export=bf_freq_buffer -Wl,--export=bf_resp_buffer -Wl,--export=bf_init \
+     -Wl,--export=bf_latency -Wl,--export=bf_set_target -Wl,--export=bf_process -Wl,--export=bf_take_peaks -Wl,--export=bf_plot_init -Wl,--export=bf_plot -Wl,--initial-memory=16777216 wasm/b15_wasm.cpp -o build/b15nf-core.wasm
+  echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm, build/b15nf-core.wasm"
 else echo "wasi-sdk nicht gefunden ($WASI): WebAssembly übersprungen"; fi
 g++ -O3 -std=c++17 -Isrc -Igen tests/harness.cpp -o build/harness
 g++ -O2 -std=c++17 -Ithird_party tests/hosttest.cpp -ldl -o build/hosttest

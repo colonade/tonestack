@@ -54,9 +54,21 @@ inline void sdiode(const double *v, double *i, double *J) { const double Is = 1e
   if (x > 40) { double e = std::exp(40.0); i[0] = Is * (e * (1 + x - 40) - 1); J[0] = Is * e / nVt; return; }
   double e = std::exp(x); i[0] = Is * (e - 1); J[0] = Is * e / nVt; }
 
+// 6SL7-Anodenstrom als Tabelle (bilinear), wie im Laney-Kern: −60…+10 V Gitter in 0,05-V-Schritten, 0…450 V Anode in 1-V-Schritten;
+// außerhalb rechnet die Formel. Gitterstrom immer aus der Formel (unter −3 V sofort null).
+struct TriTab { static constexpr double G0 = -60, GS = 0.05, P0 = 0, PS = 1; static constexpr int GN = 1401, PN = 451; std::vector<float> t;
+  TriTab() { t.resize((size_t)GN * PN); double v[2], i[2], J[4]; for (int a = 0; a < GN; a++) for (int b = 0; b < PN; b++) { v[0] = G0 + a * GS; v[1] = P0 + b * PS; triode(T6SL7, v, i, J); t[(size_t)a * PN + b] = (float)i[1]; } }
+  void eval(const double *v, double *i, double *J) const {
+    double x = (v[0] - G0) / GS, y = (v[1] - P0) / PS;
+    if (!(x >= 0 && x < GN - 1.000001 && y >= 0 && y < PN - 1.000001)) { triode(T6SL7, v, i, J); return; }
+    double ig, dg; gridI(v[0], ig, dg); i[0] = ig; J[0] = dg; J[1] = 0;
+    int a = (int)x, b = (int)y; double fx = x - a, fy = y - b; const float *r0 = &t[(size_t)a * PN + b], *r1 = r0 + PN;
+    double p00 = r0[0], p01 = r0[1], p10 = r1[0], p11 = r1[1], q0 = p00 + (p01 - p00) * fy, q1 = p10 + (p11 - p10) * fy;
+    i[1] = q0 + (q1 - q0) * fx; J[2] = (q1 - q0) / GS; J[3] = ((p01 - p00) + ((p11 - p10) - (p01 - p00)) * fx) / PS; } };
+inline const TriTab &triTab() { static const TriTab T; return T; }
 enum Kind { K_6SL7 = 0, K_6L6 = 1, K_RECT = 2, K_SI = 3 };
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
-  switch (d.kind) { case K_6SL7: triode(T6SL7, v, i, J); break; case K_6L6: pentode(P6L6, v, i, J); break; case K_RECT: vdiode(v, i, J); break; default: sdiode(v, i, J); } }
+  switch (d.kind) { case K_6SL7: triTab().eval(v, i, J); break; case K_6L6: pentode(P6L6, v, i, J); break; case K_RECT: vdiode(v, i, J); break; default: sdiode(v, i, J); } }
 
 // ---------- Bauteile und Einstellungen ----------
 struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
@@ -76,16 +88,17 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
 };
 // Buchsen: 0 = Kanal 1 "Bass" (ohne Teiler), 1 = Kanal 1 "Guitar" (mit 120 k + 100 k der leeren Bass-Buchse), 2 = Kanal 2
-struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; };
+struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; };   // Regler 0…1 (Knopf 0…10)
+inline double &sfield(Setting &s, int i) { double *f[] = {&s.vol1, &s.treb1, &s.bass1, &s.vol2, &s.treb2, &s.bass2}; return *f[i]; }
 inline double logTaper(double x) { const double m = 0.15; if (x <= 0) return 0; if (x >= 1) return 1; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // 15 % in Mittelstellung
 
 // Ausgänge der Netzliste
 enum { O_SPK = 0, O_MOT = 1, O_B1 = 2, O_BIAS = 3, O_NO = 4 };
-struct Built { dk::Net net; std::vector<dk::Dev> dev; std::vector<int> grp; };   // grp: Lösungsgruppe je Gerät (0/1 Vorstufen, 2 Phasenumkehr+Endstufe, 3 Netzteil)
+struct Built { int lastTri = 0; dk::Net net; std::vector<dk::Dev> dev; std::vector<int> grp; int mon[5] = {0, 0, 0, 0, 0}; int capSpk = -1; double cmes = 0; };   // mon: Tore g−k von V1A, V1B, V3A, V5, V4 (aktiver Kanal); capSpk: Membran-Kondensator   // grp: Lösungsgruppe je Gerät (0/1 Vorstufen, 2 Phasenumkehr+Endstufe, 3 Netzteil)
 inline Built build(const Parts &v, const Setting &s) {
   Built B; dk::Net &o = B.net; std::vector<dk::Dev> &dev = B.dev; int G = 0;
   auto mark = [&]() { while (B.grp.size() < dev.size()) B.grp.push_back(G); };
-  auto tri = [&](const std::string &g, const std::string &p, const std::string &k) { int a = o.port(g, k); o.port(p, k); dev.push_back({K_6SL7, a, 2, nullptr});
+  auto tri = [&](const std::string &g, const std::string &p, const std::string &k) { int a = o.port(g, k); o.port(p, k); dev.push_back({K_6SL7, a, 2, nullptr}); B.lastTri = a;
     o.c(g, p, 2.8e-12); };   // 6SL7: Cgp 2,8 pF (RCA; wirkt als Miller-Kapazität). Cgk 3,0 pF und Cpk 3,8 pF weggelassen: Grenzfrequenzen über 80 kHz
   auto pen = [&](const std::string &g1, const std::string &g2, const std::string &a, const std::string &k) { int p0 = o.port(g1, k); o.port(g2, k); o.port(a, k); dev.push_back({K_6L6, p0, 3, nullptr});
     };   // 6L6GC: Kapazitäten (Eingang 10 pF hinter 1 kΩ, g1−a 0,6 pF, Ausgang 6,5 pF) wirken erst weit über 100 kHz, weggelassen
@@ -97,9 +110,9 @@ inline Built build(const Parts &v, const Setting &s) {
   // --- Vorstufen beider Kanäle ---
   for (int ch = 1; ch <= 2; ch++) { std::string c = std::to_string(ch);
     o.r("g" + c + "a", "0", ch == 1 ? v.rg1 : v.rg2);
-    tri("g" + c + "a", "p" + c + "a", "k" + c + "a"); o.r("k" + c + "a", "0", v.rk1); o.r("p" + c + "a", "B4", v.ra1);
+    tri("g" + c + "a", "p" + c + "a", "k" + c + "a"); if ((ch == 2) == (s.jack == 2)) B.mon[0] = B.lastTri; o.r("k" + c + "a", "0", v.rk1); o.r("p" + c + "a", "B4", v.ra1);
     o.c("p" + c + "a", "vt" + c, v.cc1); pot("vt" + c, "g" + c + "b", "0", v.vol, logTaper(ch == 1 ? s.vol1 : s.vol2));
-    tri("g" + c + "b", "p" + c + "b", "k" + c + "b"); o.r("k" + c + "b", "0", v.rk2); o.r("p" + c + "b", "B4", v.ra2);
+    tri("g" + c + "b", "p" + c + "b", "k" + c + "b"); if ((ch == 2) == (s.jack == 2)) B.mon[1] = B.lastTri; o.r("k" + c + "b", "0", v.rk2); o.r("p" + c + "b", "B4", v.ra2);
     o.c("p" + c + "b", "I" + c, v.cc2);
     // Klangregler (Baxandall): Bass 1 M linear mit .001/.01 zum Schleifer, Treble 1 M linear mit .00047/.0047
     double xb = ch == 1 ? s.bass1 : s.bass2, xt = ch == 1 ? s.treb1 : s.treb2;
@@ -109,14 +122,14 @@ inline Built build(const Parts &v, const Setting &s) {
     o.r("Y" + c, "mix", v.rmix); G = ch - 1; mark(); }
   G = 2;
   // --- Phasenumkehr V3 (6SL7, schwebende Paraphase) ---
-  tri("mix", "pA", "kA"); o.r("pA", "B3", v.pi_ra); o.r("kA", "N", v.pi_rk);
+  tri("mix", "pA", "kA"); B.mon[2] = B.lastTri; o.r("pA", "B3", v.pi_ra); o.r("kA", "N", v.pi_rk);
   tri("gB", "pB", "N"); o.r("pB", "B3", v.pi_ra); o.r("N", "0", v.pi_rt); o.c("N", "0", v.pi_ct);   // 1 k über F (Sekundärwicklung, über den Lautsprecherstecker an Masse)
   o.r("pA", "J", v.pi_rf1); o.r("J", "pB", v.pi_rf2); o.c("J", "gB", v.pi_cf); o.r("gB", "0", v.pi_rg);
   o.r(s.tap16 ? "s8" : "s16", "kA", v.rnfb);   // Gegenkopplung 10 k vom 16-Ω-Abgriff an die Kathode von V3A
   // --- Endstufe V4/V5 (6L6GC), feste Vorspannung über 270 k ---
   o.c("pA", "c5", v.cc3); o.r("c5", "BIAS", v.rgl); o.r("c5", "g5", v.rgs);
   o.c("pB", "c4", v.cc3); o.r("c4", "BIAS", v.rgl); o.r("c4", "g4", v.rgs);
-  pen("g5", "B2", "a5", "0"); pen("g4", "B2", "a4", "0"); mark(); G = 3;
+  B.mon[3] = (int)o.P.size(); pen("g5", "B2", "a5", "0"); B.mon[4] = (int)o.P.size(); pen("g4", "B2", "a4", "0"); mark(); G = 3;
   // --- Ausgangsübertrager: zwei Primärhälften, Sekundär 0–8 Ω–16 Ω; Gleichstromwiderstände als Reihenwiderstände ---
   { double np = 1, n8 = std::sqrt(8 / v.ot_zp), n16 = std::sqrt(16 / v.ot_zp);   // Windungen relativ zur ganzen Primärwicklung
     double n[4] = {np / 2, np / 2, n8, n16 - n8}, L0 = v.ot_lp; dk::Mat L(4, 4);
@@ -128,13 +141,14 @@ inline Built build(const Parts &v, const Setting &s) {
   { std::string sp = s.tap16 ? "s16" : "s8"; double a = v.spk_vas / v.spk_vb, fc = v.spk_fs * std::sqrt(1 + a), qec = v.spk_qes * std::sqrt(1 + a), qmc = v.spk_qms * std::sqrt(1 + a);
     double res = v.spk_re * qmc / qec, cmes = qec / (2 * PI * fc * v.spk_re), lces = 1 / ((2 * PI * fc) * (2 * PI * fc) * cmes);
     o.r(sp, "sl", v.spk_re); dk::Mat Le(1, 1); Le(0, 0) = v.spk_le; o.coupled({{"sl", "sm"}}, Le);
-    o.r("sm", "0", res); o.c("sm", "0", cmes); dk::Mat Lm(1, 1); Lm(0, 0) = lces; o.coupled({{"sm", "0"}}, Lm); }
+    o.r("sm", "0", res); B.capSpk = (int)o.C.size(); B.cmes = cmes; o.c("sm", "0", cmes); dk::Mat Lm(1, 1); Lm(0, 0) = lces; o.coupled({{"sm", "0"}}, Lm); }
   // --- Netzteil: Hochspannungswicklung (Mittelanzapfung an Masse), 5AR4, Siebung ---
   o.src("hva", v.hv_r, 1); o.src("hvb", v.hv_r, 2);
   { int p = o.port("hva", "B1"); dev.push_back({K_RECT, p, 1, nullptr}); p = o.port("hvb", "B1"); dev.push_back({K_RECT, p, 1, nullptr}); }
   o.c("B1", "0", v.c_b1); o.r("B1", "B2", v.r_b12); o.c("B2", "0", v.c_b2); o.r("B2", "B3", v.r_b23); o.c("B3", "0", v.c_b3); o.r("B2", "B4", v.r_b24); o.c("B4", "0", v.c_b4);
   // Vorspannung: von einem Ende der HV-Wicklung über 100 k, 56 k an Masse, 10D6 (Anode am Vorspannungsknoten), 47 k und 100 µF
-  o.r("hva", "br", v.bias_r1); o.r("br", "0", v.bias_r2); { int p = o.port("BIAS", "br"); dev.push_back({K_SI, p, 1, nullptr}); }
+  // eigener Eingang für die Vorspannung: bleibt bei Standby an (Standby trennt nur die Mittelanzapfung)
+  o.src("br", v.bias_r1 + v.hv_r, 3); o.r("br", "0", v.bias_r2); { int p = o.port("BIAS", "br"); dev.push_back({K_SI, p, 1, nullptr}); }
   o.r("BIAS", "0", v.bias_r3); o.c("BIAS", "0", v.bias_c);
   mark();
   o.out(s.tap16 ? "s16" : "s8"); o.out("sm"); o.out("B1"); o.out("BIAS");
@@ -143,19 +157,74 @@ inline Built build(const Parts &v, const Setting &s) {
 
 // ---------- Laufzeit ----------
 struct Core {
-  double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; double t = 0, w = 0; std::vector<std::string> nodeNames;
-  void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; cur = s; Built b = build(v, s); net = b.net; run.dev = b.dev; run.devGrp = b.grp; run.fn = devFn; run.set(dk::compile(net, fs)); w = 2 * PI * v.mains_hz / fs;
+  double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0, hvOn = 1;
+  void apply(const Setting &s) { cur = s; bl = build(v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
+  void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); apply(s); w = 2 * PI * v.mains_hz / fs; t = 0;
     // Startwerte: Kondensatoren auf die Spannungen der Spannungstabelle (Technical Data), damit das Netzteil nicht minutenlang einschwingen muss
     std::map<std::string, double> g = {{"B1", 430}, {"B2", 425}, {"B3", 345}, {"B4", 350}, {"BIAS", -50}, {"br", -60}, {"p1a", 165}, {"p2a", 165}, {"p1b", 175}, {"p2b", 175},
       {"k1a", 2.2}, {"k2a", 2.2}, {"k1b", 2}, {"k2b", 2}, {"pA", 235}, {"pB", 225}, {"kA", 2.4}, {"N", 2.2}, {"J", 230}, {"c5", -50}, {"c4", -50}, {"g5", -50}, {"g4", -50}};
-    auto V = [&](int n) { for (auto &kv : net.idx) if (kv.second == n) { auto it = g.find(kv.first); return it == g.end() ? 0.0 : it->second; } return 0.0; };
-    for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V(net.C[k].a) - V(net.C[k].b));
-    // Torspannungen als Newton-Startwerte
-    for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V(net.P[k].a) - V(net.P[k].b);
-  }
+    std::vector<double> V(net.nn + 1, 0.0); for (auto &kv : net.idx) { auto it = g.find(kv.first); if (it != g.end()) V[kv.second] = it->second; }
+    for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V[net.C[k].a] - V[net.C[k].b]);
+    for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
+    run.vp1 = run.vp; }
   // Abtastwert: x = Eingangsspannung (V); y[O_NO] Ausgänge
-  void step(double x, double *y) { double u[3] = {x, 0, 0}; double m = std::sqrt(2.0) * v.hv_rms * std::sin(t); u[1] = m; u[2] = -m; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }
+  void step(double x, double *y) { double m = std::sqrt(2.0) * v.hv_rms * std::sin(t), u[4] = {x, m * hvOn, -m * hvOn, m}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }
   void settle(double seconds) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) step(0, y); }
-  void setSetting(const Setting &s) { cur = s; Built b = build(v, s); dk::Sys ns = dk::compile(b.net, fs); net = b.net; run.dev = b.dev; run.devGrp = b.grp; run.set(ns); }
+  // Kleinsignal-Frequenzgang Eingang → Lautsprecherklemme im aktuellen Arbeitspunkt
+  std::complex<double> response(double f) { std::vector<std::vector<double>> J; std::vector<std::pair<int,int>> dp;
+    for (auto &d : run.dev) { std::vector<double> b((size_t)d.np * d.np); for (int a = 0; a < d.np; a++) for (int c = 0; c < d.np; c++) b[a * d.np + c] = run.Jd[(size_t)(d.p0 + a) * 16 + c]; J.push_back(b); dp.push_back({d.p0, d.np}); }
+    int o = spkAc ? net.idx.at("sm") : net.idx.at(cur.tap16 ? "s16" : "s8"); std::complex<double> r = dk::acResponse(net, J, dp, f, 0, o, 0);
+    if (spkAc) { std::complex<double> jw(0, 2 * PI * f), wc = 2 * PI * 3000; r *= jw * bl.cmes * spkNorm * (wc * wc / (wc * wc + jw * wc / 0.7 + jw * jw)); }   // Membranstrom · Normierung · Kegel-Tiefpass
+    return r; }
+  bool spkAc = false; double spkNorm = 1;
+};
+// Lautsprecher-Schalldruck: Strom durch die Membran-Kapazität ~ Beschleunigung; Normierung so, dass bei 1 kHz Schall- und Klemmenpegel gleich sind
+inline double accNorm(const Parts &v) { std::complex<double> j(0, 1); double a = v.spk_vas / v.spk_vb, fc = v.spk_fs * std::sqrt(1 + a), qec = v.spk_qes * std::sqrt(1 + a), qmc = v.spk_qms * std::sqrt(1 + a);
+  double res = v.spk_re * qmc / qec, cmes = qec / (2 * PI * fc * v.spk_re), lces = 1 / ((2 * PI * fc) * (2 * PI * fc) * cmes), w = 2 * PI * 1000;
+  std::complex<double> zm = 1.0 / (1.0 / res + 1.0 / (j * w * lces) + j * w * cmes); return std::abs((v.spk_re + j * w * v.spk_le + zm) / (zm * j * w * cmes)); }
+struct Biquad { double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
+  void lp(double fc, double q, double fs) { double w0 = 2 * PI * fc / fs, c = std::cos(w0), al = std::sin(w0) / (2 * q), a0 = 1 + al; b0 = (1 - c) / 2 / a0; b1 = (1 - c) / a0; b2 = b0; a1 = -2 * c / a0; a2 = (1 - al) / a0; }
+  double step(double x) { double y = b0 * x + z1; z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y; return y; } void reset() { z1 = z2 = 0; } };
+// Verstärker mit Überabtastung, Reglerglättung, Schaltern und Anzeigen. Ausgabe: Lautsprecherklemme bzw. Schalldruck, 1,0 = V_FS Volt
+constexpr double V_FS = 24.0;   // 30 W an 8 Ω = 21,9 V Spitze
+struct Amp {
+  double fsB = 48000; int os = 1; Core c; Parts v; Setting tgt; bool ready = false; int cnt = 0; double vin = 0.1; bool spk = false, power = true, standby = false; double spkMix = -1, pwr = 1;
+  double nrm = 1; Biquad cone; double vgk0[5] = {-1, -1, -1, -1, -1}, peak[5] = {0, 0, 0, 0, 0}, outPk = 0;
+  int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
+  void init(double fs, int os_, const Parts &pv, const Setting &s) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
+    c.init(fsB * os, v, s); c.settle(1.5); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]];
+    nrm = accNorm(v); c.spkNorm = nrm; cone.lp(3000, 0.7, fsB * os); spkMix = spk ? 1 : 0; pwr = power ? 1 : 0;
+    L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
+      for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
+        h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * wd; sum += h[k]; }
+      for (int k = 0; k < L; k++) h[k] /= sum;
+      hp.assign(os * 32, 0); for (int ph = 0; ph < os; ph++) for (int k = 0; k < 32; k++) hp[ph * 32 + k] = (k * os + ph < L) ? h[k * os + ph] : 0;
+      xb.assign(64, 0); yb.assign(2 * L, 0); xi = yi = 0; }
+    ready = true; }
+  int latency() const { return os > 1 ? 31 : 0; }
+  // Schalter sofort (Buchse baut das Netz neu, Zustände bleiben), Regler gleiten (15 ms)
+  void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16; tgt = s;
+    if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
+  void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * c.fs)); Setting n = c.cur; bool moved = false;
+    for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
+    if (moved) c.apply(n); }
+  double run1(double x) { tick(); double y[O_NO]; c.hvOn = standby ? 0 : 1; c.step(x, y);
+    for (int i = 0; i < 5; i++) { double d = std::fabs(c.run.vp[c.bl.mon[i]] - vgk0[i]); if (d > peak[i]) peak[i] = d; }
+    double el = y[O_SPK], ac = cone.step(c.run.capI[0] * nrm), st = 1.0 / (0.02 * c.fs);
+    double tS = spk ? 1 : 0; if (spkMix < tS) spkMix = std::min(tS, spkMix + st); else if (spkMix > tS) spkMix = std::max(tS, spkMix - st);
+    double tP = power ? 1 : 0; if (pwr < tP) pwr = std::min(tP, pwr + st); else if (pwr > tP) pwr = std::max(tP, pwr - st);
+    double o = (el + spkMix * (ac - el)) * pwr; if (std::fabs(el) > outPk) outPk = std::fabs(el); return o / V_FS; }
+  void process(float *buf, int n) { if (!ready) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
+    for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? buf[i] * vin : 0, y;
+      if (os == 1) y = run1(x);
+      else { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0;
+        for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
+          double z = run1(os * u); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = z;
+          if (ph == os - 2) for (int k = 0; k < L; k++) y += h[k] * yb[yi + k]; } }
+      if (!std::isfinite(y)) { y = 0; init(fsB, os, v, tgt); }
+      buf[i] = (float)y; } }
+  // Aussteuerung je Stufe seit der letzten Abfrage: Gitterhub bezogen auf die Gittervorspannung (1 = Gitter erreicht 0 V)
+  void takePeaks(double *out) { for (int i = 0; i < 5; i++) { out[i] = peak[i] / std::max(0.1, std::fabs(vgk0[i])); peak[i] = 0; } }
+  double takeOut() { double p = outPk; outPk = 0; return p; }   // Spitzenspannung am Lautsprecher (V)
 };
 } // namespace b15
