@@ -1,6 +1,6 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -50,6 +50,7 @@ struct Plugin {
   Dly d1, d2; long quiet = 0; std::atomic<bool> sleeping{false};
   // Überabtastung umschalten: neuer Kern entsteht in einem Hilfsfaden (Einschwingen dauert), der Audio-Faden übernimmt ihn fertig
   std::atomic<int> osAct{1}; std::atomic<Pend*> pending{nullptr}; std::thread worker; std::mutex wm; std::atomic<bool> building{false}, cbAsked{false}; std::atomic<bool> active{false};
+  std::atomic<bool> fresh{true}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus dem Ruhezustand neu beginnen (Start, reset, Lücke in der Zeit)
   Amp *proto = nullptr;   // Ruhezustand des laufenden Kerns: reset kopiert ihn (im Audio-Faden kein Einschwingen, keine Sperre)
   bgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1400, guiH = 0; std::string diagTxt;
   std::unique_ptr<Core> plotC; double plotFs = 0;   // eigene Instanz für den Frequenzgang (Oberflächen-Faden), zur Abtastrate plotFs
@@ -57,7 +58,7 @@ struct Plugin {
   Setting setting(double k1, double t1, double b1, double k2, double t2, double b2) const { Setting s; s.vol1 = k1 / 10; s.treb1 = t1 / 10; s.bass1 = b1 / 10; s.vol2 = k2 / 10; s.treb2 = t2 / 10; s.bass2 = b2 / 10;
     s.jack = std::max(0, std::min(2, (int)std::lround(val[P_JACK]))); return s; }
   Setting target() const { return setting(val[P_V1], val[P_T1], val[P_B1], val[P_V2], val[P_T2], val[P_B2]); }
-  void applyTo(Amp *a) const { if (!a) return; a->setTarget(target()); a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->standby = val[P_STBY] > 0.5; a->power = val[P_PWR] > 0.5; }
+  void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->standby = val[P_STBY] > 0.5; a->power = val[P_PWR] > 0.5; a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); if (worker.joinable()) worker.join(); building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } }
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
@@ -112,7 +113,7 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----
 // Hauptfaden (activate): Kerne aus dem eingeschwungenen Vorrat; reset im Audio-Faden kopiert nur noch proto
-static void newEngines(Plugin *pl, int os) { delete pl->eng; delete pl->eng2; delete pl->proto; pl->proto = newAmp(pl->fs, os); pl->eng = new Amp(*pl->proto); pl->eng2 = new Amp(*pl->proto); pl->osAct = os; pl->dirty = true; pl->monoOK = true; pl->eng2Stale = true; pl->d1 = Dly(); pl->d2 = Dly(); pl->quiet = 0; pl->sleeping = false; }
+static void newEngines(Plugin *pl, int os) { delete pl->eng; delete pl->eng2; delete pl->proto; pl->proto = newAmp(pl->fs, os); pl->eng = new Amp(*pl->proto); pl->eng2 = new Amp(*pl->proto); pl->osAct = os; pl->dirty = true; pl->monoOK = true; pl->eng2Stale = true; pl->d1 = Dly(); pl->d2 = Dly(); pl->quiet = 0; pl->sleeping = false; pl->fresh = true; pl->lastEnd = {}; }
 static bool pl_init(const clap_plugin_t *) { return true; }
 static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); pl->joinWorker();
 #ifndef TS_NO_GUI
@@ -125,10 +126,9 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); pl->joinWork
   delete pl->eng; delete pl->eng2; delete pl->proto; delete pl; }
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->joinWorker(); pl->fs = sr; newEngines(pl, pl->osWant()); pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->active = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); pl->active = false; pl->joinWorker(); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; delete pl->proto; pl->proto = nullptr; }
-static bool pl_start(const clap_plugin_t *) { return true; }
+static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }   // REAPER: FX wieder eingeschaltet
 static void pl_stop(const clap_plugin_t *) {}
-static void pl_reset(const clap_plugin_t *p) { Plugin *pl = P(p); if (!pl->eng || !pl->proto) return;   // Audio-Faden: nur kopieren
-  *pl->eng = *pl->proto; *pl->eng2 = *pl->proto; pl->dirty = true; pl->monoOK = true; pl->eng2Stale = true; pl->d1 = Dly(); pl->d2 = Dly(); pl->quiet = 0; pl->sleeping = false; }
+static void pl_reset(const clap_plugin_t *p) { P(p)->fresh = true; }   // Audio-Faden: Neubeginn beim nächsten process
 static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->audio_outputs_count; k++) { clap_audio_buffer_t &o = pr->audio_outputs[k]; for (uint32_t c = 0; c < o.channel_count; c++) { if (o.data32) std::memset(o.data32[c], 0, pr->frames_count * sizeof(float)); else if (o.data64) std::memset(o.data64[c], 0, pr->frames_count * sizeof(double)); } } }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
@@ -140,6 +140,13 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   // fertig eingeschwungener Kern mit neuer Überabtastung
   if (Pend *q = pl->pending.exchange(nullptr)) { if (q->a->os == pl->osWant()) { delete pl->eng; pl->eng = q->a; delete pl->proto; pl->proto = q->proto; pl->osAct = q->a->os; pl->eng2Stale = true; pl->monoOK = true; pl->dirty = true; pl->quiet = 0; pl->d1 = Dly(); pl->d2 = Dly(); }
     else { delete q->a; delete q->proto; } delete q; pl->building = false; if (pl->osWant() != pl->osAct) ask_main(pl); }   // inzwischen anders gewählt: neu anstoßen
+  // Neubeginn: eingeschwungener Ruhezustand (wie ein Verstärker, der während der Pause still weiterlief), Regler und Schalter sofort am Ziel.
+  // Auslöser: activate, start_processing, reset oder eine Pause zwischen zwei Aufrufen von über 0,2 s (bzw. drei Blocklängen) (FX aus und wieder an, ohne dass der Host es meldet).
+  // steady_time taugt dafür nicht: clap-wrapper (VST3, AU) liefert dort die Projektposition, die bei stehendem Transport steht und bei Schleifen springt.
+  { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
+    if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs)) pl->fresh = true; }   // große Puffer: erst ab dreifacher Blockdauer
+  if (pl->fresh.exchange(false) && pl->proto) { *pl->eng = *pl->proto; *pl->eng2 = *pl->proto; pl->applyTo(pl->eng, true); pl->applyTo(pl->eng2, true); pl->dirty = false;
+    pl->d1 = Dly(); pl->d2 = Dly(); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->outCur = -1; }
   if (pl->dirty.exchange(false)) { pl->applyTo(pl->eng); pl->applyTo(pl->eng2); pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; if (pl->osWant() != pl->osAct) ask_main(pl); }
   auto t0 = std::chrono::steady_clock::now();
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } m[i] = (float)x; m2[i] = (float)x2; }
@@ -172,6 +179,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
 static clap_process_status pl_process(const clap_plugin_t *p, const clap_process_t *pr) {
   DenormGuard dg; clap_process_status r;
   try { r = pl_process_impl(p, pr); } catch (...) { zeroOut(pr); r = CLAP_PROCESS_CONTINUE; }
+  P(p)->lastEnd = std::chrono::steady_clock::now();   // Ende des Aufrufs: Maß für Pausen des Hosts
   return r; }
 // Hauptfaden (vom Host nach request_callback): neuen Kern für die gewählte Überabtastung im Hilfsfaden einschwingen lassen
 // Sperre wm: pl_main kann vom Host und von der Oberfläche kommen (VST3: Timer evtl. aus einem Hilfsfaden), nie zwei Hilfsfäden zugleich

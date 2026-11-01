@@ -198,6 +198,8 @@ struct Amp {
   // Schalter sofort (Buchse baut das Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16; tgt = s;
     if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
+  // sofort auf das Ziel (ohne Gleiten), Schalter-Rampen am Ziel: nach Neustart aus dem Ruhezustand
+  void snap() { c.apply(tgt); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; spkMix = spk ? 1 : 0; pwr = power ? 1 : 0; cnt = 0; }
   // alle 64 Abtastwerte (Grundrate) einen Schritt Richtung Ziel; Netz neu aufbauen kostet etwa 0,1 ms
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }

@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.3
+Version 1.4
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -96,6 +96,15 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.4
+  - Switching the FX off and on again in REAPER (or a host reset) caused a
+    short odd sound: the amp resumed from the state it had when it was
+    switched off, or glided from default knob positions and ramped the
+    speaker in. Now it restarts from the settled idle state with all knobs
+    and switches already in place - like a real amp that kept running
+    silently in the meantime. Triggered by start of processing, reset, or
+    a gap in the host's sample clock.
 
 1.3 (tube simulation checked for realism)
   - 6SL7 preamp and phase inverter tubes are now computed with the full
