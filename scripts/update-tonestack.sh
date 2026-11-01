@@ -91,11 +91,6 @@ if teil plugins; then
       printf '%s\t%s\n' "$v" "$f"
     done | sort -V -k1,1 | tail -n1 | cut -f2-
   }
-  # umbenannt: Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF – die alte Fassung wegräumen, sonst stünden beide in der DAW
-  for ALT in "$CLAPDIR/Ampeg_B15NF.clap" "$VST3DIR/Ampeg_B15NF.vst3"; do
-    [ -e "$ALT" ] || continue; SICH="$HOME/.tonestack-sicherungen"; mkdir -p "$SICH"
-    mv "$ALT" "$SICH/$(basename "$ALT").$(date +%Y%m%d-%H%M%S)" && info "alte Fassung $(basename "$ALT") nach $SICH verschoben (umbenannt in AmpFett_B15NF)"
-  done
   for AMP in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
@@ -138,6 +133,14 @@ if teil plugins; then
     [ -n "$CL" ] || [ -n "$V3" ] || { rot "  $NAME: kein $FMT im Paket"; merke "$FMT $NAME: FEHLER"; }
     rm -rf "$T"
    done
+  done
+  # umbenannt: Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF. Die alte Fassung erst wegräumen, wenn die neue im selben Format da ist
+  for PAAR in "$CLAPDIR/Ampeg_B15NF.clap:$CLAPDIR/AmpFett_B15NF.clap" "$VST3DIR/Ampeg_B15NF.vst3:$VST3DIR/AmpFett_B15NF.vst3"; do
+    VORHER="${PAAR%%:*}"; NEUES="${PAAR#*:}"
+    [ -e "$VORHER" ] && [ -e "$NEUES" ] || continue
+    SICH="$(dirname "$VORHER")/../.tonestack-sicherungen"; mkdir -p "$SICH"; SICH="$(cd "$SICH" && pwd)"
+    if mv "$VORHER" "$SICH/$(basename "$VORHER").$(date +%Y%m%d-%H%M%S)"; then info "alte Fassung $(basename "$VORHER") nach $SICH verschoben (heißt jetzt AmpFett_B15NF)"; merke "$(basename "$VORHER"): weggeräumt (umbenannt)"
+    else rot "  $(basename "$VORHER") ließ sich nicht verschieben – bitte von Hand löschen"; merke "$(basename "$VORHER"): FEHLER beim Wegräumen"; fi
   done
   [ $GEF -eq 1 ] && info "In REAPER: Options > Preferences > Plug-ins > CLAP bzw. VST > Re-scan (REAPER hält geladene Plugins bis zum Neustart)."
   [ $GEF -eq 1 ] || { info "kein Plugin-Paket gefunden – übersprungen"; merke "Plugins: übersprungen (kein Paket)"; }

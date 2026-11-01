@@ -7,7 +7,8 @@ set -euo pipefail
 E="$(cd "$(dirname "$0")" && pwd)"; R="$(dirname "$E")"; WASI="${WASI:-/opt/wasi-sdk}"
 [ "${1:-}" = "--wasi" ] && WASI="$2"
 cd "$E"; mkdir -p build
-node tools/extract.js "$R"; python3 tools/gen_geo.py gen; if python3 -c "import PIL" 2>/dev/null; then python3 tools/b15_panel.py "$R" >/dev/null; else echo "Pillow fehlt: Frontplatte B-15NF wie eingecheckt (engine/gen)"; fi
+node tools/extract.js "$R"; python3 tools/gen_geo.py gen; 
+if [ "${B15PANEL:-0}" = 1 ]; then python3 tools/b15_panel.py "$R" >/dev/null; fi   # Frontplatte AmpFett nur auf Wunsch neu zeichnen (Pillow); sonst wie eingecheckt, damit Linux und Mac dasselbe Bild haben
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \

@@ -22,5 +22,6 @@ if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then gh release edit "$TAG
 else gh release create "$TAG" --target "$SHA" --title "Laney $LANEY / Yamaha $YAMAHA / AmpFett B-15NF $B15" --notes "$NOTES" --latest -R "$REPO"; fi
 gh release upload "$TAG" "${FILES[@]}" --clobber -R "$REPO"
 for old in $(gh api "repos/$REPO/releases" --paginate --jq '.[].tag_name'); do
-  [ "$old" = "$TAG" ] && continue; echo "lösche altes Release $old"; gh release delete "$old" --yes --cleanup-tag -R "$REPO"; done
+  [ "$old" = "$TAG" ] && continue; [[ "$old" == laney-*_yamaha-* ]] || continue   # nur eigene Releases
+  echo "lösche altes Release $old"; gh release delete "$old" --yes --cleanup-tag -R "$REPO"; done
 echo "Release $TAG: https://github.com/$REPO/releases/tag/$TAG"

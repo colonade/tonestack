@@ -6,12 +6,13 @@
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-ver() { grep -o '#define TS_VERSION "[^"]*"' "$ROOT/engine/clap/$1" | cut -d'"' -f2; }
-LV="$(ver plugin.cpp)"; YV="$(ver yplugin.cpp)"; BV="$(ver b15plugin.cpp)"
+eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"   # Versionen wie im Release
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/scripts" "$W/res"
 cat > "$W/scripts/postinstall" <<'S'
 #!/bin/bash
 # Audio-Unit-Verzeichnis neu einlesen lassen, damit Logic die neue Fassung sofort findet
+# Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF: alte Fassung entfernen, sonst stünden beide in Logic (feste Pfade)
+rm -rf "/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component" "/Library/Audio/Plug-Ins/VST3/Ampeg_B15NF.vst3"
 killall -9 AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
@@ -60,6 +61,6 @@ cat > "$W/dist.xml" <<X
   <pkg-ref id="de.tonestack.b15nf.vst3" version="$BV">b15nf-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
-P="$OUT/tonestack-Plugins-Mac_Laney-${LV}_Yamaha-${YV}_B15NF-${BV}.pkg"   # wie PKG in scripts/versions.sh
+P="$OUT/$PKG"
 productbuild --distribution "$W/dist.xml" --resources "$W/res" --package-path "$W/pkgs" "$P"
 echo "fertig: $P"

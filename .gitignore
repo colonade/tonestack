@@ -22,4 +22,6 @@ reaper-vst3/
 *.pkg
 
 # Fremde Schaltplan-Scans (Urheberrecht): nur lokal
-docs/b15nf/*.pdf
+docs/b15nf/*
+!docs/b15nf/SCHALTPLAN.md
+*.PDF

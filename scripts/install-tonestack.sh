@@ -86,6 +86,7 @@ seiten_pruefen() {
   pruefe "/ampfett-b15nf/" "B-15NF" "AmpFett B-15NF"
   pruefe "/ampfett-b15nf/b15nf-worklet.js" "registerProcessor" "B-15NF-Audio-Thread"
   pruefe "/ampfett-b15nf/b15nf-render.js" "importScripts" "B-15NF-Rechen-Thread"
+  pruefe "/ampeg-b15nf/" "ampfett-b15nf/" "Weiterleitung alter Name"
   code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASIS/.htaccess" 2>/dev/null || true)"
   if [ "$code" = "403" ] || [ "$code" = "404" ]; then info "ok   .htaccess nicht abrufbar ($code)"; else rot "  .htaccess ist öffentlich abrufbar (Status $code)"; PROBLEME=$((PROBLEME+1)); fi
   typ="$("${CURL[@]}" -o /dev/null -w '%{content_type}' "$BASIS/yamaha-b100ii/b100ii-worklet.js" 2>/dev/null || true)"

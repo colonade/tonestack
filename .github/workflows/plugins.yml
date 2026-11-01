@@ -95,6 +95,9 @@ jobs:
     # Linux- und Mac-Dateien ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
     needs: [linux, mac]
     if: github.ref == 'refs/heads/main'
+    concurrency:   # Veröffentlichungen nacheinander, eine spätere ersetzt eine noch wartende (sonst könnte ein älterer Lauf das neuere Release löschen)
+      group: plugins-publish
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     permissions:
       contents: write
