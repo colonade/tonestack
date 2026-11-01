@@ -3,14 +3,14 @@ KLANGREGLER-SIMULATOREN – Installation auf einem Apache-Webserver
 
 Inhalt
 ------
-index.html                     Übersichtsseite mit Links zu beiden Simulatoren
+index.html                     Übersichtsseite mit Links zu allen drei Simulatoren
 yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
 laney-aor50/                   Laney AOR 50 Klangregler-Simulator
 ampfett-b15nf/                 AmpFett B-15NF Simulator, Nachbau des Ampeg B-15NF (ganzer Verstärker; Rechen-Thread b15nf-render.js)
 ampeg-b15nf/                   Weiterleitung auf ampfett-b15nf/ (alter Name)
 assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
 assets/icons/                  App-Symbole für den Startbildschirm
-download/                      DAW-Plugins zum Herunterladen (Inhalt aus dem GitHub-Release, siehe scripts/pack-web.sh), verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, beide Verstärker)
+download/                      DAW-Plugins zum Herunterladen (Inhalt aus dem GitHub-Release, siehe scripts/pack-web.sh), verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, alle drei Verstärker)
 sw.js                          Service Worker für Offline-Betrieb
 .htaccess                      Apache-Einstellungen (versteckte Datei!)
 
@@ -39,13 +39,13 @@ Apache-Voraussetzungen
 - Alternativ zur .htaccess können die Einstellungen in einen
   <Directory>-Block der VirtualHost-Konfiguration übernommen werden.
 
-Anhören eigener Audiodateien (beide Simulatoren)
+Anhören eigener Audiodateien (alle Simulatoren)
 ------------------------------------------------
-In beiden Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
+In allen Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
 berechnete Schaltung abspielen. Die Datei wird nur im Browser verarbeitet,
 nichts wird zum Server übertragen. Die Rechnung läuft im eingebetteten WebAssembly-Kern; Ausweichkerne und
-Audio-Thread stehen in yamaha-b100ii/b100ii-worklet.js bzw.
-laney-aor50/laney-worklet.js (beide müssen mit hochgeladen werden).
+Audio-Thread stehen in yamaha-b100ii/b100ii-worklet.js, laney-aor50/laney-worklet.js
+bzw. ampfett-b15nf/b15nf-worklet.js und b15nf-render.js (müssen mit hochgeladen werden).
 Laney: Standardmäßig ist die geschätzte Röhrenverzerrung eingeschaltet
 (Röhrenmodelle nach N. Koren mit Gitterstrom, Röhrentyp je Fassung wählbar,
 Grundeinstellung 3 x 5751; nicht mit einem echten AOR 50 verglichen); ohne

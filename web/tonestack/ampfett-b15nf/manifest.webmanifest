@@ -1,6 +1,6 @@
 {
   "name": "AmpFett B-15NF Simulator",
-  "short_name": "B-15NF",
+  "short_name": "AmpFett",
   "description": "AmpFett B-15NF: Nachbau des Ampeg B-15NF Portaflex nach Werksschaltplan: beide Kanäle, Phasenumkehr, Endstufe, Netzteil, Lautsprecher; mit Anhören eigener Audiodateien.",
   "lang": "de",
   "start_url": "./",

@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-01-6";
+const VERSION = "2026-11-01-7";
 const FILES = [
   "./",
   "index.html",
@@ -17,6 +17,8 @@ const FILES = [
   "laney-aor50/manifest.webmanifest",
   "assets/icons/laney-aor50-192.png",
   "assets/icons/laney-aor50-512.png",
+  "ampeg-b15nf/",
+  "ampeg-b15nf/index.html",
   "ampfett-b15nf/",
   "ampfett-b15nf/index.html",
   "ampfett-b15nf/manifest.webmanifest",

@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   auto t0 = std::chrono::steady_clock::now(); c.init(fs, p, s);
   printf("Knoten %d, Zustände %d, Tore %d\n", c.run.s.nn, c.run.s.nh, c.run.s.m);
   c.settle(1.0); c.run.fails = 0; long its = 0; auto ta = std::chrono::steady_clock::now(); { double y[O_NO]; for (int i = 0; i < 48000; i++) { c.step(0, y); its += c.run.lastIt; } } printf("Newton-Schritte im Mittel %.2f, %.2f µs je Abtastwert\n", its / 48000.0, std::chrono::duration<double>(std::chrono::steady_clock::now() - ta).count() / 48000 * 1e6);
-  c.settle(0.0); auto t1 = std::chrono::steady_clock::now();
+  auto t1 = std::chrono::steady_clock::now();
   double sec = std::chrono::duration<double>(t1 - t0).count();
   printf("2 s Einschwingen: %.2f s Rechenzeit (%.0f %% Echtzeit), Newton-Fehlschläge %d\n", sec, sec / 2 * 100, c.run.fails);
   dc(c);

@@ -264,6 +264,7 @@ details.exp>summary::-webkit-details-marker{display:none}
 .pbig[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
 /* Symbol als Form statt Schriftzeichen (▶/❚❚ sitzen je nach Schrift und Gerät schief): Dreieck um 1/6 seiner Breite nach rechts, damit der Schwerpunkt in der Mitte liegt */
 .pbig::before{content:"";display:block;width:20px;height:23px;margin-left:4px;background:currentColor;clip-path:polygon(0 0,100% 50%,0 100%)}
+@media (forced-colors:active){.pbig::before{forced-color-adjust:none;background:ButtonText}}
 .pbig[aria-pressed="true"]::before{width:18px;height:20px;margin-left:0;clip-path:none;background:linear-gradient(to right,currentColor 0 34%,transparent 34% 66%,currentColor 66%)}
 .dwave{flex:1;min-width:0}
 .deck .wave{margin:0;height:72px;border-radius:8px}
@@ -929,7 +930,7 @@ $('snap').onclick = () => { const v = vals(); cmp = {kn:{...S.knobs}, v, mode:S.
 
 // ---------- Voreinstellungen mit Namen (im Browser gespeichert, getrennt vom laufenden Zustand) ----------
 const PKEY = 'b100ts-presets';
-let PRESETS; try { PRESETS = JSON.parse(localStorage.getItem(PKEY) || '[]'); if (!Array.isArray(PRESETS)) PRESETS = []; } catch (e) { PRESETS = []; }
+let PRESETS; try { PRESETS = JSON.parse(localStorage.getItem(PKEY) || '[]'); if (!Array.isArray(PRESETS)) PRESETS = []; PRESETS = PRESETS.filter(q => q && typeof q === 'object' && typeof q.name === 'string' && q.name.trim()); } catch (e) { PRESETS = []; }
 const psave = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRESETS)); } catch (e) { $('pstatus').textContent = 'Speichern im Browser nicht möglich (Speicher voll oder gesperrt).'; } };
 const pstate = () => ({ knobs: {...S.knobs}, sw: {...S.sw}, parts: {...S.parts}, vin: S.vin });
 const pvalid = q => q && typeof q === 'object' && q.knobs && typeof q.knobs === 'object' && q.parts && typeof q.parts === 'object';
@@ -952,9 +953,9 @@ function plist(selectName) {
   const i = PRESETS.findIndex(q => q.name === selectName); sel.value = i >= 0 ? String(i) : '';
   $('pupd').disabled = $('pdel').disabled = sel.value === ''; $('pexp').disabled = PRESETS.length === 0;
 }
-$('preset').onchange = e => { const q = PRESETS[+e.target.value]; $('pupd').disabled = $('pdel').disabled = !q; if (q) { papply(q); $('pstatus').textContent = `„${q.name}" geladen.`; } };
+$('preset').onchange = e => { const v = e.target.value, q = v === '' ? null : PRESETS[+v]; $('pupd').disabled = $('pdel').disabled = !q; if (q) { papply(q); $('pstatus').textContent = `„${q.name}" geladen.`; } };
 $('psave').onclick = () => {
-  const cur = PRESETS[+$('preset').value]; let name = prompt('Name der Voreinstellung:', cur ? cur.name : ''); if (name === null) return; name = name.trim().slice(0, 60); if (!name) return;
+  const cur = $('preset').value === '' ? null : PRESETS[+$('preset').value]; let name = prompt('Name der Voreinstellung:', cur ? cur.name : ''); if (name === null) return; name = name.trim().slice(0, 60); if (!name) return;
   const i = PRESETS.findIndex(q => q.name === name);
   if (i >= 0) { if (!confirm(`„${name}" gibt es schon. Überschreiben?`)) return; PRESETS[i] = { name, ...pstate() }; } else PRESETS.push({ name, ...pstate() });
   PRESETS.sort((a, b) => a.name.localeCompare(b.name, 'de')); psave(); plist(name); $('pstatus').textContent = `„${name}" gespeichert.`;

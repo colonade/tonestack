@@ -164,7 +164,7 @@ struct Runner {
     int ng = 0; for (size_t k = 0; k < dev.size(); k++) ng = std::max(ng, k < devGrp.size() ? devGrp[k] + 1 : 1);
     grpDev.assign(ng + 1, {}); grpPort.assign(ng + 1, {});   // letzte Gruppe: alle Geräte zusammen (Rückfall, wenn die Gruppen einander nicht schnell genug einig werden)
     for (size_t k = 0; k < dev.size(); k++) { int G = k < devGrp.size() ? devGrp[k] : 0; for (int GG : {G, ng}) { grpDev[GG].push_back((int)k); for (int q = 0; q < dev[k].np; q++) grpPort[GG].push_back(dev[k].p0 + q); } } }
-  // Gerät k auswerten: Ströme nach ip, Ableitungsblock nach Jd[p0*16 ...] (Zeilen je Tor, bis 16 Spalten)
+  // Gerät k auswerten: Ströme nach ip, Ableitungsblock nach Jd[p0*16 ...] (Zeilen je Tor, bis 16 Spalten; Geräte also höchstens 4 Tore)
   void evalDev(int k) { const Dev &d = dev[k]; double j[16]; fn(d, &vp[d.p0], &ip[d.p0], j); for (int a = 0; a < d.np; a++) for (int b = 0; b < d.np; b++) Jd[(size_t)(d.p0 + a) * 16 + b] = j[a * d.np + b]; }
   // q = p + K·i wird mitgeführt: Änderungen der Ströme einer Gruppe gehen spaltenweise ein
   double resid(int r) { return vp[r] - q[r]; }
@@ -176,6 +176,7 @@ struct Runner {
     for (int it = 0; it < maxIt; it++) {
       double err = 0; for (int i = 0; i < n; i++) { g[i] = resid(P[i]); err = std::max(err, std::fabs(g[i])); }
       if (it == 0) first = err;
+      if (!(err < 1e30)) { fails++; return err; }   // NaN/Überlauf: nicht als konvergiert werten
       if (err < tol) break;
       // A = I − K_GG·J_GG (J blockdiagonal je Gerät)
       for (int ri = 0; ri < n; ri++) { const double *kr = &s.K.d[(size_t)P[ri] * m]; double *ar = &A[(size_t)ri * n]; int ci = 0;
@@ -196,7 +197,7 @@ struct Runner {
     q = p; for (int c = 0; c < m; c++) axpy(m, ip[c], &s.tK.d[(size_t)c * m], q.data());
     lastIt = 0; int pass = 0; const int ng = (int)grpPort.size() - 1; bool ok = false;
     // Gruppen nacheinander (Block-Gauß-Seidel); nach gsPass Durchgängen ohne Einigung Newton über alle Tore gemeinsam
-    for (; pass < gsPass; pass++) { double e = 0; for (int G = 0; G < ng; G++) e = std::max(e, solveGroup(G)); if (e < tol) { ok = true; break; } }
+    for (; pass < gsPass; pass++) { double e = 0; for (int G = 0; G < ng; G++) { double r = solveGroup(G); if (!(r <= e)) e = r; } if (e < tol) { ok = true; break; } }   // NaN bleibt NaN
     if (!ok) for (int k = 0; k < maxPass; k++, pass++) if (solveGroup(ng) < tol) { ok = true; break; }
     if (!ok) {   // Rückfall: vom Wert des letzten Abtastwerts aus, kleinere Schritte, mehr Iterationen
       for (int k = 0; k < m; k++) vp[k] = vp1[k]; for (size_t k = 0; k < dev.size(); k++) evalDev((int)k);

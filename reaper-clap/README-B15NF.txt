@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -96,6 +96,21 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.2 (code review)
+  - Changing the oversampling twice quickly (1x -> 2x -> 4x) could leave the
+    plugin stuck at the old setting; the toggle then showed "switching ..."
+    for good. Fixed.
+  - Reset by the host no longer settles the amp on the audio thread (it
+    copies a stored idle state instead); safer start of the oversampling
+    helper thread.
+  - Absurd input (far beyond any instrument level, NaN) no longer stalls
+    the audio thread for half a second per sample: the input is limited to
+    +-20 V at the jack and a derailed circuit returns to its idle state at
+    once.
+  - Knob glides recompute the circuit every 64 samples of the base rate
+    (before: of the oversampled rate - up to 4x the work while turning).
+    Sound of steady settings unchanged.
 
 1.1
   - Treble and bass worked the wrong way round (10 cut, 0 boosted), in both

@@ -74,7 +74,7 @@ inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
 struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double rin = 120e3, rpad = 100e3, rg1 = 5.6e6, rg2 = 2.2e6, rk1 = 5.6e3, ra1 = 470e3, cc1 = 0.022e-6, vol = 1e6, rk2 = 2.2e3, ra2 = 220e3, cc2 = 0.022e-6;
   double ts_r1 = 220e3, ts_bass = 1e6, ts_r2 = 22e3, ts_c1 = 0.001e-6, ts_c2 = 0.01e-6, ts_r3 = 270e3, ts_r4 = 120e3, ts_c3 = 0.00047e-6, ts_treb = 1e6, ts_c4 = 0.0047e-6;
-  double treb1 = 1e6;   // Stand 4-65/9-65: Kanal 1 Treble als "4 M" eingezeichnet
+  double treb1 = 1e6;   // Kanal 1 Treble: 1 M wie Kanal 2 und Technical Data (Stand 1-66); in 4-65/9-65 als „4 M“ eingezeichnet
   double rmix = 270e3, pi_ra = 120e3, pi_rk = 220, pi_rt = 1e3, pi_ct = 25e-6, pi_rf1 = 470e3, pi_rf2 = 510e3, pi_cf = 0.022e-6, pi_rg = 470e3, rnfb = 10e3;
   double cc3 = 0.022e-6, rgl = 270e3, rgs = 1e3;
   double c_b1 = 30e-6, r_b12 = 1e3, c_b2 = 40e-6, r_b23 = 22e3, c_b3 = 40e-6, r_b24 = 22e3, c_b4 = 40e-6;
@@ -159,7 +159,7 @@ inline Built build(const Parts &v, const Setting &s) {
 // ---------- Laufzeit ----------
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0, hvOn = 1;
-  void apply(const Setting &s) { cur = s; bl = build(v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
+  void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); apply(s); w = 2 * PI * v.mains_hz / fs; t = 0;
     // Startwerte: Kondensatoren auf die Spannungen der Spannungstabelle (Technical Data), damit das Netzteil nicht minutenlang einschwingen muss
     std::map<std::string, double> g = {{"B1", 430}, {"B2", 425}, {"B3", 345}, {"B4", 350}, {"BIAS", -50}, {"br", -60}, {"p1a", 165}, {"p2a", 165}, {"p1b", 175}, {"p2b", 175},
@@ -192,8 +192,9 @@ struct Amp {
   double fsB = 48000; int os = 1; Core c; Parts v; Setting tgt; bool ready = false; int cnt = 0; double vin = 0.1; bool spk = false, power = true, standby = false; double spkMix = -1, pwr = 1;
   double nrm = 1; Biquad cone; double vgk0[5] = {-1, -1, -1, -1, -1}, peak[5] = {0, 0, 0, 0, 0}, outPk = 0;
   int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
+  Core c0; int bad = 0;   // c0: eingeschwungener Zustand nach init (Rückfall bei entgleister Rechnung); bad: Abtastwerte bis zum nächsten erlaubten Rückfall
   void init(double fs, int os_, const Parts &pv, const Setting &s) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
-    c.init(fsB * os, v, s); c.settle(1.5); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]];
+    c.init(fsB * os, v, s); c.settle(1.5); c0 = c; for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]];
     nrm = accNorm(v); c.spkNorm = nrm; cone.lp(3000, 0.7, fsB * os); spkMix = spk ? 1 : 0; pwr = power ? 1 : 0;
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
@@ -206,23 +207,26 @@ struct Amp {
   // Schalter sofort (Buchse baut das Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16; tgt = s;
     if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
-  void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * c.fs)); Setting n = c.cur; bool moved = false;
+  // alle 64 Abtastwerte (Grundrate) einen Schritt Richtung Ziel; Netz neu aufbauen kostet etwa 0,1 ms
+  void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     if (moved) c.apply(n); }
-  double run1(double x) { tick(); double y[O_NO]; c.hvOn = standby ? 0 : 1; c.step(x, y);
+  double run1(double x) { double y[O_NO]; c.hvOn = standby ? 0 : 1; c.step(x, y);
     for (int i = 0; i < 5; i++) { double d = std::fabs(c.run.vp[c.bl.mon[i]] - vgk0[i]); if (d > peak[i]) peak[i] = d; }
     double el = y[O_SPK], ac = cone.step(c.run.capI[0] * nrm), st = 1.0 / (0.02 * c.fs);
     double tS = spk ? 1 : 0; if (spkMix < tS) spkMix = std::min(tS, spkMix + st); else if (spkMix > tS) spkMix = std::max(tS, spkMix - st);
     double tP = power ? 1 : 0; if (pwr < tP) pwr = std::min(tP, pwr + st); else if (pwr > tP) pwr = std::max(tP, pwr - st);
     double o = (el + spkMix * (ac - el)) * pwr; if (std::fabs(el) > outPk) outPk = std::fabs(el); return o / V_FS; }
   void process(float *buf, int n) { if (!ready) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
-    for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? buf[i] * vin : 0, y;
+    for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? std::max(-20.0, std::min(20.0, buf[i] * vin)) : 0, y; tick();   // Eingang auf ±20 V begrenzt (Unsinnswerte; ein Bass liefert höchstens wenige Volt)
       if (os == 1) y = run1(x);
       else { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0;
         for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
           double z = run1(os * u); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = z;
           if (ph == os - 2) for (int k = 0; k < L; k++) y += h[k] * yb[yi + k]; } }
-      if (!std::isfinite(y)) { y = 0; init(fsB, os, v, tgt); }
+      if (!(std::fabs(y) < 10)) { y = 0;   // entgleist (NaN oder über 240 V am Lautsprecher, physikalisch unmöglich): eingeschwungenen Zustand zurückholen (schnell, kein neues Einschwingen), höchstens einmal je 0,1 s
+        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); for (int k = 0; k < 5; k++) vgk0[k] = c.run.vp[c.bl.mon[k]]; std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); cone.reset(); bad = (int)(0.1 * fsB); } }
+      if (bad > 0) bad--;
       buf[i] = (float)y; } }
   // Aussteuerung je Stufe seit der letzten Abfrage: Gitterhub bezogen auf die Gittervorspannung (1 = Gitter erreicht 0 V)
   void takePeaks(double *out) { for (int i = 0; i < 5; i++) { out[i] = peak[i] / std::max(0.1, std::fabs(vgk0[i])); peak[i] = 0; } }
