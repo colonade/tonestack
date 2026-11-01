@@ -23,7 +23,9 @@ jobs:
       - name: Werkzeuge
         run: sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake zip
       - name: Bauen (CLAP, VST3, Testwerkzeuge)
-        run: VST3=1 bash engine/build.sh
+        run: |
+          set -o pipefail
+          VST3=1 bash engine/build.sh 2>&1 | tee build.log || { python3 mac/annot.py Linux-Bau build.log 40 'error|Error|FEHLER|Traceback|No such'; exit 1; }
       - name: Prüfen
         run: |
           set -euo pipefail
