@@ -133,7 +133,21 @@ NEU="$TMP/tonestack"
 for f in index.html sw.js .htaccess yamaha-b100ii/index.html yamaha-b100ii/b100ii-worklet.js laney-aor50/index.html laney-aor50/laney-worklet.js laney-aor50/laney-render.js assets/fonts/archivo-latin.woff2; do
   [ -f "$NEU/$f" ] || fehler "Im ZIP fehlt tonestack/$f – ist es das richtige Paket?"
 done
-ls "$NEU"/download/*.zip >/dev/null 2>&1 || gelb "Hinweis: im ZIP liegt kein download/*.zip (Plugin-Downloads der Übersichtsseite)"
+ls "$NEU"/download/*.zip >/dev/null 2>&1 || info "Hinweis: im ZIP liegt kein download/*.zip (Plugin-Downloads der Übersichtsseite)"
+# Sicherheit: nur gewöhnliche Dateien und Ordner (keine Verknüpfungen, die aus dem Webordner hinauszeigen könnten),
+# nur bekannte Dateitypen (nichts, was Apache als Programm ausführen könnte), und in der .htaccess nur die Anweisungen,
+# die die Seiten wirklich brauchen (kein AddHandler/SetHandler/Action/ExecCGI/php_…)
+FREMD="$(find "$NEU" ! -type f ! -type d -print -quit)"; [ -z "$FREMD" ] || fehler "Im ZIP liegt eine Verknüpfung oder Sonderdatei: ${FREMD#$TMP/} – nicht installiert."
+FREMD="$(find "$NEU" -type f ! -name .htaccess ! -regex '.*\.\(html\|js\|css\|json\|webmanifest\|png\|jpg\|jpeg\|svg\|ico\|woff2\|txt\|zip\|pkg\)$' -print -quit)"
+[ -z "$FREMD" ] || fehler "Unerwarteter Dateityp im ZIP: ${FREMD#$TMP/} – nicht installiert."
+while IFS= read -r z; do
+  z="${z#"${z%%[![:space:]]*}"}"; [ -z "$z" ] || [ "${z:0:1}" = "#" ] && continue
+  case "${z%% *}" in
+    AddType|AddCharset|AddDefaultCharset|AddOutputFilterByType|DirectoryIndex|ExpiresActive|ExpiresByType|ExpiresDefault|Header|"<IfModule"|"</IfModule>"|"<FilesMatch"|"</FilesMatch>") ;;
+    Options) [ "$z" = "Options -Indexes" ] || fehler ".htaccess im ZIP: unerwartete Anweisung „$z“ – nicht installiert." ;;
+    *) fehler ".htaccess im ZIP: unerwartete Anweisung „$z“ – nicht installiert." ;;
+  esac
+done < "$NEU/.htaccess"
 info "Paketinhalt vollständig (Version $(grep -o 'VERSION = "[^"]*"' "$NEU/sw.js" | cut -d'"' -f2))"
 
 # ---------- 2. Module ----------
@@ -150,7 +164,8 @@ CONF_ALT=""; [ -f "$CONF" ] && CONF_ALT="$(cat "$CONF")"
 cat > "$CONF" <<EOF
 # Klangregler-Simulatoren: mitgelieferte .htaccess für diesen Ordner zulassen (angelegt von install-tonestack.sh)
 <Directory "$ZIEL">
-    AllowOverride FileInfo Indexes Options
+    AllowOverride FileInfo Indexes Options=Indexes
+    Options -Indexes -ExecCGI -Includes -FollowSymLinks
     Require all granted
 </Directory>
 EOF
@@ -167,7 +182,7 @@ if [ -e "$ZIEL" ]; then
   mv "$ZIEL" "$SICHERUNG"; info "bisherige Installation gesichert: $SICHERUNG"
 fi
 mkdir -p "$(dirname "$ZIEL")"
-cp -a "$NEU" "$ZIEL"
+cp -r --no-preserve=all "$NEU" "$ZIEL"
 chown -R root:root "$ZIEL"
 find "$ZIEL" -type d -exec chmod 755 {} +
 find "$ZIEL" -type f -exec chmod 644 {} +

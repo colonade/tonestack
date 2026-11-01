@@ -1,6 +1,8 @@
 # Mac-Fassungen der Plugins (Audio Unit für Logic, VST3) auf einem macOS-Rechner von GitHub bauen.
 # Start: von Hand (Actions → macOS-Plugins → Run workflow) oder bei jedem Push auf main.
-# Ergebnis: Artefakt "tonestack-mac" mit Laney_AOR50_Mac-<Version>.zip und Yamaha_B100II_Mac-<Version>.zip
+# Ergebnis: Artefakt "tonestack-mac" (ZIPs je Plugin, Installerpaket, Prüfbilder, SHA-256-Summen).
+# Sicherheit: Der Bau (fremde Werkzeuge und SDKs) läuft nur mit Leserechten und ohne gespeicherte Zugangsdaten.
+# Nur der kleine Veröffentlichungsschritt darf schreiben; er nimmt ausschließlich das Paket und die Prüfbilder aus dem Artefakt.
 name: macOS-Plugins
 on:
   workflow_dispatch:
@@ -8,12 +10,16 @@ on:
     branches: [main]
     paths: ['engine/**', 'mac/**', '.github/workflows/mac-plugins.yml']
 permissions:
-  contents: write   # Installerpaket für die Download-Seite zurück ins Repo
+  contents: read
 jobs:
   build:
-    runs-on: macos-15   # macos-14 wird am 2026-11-02 abgeschaltet
+    runs-on: macos-15   # macos-14 wurde 2026-11-02 abgeschaltet
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
       - name: Werkzeuge
         run: brew install ninja
       - name: Prüfbilder der Oberfläche
@@ -42,19 +48,41 @@ jobs:
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
             for sub in Lany B100; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
           } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
-      - uses: actions/upload-artifact@v5
+      - name: Prüfsummen
+        run: |
+          cp mac/test/out/*.png out/
+          (cd out && shasum -a 256 *.pkg *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         with:
           name: tonestack-mac
           path: |
             out/*.zip
             out/*.pkg
-      - name: Installerpaket für die Webseite ablegen (web/tonestack/download)
-        if: github.ref == 'refs/heads/main'
+            out/*.png
+            out/SHA256SUMS.txt
+  publish:
+    # Installerpaket für die Download-Seite und Prüfbilder zurück ins Repo (nur main). Kein fremder Code läuft hier.
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: tonestack-mac
+          path: art
+      - name: Paket prüfen und ablegen
         run: |
+          set -euo pipefail
+          cd art && sha256sum -c SHA256SUMS.txt && cd ..
+          n=$(ls art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
           git config user.name "tonestack-mac-bau"; git config user.email "actions@users.noreply.github.com"
           git pull --rebase origin main
           rm -f web/tonestack/download/tonestack-Plugins-Mac_*.pkg
-          cp out/*.pkg web/tonestack/download/
+          cp art/tonestack-Plugins-Mac_*.pkg web/tonestack/download/
+          mkdir -p mac/test/out && cp art/laney.png art/yamaha.png mac/test/out/
           git add -A web/tonestack/download
-          git add -f mac/test/out/*.png
-          git commit -m "Mac-Installerpaket für die Download-Seite und Prüfbilder: $(basename out/*.pkg) [skip ci]" && git push origin HEAD:main || echo "nichts zu übernehmen"
+          git add -f mac/test/out/laney.png mac/test/out/yamaha.png
+          git commit -m "Mac-Installerpaket für die Download-Seite und Prüfbilder: $(basename art/tonestack-Plugins-Mac_*.pkg) [skip ci]" && git push origin HEAD:main || echo "nichts zu übernehmen"
