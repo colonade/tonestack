@@ -20,3 +20,6 @@ mac/test/out/
 reaper-clap/*.clap
 reaper-vst3/
 *.pkg
+
+# Fremde Schaltplan-Scans (Urheberrecht): nur lokal
+docs/b15nf/*.pdf
