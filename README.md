@@ -8,7 +8,7 @@ Vollständige Quellen: Web, Plugins (CLAP, VST3, Audio Unit für den Mac), C++-R
 |---|---|---|
 | `web/tonestack/` | Apache-Fassung (Übersicht, Yamaha, Laney) wie auf borg.fluxstatus.de; `download/` wird erst beim Packen (`scripts/pack-web.sh`) mit den Release-Dateien gefüllt; `LIESMICH.txt` beschreibt die Dateien | HTML/JS direkt; Rechenkerne als `*-worklet.js`, WebAssembly-Kerne als Base64 in den `index.html` eingebettet |
 | `reaper-clap/` | READMEs der Plugins (gelten für CLAP, VST3 und Mac; kommen als `README.txt` in die ZIPs) und `THIRD-PARTY-LICENSES.txt`; Quellen in `engine/` | Text |
-| `mac/` | Mac-Bau (läuft auf GitHub Actions, `.github/workflows/mac-plugins.yml`): `package.sh`, `make_pkg.sh` (Installerpaket), `LIESMICH-Mac.txt`, Prüfbilder (`test/`) | Shell |
+| `mac/` | Mac-Bau (läuft auf GitHub Actions, `.github/workflows/plugins.yml`): `package.sh`, `make_pkg.sh` (Installerpaket), `LIESMICH-Mac.txt`, Prüfbilder (`test/`) | Shell |
 | `scripts/` | `install-tonestack.sh` (Apache), `update-tonestack.sh` (Web, Plugins), `pack-plugins.sh`, `release.sh`, `pack-web.sh`, `versions.sh` | Shell |
 | `docs/` | `PROJEKTSTAND.md` (Übergabe), Bass-Umbau (Kondensatoren) als PDF | – |
 
@@ -39,16 +39,15 @@ Voraussetzungen: g++ 13 (C++17), node, python3, pkg-config, libcairo2-dev, libx1
 
 Neue Plugin-Fassung ausliefern:
 1. Version `TS_VERSION` in `engine/clap/plugin.cpp` bzw. `yplugin.cpp`, in `engine/vst3/CMakeLists.txt` und im README (`reaper-clap/`) anheben; Links und Versionen in `web/tonestack/index.html`, `VERSION` in `web/tonestack/sw.js`.
-2. `VST3=1 bash engine/build.sh`, `bash scripts/pack-plugins.sh` (→ `dist/`), `bash engine/verify.sh`.
-3. Committen und pushen; der Mac-Bau hängt das Installerpaket an das Release `laney-<V>_yamaha-<V>`.
-4. `bash scripts/release.sh`: lädt die Linux-ZIPs ins selbe Release und löscht ältere Releases.
-5. `bash scripts/pack-web.sh` → `web/tonestack-apache.zip` (Seiten plus Release-Dateien in `download/`).
+2. Lokal prüfen: `VST3=1 bash engine/build.sh`, `bash scripts/pack-plugins.sh` (→ `dist/`), `bash engine/verify.sh`.
+3. Committen und pushen. Der Bau auf GitHub (`.github/workflows/plugins.yml`) baut Linux (CLAP, VST3) und Mac (Audio Unit, VST3, Installerpaket), prüft und veröffentlicht alles als Release `laney-<V>_yamaha-<V>`; ältere Releases werden gelöscht (`scripts/release.sh`).
+4. `bash scripts/pack-web.sh` → `web/tonestack-apache.zip` (Seiten plus Release-Dateien in `download/`).
 
 Installation beim Nutzer: `update-tonestack.sh --nur plugins` (CLAP nach `~/.clap`, VST3 nach `~/.vst3`).
 
-## Mac (Audio Unit, VST3)
+## Bau auf GitHub
 
-Der Mac-Bau läuft bei jedem Push auf `main` (Änderungen in `engine/`, `mac/`) auf einem macOS-Rechner von GitHub: Plugins bauen, mit `auval` prüfen, ad hoc signieren, Installerpaket bauen und probehalber installieren. Ergebnis: Artefakt `tonestack-mac` (ZIPs, `.pkg`, Prüfbilder, SHA-256-Summen); der Veröffentlichungsschritt hängt Installerpaket, Prüfbilder (`mac-laney.png`, `mac-yamaha.png`) und Prüfsummen an das Release `laney-<V>_yamaha-<V>`. Das Paket ist nicht bei Apple beglaubigt; die Freigabe beschreibt `mac/LIESMICH-Mac.txt`.
+`.github/workflows/plugins.yml` läuft bei jedem Push auf `main` mit Änderungen an `engine/`, `mac/`, `reaper-clap/` oder den Paket-Skripten (oder von Hand: Actions → Plugins → Run workflow). Linux: Ubuntu 24.04, `VST3=1 bash engine/build.sh`, kurze Prüfung, `scripts/pack-plugins.sh`. Mac: Plugins bauen, mit `auval` prüfen, ad hoc signieren, Installerpaket bauen und probehalber installieren. Die Bau-Jobs haben nur Leserechte; der Veröffentlichungsschritt prüft die SHA-256-Summen und lädt alles ins Release (ZIPs, `.pkg`, Prüfbilder `mac-*.png`, Summen). Das Mac-Paket ist nicht bei Apple beglaubigt; die Freigabe beschreibt `mac/LIESMICH-Mac.txt`.
 
 Signaturschlüssel und andere Zugangsdaten gehören **nicht** in dieses Repository (siehe `.gitignore`).
 

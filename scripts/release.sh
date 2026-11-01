@@ -1,22 +1,26 @@
 #!/bin/bash
-# Veröffentlicht die Linux-Plugins (dist/*.zip aus pack-plugins.sh) als GitHub-Release laney-<V>_yamaha-<V>
+# Lädt die Plugin-Dateien eines Ordners in das GitHub-Release laney-<V>_yamaha-<V> (legt es an, ersetzt gleichnamige Dateien)
 # und löscht alle älteren Releases samt Tags (Binärdateien lassen sich aus dem jeweiligen Commit neu bauen).
-# Das Mac-Installerpaket hängt der Mac-Bau (.github/workflows/mac-plugins.yml) an dasselbe Release.
-# Braucht gh (angemeldet, Schreibrechte).   bash scripts/release.sh
+# Läuft normalerweise im Bau auf GitHub (.github/workflows/plugins.yml); von Hand mit angemeldetem gh: bash scripts/release.sh dist
 set -euo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
-REPO="${REPO:-colonade/tonestack}"
-FILES=(dist/Laney_AOR50_CLAP-"$LANEY".zip dist/Laney_AOR50_VST3-"$LANEY".zip dist/Yamaha_B100II_CLAP-"$YAMAHA".zip dist/Yamaha_B100II_VST3-"$YAMAHA".zip)
-for f in "${FILES[@]}"; do [ -f "$f" ] || { echo "fehlt: $f (erst bash scripts/pack-plugins.sh)" >&2; exit 1; }; done
-SHA="$(git rev-parse HEAD)"
-git fetch -q origin main; [ "$SHA" = "$(git rev-parse origin/main)" ] || { echo "HEAD ist nicht origin/main – erst pushen" >&2; exit 1; }
+DIR="${1:?Ordner mit den Dateien angeben}"; REPO="${GITHUB_REPOSITORY:-colonade/tonestack}"; SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+shopt -s nullglob; FILES=("$DIR"/*.zip "$DIR"/*.pkg "$DIR"/*.png "$DIR"/SHA256SUMS*.txt); shopt -u nullglob
+[ ${#FILES[@]} -gt 0 ] || { echo "keine Dateien in $DIR" >&2; exit 1; }
+for f in "${FILES[@]}"; do case "$(basename "$f")" in   # nur Dateien der aktuellen Versionen
+  *_CLAP-*.zip|*_VST3-*.zip) case "$(basename "$f")" in Laney_AOR50_*-"$LANEY".zip|Yamaha_B100II_*-"$YAMAHA".zip) ;; *) echo "Version passt nicht: $f" >&2; exit 1;; esac;;
+  *.pkg) [ "$(basename "$f")" = "tonestack-Plugins-Mac_Laney-${LANEY}_Yamaha-${YAMAHA}.pkg" ] || { echo "Version passt nicht: $f" >&2; exit 1; };;
+esac; done
 NOTES="Laney AOR 50 Preamp $LANEY · Yamaha B100-II Bass Amp $YAMAHA
 
-Linux (x86-64): je Verstärker CLAP und VST3 als ZIP mit Anleitung (README.txt).
-Mac (Audio Unit für Logic und VST3): Installerpaket tonestack-Plugins-Mac_….pkg, angehängt vom Mac-Bau.
-Gebaut aus Commit $SHA. Änderungen: README.txt im ZIP (Abschnitt $LANEY bzw. $YAMAHA)."
-if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then gh release upload "$TAG" "${FILES[@]}" --clobber -R "$REPO"; gh release edit "$TAG" --notes "$NOTES" -R "$REPO" >/dev/null
-else gh release create "$TAG" "${FILES[@]}" --target "$SHA" --title "Laney $LANEY / Yamaha $YAMAHA" --notes "$NOTES" --latest -R "$REPO"; fi
+- Linux (x86-64): je Verstärker CLAP und VST3 als ZIP, mit Anleitung (README.txt).
+- Mac (Audio Unit für Logic, VST3; Apple Silicon und Intel ab macOS 11): Installerpaket tonestack-Plugins-Mac_….pkg. Nicht bei Apple beglaubigt: beim ersten Öffnen Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen“.
+- Prüfbilder der Mac-Oberfläche (mac-*.png), SHA-256-Summen.
+
+Gebaut auf GitHub aus Commit $SHA. Änderungen: README.txt in den ZIPs."
+if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then gh release edit "$TAG" --title "Laney $LANEY / Yamaha $YAMAHA" --notes "$NOTES" --latest -R "$REPO" >/dev/null
+else gh release create "$TAG" --target "$SHA" --title "Laney $LANEY / Yamaha $YAMAHA" --notes "$NOTES" --latest -R "$REPO"; fi
+gh release upload "$TAG" "${FILES[@]}" --clobber -R "$REPO"
 for old in $(gh api "repos/$REPO/releases" --paginate --jq '.[].tag_name'); do
   [ "$old" = "$TAG" ] && continue; echo "lösche altes Release $old"; gh release delete "$old" --yes --cleanup-tag -R "$REPO"; done
 echo "Release $TAG: https://github.com/$REPO/releases/tag/$TAG"

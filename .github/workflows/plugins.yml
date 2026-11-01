@@ -1,19 +1,46 @@
-# Mac-Fassungen der Plugins (Audio Unit für Logic, VST3) auf einem macOS-Rechner von GitHub bauen.
-# Start: von Hand (Actions → macOS-Plugins → Run workflow) oder bei jedem Push auf main.
-# Ergebnis: Artefakt "tonestack-mac" (ZIPs je Plugin, Installerpaket, Prüfbilder, SHA-256-Summen) und, auf main, Anhänge am Release.
-# Sicherheit: Der Bau (fremde Werkzeuge und SDKs) läuft nur mit Leserechten und ohne gespeicherte Zugangsdaten.
-# Nur der kleine Veröffentlichungsschritt darf schreiben: er hängt Installerpaket, Prüfbilder und Prüfsummen an das GitHub-Release
-# laney-<V>_yamaha-<V> (legt es an, falls scripts/release.sh noch nicht gelaufen ist). Ins Repo wird nichts mehr geschrieben.
-name: macOS-Plugins
+# Plugins bauen und veröffentlichen: Linux (CLAP, VST3; Ubuntu 24.04) und Mac (Audio Unit für Logic, VST3; macOS 15).
+# Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
+# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_yamaha-<V> (ältere werden gelöscht).
+# Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
+# Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
+name: Plugins
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['engine/**', 'mac/**', '.github/workflows/mac-plugins.yml']
+    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/release.sh', 'scripts/versions.sh', '.github/workflows/plugins.yml']
 permissions:
   contents: read
 jobs:
-  build:
+  linux:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Werkzeuge
+        run: sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake zip
+      - name: Bauen (CLAP, VST3, Testwerkzeuge)
+        run: VST3=1 bash engine/build.sh
+      - name: Prüfen
+        run: |
+          set -euo pipefail
+          for p in Laney_AOR50 Yamaha_B100II; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          ./engine/build/switchtest | tail -1
+      - name: Packen
+        run: |
+          set -euo pipefail
+          bash scripts/pack-plugins.sh
+          (cd dist && sha256sum *.zip > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt)
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
+        with:
+          name: tonestack-linux
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS-linux.txt
+  mac:
     runs-on: macos-15   # macos-14 wird von GitHub abgekündigt (Probeabschaltungen ab Ende Oktober 2026)
     permissions:
       contents: read
@@ -62,8 +89,8 @@ jobs:
             out/*.png
             out/SHA256SUMS.txt
   publish:
-    # Installerpaket, Prüfbilder und Prüfsummen ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
-    needs: build
+    # Linux- und Mac-Dateien ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
+    needs: [linux, mac]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
@@ -74,17 +101,19 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
         with:
+          name: tonestack-linux
+          path: rel
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
           name: tonestack-mac
-          path: art
-      - name: Ans Release hängen
+          path: mac-art
+      - name: Prüfen und veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          cd art && sha256sum -c SHA256SUMS.txt && cd ..
-          n=$(ls art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
-          eval "$(bash scripts/versions.sh)"
-          case "$(basename art/*.pkg)" in "tonestack-Plugins-Mac_Laney-${LANEY}_Yamaha-${YAMAHA}.pkg") ;; *) echo "::error::Paketname passt nicht zu den Quellversionen"; exit 1;; esac
-          cp art/laney.png art/mac-laney.png; cp art/yamaha.png art/mac-yamaha.png; mv art/SHA256SUMS.txt art/SHA256SUMS-mac.txt
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "Laney $LANEY / Yamaha $YAMAHA" --notes "Mac-Installerpaket aus dem Mac-Bau; Linux-Pakete folgen mit scripts/release.sh." -R "$GITHUB_REPOSITORY"
-          gh release upload "$TAG" art/*.pkg art/mac-laney.png art/mac-yamaha.png art/SHA256SUMS-mac.txt --clobber -R "$GITHUB_REPOSITORY"
+          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt)
+          n=$(ls mac-art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
+          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/yamaha.png rel/mac-yamaha.png
+          (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)
+          bash scripts/release.sh rel
