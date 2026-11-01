@@ -1,8 +1,9 @@
 # Mac-Fassungen der Plugins (Audio Unit für Logic, VST3) auf einem macOS-Rechner von GitHub bauen.
 # Start: von Hand (Actions → macOS-Plugins → Run workflow) oder bei jedem Push auf main.
-# Ergebnis: Artefakt "tonestack-mac" (ZIPs je Plugin, Installerpaket, Prüfbilder, SHA-256-Summen).
+# Ergebnis: Artefakt "tonestack-mac" (ZIPs je Plugin, Installerpaket, Prüfbilder, SHA-256-Summen) und, auf main, Anhänge am Release.
 # Sicherheit: Der Bau (fremde Werkzeuge und SDKs) läuft nur mit Leserechten und ohne gespeicherte Zugangsdaten.
-# Nur der kleine Veröffentlichungsschritt darf schreiben; er nimmt ausschließlich das Paket und die Prüfbilder aus dem Artefakt.
+# Nur der kleine Veröffentlichungsschritt darf schreiben: er hängt Installerpaket, Prüfbilder und Prüfsummen an das GitHub-Release
+# laney-<V>_yamaha-<V> (legt es an, falls scripts/release.sh noch nicht gelaufen ist). Ins Repo wird nichts mehr geschrieben.
 name: macOS-Plugins
 on:
   workflow_dispatch:
@@ -61,7 +62,7 @@ jobs:
             out/*.png
             out/SHA256SUMS.txt
   publish:
-    # Installerpaket für die Download-Seite und Prüfbilder zurück ins Repo (nur main). Kein fremder Code läuft hier.
+    # Installerpaket, Prüfbilder und Prüfsummen ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -69,20 +70,21 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
         with:
           name: tonestack-mac
           path: art
-      - name: Paket prüfen und ablegen
+      - name: Ans Release hängen
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           cd art && sha256sum -c SHA256SUMS.txt && cd ..
           n=$(ls art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
-          git config user.name "tonestack-mac-bau"; git config user.email "actions@users.noreply.github.com"
-          git pull --rebase origin main
-          rm -f web/tonestack/download/tonestack-Plugins-Mac_*.pkg
-          cp art/tonestack-Plugins-Mac_*.pkg web/tonestack/download/
-          mkdir -p mac/test/out && cp art/laney.png art/yamaha.png mac/test/out/
-          git add -A web/tonestack/download
-          git add -f mac/test/out/laney.png mac/test/out/yamaha.png
-          git commit -m "Mac-Installerpaket für die Download-Seite und Prüfbilder: $(basename art/tonestack-Plugins-Mac_*.pkg) [skip ci]" && git push origin HEAD:main || echo "nichts zu übernehmen"
+          eval "$(bash scripts/versions.sh)"
+          case "$(basename art/*.pkg)" in "tonestack-Plugins-Mac_Laney-${LANEY}_Yamaha-${YAMAHA}.pkg") ;; *) echo "::error::Paketname passt nicht zu den Quellversionen"; exit 1;; esac
+          cp art/laney.png art/mac-laney.png; cp art/yamaha.png art/mac-yamaha.png; mv art/SHA256SUMS.txt art/SHA256SUMS-mac.txt
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "Laney $LANEY / Yamaha $YAMAHA" --notes "Mac-Installerpaket aus dem Mac-Bau; Linux-Pakete folgen mit scripts/release.sh." -R "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" art/*.pkg art/mac-laney.png art/mac-yamaha.png art/SHA256SUMS-mac.txt --clobber -R "$GITHUB_REPOSITORY"

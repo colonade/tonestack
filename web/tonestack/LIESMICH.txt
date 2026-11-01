@@ -8,7 +8,7 @@ yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
 laney-aor50/                   Laney AOR 50 Klangregler-Simulator
 assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
 assets/icons/                  App-Symbole für den Startbildschirm
-download/                      DAW-Plugins zum Herunterladen, verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, beide Verstärker)
+download/                      DAW-Plugins zum Herunterladen (Inhalt aus dem GitHub-Release, siehe scripts/pack-web.sh), verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, beide Verstärker)
 sw.js                          Service Worker für Offline-Betrieb
 .htaccess                      Apache-Einstellungen (versteckte Datei!)
 

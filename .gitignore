@@ -1,17 +1,22 @@
 *.jks
 *.keystore
 SCHLUESSEL-LIESMICH.txt
-*_unsigned.apk
-signed/
 engine/build/
 __pycache__/
 node_modules/
 *.bundle
-app/*/build/
 App-Signaturschluessel.zip
 tonestack-apache.zip
 *.pem
 *.p12
 
 # Bilder der GUI-Tests (engine/tests/guitest)
-engine/gui_*.png
+gui_*.png
+
+# Binärdateien gehören nicht ins Repo: sie stehen im GitHub-Release (scripts/release.sh, Mac-Bau) und lassen sich aus jedem Commit neu bauen
+dist/
+web/tonestack/download/
+mac/test/out/
+reaper-clap/*.clap
+reaper-vst3/
+*.pkg

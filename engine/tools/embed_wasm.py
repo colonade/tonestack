@@ -1,9 +1,9 @@
-# Bettet frisch gebaute WebAssembly-Kerne in Web-Seiten und App-Inhalte ein: python3 engine/tools/embed_wasm.py [repo]
+# Bettet frisch gebaute WebAssembly-Kerne in die Web-Seiten ein: python3 engine/tools/embed_wasm.py [repo]
 import base64, os, re, sys
 R = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', '..')
 B = os.path.join(R, 'engine', 'build')
-targets = {'laney-core.wasm': ['web/tonestack/laney-aor50/index.html', 'app/laney/assets/index.html'],
-           'b100ii-core.wasm': ['web/tonestack/yamaha-b100ii/index.html', 'app/yamaha/assets/index.html']}
+targets = {'laney-core.wasm': ['web/tonestack/laney-aor50/index.html'],
+           'b100ii-core.wasm': ['web/tonestack/yamaha-b100ii/index.html']}
 for wasm, files in targets.items():
     if not os.path.exists(os.path.join(B, wasm)): sys.exit('fehlt: engine/build/' + wasm + ' (erst bash engine/build.sh mit wasi-sdk)')
     b64 = base64.b64encode(open(os.path.join(B, wasm), 'rb').read()).decode()
