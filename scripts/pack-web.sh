@@ -8,7 +8,10 @@ R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh
 REPO="${REPO:-colonade/tonestack}"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp -r web/tonestack "$T/"; rm -rf "$T/tonestack/download"; mkdir -p "$T/tonestack/download"
 if [ "${LOCAL:-0}" = 1 ]; then cp dist/*.zip dist/*.pkg "$T/tonestack/download/"
-else gh release download "$TAG" -R "$REPO" -D "$T/tonestack/download" -p '*.zip' -p '*.pkg'; fi
+else   # über die REST-Schnittstelle (gh api), nur .zip und .pkg
+  gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name | test("\\.(zip|pkg)$")) | "\(.id) \(.name)"' | while read -r id name; do
+    gh api -H "Accept: application/octet-stream" "repos/$REPO/releases/assets/$id" > "$T/tonestack/download/$name"; done
+fi
 for f in $(grep -o 'href="download/[^"]*"' web/tonestack/index.html | cut -d'"' -f2); do
   [ -f "$T/tonestack/$f" ] || { echo "FEHLER: index.html verlinkt $f, im Release nicht vorhanden" >&2; exit 1; }; done
 chmod -R u=rwX,go=rX "$T/tonestack"; rm -f web/tonestack-apache.zip; (cd "$T" && zip -qr9 "$R/web/tonestack-apache.zip" tonestack)
