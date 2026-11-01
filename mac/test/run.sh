@@ -1,5 +1,5 @@
 #!/bin/bash
-# Prüfbilder der Mac-Oberflächen (Laney, Yamaha, Ampeg B-15NF) nach mac/test/out/*.png
+# Prüfbilder der Mac-Oberflächen (Laney, Yamaha, AmpFett B-15NF) nach mac/test/out/*.png
 set -euo pipefail
 cd "$(dirname "$0")/../.."; E=engine; O=mac/test/out; mkdir -p "$O"
 FL=(-std=c++17 -O1 -fobjc-arc -I$E/clap -I$E/src -I$E/gen -I$E/third_party -framework Foundation -framework CoreGraphics -framework CoreText -framework ImageIO -framework Cocoa)

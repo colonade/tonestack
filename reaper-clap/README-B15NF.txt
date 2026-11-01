@@ -1,8 +1,8 @@
-Ampeg B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.1
 
 Two formats, one engine
-  Ampeg_B15NF.clap and Ampeg_B15NF.vst3 contain the same code and sound
+  AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
   identical. Use whichever your DAW prefers. CLAP is the native format, the
   VST3 is built from it with clap-wrapper (free-audio, MIT) and the VST3 SDK
   3.8 (Steinberg, MIT). A project saved with one format does not load its
@@ -10,17 +10,17 @@ Two formats, one engine
   Third-party licenses: THIRD-PARTY-LICENSES.txt.
 
 Installation (CLAP)
-  mkdir -p ~/.clap && cp Ampeg_B15NF.clap ~/.clap/
+  mkdir -p ~/.clap && cp AmpFett_B15NF.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
   path if it is not there and press "Re-scan". The plugin then appears in
-  the FX browser under CLAP as "Ampeg B-15NF Bass Amp".
+  the FX browser under CLAP as "AmpFett B-15NF Bass Amp".
 
 Installation (VST3)
-  mkdir -p ~/.vst3 && cp -r Ampeg_B15NF.vst3 ~/.vst3/
-  (Ampeg_B15NF.vst3 is a folder - copy it as a whole.) Then "Re-scan".
+  mkdir -p ~/.vst3 && cp -r AmpFett_B15NF.vst3 ~/.vst3/
+  (AmpFett_B15NF.vst3 is a folder - copy it as a whole.) Then "Re-scan".
 
 What it is
-  The whole tube amp of the Ampeg B-15NF Portaflex, after the factory
+  AmpFett is a rebuild of the Ampeg B-15NF Portaflex: the whole tube amp, after the factory
   schematic of 1-66 and the Ampeg "Technical Data" book (1968), solved
   sample by sample as one circuit with all its tubes (nodal DK method):
     - inputs as on the amp: channel 1 BASS (120k, switching jack) and
@@ -38,7 +38,7 @@ What it is
   The idle voltages match the voltage table of the factory within the
   meter tolerance (anodes, cathodes, screens, bias, B+); full power is about
   30 W into 8 ohm. Same engine as the web simulator
-  (https://borg.fluxstatus.de/tonestack/ampeg-b15nf/).
+  (https://borg.fluxstatus.de/tonestack/ampfett-b15nf/).
   Estimated (not in the schematic): transformer inductances, mains
   transformer resistance, speaker data, screen grid current split of the
   6L6GC. Tube models fitted to data sheets (Koren form). Details:
@@ -48,6 +48,7 @@ Parameters
   Input jack (Bass / Guitar on channel 1, Inst. on channel 2), Volume 1,
   Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Standby, Power,
   Speaker, Instrument level, Oversampling (1x, 2x, 4x), Output level.
+  Knob 10 = clockwise end = boost (treble, bass) / full volume.
   Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x.
 
 User interface
@@ -95,6 +96,15 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.1
+  - Treble and bass worked the wrong way round (10 cut, 0 boosted), in both
+    channels. Fixed: 10 = full boost, as on the amp. Volume was right.
+    Range now at 8 kHz: treble +10 / -29 dB; at 40 Hz: bass +7 / -15 dB
+    (relative to the knob at 5).
+  - Renamed to AmpFett B-15NF (new plugin ID: projects with 1.0 do not load
+    their settings; remove Ampeg_B15NF.clap / Ampeg_B15NF.vst3 by hand).
+    Panel lettering in Damion (SIL Open Font License).
 
 Notes
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).

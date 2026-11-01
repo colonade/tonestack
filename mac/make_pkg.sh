@@ -28,7 +28,7 @@ one() {   # one <Name> <id> <Version> <component|vst3>
 }
 one Laney_AOR50 laney "$LV" component; one Laney_AOR50 laney "$LV" vst3
 one Yamaha_B100II yamaha "$YV" component; one Yamaha_B100II yamaha "$YV" vst3
-one Ampeg_B15NF b15nf "$BV" component; one Ampeg_B15NF b15nf "$BV" vst3
+one AmpFett_B15NF b15nf "$BV" component; one AmpFett_B15NF b15nf "$BV" vst3
 sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
@@ -49,7 +49,7 @@ cat > "$W/dist.xml" <<X
   <choice id="yamaha" title="Yamaha B100-II Bass Amp $YV" description="Transistor-Bassverstärker mit 5-Band-EQ, Endstufe und Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.yamaha.component"/><pkg-ref id="de.tonestack.yamaha.vst3"/>
   </choice>
-  <choice id="b15nf" title="Ampeg B-15NF Bass Amp $BV" description="Röhren-Bassverstärker nach dem Werksschaltplan (6SL7, 6L6GC, 5AR4) mit Netzteil, Gegenkopplung und Lautsprecher. Audio Unit und VST3.">
+  <choice id="b15nf" title="AmpFett B-15NF Bass Amp $BV" description="Röhren-Bassverstärker nach dem Werksschaltplan (6SL7, 6L6GC, 5AR4) mit Netzteil, Gegenkopplung und Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.b15nf.component"/><pkg-ref id="de.tonestack.b15nf.vst3"/>
   </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>

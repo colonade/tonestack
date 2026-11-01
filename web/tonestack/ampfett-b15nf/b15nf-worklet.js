@@ -1,4 +1,4 @@
-// Ampeg B-15NF: Audio-Thread. Gerechnet wird im Rechen-Thread (b15nf-render.js, WebAssembly-Kern der ganzen Schaltung);
+// AmpFett B-15NF: Audio-Thread. Gerechnet wird im Rechen-Thread (b15nf-render.js, WebAssembly-Kern der ganzen Schaltung);
 // der Audio-Thread schickt jeden Eingangsblock dorthin und spielt das Ergebnis mit Vorlauf ab (Bypass mit Pegelangleich wie bei den anderen Seiten).
 // Ohne Rechen-Thread (sehr alte Browser) rechnet der Audio-Thread selbst.
 (() => {

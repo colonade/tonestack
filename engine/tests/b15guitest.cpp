@@ -1,5 +1,5 @@
-// GUI-Test (Ampeg B-15NF): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
-//   b15guitest Ampeg_B15NF.clap bild.png
+// GUI-Test (AmpFett B-15NF): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
+//   b15guitest AmpFett_B15NF.clap bild.png
 // Prüft: Buchse Guitar, Treble 1 ziehen, Standby an und wieder aus, Lautsprecher an, Überabtastung 2x (Kernwechsel im Hilfsfaden), Mausrad auf Bass 2.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>

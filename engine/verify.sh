@@ -5,7 +5,7 @@ python3 - "$R" <<'PY'
 import base64, re, sys, os
 R = sys.argv[1]; B = os.path.join(R, 'engine', 'build')
 def emb(f): return base64.b64decode(re.search(r'<script id="wasmcore" type="text/plain">([^<]*)</script>', open(os.path.join(R, f), encoding='utf-8').read()).group(1).strip())
-for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100ii-core.wasm', 'web/tonestack/yamaha-b100ii/index.html'), ('b15nf-core.wasm', 'web/tonestack/ampeg-b15nf/index.html')]:
+for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100ii-core.wasm', 'web/tonestack/yamaha-b100ii/index.html'), ('b15nf-core.wasm', 'web/tonestack/ampfett-b15nf/index.html')]:
     p = os.path.join(B, w)
     if not os.path.exists(p): continue
     if open(p, 'rb').read() == emb(f): print(f'{w}: identisch mit der Seite'); continue

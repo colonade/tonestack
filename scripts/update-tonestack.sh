@@ -91,7 +91,12 @@ if teil plugins; then
       printf '%s\t%s\n' "$v" "$f"
     done | sort -V -k1,1 | tail -n1 | cut -f2-
   }
-  for AMP in Laney_AOR50 Yamaha_B100II Ampeg_B15NF; do
+  # umbenannt: Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF – die alte Fassung wegräumen, sonst stünden beide in der DAW
+  for ALT in "$CLAPDIR/Ampeg_B15NF.clap" "$VST3DIR/Ampeg_B15NF.vst3"; do
+    [ -e "$ALT" ] || continue; SICH="$HOME/.tonestack-sicherungen"; mkdir -p "$SICH"
+    mv "$ALT" "$SICH/$(basename "$ALT").$(date +%Y%m%d-%H%M%S)" && info "alte Fassung $(basename "$ALT") nach $SICH verschoben (umbenannt in AmpFett_B15NF)"
+  done
+  for AMP in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
     GEF=1; NAME="$(basename "$PZ" .zip)"

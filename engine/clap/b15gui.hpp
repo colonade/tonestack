@@ -1,4 +1,4 @@
-// Oberfläche des Ampeg-B-15NF-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
+// Oberfläche des AmpFett-B-15NF-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
 // Oben die nachgezeichnete Frontplatte (engine/tools/b15_panel.py, kein Foto, kein Logo) mit Zeigern, Buchsen und Schalterhebeln,
 // darunter der Modellstreifen (Lautsprecher, Überabtastung, Aussteuerung, Instrument/Ausgang) und der Frequenzgang.
 #pragma once

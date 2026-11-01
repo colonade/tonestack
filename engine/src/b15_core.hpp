@@ -1,4 +1,4 @@
-// Ampeg B-15NF (Portaflex, Werksschaltplan 1-66, Technical Data 1968): ganze Schaltung im Zeitbereich,
+// AmpFett B-15NF: Nachbau des Ampeg B-15NF (Portaflex, Werksschaltplan 1-66, Technical Data 1968): ganze Schaltung im Zeitbereich,
 // vom Eingang über beide Kanäle, Phasenumkehr, Gegentakt-Endstufe mit fester Gittervorspannung, Ausgangsübertrager
 // und Gegenkopplung bis zum Lautsprecher, mit Netzteil (Gleichrichter 5AR4 am Netztrafo, Siebkette, Vorspannungs-Netzteil).
 // Bauteilwerte und Knoten: docs/b15nf/SCHALTPLAN.md. Geschätzt (nicht im Plan): Übertrager-Induktivitäten, Trafo-Innenwiderstand,
@@ -115,10 +115,11 @@ inline Built build(const Parts &v, const Setting &s) {
     tri("g" + c + "b", "p" + c + "b", "k" + c + "b"); if ((ch == 2) == (s.jack == 2)) B.mon[1] = B.lastTri; o.r("k" + c + "b", "0", v.rk2); o.r("p" + c + "b", "B4", v.ra2);
     o.c("p" + c + "b", "I" + c, v.cc2);
     // Klangregler (Baxandall): Bass 1 M linear mit .001/.01 zum Schleifer, Treble 1 M linear mit .00047/.0047
+    // Rechtsanschlag (Knopf 10) = Schleifer am eingangsseitigen Ende (Bass: 220 k/.001, Treble: .00047) = Anhebung
     double xb = ch == 1 ? s.bass1 : s.bass2, xt = ch == 1 ? s.treb1 : s.treb2;
-    o.r("I" + c, "P" + c, v.ts_r1); pot("P" + c, "W" + c, "Q" + c, v.ts_bass, 1 - xb); o.r("Q" + c, "0", v.ts_r2);
+    o.r("I" + c, "P" + c, v.ts_r1); pot("P" + c, "W" + c, "Q" + c, v.ts_bass, xb); o.r("Q" + c, "0", v.ts_r2);
     o.c("P" + c, "W" + c, v.ts_c1); o.c("Q" + c, "W" + c, v.ts_c2); o.r("W" + c, "0", v.ts_r3); o.r("W" + c, "Y" + c, v.ts_r4);
-    o.c("I" + c, "T" + c, v.ts_c3); pot("T" + c, "Y" + c, "U" + c, ch == 1 ? v.treb1 : v.ts_treb, 1 - xt); o.c("U" + c, "0", v.ts_c4);
+    o.c("I" + c, "T" + c, v.ts_c3); pot("T" + c, "Y" + c, "U" + c, ch == 1 ? v.treb1 : v.ts_treb, xt); o.c("U" + c, "0", v.ts_c4);
     o.r("Y" + c, "mix", v.rmix); G = ch - 1; mark(); }
   G = 2;
   // --- Phasenumkehr V3 (6SL7, schwebende Paraphase) ---

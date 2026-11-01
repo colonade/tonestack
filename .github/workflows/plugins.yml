@@ -29,7 +29,7 @@ jobs:
       - name: Prüfen
         run: |
           set -euo pipefail
-          for p in Laney_AOR50 Yamaha_B100II Ampeg_B15NF; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
           ./engine/build/b15test | tail -3
           ./engine/build/switchtest | tail -1
       - name: Packen
@@ -73,11 +73,11 @@ jobs:
         run: |
           set -o pipefail
           { set -e; bash mac/make_pkg.sh build-mac out
-            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component
+            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/AmpFett_B15NF.component
             sudo installer -pkg out/*.pkg -target /
             ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
-            for sub in Lany B100 B15N; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
+            for sub in Lany B100 AFB1; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
           } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
       - name: Prüfsummen
         run: |

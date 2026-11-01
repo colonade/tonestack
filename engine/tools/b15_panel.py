@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Zeichnet die Frontplatte des Ampeg B-15NF (nach Fotos des Originals nachempfunden, kein Foto, kein Logo) und schreibt
+# Zeichnet die Frontplatte des AmpFett B-15NF (Anordnung nach Fotos des Ampeg B-15NF, kein Foto, kein Logo;
+# Schriftzug „AmpFett“ in Damion, SIL OFL, engine/tools/fonts) und schreibt
 #   engine/gen/b15panel.jpg   Bild 1800 × 260 (Knöpfe ohne Zeiger; Zeiger, Schalterhebel und Markierungen zeichnen Seite und Plugin)
 #   engine/gen/b15geo.json    Lage von Knöpfen, Buchsen und Schaltern in Bildpunkten
 #   engine/gen/b15panel_jpg.h, engine/gen/b15geo_gen.h   für das Plugin
@@ -11,6 +12,7 @@ GEN = os.path.join(R, 'engine', 'gen')
 W, H, S = 1800, 260, 2                       # Bildgröße, Überabtastung beim Zeichnen
 FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FI = '/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf'
+FS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts', 'Damion-Regular.ttf')   # Schreibschrift für den Namen
 KY = 112; KR = 50                            # Knöpfe: Mittelpunkt y, Radius
 KNOBS = [('vol1', 505, 'VOLUME 1'), ('treb1', 655, 'TREBLE 1'), ('bass1', 805, 'BASS 1'),
          ('vol2', 965, 'VOLUME 2'), ('treb2', 1115, 'TREBLE 2'), ('bass2', 1265, 'BASS 2')]
@@ -33,7 +35,7 @@ def main():
         x0 = 430 + (abs(3 - i) * 18); d.line([(x0 * S, yy * S), (1360 * S, yy * S)], fill=(250, 250, 252), width=3 * S); d.line([(x0 * S, (yy + 2) * S), (1360 * S, (yy + 2) * S)], fill=(150, 152, 158), width=1 * S)
     # Schriftzüge (normale Schrift, kein Logo)
     ink = (40, 42, 46)
-    d.text((40 * S, 14 * S), 'Ampeg', font=font(30, FI), fill=ink)
+    d.text((36 * S, -8 * S), 'AmpFett', font=font(56, FS), fill=ink, stroke_width=S, stroke_fill=ink)
     tw = d.textlength('Portaflex', font=font(30, FI)); d.text(((W - 40) * S - tw, 14 * S), 'Portaflex', font=font(30, FI), fill=ink)
     d.line([(40 * S, 54 * S), (300 * S, 54 * S)], fill=ink, width=2 * S); d.line([((W - 300) * S, 54 * S), ((W - 40) * S, 54 * S)], fill=ink, width=2 * S)
     def ctext(x, y, t, px=17):

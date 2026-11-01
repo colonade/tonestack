@@ -13,11 +13,11 @@ g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libs
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Yamaha_B100II.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/Ampeg_B15NF.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap, build/Ampeg_B15NF.clap"
+    -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/AmpFett_B15NF.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap, build/AmpFett_B15NF.clap"
 if [ "${VST3:-0}" = 1 ]; then
   cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
-  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3, build/vst3/Ampeg_B15NF.vst3"
+  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3, build/vst3/AmpFett_B15NF.vst3"
 fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"

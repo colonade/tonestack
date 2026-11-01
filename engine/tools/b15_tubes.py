@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Ampeg B-15NF: Röhrenmodelle (Koren-Form) an Datenblattwerte angepasst; gibt die Parameter und die Abweichungen aus.
+# AmpFett B-15NF: Röhrenmodelle (Koren-Form) an Datenblattwerte angepasst; gibt die Parameter und die Abweichungen aus.
 #   6SL7GT (RCA): Klasse A, je System: Ua 250 V, Ug -2 V, Ia 2,3 mA, mu 70, ri 44 kΩ, S 1,6 mA/V
 #   6L6GC: Klasse-A1- und Gegentakt-Ruhepunkte aus dem Datenblatt (Ei, 6L6), siehe PTS
 import math
