@@ -54,21 +54,10 @@ inline void sdiode(const double *v, double *i, double *J) { const double Is = 1e
   if (x > 40) { double e = std::exp(40.0); i[0] = Is * (e * (1 + x - 40) - 1); J[0] = Is * e / nVt; return; }
   double e = std::exp(x); i[0] = Is * (e - 1); J[0] = Is * e / nVt; }
 
-// 6SL7-Anodenstrom als Tabelle (bilinear), wie im Laney-Kern: −60…+10 V Gitter in 0,05-V-Schritten, 0…450 V Anode in 1-V-Schritten;
-// außerhalb rechnet die Formel. Gitterstrom immer aus der Formel (unter −3 V sofort null).
-struct TriTab { static constexpr double G0 = -60, GS = 0.05, P0 = 0, PS = 1; static constexpr int GN = 1401, PN = 451; std::vector<float> t;
-  TriTab() { t.resize((size_t)GN * PN); double v[2], i[2], J[4]; for (int a = 0; a < GN; a++) for (int b = 0; b < PN; b++) { v[0] = G0 + a * GS; v[1] = P0 + b * PS; triode(T6SL7, v, i, J); t[(size_t)a * PN + b] = (float)i[1]; } }
-  void eval(const double *v, double *i, double *J) const {
-    double x = (v[0] - G0) / GS, y = (v[1] - P0) / PS;
-    if (!(x >= 0 && x < GN - 1.000001 && y >= 0 && y < PN - 1.000001)) { triode(T6SL7, v, i, J); return; }
-    double ig, dg; gridI(v[0], ig, dg); i[0] = ig; J[0] = dg; J[1] = 0;
-    int a = (int)x, b = (int)y; double fx = x - a, fy = y - b; const float *r0 = &t[(size_t)a * PN + b], *r1 = r0 + PN;
-    double p00 = r0[0], p01 = r0[1], p10 = r1[0], p11 = r1[1], q0 = p00 + (p01 - p00) * fy, q1 = p10 + (p11 - p10) * fy;
-    i[1] = q0 + (q1 - q0) * fx; J[2] = (q1 - q0) / GS; J[3] = ((p01 - p00) + ((p11 - p10) - (p01 - p00)) * fx) / PS; } };
-inline const TriTab &triTab() { static const TriTab T; return T; }
 enum Kind { K_6SL7 = 0, K_6L6 = 1, K_RECT = 2, K_SI = 3 };
+// 6SL7 mit der Formel statt einer Tabelle: eine bilinear interpolierte Tabelle erzeugte bei kleinem Signal unechte Oberwellen (H4/H5 um −60 dB)
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
-  switch (d.kind) { case K_6SL7: triTab().eval(v, i, J); break; case K_6L6: pentode(P6L6, v, i, J); break; case K_RECT: vdiode(v, i, J); break; default: sdiode(v, i, J); } }
+  switch (d.kind) { case K_6SL7: triode(T6SL7, v, i, J); break; case K_6L6: pentode(P6L6, v, i, J); break; case K_RECT: vdiode(v, i, J); break; default: sdiode(v, i, J); } }
 
 // ---------- Bauteile und Einstellungen ----------
 struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
@@ -81,9 +70,11 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double bias_r1 = 100e3, bias_r2 = 56e3, bias_r3 = 47e3, bias_c = 100e-6;
   // Übertrager OT-214: 6,5 kΩ : 8 Ω / 16 Ω, Gleichstromwiderstand primär 290 Ω, sekundär 1 Ω (8 Ω) / 1,4 Ω (16 Ω) – Technical Data
   double ot_zp = 6500, ot_rp = 290, ot_rs8 = 1.0, ot_rs16 = 1.4, ot_lp = 40, ot_kps = 0.9998, ot_kpp = 0.9995;   // Lp, Kopplungen: geschätzt
+  double ot_cpp = 500e-12, ot_rc = 150e3;   // geschätzt: Wicklungskapazität der Primärseite (Anode–Anode) und Eisenverluste; dämpfen das Umschalten der Endröhren wie im echten Übertrager
   // Netztrafo PT-108: 750 V Mittelanzapfung, 160 mA; Innenwiderstand je Hälfte geschätzt (an 430 V im Ruhezustand angepasst)
   double hv_rms = 375, hv_r = 380, mains_hz = 60;
   // Lautsprecher CTS 15" 8 Ω im geschlossenen Portaflex-Gehäuse: alles geschätzt
+  double spk_r2 = 20;   // geschätzt: Wirbelstromverluste der Schwingspule (20 Ω parallel zu Le, Impedanz bei 10 kHz etwa 25 Ω statt 64 Ω)
   double spk_re = 6.3, spk_le = 1.0e-3, spk_fs = 40, spk_qms = 5, spk_qes = 0.55, spk_vas = 280, spk_vb = 85;
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
 };
@@ -137,11 +128,11 @@ inline Built build(const Parts &v, const Setting &s) {
     for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) { double k = i == j ? 1 : ((i < 2 && j < 2) ? v.ot_kpp : v.ot_kps); if (i >= 2 && j >= 2 && i != j) k = 0.99999; L(i, j) = k * n[i] * n[j] * L0; }
     o.r("a5", "a5w", v.ot_rp / 2); o.r("a4", "a4w", v.ot_rp / 2); o.r("s8w", "s8", v.ot_rs8); o.r("s16w", "s16", v.ot_rs16 - v.ot_rs8);
     o.coupled({{"a5w", "B1"}, {"B1", "a4w"}, {"s8w", "0"}, {"s16w", "s8"}}, L);
-    o.r("s16", "0", 1e6); }
+    o.r("s16", "0", 1e6); o.c("a5w", "a4w", v.ot_cpp); o.r("a5w", "a4w", v.ot_rc); }
   // --- Lautsprecher (geschätzt): Re, Le, Bewegung als Parallelkreis (geschlossenes Gehäuse) ---
   { std::string sp = s.tap16 ? "s16" : "s8"; double a = v.spk_vas / v.spk_vb, fc = v.spk_fs * std::sqrt(1 + a), qec = v.spk_qes * std::sqrt(1 + a), qmc = v.spk_qms * std::sqrt(1 + a);
     double res = v.spk_re * qmc / qec, cmes = qec / (2 * PI * fc * v.spk_re), lces = 1 / ((2 * PI * fc) * (2 * PI * fc) * cmes);
-    o.r(sp, "sl", v.spk_re); dk::Mat Le(1, 1); Le(0, 0) = v.spk_le; o.coupled({{"sl", "sm"}}, Le);
+    o.r(sp, "sl", v.spk_re); dk::Mat Le(1, 1); Le(0, 0) = v.spk_le; o.coupled({{"sl", "sm"}}, Le); o.r("sl", "sm", v.spk_r2);
     o.r("sm", "0", res); B.capSpk = (int)o.C.size(); B.cmes = cmes; o.c("sm", "0", cmes); dk::Mat Lm(1, 1); Lm(0, 0) = lces; o.coupled({{"sm", "0"}}, Lm); }
   // --- Netzteil: Hochspannungswicklung (Mittelanzapfung an Masse), 5AR4, Siebung ---
   o.src("hva", v.hv_r, 1); o.src("hvb", v.hv_r, 2);
@@ -182,7 +173,7 @@ struct Core {
 // Lautsprecher-Schalldruck: Strom durch die Membran-Kapazität ~ Beschleunigung; Normierung so, dass bei 1 kHz Schall- und Klemmenpegel gleich sind
 inline double accNorm(const Parts &v) { std::complex<double> j(0, 1); double a = v.spk_vas / v.spk_vb, fc = v.spk_fs * std::sqrt(1 + a), qec = v.spk_qes * std::sqrt(1 + a), qmc = v.spk_qms * std::sqrt(1 + a);
   double res = v.spk_re * qmc / qec, cmes = qec / (2 * PI * fc * v.spk_re), lces = 1 / ((2 * PI * fc) * (2 * PI * fc) * cmes), w = 2 * PI * 1000;
-  std::complex<double> zm = 1.0 / (1.0 / res + 1.0 / (j * w * lces) + j * w * cmes); return std::abs((v.spk_re + j * w * v.spk_le + zm) / (zm * j * w * cmes)); }
+  std::complex<double> zm = 1.0 / (1.0 / res + 1.0 / (j * w * lces) + j * w * cmes); std::complex<double> zl = j * w * v.spk_le * v.spk_r2 / (j * w * v.spk_le + v.spk_r2); return std::abs((v.spk_re + zl + zm) / (zm * j * w * cmes)); }
 struct Biquad { double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
   void lp(double fc, double q, double fs) { double w0 = 2 * PI * fc / fs, c = std::cos(w0), al = std::sin(w0) / (2 * q), a0 = 1 + al; b0 = (1 - c) / 2 / a0; b1 = (1 - c) / a0; b2 = b0; a1 = -2 * c / a0; a2 = (1 - al) / a0; }
   double step(double x) { double y = b0 * x + z1; z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y; return y; } void reset() { z1 = z2 = 0; } };

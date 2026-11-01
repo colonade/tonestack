@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -96,6 +96,22 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.3 (tube simulation checked for realism)
+  - 6SL7 preamp and phase inverter tubes are now computed with the full
+    formula instead of an interpolated table. The table added small kinks
+    that produced false high harmonics on quiet notes (4th/5th harmonic
+    around -60 dB instead of below -100 dB).
+  - Output transformer: primary winding capacitance (500 pF) and core loss
+    (150 kOhm) added (estimates). They damp the switching of the 6L6GC like
+    a real transformer. Before, hard clipping at 1x produced a fizzy ringing
+    at half the sample rate, and single-sample spikes of up to 150 V at the
+    speaker terminal (a real amp cannot do that).
+  - Speaker voice coil: eddy-current loss (20 ohm parallel to the 1 mH
+    inductance, estimate). Its impedance at 10 kHz is now about 25 ohm
+    instead of 64 ohm, as typical for a 15" bass speaker; less overshoot
+    when clipping, about 2 dB less treble at the terminal above 4 kHz.
+  - Unchanged: idle voltages (factory table), output power, tone controls.
 
 1.2 (code review)
   - Changing the oversampling twice quickly (1x -> 2x -> 4x) could leave the
