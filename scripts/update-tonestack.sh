@@ -81,6 +81,10 @@ fi
 if teil plugins; then
   echo; echo "== DAW-Plugins"
   CLAPDIR="${HOME}/.clap"; VST3DIR="${HOME}/.vst3"; GEF=0
+  # Läuft REAPER (oder eine andere DAW) noch, hat sie die alten Plugins geladen: eine Datei, die dabei überschrieben wird, bringt
+  # den laufenden Prozess zum Absturz. Deshalb Warnung, und neue Fassungen werden nie überschrieben, sondern daneben geschrieben
+  # und umbenannt (neue Datei; ein laufender Prozess behält die alte, bis er neu startet).
+  if pgrep -x -i reaper >/dev/null 2>&1; then rot "REAPER läuft noch. Bitte REAPER schließen und das Skript erneut starten (sonst kann REAPER abstürzen)."; exit 1; fi
   # Je Verstärker und Format nur das Paket mit der höchsten Versionsnummer (3.12 > 3.9): ältere ZIPs im Download-Ordner
   # dürfen eine neue Fassung nicht wieder überschreiben.
   neuestes() {   # $1 Verstärker, $2 Format (CLAP|VST3) → Pfad des neuesten Pakets dieses Formats
@@ -109,7 +113,7 @@ if teil plugins; then
       if [ -f "$ZIELCL" ] && cmp -s "$CL" "$ZIELCL"; then info "$NAME: CLAP bereits aktuell"; merke "CLAP $NAME: bereits aktuell"
       else
         if [ -f "$ZIELCL" ]; then SICH="$CLAPDIR/tonestack-sicherungen"; mkdir -p "$SICH"; SZ="$SICH/$(basename "$CL").$STAMP"; n=1; while [ -e "$SZ" ]; do SZ="$SICH/$(basename "$CL").$STAMP-$n"; n=$((n+1)); done; cp -p "$ZIELCL" "$SZ"; fi
-        cp "$CL" "$ZIELCL"; chmod 755 "$ZIELCL"; info "$NAME: CLAP nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
+        cp "$CL" "$ZIELCL.neu.$$" && chmod 755 "$ZIELCL.neu.$$" && mv -f "$ZIELCL.neu.$$" "$ZIELCL"; info "$NAME: CLAP nach $ZIELCL"; merke "CLAP $NAME: aktualisiert"
       fi
     fi
     if [ -n "$V3" ]; then

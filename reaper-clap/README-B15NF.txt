@@ -9,6 +9,12 @@ Two formats, one engine
   settings into the other.
   Third-party licenses: THIRD-PARTY-LICENSES.txt.
 
+Updating
+  Close REAPER first. Copying a new .clap over the file a running REAPER has
+  loaded makes REAPER crash (at once or a while later). scripts/update-
+  tonestack.sh refuses to run while REAPER is open and never overwrites a
+  plugin file in place.
+
 Installation (CLAP)
   mkdir -p ~/.clap && cp AmpFett_B15NF.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the

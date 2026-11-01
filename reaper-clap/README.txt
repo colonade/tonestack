@@ -10,6 +10,12 @@ Two formats, one engine
   format does not load its settings into the other.
   Third-party licenses (MIT, public domain; Mac Audio Unit also Apache 2.0): THIRD-PARTY-LICENSES.txt.
 
+Updating
+  Close REAPER first. Copying a new .clap over the file a running REAPER has
+  loaded makes REAPER crash (at once or a while later). scripts/update-
+  tonestack.sh refuses to run while REAPER is open and never overwrites a
+  plugin file in place.
+
 Installation (CLAP)
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
