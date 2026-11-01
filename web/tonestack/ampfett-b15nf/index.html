@@ -268,6 +268,9 @@ details.exp>summary::-webkit-details-marker{display:none}
 .pbig:disabled{opacity:.4;cursor:not-allowed;filter:none}
 .pbig:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .pbig[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+/* Symbol als Form statt Schriftzeichen (▶/❚❚ sitzen je nach Schrift und Gerät schief): Dreieck um 1/6 seiner Breite nach rechts, damit der Schwerpunkt in der Mitte liegt */
+.pbig::before{content:"";display:block;width:20px;height:23px;margin-left:4px;background:currentColor;clip-path:polygon(0 0,100% 50%,0 100%)}
+.pbig[aria-pressed="true"]::before{width:18px;height:20px;margin-left:0;clip-path:none;background:linear-gradient(to right,currentColor 0 34%,transparent 34% 66%,currentColor 66%)}
 .dwave{flex:1;min-width:0}
 .deck .wave{margin:0;height:72px;border-radius:8px}
 .wempty{height:72px;border:1.5px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--ink2);font-size:.88rem;text-align:center;padding:0 8px}
@@ -357,7 +360,7 @@ select{max-width:100%}
     <span id="aname">oder hierher ziehen (MP3, WAV, FLAC, OGG, M4A)</span>
   </div>
   <div class="dmain">
-    <button class="pbig" type="button" id="aplay" disabled aria-pressed="false" aria-label="Abspielen">▶</button>
+    <button class="pbig" type="button" id="aplay" disabled aria-pressed="false" aria-label="Abspielen"></button>
     <div class="dwave">
       <div class="wave" id="wave" hidden>
     <canvas id="wavec" tabindex="0" role="slider" aria-label="Abspielposition" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
@@ -912,7 +915,7 @@ function drawWave() {
 }
 function animate(ts) { if (!(ts - (A.lastDraw || 0) < 33)) { A.lastDraw = ts || 0; drawWave(); } if (A.playing) A.raf = requestAnimationFrame(animate); else A.raf = 0; }   // höchstens 30 Bilder je Sekunde
 function setButtons() { const on = !!A.buf; for (const id of ['aplay','astop','aback','afwd','abyp']) $(id).disabled = !on; $('adl').disabled = !on || A.rendering;
-  $('aplay').textContent = A.playing ? '❚❚' : '▶'; $('aplay').setAttribute('aria-label', A.playing ? 'Pause' : 'Abspielen'); $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
+  $('aplay').setAttribute('aria-label', A.playing ? 'Pause' : 'Abspielen'); $('aplay').setAttribute('aria-pressed', A.playing ? 'true' : 'false'); }
 function startSource(from) {
   A.src = A.ctx.createBufferSource(); A.src.buffer = A.buf; A.src.loop = $('aloop').checked;
   const me = A.src; me.onended = () => { try { me.disconnect(); me.g.disconnect(); } catch (e) {} if (A.src === me && A.playing && !me.loop) { A.playing = false; A.src = null; A.offset = 0; setButtons(); drawWave(); } };
