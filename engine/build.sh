@@ -12,10 +12,12 @@ g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libs
     -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Yamaha_B100II.clap $(pkg-config --cflags --libs cairo x11)
-echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap"
+g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
+    -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/Ampeg_B15NF.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap, build/Ampeg_B15NF.clap"
 if [ "${VST3:-0}" = 1 ]; then
   cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
-  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3"
+  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3, build/vst3/Ampeg_B15NF.vst3"
 fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
@@ -33,6 +35,8 @@ g++ -O2 -std=c++17 -Ithird_party tests/plugtest.cpp -ldl -o build/plugtest
 g++ -O2 -std=c++17 -Ithird_party tests/defaults.cpp -ldl -o build/defaults
 g++ -O2 -std=c++17 -Ithird_party tests/guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/guitest
 g++ -O2 -std=c++17 -Ithird_party tests/yguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/yguitest
+g++ -O2 -std=c++17 -Ithird_party tests/b15guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/b15guitest
+g++ -O3 -std=c++17 -Isrc -Igen tests/b15test.cpp -o build/b15test; g++ -O3 -std=c++17 -Isrc -Igen tests/b15amp.cpp -o build/b15amp
 g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
 g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/defaults, build/guitest, build/yguitest, build/clapstress, build/switchtest"
+echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/b15test, build/b15amp, build/clapstress, build/switchtest"

@@ -78,4 +78,4 @@ Hoch­ohmige Anoden misst ein 20-kΩ/V-Gerät etwas zu niedrig (bei V1A etwa 4 %
 ## Offene Punkte
 - Ext.-Speaker-Buchse: Die Zeichnung lässt offen, ob der eingebaute Lautsprecher am 8- oder 16-Ω-Abgriff hängt
   (Rückseite des Geräts: „8 OHM EXT SPEAKER“). Für die Rechnung ohne Zusatzbox gleichwertig, siehe oben.
-- Frontplatte: wird nachgezeichnet (kein Foto in der Simulation).
+- Frontplatte: nachgezeichnet (`engine/tools/b15_panel.py`), kein Foto in der Simulation.

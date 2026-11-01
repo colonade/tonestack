@@ -91,7 +91,7 @@ if teil plugins; then
       printf '%s\t%s\n' "$v" "$f"
     done | sort -V -k1,1 | tail -n1 | cut -f2-
   }
-  for AMP in Laney_AOR50 Yamaha_B100II; do
+  for AMP in Laney_AOR50 Yamaha_B100II Ampeg_B15NF; do
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
     GEF=1; NAME="$(basename "$PZ" .zip)"

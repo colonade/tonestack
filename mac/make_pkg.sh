@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mac-Installerpaket (.pkg) aus den signierten Bundles (nach mac/package.sh): beide Plugins wählbar, je Audio Unit + VST3,
+# Mac-Installerpaket (.pkg) aus den signierten Bundles (nach mac/package.sh): alle Plugins einzeln wählbar, je Audio Unit + VST3,
 # Ziel /Library/Audio/Plug-Ins/{Components,VST3} (für alle Benutzer). Vom Installer abgelegte Dateien tragen keine
 # Quarantäne-Markierung; nur das Paket selbst muss beim ersten Öffnen freigegeben werden (nicht bei Apple beglaubigt).
 #   mac/make_pkg.sh <build-Ordner> <Ausgabe-Ordner>
@@ -7,7 +7,7 @@ set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
 ver() { grep -o '#define TS_VERSION "[^"]*"' "$ROOT/engine/clap/$1" | cut -d'"' -f2; }
-LV="$(ver plugin.cpp)"; YV="$(ver yplugin.cpp)"
+LV="$(ver plugin.cpp)"; YV="$(ver yplugin.cpp)"; BV="$(ver b15plugin.cpp)"
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/scripts" "$W/res"
 cat > "$W/scripts/postinstall" <<'S'
 #!/bin/bash
@@ -28,7 +28,8 @@ one() {   # one <Name> <id> <Version> <component|vst3>
 }
 one Laney_AOR50 laney "$LV" component; one Laney_AOR50 laney "$LV" vst3
 one Yamaha_B100II yamaha "$YV" component; one Yamaha_B100II yamaha "$YV" vst3
-sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+one Ampeg_B15NF b15nf "$BV" component; one Ampeg_B15NF b15nf "$BV" vst3
+sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
@@ -40,6 +41,7 @@ cat > "$W/dist.xml" <<X
   <choices-outline>
     <line choice="laney"/>
     <line choice="yamaha"/>
+    <line choice="b15nf"/>
   </choices-outline>
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
@@ -47,12 +49,17 @@ cat > "$W/dist.xml" <<X
   <choice id="yamaha" title="Yamaha B100-II Bass Amp $YV" description="Transistor-Bassverstärker mit 5-Band-EQ, Endstufe und Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.yamaha.component"/><pkg-ref id="de.tonestack.yamaha.vst3"/>
   </choice>
+  <choice id="b15nf" title="Ampeg B-15NF Bass Amp $BV" description="Röhren-Bassverstärker nach dem Werksschaltplan (6SL7, 6L6GC, 5AR4) mit Netzteil, Gegenkopplung und Lautsprecher. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.b15nf.component"/><pkg-ref id="de.tonestack.b15nf.vst3"/>
+  </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.laney.vst3" version="$LV">laney-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.yamaha.component" version="$YV">yamaha-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.yamaha.vst3" version="$YV">yamaha-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.b15nf.component" version="$BV">b15nf-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.b15nf.vst3" version="$BV">b15nf-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
-P="$OUT/tonestack-Plugins-Mac_Laney-${LV}_Yamaha-${YV}.pkg"
+P="$OUT/tonestack-Plugins-Mac_Laney-${LV}_Yamaha-${YV}_B15NF-${BV}.pkg"   # wie PKG in scripts/versions.sh
 productbuild --distribution "$W/dist.xml" --resources "$W/res" --package-path "$W/pkgs" "$P"
 echo "fertig: $P"

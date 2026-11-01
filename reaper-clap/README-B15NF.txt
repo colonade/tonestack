@@ -1,0 +1,102 @@
+Ampeg B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.0
+
+Two formats, one engine
+  Ampeg_B15NF.clap and Ampeg_B15NF.vst3 contain the same code and sound
+  identical. Use whichever your DAW prefers. CLAP is the native format, the
+  VST3 is built from it with clap-wrapper (free-audio, MIT) and the VST3 SDK
+  3.8 (Steinberg, MIT). A project saved with one format does not load its
+  settings into the other.
+  Third-party licenses: THIRD-PARTY-LICENSES.txt.
+
+Installation (CLAP)
+  mkdir -p ~/.clap && cp Ampeg_B15NF.clap ~/.clap/
+  In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
+  path if it is not there and press "Re-scan". The plugin then appears in
+  the FX browser under CLAP as "Ampeg B-15NF Bass Amp".
+
+Installation (VST3)
+  mkdir -p ~/.vst3 && cp -r Ampeg_B15NF.vst3 ~/.vst3/
+  (Ampeg_B15NF.vst3 is a folder - copy it as a whole.) Then "Re-scan".
+
+What it is
+  The whole tube amp of the Ampeg B-15NF Portaflex, after the factory
+  schematic of 1-66 and the Ampeg "Technical Data" book (1968), solved
+  sample by sample as one circuit with all its tubes (nodal DK method):
+    - inputs as on the amp: channel 1 BASS (120k, switching jack) and
+      GUITAR (120k; the empty BASS jack loads it, -3.8 dB and less treble),
+      channel 2 INST. (direct to the grid)
+    - two 6SL7 preamps (unbypassed cathodes), volume 1 MOhm log, the
+      Baxandall-type treble/bass network of the circuit board, both channels
+      mixed into the grid of the phase inverter
+    - 6SL7 floating paraphase phase inverter, negative feedback from the
+      16-ohm tap into its cathode
+    - two 6L6GC in push-pull with fixed bias (-50 V from the 10D6 bias
+      supply), output transformer OT-214 (6.5 kOhm : 8/16 ohm)
+    - power supply: 5AR4 rectifier on the PT-108 (750 V CT), 30/40/40/40 uF
+      filter chain, so the supply sags under load as on the real amp
+  The idle voltages match the voltage table of the factory within the
+  meter tolerance (anodes, cathodes, screens, bias, B+); full power is about
+  30 W into 8 ohm. Same engine as the web simulator
+  (https://borg.fluxstatus.de/tonestack/ampeg-b15nf/).
+  Estimated (not in the schematic): transformer inductances, mains
+  transformer resistance, speaker data, screen grid current split of the
+  6L6GC. Tube models fitted to data sheets (Koren form). Details:
+  docs/b15nf/SCHALTPLAN.md in the source.
+
+Parameters
+  Input jack (Bass / Guitar on channel 1, Inst. on channel 2), Volume 1,
+  Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Standby, Power,
+  Speaker, Instrument level, Oversampling (1x, 2x, 4x), Output level.
+  Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x.
+
+User interface
+  Front panel drawn after photos of the original (no photo, no logo):
+  knobs to turn (drag vertically, mouse wheel, double-click = 5), click a
+  jack to plug in there, click the STANDBY and POWER switches. The GROUND
+  switch (polarity of the mains capacitor) only moves - it has no effect on
+  the sound. Below the panel the model strip (not on the amp): SPEAKER,
+  OVERSAMPLING, the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
+  inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
+  0 V, marked - and the output power into 8 ohm, mark = 30 W), INPUT
+  (instrument level) and OUTPUT. Below that the small-signal frequency
+  response at the operating point (relative to 1 kHz; dashed: all knobs at
+  5 with the same jack). Window resizable. Needs libcairo2 and libX11.
+
+Levels
+  INPUT sets what peak voltage at the jack corresponds to 0 dBFS of the
+  track (default 100 mV; passive bass about 100-300 mV, active up to 1 V).
+  The output is the voltage at the speaker terminal (or the sound pressure
+  with SPEAKER on, equal at 1 kHz), 24 V peak = 0 dBFS. The amp clips softly
+  above about 20 V peak.
+
+Standby and power
+  STANDBY removes the high voltage as on the amp: the filter capacitors
+  discharge through the circuit and the sound dies away over a second or
+  two. POWER off mutes the output (ramp of 20 ms).
+
+Speaker
+  SPEAKER adds the 15" speaker of the B-15 in its closed box (estimated
+  Thiele-Small data: Fs 40 Hz, Qms 5, Qes 0.55, Vas 280 l, box 85 l), driven
+  by the amp's real output impedance, plus a cone roll-off at 3 kHz.
+
+Oversampling and latency
+  1x is enough for clean and moderately driven playing; 2x or 4x reduce
+  aliasing in heavy distortion and cost two or four times the CPU. Changing
+  it prepares a new engine in the background (the amp settles first) and
+  switches over after a moment ("switching ..." on the toggle). The
+  reported latency is always 31 samples (the oversampling filters; at 1x
+  the plugin delays by the same amount), so it does not change with the
+  setting.
+
+CPU
+  About 25-45 % of one core at 48 kHz and 1x on a typical desktop (the whole
+  amp including the power supply is solved every sample); stereo with
+  different left and right signals doubles that. With the same signal on
+  both channels it is computed once. After 2 s of silence at the input
+  (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+Notes
+  Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
+  Ampeg and Portaflex are trademarks of their owners; this is an independent
+  circuit simulation, not affiliated with or endorsed by them.

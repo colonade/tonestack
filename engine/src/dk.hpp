@@ -157,13 +157,13 @@ static inline void axpy(int n, double a, const double *__restrict x, double *__r
 // gemeinsam erfüllt sind. Das Ergebnis ist dasselbe wie mit einem Newton über alle Tore; die Gruppen sind nur schwach gekoppelt
 // (z. B. Vorstufe, Endstufe, Netzteil), daher genügen meist ein bis zwei Durchgänge, und die Gleichungssysteme bleiben klein.
 struct Runner {
-  Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 40; double tol = 1e-6; int lastIt = 0, fails = 0;
+  Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 4, gsPass = 6; double tol = 1e-6, stepLim = 30; int lastIt = 0, lastPass = 0, fails = 0;
   std::vector<std::vector<int>> grpDev, grpPort; std::vector<int> devGrp; std::vector<int> capOut; Vec capI;   // capOut: Kondensatoren, deren Strom (a→b) mit ausgegeben wird   // devGrp: Gruppe je Gerät (vom Aufrufer gesetzt, sonst alle in einer)
   void set(const Sys &ns) { bool first = h.empty() || (int)h.size() != ns.nh; s = ns; if (first) { h.assign(s.nh, 0.0); } if ((int)vp.size() != s.m) { vp.assign(s.m, 0.0); ip.assign(s.m, 0.0); }
     vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); if (Jd.size() != (size_t)s.m * 16) Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
     int ng = 0; for (size_t k = 0; k < dev.size(); k++) ng = std::max(ng, k < devGrp.size() ? devGrp[k] + 1 : 1);
-    grpDev.assign(ng, {}); grpPort.assign(ng, {});
-    for (size_t k = 0; k < dev.size(); k++) { int G = k < devGrp.size() ? devGrp[k] : 0; grpDev[G].push_back((int)k); for (int q = 0; q < dev[k].np; q++) grpPort[G].push_back(dev[k].p0 + q); } }
+    grpDev.assign(ng + 1, {}); grpPort.assign(ng + 1, {});   // letzte Gruppe: alle Geräte zusammen (Rückfall, wenn die Gruppen einander nicht schnell genug einig werden)
+    for (size_t k = 0; k < dev.size(); k++) { int G = k < devGrp.size() ? devGrp[k] : 0; for (int GG : {G, ng}) { grpDev[GG].push_back((int)k); for (int q = 0; q < dev[k].np; q++) grpPort[GG].push_back(dev[k].p0 + q); } } }
   // Gerät k auswerten: Ströme nach ip, Ableitungsblock nach Jd[p0*16 ...] (Zeilen je Tor, bis 16 Spalten)
   void evalDev(int k) { const Dev &d = dev[k]; double j[16]; fn(d, &vp[d.p0], &ip[d.p0], j); for (int a = 0; a < d.np; a++) for (int b = 0; b < d.np; b++) Jd[(size_t)(d.p0 + a) * 16 + b] = j[a * d.np + b]; }
   // q = p + K·i wird mitgeführt: Änderungen der Ströme einer Gruppe gehen spaltenweise ein
@@ -183,7 +183,7 @@ struct Runner {
             for (int q = 0; q < d.np; q++) a -= kr[d.p0 + q] * Jd[(size_t)(d.p0 + q) * 16 + b]; ar[ci] = a; } }
         x[ri] = -g[ri]; }
       if (!solve(n, A.data(), x.data())) { fails++; break; }
-      for (int i = 0; i < n; i++) { double d = x[i]; if (d > 30) d = 30; else if (d < -30) d = -30; vp[P[i]] += d; }
+      { double mx = 0; for (int i = 0; i < n; i++) mx = std::max(mx, std::fabs(x[i])); double sc = mx > stepLim ? stepLim / mx : 1; for (int i = 0; i < n; i++) vp[P[i]] += sc * x[i]; }
       evalGroup(G);
       lastIt++;
     }
@@ -194,9 +194,15 @@ struct Runner {
     for (int k = 0; k < m; k++) { double v0 = vp[k]; vp[k] = 2 * v0 - vp1[k]; vp1[k] = v0; }   // Startwert: lineare Vorhersage aus den letzten beiden Abtastwerten
     for (size_t k = 0; k < dev.size(); k++) evalDev((int)k);
     q = p; for (int c = 0; c < m; c++) axpy(m, ip[c], &s.tK.d[(size_t)c * m], q.data());
-    lastIt = 0; int pass = 0;
-    for (; pass < maxPass; pass++) { double e = 0; for (size_t G = 0; G < grpPort.size(); G++) e = std::max(e, solveGroup((int)G)); if (e < tol) break; }
-    if (pass == maxPass) fails++;
+    lastIt = 0; int pass = 0; const int ng = (int)grpPort.size() - 1; bool ok = false;
+    // Gruppen nacheinander (Block-Gauß-Seidel); nach gsPass Durchgängen ohne Einigung Newton über alle Tore gemeinsam
+    for (; pass < gsPass; pass++) { double e = 0; for (int G = 0; G < ng; G++) e = std::max(e, solveGroup(G)); if (e < tol) { ok = true; break; } }
+    if (!ok) for (int k = 0; k < maxPass; k++, pass++) if (solveGroup(ng) < tol) { ok = true; break; }
+    if (!ok) {   // Rückfall: vom Wert des letzten Abtastwerts aus, kleinere Schritte, mehr Iterationen
+      for (int k = 0; k < m; k++) vp[k] = vp1[k]; for (size_t k = 0; k < dev.size(); k++) evalDev((int)k);
+      q = p; for (int c = 0; c < m; c++) axpy(m, ip[c], &s.tK.d[(size_t)c * m], q.data());
+      int mi = maxIt; double sl = stepLim; maxIt = 60; stepLim = 10; for (int k = 0; k < 4 && !ok; k++, pass++) if (solveGroup(ng) < tol) ok = true; maxIt = mi; stepLim = sl; }
+    lastPass = pass; if (!ok) fails++;
     std::fill(vb.begin(), vb.end(), 0.0); for (int j = 0; j < nh; j++) axpy(nh, h[j], &s.tPbh.d[(size_t)j * nh], vb.data());
     for (int j = 0; j < nu; j++) axpy(nh, u[j], &s.tPbu.d[(size_t)j * nh], vb.data()); for (int j = 0; j < m; j++) axpy(nh, ip[j], &s.tPbi.d[(size_t)j * nh], vb.data());
     for (int o = 0; o < s.no; o++) { double a = 0; for (int j = 0; j < nh; j++) a += s.Ooh(o, j) * h[j]; for (int j = 0; j < nu; j++) a += s.Oou(o, j) * u[j]; for (int j = 0; j < m; j++) a += s.Ooi(o, j) * ip[j]; y[o] = a; }

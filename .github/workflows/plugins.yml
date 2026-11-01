@@ -1,6 +1,6 @@
 # Plugins bauen und veröffentlichen: Linux (CLAP, VST3; Ubuntu 24.04) und Mac (Audio Unit für Logic, VST3; macOS 15).
 # Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
-# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_yamaha-<V> (ältere werden gelöscht).
+# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_yamaha-<V>_b15nf-<V> (ältere werden gelöscht).
 # Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
 # Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
 name: Plugins
@@ -27,7 +27,8 @@ jobs:
       - name: Prüfen
         run: |
           set -euo pipefail
-          for p in Laney_AOR50 Yamaha_B100II; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          for p in Laney_AOR50 Yamaha_B100II Ampeg_B15NF; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          ./engine/build/b15test | tail -3
           ./engine/build/switchtest | tail -1
       - name: Packen
         run: |
@@ -70,11 +71,11 @@ jobs:
         run: |
           set -o pipefail
           { set -e; bash mac/make_pkg.sh build-mac out
-            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component
+            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component
             sudo installer -pkg out/*.pkg -target /
             ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
-            for sub in Lany B100; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
+            for sub in Lany B100 B15N; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; done
           } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
       - name: Prüfsummen
         run: |
@@ -114,6 +115,6 @@ jobs:
           set -euo pipefail
           (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt)
           n=$(ls mac-art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
-          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/yamaha.png rel/mac-yamaha.png
+          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/yamaha.png rel/mac-yamaha.png; cp mac-art/b15nf.png rel/mac-b15nf.png
           (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)
           bash scripts/release.sh rel

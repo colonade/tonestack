@@ -49,6 +49,7 @@ inline void cairo_new_path(cairo_t *c) { CGContextBeginPath(c->cg); c->newSub = 
 inline void cairo_new_sub_path(cairo_t *c) { c->newSub = true; }
 inline void cairo_move_to(cairo_t *c, double x, double y) { CGContextMoveToPoint(c->cg, x, y); c->newSub = false; }
 inline void cairo_line_to(cairo_t *c, double x, double y) { if (CGContextIsPathEmpty(c->cg) || c->newSub) CGContextMoveToPoint(c->cg, x, y); else CGContextAddLineToPoint(c->cg, x, y); c->newSub = false; }
+inline void cairo_curve_to(cairo_t *c, double x1, double y1, double x2, double y2, double x3, double y3) { if (CGContextIsPathEmpty(c->cg) || c->newSub) CGContextMoveToPoint(c->cg, x1, y1); CGContextAddCurveToPoint(c->cg, x1, y1, x2, y2, x3, y3); c->newSub = false; }
 inline void cairo_close_path(cairo_t *c) { CGContextClosePath(c->cg); }
 inline void cairo_rectangle(cairo_t *c, double x, double y, double w, double h) { CGContextAddRect(c->cg, CGRectMake(x, y, w, h)); c->newSub = false; }
 inline void cairo_arc(cairo_t *c, double xc, double yc, double r, double a1, double a2) {
