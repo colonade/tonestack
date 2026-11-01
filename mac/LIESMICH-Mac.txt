@@ -15,8 +15,21 @@ Läuft auf Apple-Silicon- und Intel-Macs ab macOS 11 (Big Sur).
 --------------------------------------
 
 Gibt es dazu eine Datei  tonestack-Plugins-Mac_….pkg , genügt diese:
-Doppelklick → durch den Installer klicken (Administrator-Passwort) → Logic
-neu starten. Schritt 1 und 2 unten entfallen dann.
+Logic (und andere Musik-Software) beenden → Doppelklick → durch den
+Installer klicken (Administrator-Passwort) → Logic starten. Schritt 1 und 2
+unten entfallen dann.
+
+Was das Paket tut: Es legt nur die Plugins ab, für alle Benutzer in
+  /Library/Audio/Plug-Ins/Components   (Audio Units)
+  /Library/Audio/Plug-Ins/VST3         (VST3; der Ordner wird angelegt, falls er fehlt)
+und lässt macOS die Audio-Unit-Liste neu einlesen. Früher von Hand in den
+Benutzerordner (~/Library/Audio/Plug-Ins) kopierte Fassungen derselben
+Plugins verschiebt es in den Papierkorb, damit Logic nicht die alte nimmt.
+Sonst ändert es nichts am System: keine Programme, keine Hintergrunddienste,
+keine Einstellungen. Ist kein Logic installiert, liegen die Plugins einfach
+bereit und stören nicht. Die Plugins selbst schreiben keine Dateien und
+gehen nicht ins Netz; ihre Einstellungen speichert das jeweilige Programm
+im Projekt.
 
 Weil das Paket nicht bei Apple beglaubigt ist, verweigert macOS beim ersten
 Doppelklick das Öffnen. Dann:
@@ -80,6 +93,7 @@ Kontrolle im Terminal (sollte mit „AU VALIDATION SUCCEEDED“ enden):
 
     auval -v aufx Lany Tnst      (Laney)
     auval -v aufx B100 Tnst      (Yamaha)
+    auval -v aufx AFB1 Tnst      (AmpFett)
 
 
 4. Über Waves StudioRack (VST3)
@@ -112,8 +126,23 @@ viel Volt ein voll ausgesteuertes Signal am Instrumentenkabel hätte
 (Standard 100 mV). Höher = Röhren werden stärker angesteuert.
 „Output level“ regelt nur die Lautstärke am Ausgang.
 
-Rechenlast: Röhrenverzerrung mit 2-facher Überabtastung braucht etwa
-15 bis 20 % eines Prozessorkerns; 4- und 8-fach entsprechend mehr.
+Rechenlast: Die Plugins rechnen die ganze Schaltung in jedem Abtastwert.
+Laney mit Röhrenverzerrung und Endstufe bei 2-facher Überabtastung etwa
+ein halber Prozessorkern, AmpFett etwa ein Viertel bis ein Drittel; 4- und
+8-fach entsprechend mehr. Wenn es knackt: 1-fach wählen oder in Logic die
+Puffergröße erhöhen. Mehrere Instanzen addieren sich.
+
+
+6. Entfernen
+------------
+
+Logic beenden, dann im Terminal:
+
+    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF}.component
+    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF}.vst3
+    for p in laney yamaha b15nf; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
+
+Danach ist nichts mehr davon auf dem Mac.
 
 
 Lizenzen der mitgelieferten Fremdbibliotheken: THIRD-PARTY-LICENSES.txt

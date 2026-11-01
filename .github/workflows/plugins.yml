@@ -74,7 +74,10 @@ jobs:
           set -o pipefail
           { set -e; bash mac/make_pkg.sh build-mac out
             rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/AmpFett_B15NF.component
+            mkdir -p ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3   # Attrappe einer alten Handinstallation: soll im Papierkorb landen
+            echo "::notice title=Konsolenbenutzer::$(stat -f%Su /dev/console) / $(whoami)"
             sudo installer -pkg out/*.pkg -target /
+            if [ -e ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3 ]; then echo "::notice title=Altfassung::nicht verschoben (kein angemeldeter Benutzer?)"; rm -rf ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3; else echo "::notice title=Altfassung::in den Papierkorb verschoben: $(ls ~/.Trash | tr '\n' ' ')"; fi
             ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
             for sub in Lany B100 AFB1; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; echo "::notice title=auval $sub Kanäle::$(auval -v aufx $sub Tnst | grep -i -A2 "channel capabilities" | tr '\n' ' ')"; done

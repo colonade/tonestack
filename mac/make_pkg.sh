@@ -10,10 +10,24 @@ eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/scripts" "$W/res"
 cat > "$W/scripts/postinstall" <<'S'
 #!/bin/bash
-# Audio-Unit-Verzeichnis neu einlesen lassen, damit Logic die neue Fassung sofort findet
-# Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF: alte Fassung entfernen, sonst stünden beide in Logic (feste Pfade)
+# Läuft als root nach jedem Teilpaket. Fasst nur feste Pfade dieser Plugins an.
+# Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF: alte Fassung entfernen, sonst stünden beide in Logic
 rm -rf "/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component" "/Library/Audio/Plug-Ins/VST3/Ampeg_B15NF.vst3"
-killall -9 AudioComponentRegistrar 2>/dev/null || true
+# Früher von Hand (ZIP) im Benutzerordner installierte Fassungen derselben Plugins: dieselbe Audio-Unit-Kennung zweimal, und Logic
+# nimmt womöglich die alte. In den Papierkorb des angemeldeten Benutzers verschieben (wiederherstellbar), nicht löschen.
+U="$(stat -f%Su /dev/console 2>/dev/null || true)"
+if [ -n "$U" ] && [ "$U" != root ]; then
+  H="$(dscl . -read "/Users/$U" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+  if [ -n "$H" ] && [ -d "$H" ]; then
+    for f in Components/Laney_AOR50.component Components/Yamaha_B100II.component Components/AmpFett_B15NF.component Components/Ampeg_B15NF.component \
+             VST3/Laney_AOR50.vst3 VST3/Yamaha_B100II.vst3 VST3/AmpFett_B15NF.vst3 VST3/Ampeg_B15NF.vst3; do
+      p="$H/Library/Audio/Plug-Ins/$f"
+      if [ -e "$p" ]; then mkdir -p "$H/.Trash"; mv "$p" "$H/.Trash/$(basename "$p")-alt-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true; fi
+    done
+  fi
+fi
+# Audio-Unit-Verzeichnis neu einlesen lassen (startet bei Bedarf von selbst neu), damit Logic die neue Fassung sofort findet
+killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
 chmod +x "$W/scripts/postinstall"
@@ -39,6 +53,20 @@ cat > "$W/dist.xml" <<X
   <options customize="always" require-scripts="false" hostArchitectures="arm64,x86_64"/>
   <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
   <os-version min="11.0"/>
+  <installation-check script="laeuftNichts()"/>
+  <script><![CDATA[
+  // Warnung, wenn eine Musik-Software läuft: sie hat die alten Plugins evtl. geladen, und deren Austausch kann sie abstürzen lassen.
+  function laeuftNichts() {
+    var apps = [['com.apple.logic10', 'Logic Pro'], ['com.apple.mainstage3', 'MainStage'], ['com.apple.garageband10', 'GarageBand'],
+                ['com.cockos.reaper', 'REAPER'], ['com.ableton.live', 'Ableton Live'], ['com.presonus.studioone6', 'Studio One']];
+    var offen = [];
+    for (var i = 0; i < apps.length; i++) { var r = null; try { r = system.applications.fromIdentifier(apps[i][0]); } catch (e) { r = null; } if (r && r.length > 0) offen.push(apps[i][1]); }
+    if (offen.length == 0) return true;
+    my.result.type = 'Warning'; my.result.title = 'Bitte zuerst schließen: ' + offen.join(', ');
+    my.result.message = 'Eine Musik-Software läuft noch und hat die Plugins vielleicht geladen. Bitte vor dem Installieren beenden, sonst kann sie beim Austausch der Plugins abstürzen.';
+    return false;
+  }
+  ]]></script>
   <choices-outline>
     <line choice="laney"/>
     <line choice="yamaha"/>
