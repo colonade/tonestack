@@ -104,6 +104,8 @@ struct YCore {
       { double ys = spk.step(y); if (spkMix >= 1) y = ys; else if (spkMix > 0) y += spkMix * (ys - y); }   // Lautsprecherfilter läuft immer mit
       if (!std::isfinite(y)) { recover(); for (; i < n; i++) buf[i] = 0; return; }
       buf[i] = (float)-y; } }   // Polarität wie am Eingang (das PA-Board invertiert)
+  // Neubeginn aus der Ruhe: Regler sofort am Ziel (kein Gleiten), alle Zustände leer (lineares Netz: Ruhe = 0)
+  void restart() { if (!hasV) return; cur = tgt; r.set(buildY(v, cur, fs), 1, false); recover(); ingCur = tgt.ing; }
   void recover() { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; hpOut.reset(); ma.reset(); spk.lo.reset(); spk.le.reset(); spk.cone.reset(); pkPre = 0; pwrMix = spkMix = vinCur = -1; }
   double takePeak() { double p = pkPre; pkPre = 0; return p; }
 };

@@ -283,8 +283,7 @@ struct LinRunner {
 // ---------- Röhrenmodell (Koren 12AX7) mit Tabelle ----------
 struct Tube {
   double KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300;
-  static constexpr double G0 = -12, GS = 0.01, P0 = 0, PS = 1; static constexpr int GN = 1501, PN = 321;
-  std::vector<float> TAB; int type = 0;
+  int type = 0;   // Anodenstrom immer aus der Formel: eine bilinear interpolierte Tabelle (bis 3.18) erzeugte bei leisem Spiel unechte Oberwellen (H4…H6 um −80 dB) und brauchte mehr Newton-Schritte
   void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; }
   void tube(double vgk, double vpk, double *out) const {
     if (vpk <= 1e-6) { out[0] = out[1] = out[2] = 0; return; }
@@ -294,19 +293,6 @@ struct Tube {
     if (e1 <= 1e-300) { out[0] = out[1] = out[2] = 0; return; }
     double p = std::exp((EX - 1) * std::log(e1)), I = 2 * p * e1 / KG1, dI = 2 * EX * p / KG1;
     out[0] = I; out[1] = dI * vpk * sig / s; out[2] = dI * (sp / KP - sig * vgk * vpk * vpk / (s * s * s));
-  }
-  void makeTab() { TAB.resize(GN * PN); double o[3]; for (int i = 0; i < GN; i++) for (int j = 0; j < PN; j++) { tube(G0 + i * GS, P0 + j * PS, o); TAB[i * PN + j] = (float)o[0]; } }
-  void tubeT(double vgk, double vpk, double *out) const {
-    double x = (vgk - G0) / GS, y = (vpk - P0) / PS;
-    if (!std::isfinite(x) || !std::isfinite(y)) { out[0] = out[1] = out[2] = 0; return; }
-    if (x < 0) x = 0; else if (x > GN - 1.000001) { tube(vgk, vpk, out); return; }
-    if (y < 0) y = 0; else if (y > PN - 1.000001) { tube(vgk, vpk, out); return; }
-    int i = (int)x, j = (int)y; double fx = x - i, fy = y - j; int o = i * PN + j;
-    double a = TAB[o], b = TAB[o + 1], c = TAB[o + PN], d = TAB[o + PN + 1];
-    double ab = a + (b - a) * fy, cd = c + (d - c) * fy;
-    out[0] = ab + (cd - ab) * fx;
-    out[1] = (vgk - G0 < 0) ? 0 : (cd - ab) / GS;
-    out[2] = (vpk - P0 < 0) ? 0 : ((b - a) + ((d - c) - (b - a)) * fx) / PS;
   }
   // Gitterstrom nach Dempwolf/Zölzer (2011), an gemessenen 12AX7 angepasst: setzt etwa 0,3…0,5 V vor 0 V allmählich ein (Potenz 1,314)
   // statt als scharfe Diode bei 0 V (bis 3.14: weiche Diode mit 20 mV Knie und 2 kΩ); rundet den Übersteuerungseinsatz ab
@@ -321,9 +307,9 @@ struct Tube {
 // thread-sicher über die statische Initialisierung; warmTubes() ruft das im Haupt-Thread auf, damit es nicht im Audio-Thread passiert.
 // WebAssembly ist einfädig: dort bei Bedarf je Typ (spart Speicher).
 #ifdef __wasm__
-inline const Tube &tubeOf(int t) { static Tube bank[NTUBES]; static bool ready[NTUBES] = {false}; if (t < 0 || t >= NTUBES) t = 0; if (!ready[t]) { bank[t].setModel(t); bank[t].makeTab(); ready[t] = true; } return bank[t]; }
+inline const Tube &tubeOf(int t) { static Tube bank[NTUBES]; static bool ready[NTUBES] = {false}; if (t < 0 || t >= NTUBES) t = 0; if (!ready[t]) { bank[t].setModel(t); ready[t] = true; } return bank[t]; }
 #else
-inline const Tube &tubeOf(int t) { static const std::array<Tube, NTUBES> bank = [] { std::array<Tube, NTUBES> b; for (int i = 0; i < NTUBES; i++) { b[i].setModel(i); b[i].makeTab(); } return b; }(); if (t < 0 || t >= NTUBES) t = 0; return bank[t]; }
+inline const Tube &tubeOf(int t) { static const std::array<Tube, NTUBES> bank = [] { std::array<Tube, NTUBES> b; for (int i = 0; i < NTUBES; i++) b[i].setModel(i); return b; }(); if (t < 0 || t >= NTUBES) t = 0; return bank[t]; }
 #endif
 inline void warmTubes() { tubeOf(0); }
 
@@ -419,8 +405,8 @@ struct Snapshot { std::vector<AmpState> st; std::vector<std::vector<double>> I; 
 struct Amp {
   int os; double fs; const Tube *tubes[3]; bool low = false;
   std::vector<Sec> sec, dcSec; std::vector<AmpState> st; double vkPrev[4] = {0,0,0,0}, vgkDC[5] = {0,0,0,0,0}, peak[5] = {0,0,0,0,0}, w3DC = 0;
-  double g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, tb[3], gb[2], Ib[8], Dn[8]; double tol = 1e-9; bool dcMode = false, dcExact = false;
-  void tubeAt(const Tube *T, double vgk, double vpk) { if (dcMode && (dcExact || vgk < Tube::G0)) T->tube(vgk, vpk, tb); else T->tubeT(vgk, vpk, tb); }   // Gleichstrom: links der Tabelle exakt, damit der Löser eine Richtung hat
+  double g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, tb[3], gb[2], Ib[8], Dn[8]; double tol = 1e-9; bool dcMode = false;
+  void tubeAt(const Tube *T, double vgk, double vpk) { T->tube(vgk, vpk, tb); }
   std::vector<double> h, hp; int L = 0; std::vector<double> xb, yb; int xi = 0, yi = 0;
   struct Blend { std::vector<double> Mp, Mc, dV; }; std::vector<Blend> bFrom, bTo; bool blending = false; int bpos = 0;
   Amp(double fsBase, int os_, const Tube *t) : os(os_), fs(os_ * fsBase) { tubes[0] = tubes[1] = tubes[2] = t;
@@ -542,12 +528,12 @@ struct Amp {
     vkPrev[0] = 1.6; vkPrev[1] = 1.7; vkPrev[2] = 2.5; vkPrev[3] = 0.9;
     if (stockTubes(s)) { for (int pass = 0; pass < 4; pass++) run(0, true); }
     else {   // Fortsetzung: Modellparameter in Schritten von der 12AX7 zur gewählten Röhre, jeweils vom vorigen Arbeitspunkt aus (exakte Kennlinie, ohne Tabelle)
-      Tube tmp[3]; dcExact = true; const TubeModel &m0 = TUBE_MODELS[0]; const int NS = 8;
+      Tube tmp[3]; const TubeModel &m0 = TUBE_MODELS[0]; const int NS = 8;
       for (int step = 1; step <= NS; step++) { double a = (double)step / NS;
         for (int i = 0; i < 3; i++) { const TubeModel &m1 = TUBE_MODELS[s.tube[i]]; Tube &T = tmp[i];
           T.MU = m0.mu + a * (m1.mu - m0.mu); T.EX = m0.ex + a * (m1.ex - m0.ex); T.KG1 = m0.kg1 + a * (m1.kg1 - m0.kg1); T.KP = m0.kp + a * (m1.kp - m0.kp); T.KVB = m0.kvb + a * (m1.kvb - m0.kvb); tubes[i] = &tmp[i]; }
         for (int pass = 0; pass < 3; pass++) run(0, true); }
-      setTubes(s); for (int pass = 0; pass < 4; pass++) run(0, true); dcExact = false; }
+      setTubes(s); for (int pass = 0; pass < 4; pass++) run(0, true); }
     double known = 0;
     for (int k = 0; k < 5; k++) {
       Sec &D = dcSec[k], &C = sec[k]; double src = k == 0 ? 0 : UB[k - 1];

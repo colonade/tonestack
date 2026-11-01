@@ -18,21 +18,8 @@ const NL = (() => {
     const p = Math.exp((EX - 1) * Math.log(e1)), I = 2 * p * e1 / KG1, dI = 2 * EX * p / KG1;
     out[0] = I; out[1] = dI * vpk * sig / s; out[2] = dI * (sp / KP - sig * vgk * vpk * vpk / (s * s * s));
   }
-  // Kennlinientabelle: Gitterspannung −12…+3 V (10 mV), Anodenspannung 0…320 V (1 V); bilinear interpoliert
-  const G0 = -12, GS = 0.01, GN = 1501, P0 = 0, PS = 1, PN = 321; let TAB = null;
-  function makeTab() { TAB = new Float32Array(GN * PN); const o = [0, 0, 0]; for (let i = 0; i < GN; i++) for (let j = 0; j < PN; j++) { tube(G0 + i * GS, P0 + j * PS, o); TAB[i * PN + j] = o[0]; } }
-  function tubeT(vgk, vpk, out) {
-    if (!TAB) makeTab();
-    let x = (vgk - G0) / GS, y = (vpk - P0) / PS;
-    if (x < 0) x = 0; else if (x > GN - 1.000001) { tube(vgk, vpk, out); return; }
-    if (y < 0) y = 0; else if (y > PN - 1.000001) { tube(vgk, vpk, out); return; }
-    const i = x | 0, j = y | 0, fx = x - i, fy = y - j, o = i * PN + j;
-    const a = TAB[o], b = TAB[o + 1], c = TAB[o + PN], d = TAB[o + PN + 1];
-    const ab = a + (b - a) * fy, cd = c + (d - c) * fy;
-    out[0] = ab + (cd - ab) * fx;
-    out[1] = (vgk - G0 < 0) ? 0 : (cd - ab) / GS;
-    out[2] = (vpk - P0 < 0) ? 0 : ((b - a) + ((d - c) - (b - a)) * fx) / PS;
-  }
+  // Anodenstrom immer aus der Formel (wie der C++-Kern seit 3.19; die frühere Tabelle erzeugte bei leisem Spiel unechte Oberwellen)
+  const tubeT = tube;
   function grid(v, out) {                          // Gitterstrom und Ableitung (Dempwolf/Zölzer 2011, an gemessenen 12AX7 angepasst; wie der C++-Kern)
     const GG = 6.177e-4, CG = 9.901, XI = 1.314, x = CG * v; let sp, sg;
     if (x < -30) { out[0] = 0; out[1] = 0; return; }

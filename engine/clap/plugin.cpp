@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.18"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.19"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -41,7 +41,8 @@ static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 
 struct Plugin {
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
-  long quiet = 0; std::atomic<bool> sleeping{false};   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
+  long quiet = 0; std::atomic<bool> sleeping{false};
+  std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt;
   Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)std::lround(val[P_TAPER]);
@@ -141,7 +142,7 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
   delete pl->eng; delete pl->eng2; delete pl; }
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
-static bool pl_start(const clap_plugin_t *) { return true; }
+static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
 static void pl_reset(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->eng) { delete pl->eng; delete pl->eng2; pl->eng = new Engine(pl->fs); pl->eng2 = new Engine(pl->fs); pl->eng->pad = pl->eng2->pad = LATENCY; pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; } }
 static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->audio_outputs_count; k++) { clap_audio_buffer_t &o = pr->audio_outputs[k]; for (uint32_t c = 0; c < o.channel_count; c++) { if (o.data32) std::memset(o.data32[c], 0, pr->frames_count * sizeof(float)); else if (o.data64) std::memset(o.data64[c], 0, pr->frames_count * sizeof(double)); } } }
@@ -153,6 +154,11 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
   if (pl->dirty.exchange(false)) { pl->lastT = pl->target(); pl->eng->setTarget(pl->lastT); pl->eng2Has = false; pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; }
+  // Neubeginn aus der Ruhe (wie ein Verstärker, der während der Pause still weiterlief): nach start_processing (REAPER: FX wieder an)
+  // oder einer Pause zwischen zwei Aufrufen über 0,2 s bzw. drei Blocklängen; sonst liefe der beim Ausschalten eingefrorene Zustand kurz nach
+  { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
+    if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs)) pl->fresh = true; }
+  if (pl->fresh.exchange(false)) { settle(pl->eng); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; }   // zweite Engine wird bei Bedarf vom ersten geklont
   auto t0 = std::chrono::steady_clock::now();
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } m[i] = (float)x; m2[i] = (float)x2; }
   // Stereo mit gleichem Signal links und rechts (Mono-Spur, Bass-DI auf Stereospur): nur einmal rechnen. Erst wenn die Kanäle sich
@@ -189,6 +195,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
 static clap_process_status pl_process(const clap_plugin_t *p, const clap_process_t *pr) {
   DenormGuard dg; clap_process_status r;
   try { r = pl_process_impl(p, pr); } catch (...) { zeroOut(pr); r = CLAP_PROCESS_CONTINUE; }
+  P(p)->lastEnd = std::chrono::steady_clock::now();
   return r; }
 #ifndef TS_NO_GUI
 // ---- Oberfläche (Linux: X11, macOS: NSView; eingebettet) ----

@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.8
+Version 1.9
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -89,6 +89,12 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+1.9
+  - Switching the FX off and on again in REAPER: the circuit resumed from
+    the state frozen when it was switched off, a short odd sound. Now it
+    starts from rest with all controls in place (after start of processing
+    or a pause of more than 0.2 s). Sound otherwise bit-identical to 1.8.
 
 1.8 (code audit, schematic re-check)
   - EQ: the G50K pots have a grounded centre tap (schematic). With the knob

@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.18
+Version 3.19
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -116,6 +116,18 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.19 (findings from the AmpFett B-15NF tube check)
+  - Tubes are now computed with the full formula instead of an interpolated
+    table. The table added small kinks that produced false high harmonics
+    on quiet playing (4th to 6th harmonic around -75 to -90 dB; now below
+    -105 dB). Distorted sound otherwise unchanged (difference to 3.18 about
+    -75 dB on a bass line). Side effect: about a third less CPU, because
+    the solver needs fewer steps with the smooth curve.
+  - Switching the FX off and on again in REAPER: the amp resumed from the
+    state frozen when it was switched off, a short odd sound. Now it starts
+    from the idle state (after start of processing or a pause of more than
+    0.2 s), like an amp that kept running silently.
 
 3.18 (code audit)
   - Linear mode (tube distortion off) now plays at the same absolute level as
