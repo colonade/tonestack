@@ -41,12 +41,14 @@ struct Setting {
   int tube[3] = {0, 0, 0};   // Röhrentyp je Fassung V101, V102, V103 (Index in TUBE_MODELS; 0 = 12AX7/ECC83 wie im Gerät)
 };
 // Röhrenmodelle (Koren-Form): 12AT7, 12AU7 nach Koren (Glass Audio 1996, Tabelle 1); 5751 und 12AY7 an Datenblatt-Arbeitspunkte angepasst (mu fest, kvb 300).
+// 12AX7 ab 3.21 in der Dempwolf-Form (Dempwolf/Zölzer 2011, γ 1,26 wie dort gemessen, mu 100, G und C an dieselben Daten angepasst; rms-Fehler 0,21 → 0,15,
+// RCA-Ströme 0,52 / 1,18 mA statt 0,35 / 1,60 mA). Die Koren-Werte darunter (3.20) bleiben für den Vergleich stehen.
 // 12AX7 (ab 3.20): an RCA-Datenblatt (100 V/−1 V: 0,5 mA, 1,25 mA/V, 80 kΩ; 250 V/−2 V: 1,2 mA, 1,6 mA/V, 62,5 kΩ) und die fünf Vorstufen-Arbeitspunkte
 // des Laney-Plans (V101A/B, V102A/B, V103B) angepasst, mu 100 fest. Koren 1996 (ex 1,4, kg1 1060, kp 600) traf bei 100 V/−1 V nur 0,1 mA statt 0,5 mA und
 // lag in den Laney-Stufen 10–25 % zu niedrig (Anoden 6–10 V zu hoch); jetzt Anoden auf 1–6 V am Plan, Rechnung: engine/tools/tube_fits.py.
-struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; };
+struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; int form = 0; double G = 0, C = 0, ga = 0; };   // form 1: Dempwolf (G, C, ga; mu), sonst Koren
 static const TubeModel TUBE_MODELS[5] = {
-  {"12AX7 / ECC83", 100,  1.2,   1090.9, 287.3, 300, 1.6e-12, 1.7e-12, true},
+  {"12AX7 / ECC83", 100,  1.2,   1090.9, 287.3, 300, 1.6e-12, 1.7e-12, true, 1, 2.019059e-3, 2.02928, 1.26},
   {"12AT7 / ECC81", 60,   1.35,  460,  300, 300, 2.7e-12, 2.2e-12, false},
   {"12AU7 / ECC82", 21.5, 1.3,   1180, 84,  300, 2.5e-12, 2.0e-12, false},
   {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true},
@@ -190,27 +192,14 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vec
   return o;
 }
 inline LinSys buildLin(const Parts &v, const Setting &s, double fs, const std::vector<TriSS> *ss = nullptr) { return netLin(v, s, fs, ss).compile("W3", MON); }
-// Endstufe mit Gegenkopplung und Presence (wie engine.paBuild)
-inline LinNet netPA(const Parts &v, double pres, double fs) {
-  LinNet o; o.N("in");
-  auto buf = [&](const std::string &a, const std::string &b) { o.vccs(a, "0", b, 1); o.R(b, "0", 1); };
-  o.R("in","fa",1e3); o.C("fa","fb",v.c201,fs); o.C("fb","fc",v.c202,fs); o.R("fc","0",1/(1/39e3+1/55e3));
-  buf("fc","bb"); o.R("bb","ga0",1e3); o.C("ga0","ga",v.c18,fs); o.R("ga","n",1e6); o.R("gb","n",1e6); o.R("n","k",470); o.R("n","x",10e3);
-  o.triode("ga","pa","k",1.23e-3,v,fs); o.triode("gb","pb","k",1.17e-3,v,fs); o.R("pa","0",82e3); o.R("pb","0",100e3); o.C("pa","pb",v.c20,fs);
-  o.C("pa","g1",v.c21,fs); o.R("g1","0",220e3); o.C("pb","g2",v.c21,fs); o.R("g2","0",220e3);
-  o.C("gb","x",v.c19,fs); o.R("x","0",v.r105); o.R("x","px",v.vr108*(1-pres)); o.C("px","0",v.c110,fs);
-  o.vccs("g2","0","br",1); o.vccs("g1","br","0",1); o.R("br","0",1);
-  o.R("br","x", v.r38 * 0.5 / std::max(v.gp, 1e-6));
-  return o;
-}
-inline LinSys buildPA(const Parts &v, double pres, double fs) { return netPA(v, pres, fs).compile("br", {}); }
 // Endstufe im Röhrenmodus: ganze Schaltung (laney_pa.hpp, DK-Methode) – Phasenumkehr, zwei EL34, Ausgangsübertrager mit Kernsättigung,
 // Netzteil mit Brückengleichrichter und Vorspannung, Lautsprecher als Last. Läuft mit der Grundabtastrate (wie das bisherige Modell).
 // Ausgang wie bisher: Spannung am Lautsprecher, so skaliert, dass der Pegel bei 1 kHz, kleinem Signal und Presence 5 dem bisherigen entspricht.
 struct PaDk {
   static constexpr double SCALE = lpa::OUT_SCALE;   // Ausgang = Vs · SCALE
-  double fs; lpa::Core c; lpa::Vals tgt; bool hasV = false; int cnt = 0; double vgk0[3] = {0, 0, 0};
-  explicit PaDk(double fs_) : fs(fs_) {}
+  double fs, fsb; lpa::Core c; lpa::Vals tgt; bool hasV = false; int cnt = 0; double vgk0[3] = {0, 0, 0}, rail0[3] = {0, 0, 0};
+  // fs: Rechenrate der Endstufe (Grundrate, bei Überabtastung ab 2x die doppelte), fsb: Grundrate (Takt von tick)
+  explicit PaDk(double fs_, double fsb_ = 0) : fs(fs_), fsb(fsb_ > 0 ? fsb_ : fs_) {}
   static lpa::Vals valsOf(const Parts &v, double pres, double mis) { lpa::Vals x; x.c201 = v.c201; x.c202 = v.c202; x.c18 = v.c18; x.c19 = v.c19; x.c20 = v.c20; x.c21 = v.c21;
     x.r105 = v.r105; x.vr108 = v.vr108; x.c110 = v.c110; x.r38 = v.r38; x.pres = pres; x.mis = mis; return x; }
   // eingeschwungene Endstufe (Ruhezustand) je Abtastrate und Bauteilsatz, prozessweit zwischengespeichert; Presence und Streuung werden danach eingestellt
@@ -227,18 +216,35 @@ struct PaDk {
   static lpa::Core settled(double fs, const lpa::Vals &v, bool compute = true) { Lock lk; auto &c = cache(); auto it = c.find(keyOf(fs, v)); if (it != c.end()) return it->second;
     if (!compute) { lpa::Vals z = v; z.mis = 0; auto i0 = c.find(keyOf(fs, z)); if (i0 != c.end()) return i0->second; }
     lpa::Vals s = v; s.pres = 0.5; lpa::Core k; k.init(fs, s); k.settle(0.6); if (c.size() >= 16) c.clear(); c[keyOf(fs, v)] = k; return k; }
-  void mark() { for (int i = 0; i < 3; i++) vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; }
+  void mark() { for (int i = 0; i < 3; i++) { vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; rail0[i] = c.rail[i]; } }
+  double railDev(int k) const { return c.rail[k] - rail0[k]; }   // Änderung der Vorstufenschiene k (240/252/260 V) gegen die Ruhe
   void setTarget(const Parts &pv, double pres, double mis) { lpa::Vals n = valsOf(pv, pres, mis);
     if (!hasV) { c = settled(fs, n, false); if (!(c.cur == n)) c.apply(n); hasV = true; tgt = n; mark(); return; }
     lpa::Vals a = n; a.pres = c.cur.pres; a.mis = c.cur.mis; bool parts = !(a == c.cur); tgt = n;
     if (parts) { lpa::Vals k = c.cur; lpa::Vals s = n; s.pres = k.pres; s.mis = k.mis; c.apply(s); } }   // Bauteilwechsel: neu übersetzen, Zustände bleiben
   // alle 256 Abtastwerte Richtung Ziel (Neuaufbau des Netzes kostet etwa 0,1 ms): Presence in 15 ms, Streuung in 0,3 s (Gleichstrom durch den Übertrager ändert sich langsam, kein Plopp)
   void tick() { if (++cnt < 256) return; cnt = 0; lpa::Vals n = c.cur; bool moved = false;
-    auto glide = [&](double &x, double t, double tau) { double d = t - x; if (d == 0) return; moved = true; if (std::fabs(d) > 1e-5) x += d * (1 - std::exp(-256 / (tau * fs))); else x = t; };
+    auto glide = [&](double &x, double t, double tau) { double d = t - x; if (d == 0) return; moved = true; if (std::fabs(d) > 1e-5) x += d * (1 - std::exp(-256 / (tau * fsb))); else x = t; };
     glide(n.pres, tgt.pres, 0.015); glide(n.mis, tgt.mis, 0.3); if (moved) c.apply(n); }
-  double step(double u) { return c.step(u) * SCALE; }
+  double step(double u, const double *di = nullptr) { return c.step(u, di) * SCALE; }
   double restDev() const { double d = std::fabs(c.last); for (int i = 0; i < 2; i++) d = std::max(d, std::fabs(c.vgk(i) - vgk0[i])); return std::max(d, std::fabs(c.run.vp[0] - vgk0[2])); }   // Abstand von der Ruhe
   void settle() { lpa::Vals n = c.cur; c = settled(fs, n, false); c.apply(n); mark(); }   // Ruhezustand (Neustart, Aufwachen)
+};
+
+// Endstufe für die lineare Betriebsart (ab 3.21): dieselbe Schaltung wie PaDk, im Ruhezustand linearisiert (Röhren und Dioden durch ihre
+// Kleinsignal-Leitwerte ersetzt, Netz und Hysterese ohne Wirkung). Rechnet nur Abweichungen von der Ruhe; gleicher Ausgangsmaßstab wie PaDk.
+struct PaLin {
+  double fs; dk::Runner r; lpa::Core op; lpa::Vals tgt, cur; bool hasV = false; int cnt = 0;
+  explicit PaLin(double fs_) : fs(fs_) {}
+  void build() { op.apply(cur); r.dev.clear(); r.set(dk::compile(lpa::linearNet(op), fs)); }
+  void setTarget(const Parts &pv, double pres, double mis) { lpa::Vals n = PaDk::valsOf(pv, pres, mis); tgt = n;
+    lpa::Vals a = n, b = cur; a.pres = b.pres = 0; a.mis = b.mis = 0;
+    if (!hasV || !(a == b) || n.mis != cur.mis) { op = PaDk::settled(fs, n, false); cur = n; hasV = true; build(); } }
+  void tick() { if (++cnt < 256) return; cnt = 0; double d = tgt.pres - cur.pres; if (d == 0) return;
+    if (std::fabs(d) > 1e-5) cur.pres += d * (1 - std::exp(-256 / (0.015 * fs))); else cur.pres = tgt.pres; build(); }
+  double step(double u) { double in[5] = {u, 0, 0, 0, 0}, y[lpa::O_NO]; r.step(in, y); return y[lpa::O_SPK] * PaDk::SCALE; }
+  double restDev() const { double d = 0; for (double x : r.h) d = std::max(d, std::fabs(x)); return d; }
+  void settle() { std::fill(r.h.begin(), r.h.end(), 0.0); }
 };
 
 // Zustandsrechner für ein lineares Netz mit Überblendung bei Neuaufbau
@@ -275,8 +281,14 @@ struct LinRunner {
 struct Tube {
   double KP = 287.3, MU = 100, EX = 1.2, KG1 = 1090.9, KVB = 300;
   int type = 0;   // Anodenstrom immer aus der Formel: eine bilinear interpolierte Tabelle (bis 3.18) erzeugte bei leisem Spiel unechte Oberwellen (H4…H6 um −80 dB) und brauchte mehr Newton-Schritte
-  void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; }
+  int form = 0; b15::TriodeD D{0, 1, 100, 1};   // form 1: Dempwolf-Form (12AX7 ab 3.21)
+  const Tube *mixT = nullptr; double mixA = 0;    // nur für die Fortsetzung beim Arbeitspunkt: Strom = (1 − a)·eigener + a·mixT
+  void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; form = m.form; D = {m.G, m.C, m.mu, m.ga}; }
   void tube(double vgk, double vpk, double *out) const {
+    if (mixT) { double o2[3]; own(vgk, vpk, out); mixT->tube(vgk, vpk, o2); for (int k = 0; k < 3; k++) out[k] += mixA * (o2[k] - out[k]); return; }
+    own(vgk, vpk, out); }
+  void own(double vgk, double vpk, double *out) const {
+    if (form == 1) { b15::dempwolf(D, vgk, vpk, out); return; }
     if (vpk <= 1e-6) { out[0] = out[1] = out[2] = 0; return; }
     double s = std::sqrt(KVB + vpk * vpk), q = KP * (1 / MU + vgk / s), sp, sig;
     if (q > 35) { sp = q; sig = 1; } else { double eq = std::exp(q); sp = std::log1p(eq); sig = eq / (1 + eq); }
@@ -399,6 +411,17 @@ struct Amp {
   double g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, tb[3], gb[2], Ib[8], Dn[8]; double tol = 1e-9; bool dcMode = false;
   void tubeAt(const Tube *T, double vgk, double vpk) { T->tube(vgk, vpk, tb); }
   std::vector<double> h, hp; int L = 0; std::vector<double> xb, yb; int xi = 0, yi = 0;
+  // Endstufe (ab 3.21) im Takt der Überabtastung: pa != nullptr (von NlCore je Aufruf gesetzt) → step liefert den Endstufen-Ausgang.
+  // Bei 1x und 2x rechnet sie jeden Teilschritt, bei 4x und 8x jeden zweiten mit dem Mittel aus zwei (Rechenrate 2x bzw. 4x); die Ausgabe gilt bis zur nächsten Gruppe.
+  // Die Vorstufe rechnet mit den Schienenspannungen ub (Ruhe UB plus Änderung aus dem Netzteil der Endstufe) und meldet ihre Stromänderungen zurück.
+  static int paGroup(int os, bool on) { return on && os > 2 ? 2 : 1; }   // Teilschritte je Endstufen-Schritt
+  PaDk *pa = nullptr; double ub[4] = {UB[0], UB[1], UB[2], UB[3]}, i0[3] = {0, 0, 0}, paAcc = 0, paHold = 0; int paCnt = 0;
+  void railI(double *o) const { o[0] = sec[1].I[0]; o[1] = sec[2].I[0] + sec[3].I[0]; o[2] = sec[4].I[0] + sec[4].I[1] + sec[4].I[3]; }   // Anodenströme je Schiene 240/252/260 V
+  void markIdle() { railI(i0); for (int k = 0; k < 4; k++) ub[k] = UB[k]; paAcc = paHold = 0; paCnt = 0; }
+  double paSub(double y, int m) { paAcc += y; if (++paCnt < m) return paHold; double di[3]; railI(di); for (int k = 0; k < 3; k++) di[k] -= i0[k];
+    paHold = pa->step(paAcc / m, di); paAcc = 0; paCnt = 0;
+    ub[0] = UB[0] + pa->railDev(0); ub[1] = UB[1] + pa->railDev(1); ub[2] = UB[2] + pa->railDev(1); ub[3] = UB[3] + pa->railDev(2); return paHold; }
+  void noPa() { if (ub[0] != UB[0] || ub[3] != UB[3]) for (int k = 0; k < 4; k++) ub[k] = UB[k]; }
   struct Blend { std::vector<double> Mp, Mc, dV; }; std::vector<Blend> bFrom, bTo; bool blending = false; int bpos = 0;
   Amp(double fsBase, int os_, const Tube *t) : os(os_), fs(os_ * fsBase) { tubes[0] = tubes[1] = tubes[2] = t;
     if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
@@ -429,7 +452,7 @@ struct Amp {
       return; }
     tubeAt(tubes[1], vg - pv[1], pv[0] - pv[1]); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];   // V102B
     for (int q = 0; q < 5; q++) J[q] -= a1 * dV[q] + a2 * dV[5 + q];
-    tubeAt(tubes[2], pv[0] - pv[2], UB[3] - pv[2]); F[1] = I[1] - tb[0]; a1 = tb[1]; a2 = -tb[1] - tb[2];   // V103A (Kathodenfolger)
+    tubeAt(tubes[2], pv[0] - pv[2], ub[3] - pv[2]); F[1] = I[1] - tb[0]; a1 = tb[1]; a2 = -tb[1] - tb[2];   // V103A (Kathodenfolger)
     for (int q = 0; q < 5; q++) J[5 + q] -= a1 * dV[q] + a2 * dV[10 + q];
     Tube::grid(pv[0] - pv[2], gb); F[2] = I[2] - gb[0];
     for (int q = 0; q < 5; q++) J[10 + q] -= gb[1] * (dV[q] - dV[10 + q]);
@@ -491,7 +514,7 @@ struct Amp {
     dcMode = dc; double known = 0, vg = 0; std::vector<Sec> &secs = dc ? dcSec : sec; int maxIt = dc ? 300 : 60;
     for (int k = 0; k < 5; k++) {
       Sec &C = secs[k]; double src[2];
-      if (k == 0) src[0] = low ? 0 : u; else if (k == 2) { src[0] = UB[1]; src[1] = low ? u : 0; } else src[0] = UB[k - 1];
+      if (k == 0) src[0] = low ? 0 : u; else if (k == 2) { src[0] = ub[1]; src[1] = low ? u : 0; } else src[0] = ub[k - 1];
       if (!dc) { if (C.Ip2.empty()) C.Ip2 = C.I; for (int q = 0; q < C.nu; q++) { double cur = C.I[q]; C.I[q] = 2 * cur - C.Ip2[q]; C.Ip2[q] = cur; } }
       solve(C, dc ? nullptr : st[k].Ih.data(), src, known, vg, maxIt);
       if (!dc) advance(C, st[k], src, known);
@@ -504,7 +527,7 @@ struct Amp {
   Snapshot snapshot() const { Snapshot s; s.st = st; for (auto &C : sec) s.I.push_back(C.I); std::memcpy(s.vkPrev, vkPrev, sizeof vkPrev); std::memcpy(s.vgkDC, vgkDC, sizeof vgkDC); s.w3DC = w3DC; return s; }
   void initFrom(const Parts &v, const Setting &s, const Snapshot &snap) {
     compileAll(v, s); st = snap.st; for (int k = 0; k < 5; k++) sec[k].I = snap.I[k];
-    std::memcpy(vkPrev, snap.vkPrev, sizeof vkPrev); std::memcpy(vgkDC, snap.vgkDC, sizeof vgkDC); w3DC = snap.w3DC; for (double &p : peak) p = 0;
+    std::memcpy(vkPrev, snap.vkPrev, sizeof vkPrev); std::memcpy(vgkDC, snap.vgkDC, sizeof vgkDC); w3DC = snap.w3DC; for (double &p : peak) p = 0; markIdle();
   }
   void retarget(const Parts &v, const Setting &s) {
     setTubes(s); auto D = defs(v, s); bFrom.resize(5); bTo.resize(5);
@@ -519,10 +542,9 @@ struct Amp {
     vkPrev[0] = 1.6; vkPrev[1] = 1.7; vkPrev[2] = 2.5; vkPrev[3] = 0.9;
     if (stockTubes(s)) { for (int pass = 0; pass < 4; pass++) run(0, true); }
     else {   // Fortsetzung: Modellparameter in Schritten von der 12AX7 zur gewählten Röhre, jeweils vom vorigen Arbeitspunkt aus (exakte Kennlinie, ohne Tabelle)
-      Tube tmp[3]; const TubeModel &m0 = TUBE_MODELS[0]; const int NS = 8;
+      Tube tmp[3]; const int NS = 8;   // Kennlinie gleitend von der 12AX7 zur gewählten Röhre (Strom überblendet, unabhängig von der Formelart)
       for (int step = 1; step <= NS; step++) { double a = (double)step / NS;
-        for (int i = 0; i < 3; i++) { const TubeModel &m1 = TUBE_MODELS[s.tube[i]]; Tube &T = tmp[i];
-          T.MU = m0.mu + a * (m1.mu - m0.mu); T.EX = m0.ex + a * (m1.ex - m0.ex); T.KG1 = m0.kg1 + a * (m1.kg1 - m0.kg1); T.KP = m0.kp + a * (m1.kp - m0.kp); T.KVB = m0.kvb + a * (m1.kvb - m0.kvb); tubes[i] = &tmp[i]; }
+        for (int i = 0; i < 3; i++) { Tube &T = tmp[i]; T = tubeOf(0); T.mixT = &tubeOf(s.tube[i]); T.mixA = a; tubes[i] = &tmp[i]; }
         for (int pass = 0; pass < 3; pass++) run(0, true); }
       setTubes(s); for (int pass = 0; pass < 4; pass++) run(0, true); }
     double known = 0;
@@ -536,18 +558,21 @@ struct Amp {
       C.I = D.I; known = k == 0 ? D.I[0] : D.I[1];
     }
     vgkDC[0] = g0; vgkDC[1] = g1; vgkDC[2] = g2; vgkDC[3] = g3; vgkDC[4] = g4;
-    w3DC = dcSec[4].pv[6]; for (double &p : peak) p = 0;
+    w3DC = dcSec[4].pv[6]; for (double &p : peak) p = 0; markIdle();
   }
   void trackPeak() { double *dc = vgkDC; double g[5] = {g0, g1, g2, g3, g4}; for (int i = 0; i < 5; i++) peak[i] = std::max(peak[i], std::fabs(g[i] - dc[i])); }
   double step(double x) {
-    if (os == 1) { double y = run(x, false) - w3DC; trackPeak(); return y; }
+    if (!pa) noPa();
+    if (os == 1) { double y = run(x, false) - w3DC; trackPeak(); return pa ? paSub(y, 1) : y; }
     xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x;
     // Laufzeit: Interpolation + Dezimation (symmetrische Filter) ergeben 31 − 1/os Abtastwerte (gemessen); die Dezimation wird deshalb
-    // nach der vorletzten Teilphase abgegriffen (+1/os), so ist die Latenz in jeder Überabtastung genau 31 (= Engine::pad, gemeldete Plugin-Latenz)
+    // nach der vorletzten Teilphase abgegriffen (+1/os), so ist die Latenz in jeder Überabtastung genau 31 (= Engine::pad, gemeldete Plugin-Latenz).
+    // Mit Endstufe bei 4x/8x verzögert die Zweiergruppe um einen Teilschritt; der Abgriff rückt dafür einen Teilschritt später (letzte Teilphase).
+    const int m = paGroup(os, pa != nullptr), tap = os - 2 + (m - 1);
     double out = 0;
     for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
-      double y = run(os * u, false) - w3DC; trackPeak(); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = y;
-      if (ph == os - 2) for (int k = 0; k < L; k++) out += h[k] * yb[yi + k]; }
+      double y = run(os * u, false) - w3DC; trackPeak(); if (pa) y = paSub(y, m); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = y;
+      if (ph == tap) for (int k = 0; k < L; k++) out += h[k] * yb[yi + k]; }
     return out;
   }
 };
@@ -596,24 +621,13 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
 struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; };   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
-struct Norms { double pa = 5.957573504094253; };   // Endstufe: Verstärkung bei 1 kHz in der Bezugsstellung (Pegel mit/ohne Endstufe gleich)
-
-struct PaCore {
-  double fs; LinRunner r; double cur = 0, tgt = 0; Parts v; bool hasV = false; int cnt = 0; double norm = 1;
-  explicit PaCore(double fs_) : fs(fs_) {}
-  void setTarget(const Parts &pv, double pres, double nrm) { tgt = pres; norm = nrm; bool changed = !hasV || !(pv == v);
-    if (changed) { v = pv; hasV = true; if (r.sys.nc == 0) cur = pres; r.set(buildPA(v, cur, fs), 1, false); } }
-  void tick() { if (++cnt < 256) return; cnt = 0; double d = tgt - cur; if (d == 0) return; double a = 1 - std::exp(-256 / (0.015 * fs));
-    if (std::fabs(d) > 1e-5) cur += d * a; else cur = tgt; r.set(buildPA(v, cur, fs), 1, true); }
-  double step(double u) { return r.step(u) / norm; }
-};
 
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
   std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0};
   virtual CoreBase *clone() const = 0; };   // vollständige Kopie samt Zustand (Plugin: rechter Kanal übernimmt den linken)
 
 struct LinCore : CoreBase {
-  double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaCore paC; Norms N; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
+  double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaLin paC; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
   explicit LinCore(double fs_) : fs(fs_), paC(fs_) {}
   void updSS() { useSS = !stockTubes(cur); if (useSS) ss = smallSignal(v, cur, fs); }
   void rebuild(bool keep) { r.set(buildLin(v, cur, fs, useSS ? &ss : nullptr), 1, keep); }
@@ -626,18 +640,18 @@ struct LinCore : CoreBase {
       rebuild(!had);
       if (had && oldG.size() == (size_t)r.sys.nc) { r.hasPrev = false; r.blend = 1; r.prevNorm = r.norm; for (size_t j = 0; j < oldG.size(); j++) r.Ih[j] += (r.sys.G2[j] - oldG[j]) / 2 * r.vc[j]; }
     }
-    pa = t.pa; paC.setTarget(t.v, t.s.pres, N.pa);
+    pa = t.pa; if (pa) paC.setTarget(t.v, t.s.pres, t.mis);
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (moved) rebuild(true); }
-  double step(double u) override { double y = r.step(u, peaks) * vin / 20; if (pa) { paC.tick(); y = paC.step(y); } return y; }   // absolut wie der Röhrenkern (Vorverstärkerspannung / 20 V): kein Pegelsprung beim Umschalten linear ↔ Röhre
+  double step(double u) override { double y = r.step(u, peaks) * vin / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } return y; }   // absolut wie der Röhrenkern (Vorverstärkerspannung / 20 V): kein Pegelsprung beim Umschalten linear ↔ Röhre
   CoreBase *clone() const override { return new LinCore(*this); }
   bool isNl() const override { return false; } int osOf() const override { return 1; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
 
 struct NlCore : CoreBase {
-  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaDk paC; Norms N;
+  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaDk paC;
   static std::map<std::string, Snapshot> &cache() { static std::map<std::string, Snapshot> c; return c; }
   static std::string cacheKey(const Parts &v, double fs, int os, const int tube[3]) { std::string key(reinterpret_cast<const char*>(&v), sizeof v); return key + std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(tube[0]) + std::to_string(tube[1]) + std::to_string(tube[2]); }
 #ifdef __wasm__
@@ -646,7 +660,7 @@ struct NlCore : CoreBase {
   static std::mutex &cacheMutex() { static std::mutex m; return m; }
   struct CacheLock { std::lock_guard<std::mutex> g; CacheLock() : g(cacheMutex()) {} };
 #endif
-  NlCore(double fs_, int os_, const Tube *t) : fs(fs_), os(os_), amp(fs_, os_, t), paC(fs_) {}
+  NlCore(double fs_, int os_, const Tube *t) : fs(fs_), os(os_), amp(fs_, os_, t), paC(fs_ * os_ / Amp::paGroup(os_, true), fs_) {}
   void setTarget(const Target &t) override {
     Setting s = t.s; vin = t.vin; pa = t.pa; amp.low = s.low > 0.5;
     bool partsChanged = !hasV || !(t.v == v) || cur.tube[0] != s.tube[0] || cur.tube[1] != s.tube[1] || cur.tube[2] != s.tube[2];
@@ -661,7 +675,8 @@ struct NlCore : CoreBase {
     for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (tgt.ch1 != cur.ch1) { cur.ch1 = tgt.ch1; moved = true; }
     if (moved) amp.retarget(v, cur); }
-  double step(double u) override { double y = amp.step(u * vin) / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // Endstufe als ganze Schaltung (absolute Vorverstärkerspannung)
+  double step(double u) override { amp.pa = pa ? &paC : nullptr; if (pa) paC.tick(); double y = amp.step(u * vin); if (!pa) y /= 20; amp.pa = nullptr;
+    for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // mit Endstufe: deren Ausgang (im Takt der Überabtastung gerechnet), sonst Vorverstärkerspannung / 20 V
   CoreBase *clone() const override { return new NlCore(*this); }
   bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };

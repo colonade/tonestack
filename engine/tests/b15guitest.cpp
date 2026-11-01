@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   click(ux(64), uy(88)); printf("Lautsprecher: %g (erwartet 1)\n", pv(9));
   click(ux(186), uy(70)); click(ux(186), uy(100)); printf("Überabtastung: %g (erwartet 1 = 2x)\n", pv(11));
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
-  send(ButtonPress, ux(1110), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1110), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1110), uy(32), 1); tick(); printf("Mismatch: %g (erwartet > 0)\n", pv(13));
+  send(ButtonPress, ux(1110), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1110), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1110), uy(32), 1); tick(); printf("Mismatch: %g (erwartet > 0)\n", pv(13)); click(ux(300), uy(88)); printf("Netz: %g (erwartet 1 = 50 Hz)\n", pv(14));
   send(ButtonPress, kx(1265), kx(112), 4); tick(); send(ButtonPress, kx(1265), kx(112), 4); tick(); printf("Bass 2: %g (erwartet 5.4)\n", pv(6));
   send(MotionNotify, kx(1115), kx(112), 0); tick(); usleep(200000); for (int i = 0; i < 6; i++) tick();
   printf("Ausgang Spitze: %.3f\n", outPk);

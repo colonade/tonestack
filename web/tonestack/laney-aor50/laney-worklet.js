@@ -7,16 +7,13 @@
 // Schaltung in Abschnitte zwischen den Röhren zerlegt; jeder Abschnitt linear (Trapezregel), Röhrenströme per Newton.
 // Die Kapazitäten Gitter–Anode von V101A..V102B werden als Miller-Ersatzkapazität am Gitter angenähert.
 const NL = (() => {
-  const KP = 287.3, MU = 100, EX = 1.2, KG1 = 1090.9, KVB = 300;   // 12AX7 an RCA-Datenblatt und Arbeitspunkte im Laney-Plan angepasst (wie core.hpp)
+  const G = 2.019059e-3, C = 2.02928, MU = 100, GA = 1.26;   // 12AX7 in der Dempwolf-Form (wie core.hpp ab 3.21)
   function tube(vgk, vpk, out) {                   // Anodenstrom und Ableitungen nach vgk, vpk
-    if (vpk <= 1e-6) { out[0] = 0; out[1] = 0; out[2] = 0; return; }
-    const s = Math.sqrt(KVB + vpk * vpk), q = KP * (1 / MU + vgk / s);
-    let sp, sig;
-    if (q > 35) { sp = q; sig = 1; } else { const eq = Math.exp(q); sp = Math.log1p(eq); sig = eq / (1 + eq); }
-    const e1 = vpk / KP * sp;
-    if (e1 <= 1e-300) { out[0] = 0; out[1] = 0; out[2] = 0; return; }
-    const p = Math.exp((EX - 1) * Math.log(e1)), I = 2 * p * e1 / KG1, dI = 2 * EX * p / KG1;
-    out[0] = I; out[1] = dI * vpk * sig / s; out[2] = dI * (sp / KP - sig * vgk * vpk * vpk / (s * s * s));
+    if (vpk <= 0) { out[0] = 0; out[1] = 0; out[2] = 0; return; }
+    const x = C * (vpk / MU + vgk); if (x < -40) { out[0] = 0; out[1] = 0; out[2] = 0; return; }
+    let sp, sig; if (x > 35) { sp = x; sig = 1; } else { const e = Math.exp(x); sp = Math.log1p(e); sig = e / (1 + e); }
+    const base = sp / C, pw = Math.exp((GA - 1) * Math.log(base)), Ik = G * pw * base, dIk = G * GA * pw * sig, ex = Math.exp(-vpk), fv = 1 - ex;
+    out[0] = Ik * fv; out[1] = dIk * fv; out[2] = dIk / MU * fv + Ik * ex;
   }
   // Anodenstrom immer aus der Formel (wie der C++-Kern seit 3.19; die frühere Tabelle erzeugte bei leisem Spiel unechte Oberwellen)
   const tubeT = tube;

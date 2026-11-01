@@ -1,6 +1,7 @@
 # Röhrenmodelle (Koren-Form) an Datenpunkte angepasst bzw. geprüft: python3 engine/tools/tube_fits.py
 # Triode: Ia = 2/kg1·(Ua/kp·ln(1 + exp(kp·(1/mu + Ug/√(kvb + Ua²)))))^ex   (core.hpp Tube, b15_core.hpp triode)
 # Pentode (b15_core.hpp pentode): E1 = Ug2/kp·ln(1 + exp(kp·(1/mu + Ug1/Ug2))); Ia = 2·E1^ex/kg1·atan(Ua/kvb); Ig2 = 2·E1^ex/kg2·(1 + c2·(π/2 − atan(Ua/kvb)))
+# Dempwolf/Zölzer (ab Laney 3.21 / AmpFett 1.6 für 12AX7 und 6SL7): Ia = G·(ln(1 + exp(C·(Ua/mu + Ug)))/C)^γ, γ = 1,26 wie bei Dempwolf gemessen
 # Ergebnisse stehen in core.hpp (TUBE_MODELS[0]), laney_pa.hpp (T12AX7, PEL34), b15_core.hpp (T6SL7, P6L6) und docs/PROJEKTSTAND.md.
 import math
 import numpy as np
@@ -29,8 +30,8 @@ def res12(q):
     for ua, ug, i, g, R in RCA: r += [math.log(tri(p, ug, ua) / i), math.log(gm(p, ug, ua) / g), math.log(rp(p, ug, ua) / R)]
     for ua, ug, i in PI: r.append(math.log(tri(p, ug, ua) / i))
     return r
-def show12(name, p):
-    print(f'{name}: mu {p[0]:.1f} ex {p[1]:.3f} kg1 {p[2]:.1f} kp {p[3]:.1f}   rms log-Fehler {np.sqrt(np.mean(np.square(res12(p[1:])))):.3f}')
+def show12(name, p, head=None):
+    print(f'{name}: ' + (head or f'mu {p[0]:.1f} ex {p[1]:.3f} kg1 {p[2]:.1f} kp {p[3]:.1f}') + f'   rms log-Fehler {np.sqrt(np.mean(np.square(res12(p[1:])))):.3f}')
     print('   Laney-Stufen  ' + '  '.join(f'{n} {stage(p, B, Ra, Rk)[0]:.0f} V ({ua})' for n, B, Ra, Rk, ua, uk in LANEY))
     print('   RCA           ' + '  '.join(f'{ua} V/{ug} V: {tri(p, ug, ua):.2f} mA ({i}), {gm(p, ug, ua):.2f} mA/V ({g}), {rp(p, ug, ua):.0f} k ({R})' for ua, ug, i, g, R in RCA))
 print('12AX7 (mu 100 fest, ex >= 1,2):')
@@ -38,10 +39,31 @@ show12('  Koren 1996 (bis Laney 3.19)', [100, 1.4, 1060, 600])
 f = least_squares(res12, [1.4, 1060, 600], bounds=([1.2, 300, 150], [1.6, 4000, 1500]))
 show12('  angepasst (ab 3.20)        ', [100] + list(f.x))
 
+def dw(p, ug, ua):   # Dempwolf/Zölzer; p = (G, C, mu, gamma)
+    G, C, mu, ga = p; x = C * (ua / mu + ug); sp = math.log1p(math.exp(x)) if x < 35 else x
+    return G * (sp / C) ** ga * 1e3
+def with_model(fn, body):   # rechnet eine Auswertung mit einer anderen Kennlinie (tri wird kurz ersetzt)
+    global tri; old = tri; tri = fn
+    try: return body()
+    finally: tri = old
+fd = least_squares(lambda q: with_model(lambda p, ug, ua, kvb=300: dw((q[0], q[1], 100, 1.26), ug, ua), lambda: res12([0, 0, 0])), [2.2e-3, 3.4], bounds=([1e-4, 0.5], [1e-2, 20]))
+GD, CD = fd.x
+with_model(lambda p, ug, ua, kvb=300: dw((GD, CD, 100, 1.26), ug, ua), lambda: show12('  Dempwolf (ab 3.21)         ', [100, 0, 0, 0], 'G %.6e C %.5f mu 100 gamma 1,26' % (GD, CD)))
+
 # ---------- 6SL7GT (AmpFett) ----------
 B15 = [('V1A', 350, 470e3, 5.6e3, 165, 2.2), ('V1B', 350, 220e3, 2.2e3, 175, 2.0)]   # Technical Data 1968
 p6 = [70, 1.4, 1851.8, 281.0]
-print('\n6SL7GT (unverändert): 250 V/−2 V: %.2f mA (2,3), %.2f mA/V (1,6), %.0f k (44)' % (tri(p6, -2, 250), gm(p6, -2, 250), rp(p6, -2, 250)),
+def res6(q):
+    p = (q[0], q[1], 70, 1.26); r = []
+    for n, B, Ra, Rk, ua, uk in B15: a, k = with_model(lambda pp, ug, ua_, kvb=300: dw(p, ug, ua_), lambda: stage(None, B, Ra, Rk)); r.append(math.log((B - a) / (B - ua)))
+    t = lambda pp, ug, ua_, kvb=300: dw(p, ug, ua_)
+    r += with_model(t, lambda: [math.log(tri(None, -2, 250) / 2.3), math.log(gm(None, -2, 250) / 1.6), math.log(rp(None, -2, 250) / 44)])
+    return r
+f6 = least_squares(res6, [1e-3, 2.0], bounds=([1e-5, 0.3], [1e-1, 30])); p6d = (f6.x[0], f6.x[1], 70, 1.26)
+t6 = lambda pp, ug, ua, kvb=300: dw(p6d, ug, ua)
+print('\n6SL7GT Dempwolf (ab AmpFett 1.6): G %.6e C %.5f, rms-Fehler %.3f' % (f6.x[0], f6.x[1], np.sqrt(np.mean(np.square(res6(f6.x))))),
+      with_model(t6, lambda: '250 V/−2 V: %.2f mA, %.2f mA/V, %.0f k; ' % (tri(None, -2, 250), gm(None, -2, 250), rp(None, -2, 250)) + '  '.join(f'{n} Anode {stage(None, B, Ra, Rk)[0]:.0f} V ({ua})' for n, B, Ra, Rk, ua, uk in B15)))
+print('6SL7GT Koren (bis 1.5): 250 V/−2 V: %.2f mA (2,3), %.2f mA/V (1,6), %.0f k (44)' % (tri(p6, -2, 250), gm(p6, -2, 250), rp(p6, -2, 250)),
       '  ' + '  '.join(f'{n} Anode {stage(p6, B, Ra, Rk)[0]:.0f} V ({ua}), Kathode {stage(p6, B, Ra, Rk)[1]:.2f} V ({uk})' for n, B, Ra, Rk, ua, uk in B15))
 
 # ---------- Pentoden ----------

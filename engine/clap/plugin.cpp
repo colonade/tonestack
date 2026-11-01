@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.20"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.21"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -69,7 +69,7 @@ static double restDev(Engine *E) {
     auto &ca = NlCore::cache(); auto it = ca.find(key); if (it == ca.end()) return 1e9;
     const Snapshot &s = it->second; for (size_t k = 0; k < n->amp.st.size() && k < s.st.size(); k++) for (size_t i = 0; i < n->amp.st[k].vc.size() && i < s.st[k].vc.size(); i++) d = std::max(d, std::fabs(n->amp.st[k].vc[i] - s.st[k].vc[i]));
     if (n->pa) d = std::max(d, n->paC.restDev()); }
-  else { LinCore *l = (LinCore*)c; lin(l->r); if (l->pa) lin(l->paC.r); }
+  else { LinCore *l = (LinCore*)c; lin(l->r); if (l->pa) d = std::max(d, l->paC.restDev()); }
   return d;
 }
 static void settle(Engine *E) {
@@ -78,7 +78,7 @@ static void settle(Engine *E) {
     std::string key = NlCore::cacheKey(n->v, n->fs, n->os, n->cur.tube); NlCore::CacheLock lk;
     auto &ca = NlCore::cache(); auto it = ca.find(key); if (it != ca.end()) n->amp.initFrom(n->v, n->cur, it->second); else n->amp.init(n->v, n->cur);
     n->amp.blending = false; std::fill(n->amp.xb.begin(), n->amp.xb.end(), 0.0); std::fill(n->amp.yb.begin(), n->amp.yb.end(), 0.0); n->paC.settle(); }
-  else { LinCore *l = (LinCore*)c; settleRunner(l->r); settleRunner(l->paC.r); }
+  else { LinCore *l = (LinCore*)c; settleRunner(l->r); l->paC.settle(); }
 }
 
 // ---- Parameter ----
@@ -144,7 +144,8 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
   delete pl->eng; delete pl->eng2; delete pl; }
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr;
   // eingeschwungene Endstufe vorab (Haupt-Thread), nicht erst im Audio-Thread
-  for (double m : {0.0, pl->val[P_MIS] / 100}) PaDk::settled(sr, PaDk::valsOf(Parts::orig(), 0.5, m));
+  { int o = (int)std::lround(pl->val[P_OS]), os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;   // Grundrate (1x, linear) und Rate der gewählten Überabtastung
+    for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m)); }
   delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
@@ -228,9 +229,9 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) {   // Kleinsignal-Frequenzgang wie im Web-Simulator
       Target t = pl->target(); double fs = pl->fs; auto curveOf = [&](const Parts &v, const Setting &s, bool pa, std::vector<double> &out) {
         std::vector<TriSS> ss; const std::vector<TriSS> *sp = nullptr; if (!stockTubes(s)) { ss = smallSignal(v, s, fs); sp = &ss; }
-        LinNet o = netLin(v, s, fs, sp), q = netPA(v, s.pres, fs);
-        lpa::Core dkPa; bool dk = pa && t.nl; if (dk) { lpa::Vals pv = PaDk::valsOf(v, s.pres, t.mis); dkPa = PaDk::settled(fs, pv); dkPa.apply(pv); }   // Röhrenmodus: Endstufe als Schaltung (mit Lautsprecher als Last)
-        auto g = [&](double f) { double m = std::abs(responseAt(o, f, "W3")); if (dk) m *= std::abs(dkPa.response(f)); else if (pa) m *= std::abs(responseAt(q, f, "br")); if (t.spk) m *= spkMag(f); return m; };
+        LinNet o = netLin(v, s, fs, sp);
+        lpa::Core dkPa; if (pa) { lpa::Vals pv = PaDk::valsOf(v, s.pres, t.mis); dkPa = PaDk::settled(fs, pv); dkPa.apply(pv); }   // Endstufe als Schaltung (mit Lautsprecher als Last), beide Betriebsarten
+        auto g = [&](double f) { double m = std::abs(responseAt(o, f, "W3")); if (pa) m *= std::abs(dkPa.response(f)); if (t.spk) m *= spkMag(f); return m; };
         double r = g(1000); out.resize(aorgui::NF); for (int i = 0; i < aorgui::NF; i++) out[i] = 20 * std::log10(std::max(1e-12, g(aorgui::freqAt(i)) / r)); };
       curveOf(t.v, t.s, t.pa, cur);
       Setting rs; rs.v1 = rs.v2 = rs.t = rs.b = rs.mv = rs.pl = 0.5; rs.m = taper(0.5, t.taper); rs.pres = taper(0.5, t.taper); rs.ch1 = t.s.ch1; rs.low = t.s.low; curveOf(Parts::orig(), rs, t.pa, ref); }; }

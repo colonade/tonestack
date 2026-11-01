@@ -1,7 +1,7 @@
-# Laney AOR 50: Endstufe als Schaltung (ab Plugin 3.20)
+# Laney AOR 50: Endstufe als Schaltung (ab Plugin 3.20, erweitert 3.21)
 
 Quelle: Schaltplan DRG 1054 (AOR 50/12 CIRCUIT, 2/4/85). Code: `engine/src/laney_pa.hpp`, eingebunden als `PaDk` in `engine/src/core.hpp`.
-Gerechnet nur im Röhrenmodus mit „Effektweg + Endstufe“; der lineare Modus behält die lineare Endstufe mit Gp.
+Gerechnet im Röhrenmodus mit „Effektweg + Endstufe“ (ab 3.21 überabgetastet: 2x bei 2x und 4x, 4x bei 8x). Der lineare Modus rechnet ab 3.21 dieselbe Schaltung im Arbeitspunkt linearisiert (`lpa::linearNet`, `PaLin`).
 
 ## Netz (Werte aus dem Plan)
 | Teil | Plan | Im Modell |
@@ -35,3 +35,10 @@ Gerechnet nur im Röhrenmodus mit „Effektweg + Endstufe“; der lineare Modus 
 Gegenkopplung: mit vertauschtem Wicklungssinn schwingt die Endstufe; die gewählte Richtung ist stabil (Brumm am Lautsprecher 0,07 mV).
 Klirr der Endstufe allein bei 1 kHz: 8,7 V am Lautsprecher 1,7 % (H3 −36 dB), 17,9 V 3,6 %, 27,9 V 11 %.
 Pegel: Ausgang = Lautsprecherspannung × 0,00625534254, damit 1 kHz bei kleinem Signal und Presence 5 so laut ist wie die bisherige Endstufe (3.19).
+
+## Ab 3.21
+- Netztrafo als Trafo: Primär 230 V / 50 Hz (Eingang 1), Hauptinduktivität 5 H, Kopplung primär–sekundär 0,998, Hochspannungshälften 0,9995, Vorspannungswicklung 0,997, Primär 1 Ω, je Hälfte 15 Ω, 100 kΩ an jedem Wicklungsende (gegen Schwingen der Trapezregel bei gesperrten Dioden). Hochspannung 297,5 V eff je Hälfte, Vorspannung 86 V eff.
+- Vorstufenschienen im selben Netz: B3 → R26 10 k → 260-V-Schiene (C106 50 µF) → R14 10 k → 252 V (C102 50 µF) → R4 10 k → 240 V (47 µF geschätzt); Ruhelast 100 k / 252 k / 400 k (geschätzt; die Planwerte 260/252/240 lassen sich mit dieser Kette nicht gleichzeitig treffen, deshalb wirken nur die Änderungen). Die Vorstufe meldet je Abtastwert die Änderung ihrer Anodenströme (Stromquellen an den Schienen) und rechnet mit Ruhespannung + Änderung.
+- Übertragerkern mit Hysterese (wie AmpFett, φs 2 V·s).
+- 12AX7 in der Dempwolf-Form (G 2,019059e-3, C 2,02928, mu 100, γ 1,26). Ausgangsmaßstab neu 0,00549522876 (Pegel 1 kHz wie 3.19).
+- Ruhe: B+ 400,3 / 398,7 / 327,5 V, V104-Anoden 217,1 / 208,2 V, Vorspannung −35,9 V, EL34 je 33 mA.

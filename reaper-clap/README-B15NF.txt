@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -49,10 +49,11 @@ Parameters
   Input jack (Bass / Guitar on channel 1, Inst. on channel 2), Volume 1,
   Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Standby, Power,
   Speaker, Instrument level, Oversampling (1x, 2x, 4x), Output level,
-  Power tube mismatch (0-10 %).
+  Power tube mismatch (0-10 %), Mains frequency (60 Hz US original / 50 Hz
+  export).
   Knob 10 = clockwise end = boost (treble, bass) / full volume.
   Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x,
-  mismatch 0 %.
+  mismatch 0 %, mains 60 Hz.
 
 User interface
   Front panel drawn after photos of the original (no photo, no logo):
@@ -60,7 +61,7 @@ User interface
   jack to plug in there, click the STANDBY and POWER switches. The GROUND
   switch (polarity of the mains capacitor) only moves - it has no effect on
   the sound. Below the panel the model strip (not on the amp): SPEAKER,
-  OVERSAMPLING, the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
+  OVERSAMPLING, MAINS (60/50 Hz), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
   inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
   0 V, marked - and the output power into 8 ohm, mark = 30 W), INPUT
   (instrument level), OUTPUT and MISMATCH (idle current difference of the
@@ -100,6 +101,23 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.6
+  - 6SL7 computed with the triode formula of Dempwolf and Zoelzer (2011),
+    fitted to the RCA data sheet and the factory voltage table (fit error
+    halved compared to the Koren form). The preamp stages draw slightly more
+    current; the amp is about 2 dB louder at the same input (100 mV at
+    110 Hz: 10.1 V at the speaker instead of 8.0 V) and distorts a little
+    earlier, as the fitted tube says.
+  - Output transformer core with hysteresis (estimate, Rayleigh-type, as on
+    the Laney): a few more odd harmonics on loud low notes (41 Hz, volume 10:
+    5th harmonic -55 dB instead of -61 dB at 4.5 V), nothing at low level.
+  - Mains transformer PT-108 as a transformer (primary 120 V, leakage,
+    centre tap): STANDBY now opens the centre tap like the real switch; the
+    bias supply keeps working from the winding end as in the schematic.
+  - New parameter "Mains frequency" (MAINS switch in the model strip):
+    60 Hz like the US original, or 50 Hz like the export version. Changes the
+    hum and ripple frequency and the supply sag between charging pulses.
 
 1.5
   - Output transformer core saturation (estimate): extra magnetising

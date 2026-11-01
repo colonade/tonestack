@@ -151,7 +151,8 @@ inline std::complex<double> acResponse(const Net &net, const std::vector<std::ve
 // Gerät: wertet seine Tore aus (Ströme und Ableitungen dI/dV innerhalb des Geräts, Blockdiagonale).
 // sc: Streuung (Faktor auf die Ströme, z. B. ungleiche Endröhren); mem: Gerät mit Gedächtnis (Kernfluss eines Übertragers):
 // st = Fluss bis zum letzten Abtastwert, vl = letzte Torspannung, ht = T/2 (vom Runner gesetzt). Das Gerät rechnet φ = st + ht·(vl + v).
-struct Dev { int kind; int p0; int np; const void *model; double sc = 1; bool mem = false; double st = 0, vl = 0, ht = 0; };
+// Hysterese (Übertragerkern): bis 8 „Stop“-Glieder mit Radius hr[k]; ihr Zustand hs[k] folgt dem Fluss, auf ±hr[k] begrenzt (Prandtl-Ishlinskii).
+struct Dev { int kind; int p0; int np; const void *model; double sc = 1; bool mem = false; double st = 0, vl = 0, ht = 0; int nhs = 0; double hs[8] = {}, hr[8] = {}; };
 using DevFn = void (*)(const Dev &, const double *v, double *i, double *J);   // J: np×np, Zeilen = Ströme, Spalten = Spannungen
 // y[0..n) += a·x[0..n)
 static inline void axpy(int n, double a, const double *__restrict x, double *__restrict y) { if (a == 0) return; for (int i = 0; i < n; i++) y[i] += a * x[i]; }
@@ -169,7 +170,7 @@ struct Runner {
     memDev.clear(); for (size_t k = 0; k < dev.size(); k++) if (dev[k].mem) { dev[k].ht = s.T / 2; memDev.push_back((int)k); } }
   std::vector<int> memDev;   // Geräte mit Gedächtnis (Fluss), nach jedem Abtastwert fortgeschrieben
   // Gedächtnis aus einem früheren Geräteverzeichnis übernehmen (nach Neuaufbau des Netzes, gleiche Reihenfolge)
-  static void keepMem(std::vector<Dev> &nw, const std::vector<Dev> &old) { for (size_t k = 0; k < nw.size() && k < old.size(); k++) if (nw[k].mem && old[k].mem) { nw[k].st = old[k].st; nw[k].vl = old[k].vl; } }
+  static void keepMem(std::vector<Dev> &nw, const std::vector<Dev> &old) { for (size_t k = 0; k < nw.size() && k < old.size(); k++) if (nw[k].mem && old[k].mem) { nw[k].st = old[k].st; nw[k].vl = old[k].vl; for (int j = 0; j < 8; j++) nw[k].hs[j] = old[k].hs[j]; } }
   // Gerät k auswerten: Ströme nach ip, Ableitungsblock nach Jd[p0*16 ...] (Zeilen je Tor, bis 16 Spalten; Geräte also höchstens 4 Tore)
   void evalDev(int k) { const Dev &d = dev[k]; double j[16]; fn(d, &vp[d.p0], &ip[d.p0], j); for (int a = 0; a < d.np; a++) for (int b = 0; b < d.np; b++) Jd[(size_t)(d.p0 + a) * 16 + b] = j[a * d.np + b]; }
   // q = p + K·i wird mitgeführt: Änderungen der Ströme einer Gruppe gehen spaltenweise ein
@@ -210,7 +211,9 @@ struct Runner {
       q = p; for (int c = 0; c < m; c++) axpy(m, ip[c], &s.tK.d[(size_t)c * m], q.data());
       int mi = maxIt; double sl = stepLim; maxIt = 60; stepLim = 10; for (int k = 0; k < 4 && !ok; k++, pass++) if (solveGroup(ng) < tol) ok = true; maxIt = mi; stepLim = sl; }
     lastPass = pass; if (!ok) fails++;
-    for (int k : memDev) { Dev &d = dev[k]; double v = vp[d.p0]; d.st += d.ht * (d.vl + v); d.vl = v; }
+    for (int k : memDev) { Dev &d = dev[k]; double v = vp[d.p0], dphi = d.ht * (d.vl + v);
+      for (int j = 0; j < d.nhs; j++) d.hs[j] = std::max(-d.hr[j], std::min(d.hr[j], d.hs[j] + dphi));
+      d.st += dphi; d.vl = v; }
     std::fill(vb.begin(), vb.end(), 0.0); for (int j = 0; j < nh; j++) axpy(nh, h[j], &s.tPbh.d[(size_t)j * nh], vb.data());
     for (int j = 0; j < nu; j++) axpy(nh, u[j], &s.tPbu.d[(size_t)j * nh], vb.data()); for (int j = 0; j < m; j++) axpy(nh, ip[j], &s.tPbi.d[(size_t)j * nh], vb.data());
     for (int o = 0; o < s.no; o++) { double a = 0; for (int j = 0; j < nh; j++) a += s.Ooh(o, j) * h[j]; for (int j = 0; j < nu; j++) a += s.Oou(o, j) * u[j]; for (int j = 0; j < m; j++) a += s.Ooi(o, j) * ip[j]; y[o] = a; }

@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.20
+Version 3.21
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -30,7 +30,11 @@ What it is
   About 20 times faster than the JSFX version. CPU load measured on a
   2.1 GHz Xeon core at 48 kHz (bass DI, mono or identical L/R, see 3.13):
   linear 3 %, tube distortion 1x 9 %, 2x 17 %, 4x 29 %, 8x 52 % of one core.
-  A current desktop CPU needs roughly half of that.
+  A current desktop CPU needs roughly half of that. These figures are for
+  the preamp; since 3.20 the power amp circuit comes on top (with "FX loop +
+  power amp" in tube mode). Measured on this test machine with a bass line,
+  3.21: tube 1x about 50 %, 2x about 95 %, 4x about 115 %, 8x about 195 %
+  (3.20: 50 / 62 / 77 / 133 %). If playback stutters, choose 1x.
 
 Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
@@ -119,6 +123,35 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.21 (remaining simplifications of the model removed)
+  - Preamp supply: the preamp rails (260 / 252 / 240 V behind R26, R14, R4
+    and their filter caps) now hang on the power supply of the power amp
+    circuit. When the power amp draws current or the preamp tubes swing,
+    the rails sag and carry the ripple into the preamp, like on the amp
+    ("bloom" on hard notes). Only in tube mode with "FX loop + power amp".
+  - The power amp circuit now runs oversampled: at 2x and 4x at twice the
+    sample rate, at 8x at four times (before: always at the base rate, so
+    hard power-amp clipping produced aliasing). Latency still exactly 31
+    samples in every mode (checked by phase at 200 Hz to 5 kHz).
+  - Linear mode and the frequency-response plot now use the same power amp
+    circuit, linearised at its operating point (with the speaker as load).
+    Linear and tube mode agree within about 0.1-0.4 dB at small signal.
+    Part value "Gp" no longer has an effect (only in the web page's fallback
+    engine without WebAssembly).
+  - Output transformer core with hysteresis (estimate, Rayleigh-type: loop
+    area grows with the cube of the flux swing). Adds odd harmonics on low,
+    loud notes; nothing below about 4 % of the saturation flux.
+  - 12AX7 computed with the triode formula of Dempwolf and Zoelzer (2011,
+    exponent 1.26 as measured there), fitted to the same data as in 3.20:
+    RCA data sheet 0.52 / 1.18 mA (data sheet 0.5 / 1.2 mA; Koren fit 3.20:
+    0.35 / 1.60 mA). Affects V101-V103 when set to 12AX7 and the phase
+    inverter; the level at 1 kHz is kept as before.
+  - Mains transformer as a transformer (primary 230 V / 50 Hz, leakage,
+    shared core): the bias winding now sags together with the high voltage.
+    Idle voltages: 400 / 399 / 327 V (plan 400 / 398 / 326), bias -35.9 V.
+  - CPU: see "What it is"; the oversampled power amp roughly doubles its
+    share at 2x and more.
 
 3.20 (power amp as a circuit, tube models fitted to more data)
   - With tube distortion and "FX loop + power amp" on, the power amp is now

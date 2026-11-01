@@ -14,8 +14,6 @@ constexpr double PI = 3.14159265358979323846;
 // ---------- Röhren- und Diodenmodelle ----------
 struct Triode { double mu, ex, kg1, kp, kvb; };
 struct Pentode { double mu, ex, kg1, kg2, kp, kvb, c2; };
-// 6SL7GT: Koren-Form, mu 70 und ex 1,4 fest, kg1/kp an RCA-Datenblatt (250 V, −2 V: 2,3 mA, 1,6 mA/V) angepasst
-static const Triode T6SL7 = {70, 1.4, 1851.8, 281.0, 300};
 // 6L6GC: Koren-Pentode, an sieben Ruhepunkte und S/ri des Datenblatts angepasst; Schirmgitterstrom-Aufteilung geschätzt (c2)
 static const Pentode P6L6 = {8.753, 1.358, 1499.6, 26600, 38.93, 54.50, 1.0};
 // Gitterstrom nach Dempwolf/Zölzer (2011), wie im Laney-Kern
@@ -31,6 +29,23 @@ inline void triode(const Triode &T, const double *v, double *i, double *J) {
   if (q > 35) { sp = q; sig = 1; } else if (q < -40) { i[1] = 0; J[2] = J[3] = 0; return; } else { double e = std::exp(q); sp = std::log1p(e); sig = e / (1 + e); }
   double e1 = vp / T.kp * sp, p = std::exp((T.ex - 1) * std::log(e1)), I = 2 * p * e1 / T.kg1, dI = 2 * T.ex * p / T.kg1;
   i[1] = I; J[2] = dI * vp * sig / s; J[3] = dI * (sp / T.kp - sig * vg * vp * vp / (s * s * s)); }
+// Triode nach Dempwolf/Zölzer (2011): I = G·(ln(1 + e^(C·(Ua/mu + Ug)))/C)^γ, mal (1 − e^(−Ua/1 V)), damit bei Ua → 0 kein Strom fließt.
+// Gegenüber Koren konstante Weichheit des Einsatzes; trifft die Datenblatt- und Schaltungspunkte enger (engine/tools/tube_fits.py).
+struct TriodeD { double G, C, mu, ga; };
+// Ergebnis: out[0] = Anodenstrom, out[1] = ∂I/∂Ugk, out[2] = ∂I/∂Uak
+inline void dempwolf(const TriodeD &T, double vg, double vp, double *out) {
+  if (vp <= 0) { out[0] = out[1] = out[2] = 0; return; }
+  double x = T.C * (vp / T.mu + vg); if (x < -40) { out[0] = out[1] = out[2] = 0; return; }
+  double sp, sig; if (x > 35) { sp = x; sig = 1; } else { double e = std::exp(x); sp = std::log1p(e); sig = e / (1 + e); }
+  double base = sp / T.C, pw = std::exp((T.ga - 1) * std::log(base)), Ik = T.G * pw * base, dIk = T.G * T.ga * pw * sig;   // dIk = ∂Ik/∂(Ua/mu + Ug)
+  double ex = std::exp(-vp), fv = 1 - ex;
+  out[0] = Ik * fv; out[1] = dIk * fv; out[2] = dIk / T.mu * fv + Ik * ex; }
+// Triode (Dempwolf): Tore (g−k, p−k), Ströme (Gitter, Anode), Ableitungen 2×2
+inline void triodeD(const TriodeD &T, const double *v, double *i, double *J) {
+  double ig, dg; gridI(v[0], ig, dg); i[0] = ig; J[0] = dg; J[1] = 0; double o[3]; dempwolf(T, v[0], v[1], o); i[1] = o[0]; J[2] = o[1]; J[3] = o[2]; }
+// 6SL7GT: bis 1.5 Koren-Form (mu 70, ex 1,4, kg1 1851,8, kp 281); ab 1.6 Dempwolf-Form mit mu 70 und γ 1,26 fest, G und C an RCA-Datenblatt
+// (250 V, −2 V: 2,3 mA, 1,6 mA/V, 44 kΩ) und die Arbeitspunkte V1A/V1B der Spannungstabelle angepasst (rms-Fehler 0,055 → 0,029)
+static const TriodeD T6SL7 = {1.215197e-3, 1.66175, 70, 1.26};
 // Pentode: Tore (g1−k, g2−k, a−k), Ströme (g1, g2, a), 3×3
 inline void pentode(const Pentode &P, const double *v, double *i, double *J) {
   for (int k = 0; k < 9; k++) J[k] = 0;
@@ -58,16 +73,27 @@ inline void sdiode(const double *v, double *i, double *J) { const double Is = 1e
 // i = φ/Lp·(|φ|/φs)^6 mit φ = ∫u dt (Volt·Sekunden über der ganzen Primärwicklung). Bis φs bleibt der Übertrager fast linear, darüber
 // bricht die Induktivität ein. φs = 4 V·s: Einsatz bei Vollaussteuerung (624 V Spitze an 6,5 kΩ) unter etwa 25 Hz, bei 41 Hz (tiefes E) noch
 // gut 10 % Mehrstrom – ein großzügig bemessener Bassübertrager. Der Fluss enthält auch den Gleichanteil ungleicher Endröhren.
-struct Sat { double lp, phis; };
-static const Sat OT_SAT = {40, 4.0};
-inline void satI(const Sat &S, double phi, double ht, double *i, double *J) { double r = std::fabs(phi) / S.phis, r6 = r * r * r; r6 *= r6;
-  i[0] = phi / S.lp * r6; J[0] = 7 * r6 / S.lp * ht; }
+// Ab 1.6 zusätzlich Hysterese (Schätzung): sechs Stop-Glieder (Prandtl-Ishlinskii), Radien gleichmäßig 4 … 46 % von φs, gleich gewichtet
+// (gleichmäßige Dichte = Rayleigh-Gesetz: Schleifenfläche ∝ Hub³, Klirr ∝ Hub; unter 4 % von φs keine Schleife).
+// Strom i = −W·φ + Σ w·stop_k(φ) + Sättigung, W = Σ w: bei kleinem Hub folgen alle Glieder, die Induktivität bleibt Lp; mit wachsendem Hub
+// begrenzen die Glieder nacheinander, die Induktivität steigt (Rayleigh-Gebiet des Eisens) und die Kennlinie bekommt eine Schleife.
+// Schleifenbreite bei φs/2: ±h·(φs/2)/Lp (h = 0,15). Erzeugt bei tiefen Tönen schon bei mittlerem Pegel ungerade Oberwellen, die mit dem Pegel wachsen.
+struct Sat { double lp, phis, h; };
+static const Sat OT_SAT = {40, 4.0, 0.15};
+static const double HYST_R[6] = {0.5 / 12, 1.5 / 12, 2.5 / 12, 3.5 / 12, 4.5 / 12, 5.5 / 12};
+inline double hystW(const Sat &S) { double m = 0; for (double r : HYST_R) m += std::min(r, 0.5); return S.h * 0.5 / m / S.lp; }   // Gewicht je Glied
+inline void hystSetup(dk::Dev &d, const Sat &S) { d.mem = true; d.nhs = S.h > 0 ? 6 : 0; for (int k = 0; k < d.nhs; k++) d.hr[k] = HYST_R[k] * S.phis; }
+inline void satI(const dk::Dev &d, const Sat &S, double v, double *i, double *J) { double phi = d.st + d.ht * (d.vl + v), r = std::fabs(phi) / S.phis, r6 = r * r * r; r6 *= r6;
+  double I = phi / S.lp * r6, dI = 7 * r6 / S.lp;
+  if (d.nhs) { double w = hystW(S), dphi = phi - d.st; I -= w * d.nhs * phi; dI -= w * d.nhs;
+    for (int k = 0; k < d.nhs; k++) { double x = d.hs[k] + dphi; if (x > d.hr[k]) x = d.hr[k]; else if (x < -d.hr[k]) x = -d.hr[k]; else dI += w; I += w * x; } }
+  i[0] = I; J[0] = dI * d.ht; }
 enum Kind { K_6SL7 = 0, K_6L6 = 1, K_RECT = 2, K_SI = 3, K_SAT = 4 };
-// 6SL7 mit der Formel statt einer Tabelle: eine bilinear interpolierte Tabelle erzeugte bei kleinem Signal unechte Oberwellen (H4/H5 um −60 dB)
+// 6SL7 (Dempwolf-Form) mit der Formel statt einer Tabelle: eine bilinear interpolierte Tabelle erzeugte bei kleinem Signal unechte Oberwellen (H4/H5 um −60 dB)
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
-  switch (d.kind) { case K_6SL7: triode(T6SL7, v, i, J); break;
+  switch (d.kind) { case K_6SL7: triodeD(T6SL7, v, i, J); break;
     case K_6L6: pentode(P6L6, v, i, J); if (d.sc != 1) { for (int k = 1; k < 3; k++) i[k] *= d.sc; for (int k = 3; k < 9; k++) J[k] *= d.sc; } break;   // Streuung: Anoden- und Schirmgitterstrom
-    case K_RECT: vdiode(v, i, J); break; case K_SAT: satI(*(const Sat *)d.model, d.st + d.ht * (d.vl + v[0]), d.ht, i, J); break; default: sdiode(v, i, J); } }
+    case K_RECT: vdiode(v, i, J); break; case K_SAT: satI(d, *(const Sat *)d.model, v[0], i, J); break; default: sdiode(v, i, J); } }
 
 // ---------- Bauteile und Einstellungen ----------
 struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
@@ -82,14 +108,14 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double ot_zp = 6500, ot_rp = 290, ot_rs8 = 1.0, ot_rs16 = 1.4, ot_lp = 40, ot_kps = 0.9998, ot_kpp = 0.9995;   // Lp, Kopplungen: geschätzt
   double ot_cpp = 500e-12, ot_rc = 150e3;   // geschätzt: Wicklungskapazität der Primärseite (Anode–Anode) und Eisenverluste; dämpfen das Umschalten der Endröhren wie im echten Übertrager
   // Netztrafo PT-108: 750 V Mittelanzapfung, 160 mA; Innenwiderstand je Hälfte geschätzt (an 430 V im Ruhezustand angepasst)
-  double hv_rms = 375, hv_r = 380, mains_hz = 60;
+  double hv_rms = 375, hv_r = 380, mains_hz = 60, mains_v = 120, mt_rp = 0.3, mt_lm = 1.5, mt_k = 0.998, mt_kh = 0.9995;   // ab 1.6 Trafo-Modell (Streuung, Lm geschätzt)
   // Lautsprecher CTS 15" 8 Ω im geschlossenen Portaflex-Gehäuse: alles geschätzt
   double spk_r2 = 20;   // geschätzt: Wirbelstromverluste der Schwingspule (20 Ω parallel zu Le, Impedanz bei 10 kHz etwa 25 Ω statt 64 Ω)
   double spk_re = 6.3, spk_le = 1.0e-3, spk_fs = 40, spk_qms = 5, spk_qes = 0.55, spk_vas = 280, spk_vb = 85;
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
 };
 // Buchsen: 0 = Kanal 1 "Bass" (ohne Teiler), 1 = Kanal 1 "Guitar" (mit 120 k + 100 k der leeren Bass-Buchse), 2 = Kanal 2
-struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; };   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
+struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; bool stby = false; };   // stby: STANDBY (Mittelanzapfung offen)   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.vol1, &s.treb1, &s.bass1, &s.vol2, &s.treb2, &s.bass2}; return *f[i]; }
 inline double logTaper(double x) { const double m = 0.15; if (x <= 0) return 0; if (x >= 1) return 1; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // 15 % in Mittelstellung
 
@@ -132,7 +158,7 @@ inline Built build(const Parts &v, const Setting &s) {
   o.c("pA", "c5", v.cc3); o.r("c5", "BIAS", v.rgl); o.r("c5", "g5", v.rgs);
   o.c("pB", "c4", v.cc3); o.r("c4", "BIAS", v.rgl); o.r("c4", "g4", v.rgs);
   B.mon[3] = (int)o.P.size(); pen("g5", "B2", "a5", "0"); dev.back().sc = 1 + s.mis / 2; B.mon[4] = (int)o.P.size(); pen("g4", "B2", "a4", "0"); dev.back().sc = 1 - s.mis / 2;
-  { int p = o.port("a5w", "a4w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; d.mem = true; dev.push_back(d); }   // Kernsättigung (Fluss über der ganzen Primärwicklung)
+  { int p = o.port("a5w", "a4w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; hystSetup(d, OT_SAT); dev.push_back(d); }   // Kernsättigung (Fluss über der ganzen Primärwicklung)
   mark(); G = 3;
   // --- Ausgangsübertrager: zwei Primärhälften, Sekundär 0–8 Ω–16 Ω; Gleichstromwiderstände als Reihenwiderstände ---
   { double np = 1, n8 = std::sqrt(8 / v.ot_zp), n16 = std::sqrt(16 / v.ot_zp);   // Windungen relativ zur ganzen Primärwicklung
@@ -147,12 +173,19 @@ inline Built build(const Parts &v, const Setting &s) {
     o.r(sp, "sl", v.spk_re); dk::Mat Le(1, 1); Le(0, 0) = v.spk_le; o.coupled({{"sl", "sm"}}, Le); o.r("sl", "sm", v.spk_r2);
     o.r("sm", "0", res); B.capSpk = (int)o.C.size(); B.cmes = cmes; o.c("sm", "0", cmes); dk::Mat Lm(1, 1); Lm(0, 0) = lces; o.coupled({{"sm", "0"}}, Lm); }
   // --- Netzteil: Hochspannungswicklung (Mittelanzapfung an Masse), 5AR4, Siebung ---
-  o.src("hva", v.hv_r, 1); o.src("hvb", v.hv_r, 2);
+  // Netztrafo PT-108 (ab 1.6): Primärwicklung an der Netzspannung (Eingang 1), Hochspannung 2 × 375 V mit Mittelanzapfung; Streuung, Haupt-
+  // induktivität und Widerstände geschätzt. STANDBY trennt die Mittelanzapfung von Masse (Schalter im Netz, 100 MΩ offen); die Vorspannung kommt
+  // weiter über 100 k vom Wicklungsende, wie im Plan.
+  o.src("mp", v.mt_rp, 1);
+  { double n = v.hv_rms / v.mains_v; dk::Mat L(3, 3); double nn[3] = {1, n, n};
+    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) { double k = i == j ? 1 : (i == 0 || j == 0) ? v.mt_k : v.mt_kh; L(i, j) = k * nn[i] * nn[j] * v.mt_lm; }
+    o.coupled({{"mp", "0"}, {"hvaw", "ct"}, {"ct", "hvbw"}}, L); }
+  o.r("ct", "0", s.stby ? 1e8 : 0.01); o.r("hvaw", "hva", v.hv_r); o.r("hvbw", "hvb", v.hv_r);
+  o.r("hvb", "0", 1e6);   // Wicklungsende nie ganz offen (die Trapezregel schwingt sonst bei gesperrter Diode); hva hängt am Vorspannungsteiler
   { int p = o.port("hva", "B1"); dev.push_back({K_RECT, p, 1, nullptr}); p = o.port("hvb", "B1"); dev.push_back({K_RECT, p, 1, nullptr}); }
   o.c("B1", "0", v.c_b1); o.r("B1", "B2", v.r_b12); o.c("B2", "0", v.c_b2); o.r("B2", "B3", v.r_b23); o.c("B3", "0", v.c_b3); o.r("B2", "B4", v.r_b24); o.c("B4", "0", v.c_b4);
   // Vorspannung: von einem Ende der HV-Wicklung über 100 k, 56 k an Masse, 10D6 (Anode am Vorspannungsknoten), 47 k und 100 µF
-  // eigener Eingang für die Vorspannung: bleibt bei Standby an (Standby trennt nur die Mittelanzapfung)
-  o.src("br", v.bias_r1 + v.hv_r, 3); o.r("br", "0", v.bias_r2); { int p = o.port("BIAS", "br"); dev.push_back({K_SI, p, 1, nullptr}); }
+  o.r("hva", "br", v.bias_r1); o.r("br", "0", v.bias_r2); { int p = o.port("BIAS", "br"); dev.push_back({K_SI, p, 1, nullptr}); }
   o.r("BIAS", "0", v.bias_r3); o.c("BIAS", "0", v.bias_c);
   mark();
   o.out(s.tap16 ? "s16" : "s8"); o.out("sm"); o.out("B1"); o.out("BIAS");
@@ -161,7 +194,7 @@ inline Built build(const Parts &v, const Setting &s) {
 
 // ---------- Laufzeit ----------
 struct Core {
-  double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0, hvOn = 1;
+  double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0;
   void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); apply(s); w = 2 * PI * v.mains_hz / fs; t = 0;
     // Startwerte: Kondensatoren auf die Spannungen der Spannungstabelle (Technical Data), damit das Netzteil nicht minutenlang einschwingen muss
@@ -172,7 +205,8 @@ struct Core {
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; }
   // Abtastwert: x = Eingangsspannung (V); y[O_NO] Ausgänge
-  void step(double x, double *y) { double m = std::sqrt(2.0) * v.hv_rms * std::sin(t), u[4] = {x, m * hvOn, -m * hvOn, m}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }
+  void step(double x, double *y) { double u[2] = {x, std::sqrt(2.0) * v.mains_v * std::sin(t)}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }
+  void setMains(double hz) { v.mains_hz = hz; w = 2 * PI * hz / fs; }
   void settle(double seconds) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) step(0, y); }
   // Kleinsignal-Frequenzgang Eingang → Lautsprecherklemme im aktuellen Arbeitspunkt
   std::complex<double> response(double f) { std::vector<std::vector<double>> J; std::vector<std::pair<int,int>> dp;
@@ -211,13 +245,15 @@ struct Amp {
   void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16; tgt = s;
     if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
   // sofort auf das Ziel (ohne Gleiten), Schalter-Rampen am Ziel: nach Neustart aus dem Ruhezustand
+  // Netzfrequenz (60 Hz Original USA, 50 Hz Exportfassung): ändert nur den Takt der Netzspannung
+  void setMains(double hz) { if (hz == v.mains_hz) return; v.mains_hz = hz; c.setMains(hz); c0.setMains(hz); }
   void snap() { c.apply(tgt); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; spkMix = spk ? 1 : 0; pwr = power ? 1 : 0; cnt = 0; }
   // alle 64 Abtastwerte (Grundrate) einen Schritt Richtung Ziel; Netz neu aufbauen kostet etwa 0,1 ms
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     { double d = tgt.mis - n.mis; if (d != 0) { moved = true; if (std::fabs(d) > 1e-5) n.mis += d * (1 - std::exp(-64 / (0.3 * fsB))); else n.mis = tgt.mis; } }   // Streuung gleitet 0,3 s: der Gleichstrom durch den Übertrager ändert sich langsam, kein Plopp
     if (moved) c.apply(n); }
-  double run1(double x) { double y[O_NO]; c.hvOn = standby ? 0 : 1; c.step(x, y);
+  double run1(double x) { double y[O_NO]; if (standby != c.cur.stby) { Setting n = c.cur; n.stby = standby; c.apply(n); } c.step(x, y);
     for (int i = 0; i < 5; i++) { double d = std::fabs(c.run.vp[c.bl.mon[i]] - vgk0[i]); if (d > peak[i]) peak[i] = d; }
     double el = y[O_SPK], ac = cone.step(c.run.capI[0] * nrm), st = 1.0 / (0.02 * c.fs);
     double tS = spk ? 1 : 0; if (spkMix < tS) spkMix = std::min(tS, spkMix + st); else if (spkMix > tS) spkMix = std::max(tS, spkMix - st);

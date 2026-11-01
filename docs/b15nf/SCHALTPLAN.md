@@ -61,6 +61,9 @@ Technical Data bestätigt die Leiterplatte: 220k/.00047 oben, .001/.01 in der Mi
 
 Die Röhrenmodelle sind nur an Datenblätter angepasst, nicht an diese Tabelle; die Übereinstimmung ist also eine echte Prüfung.
 Einzig der Innenwiderstand des Netztrafos ist an 430 V angepasst (380 Ω je Hälfte, er fasst Wicklung, Primärseite und Netz zusammen).
+Ab 1.6: Netztrafo als Trafo (Primärwicklung 120 V an der Netzspannung, Hauptinduktivität 1,5 H, Kopplung primär–sekundär 0,998, zwischen den Hochspannungshälften 0,9995, Primärwiderstand 0,3 Ω; alles geschätzt). STANDBY öffnet die Mittelanzapfung (100 MΩ), die Vorspannung kommt über 100 k vom Wicklungsende. Netzfrequenz 60 Hz (Original) oder 50 Hz (Export) als Parameter. Leerlauf 1 MΩ am Wicklungsende hvb (sonst schwingt die Trapezregel bei gesperrter Diode).
+Ab 1.6: 6SL7 in der Dempwolf-Form (G 1,215197e-3, C 1,66175, mu 70, γ 1,26), angepasst an RCA 250 V/−2 V (2,3 mA, 1,6 mA/V, 44 kΩ) und V1A/V1B dieser Tabelle; rms-Fehler 0,029 statt 0,055 (Koren). Die Vorstufen ziehen etwas mehr Strom, die Verstärkung steigt um etwa 2 dB.
+Ab 1.6: Übertragerkern mit Hysterese (sechs Stop-Glieder, Radien 4–46 % von φs gleichmäßig, Schleifenbreite ±15 % des Magnetisierungsstroms bei φs/2; Rayleigh-artig).
 Hoch­ohmige Anoden misst ein 20-kΩ/V-Gerät etwas zu niedrig (bei V1A etwa 4 %).
 
 ## Geschätzt (nicht im Plan, nicht in der Tabelle)
