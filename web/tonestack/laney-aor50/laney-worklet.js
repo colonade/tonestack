@@ -7,7 +7,7 @@
 // Schaltung in Abschnitte zwischen den Röhren zerlegt; jeder Abschnitt linear (Trapezregel), Röhrenströme per Newton.
 // Die Kapazitäten Gitter–Anode von V101A..V102B werden als Miller-Ersatzkapazität am Gitter angenähert.
 const NL = (() => {
-  const KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300;
+  const KP = 287.3, MU = 100, EX = 1.2, KG1 = 1090.9, KVB = 300;   // 12AX7 an RCA-Datenblatt und Arbeitspunkte im Laney-Plan angepasst (wie core.hpp)
   function tube(vgk, vpk, out) {                   // Anodenstrom und Ableitungen nach vgk, vpk
     if (vpk <= 1e-6) { out[0] = 0; out[1] = 0; out[2] = 0; return; }
     const s = Math.sqrt(KVB + vpk * vpk), q = KP * (1 / MU + vgk / s);
@@ -661,8 +661,8 @@ const NLAMP = ((NL) => {
     setTarget(m) {
       if (this.x.aor_parts_count() !== PORDER.length) throw new Error('Bauteilliste passt nicht zum WebAssembly-Kern');
       const pb = this.f64(this.x.aor_parts_buffer(), PORDER.length); PORDER.forEach((k, i) => pb[i] = m.v[k]);
-      const s = m.s, sw = m.sw, t = [s.v1, s.v2, s.t, s.m, s.b, s.mv, s.pl, s.pres || 0, sw.mid ? 1 : 0, sw.top ? 1 : 0, sw.bass ? 1 : 0, sw.ch === 1 ? 1 : 0, sw.inp === 'low' ? 1 : 0, m.pa ? 1 : 0, m.nl ? m.vin : 1, m.nl ? 1 : 0, m.os || 2, ...((s.tubes && s.tubes.length === 3) ? s.tubes.map(Number) : [0, 0, 0]), m.spk ? 1 : 0];
-      const tb = this.f64(this.x.aor_target_buffer(), 21); t.forEach((v, i) => tb[i] = +v);
+      const s = m.s, sw = m.sw, t = [s.v1, s.v2, s.t, s.m, s.b, s.mv, s.pl, s.pres || 0, sw.mid ? 1 : 0, sw.top ? 1 : 0, sw.bass ? 1 : 0, sw.ch === 1 ? 1 : 0, sw.inp === 'low' ? 1 : 0, m.pa ? 1 : 0, m.nl ? m.vin : 1, m.nl ? 1 : 0, m.os || 2, ...((s.tubes && s.tubes.length === 3) ? s.tubes.map(Number) : [0, 0, 0]), m.spk ? 1 : 0, Math.min(0.1, Math.max(0, +m.mis || 0))];
+      const tb = this.f64(this.x.aor_target_buffer(), 22); t.forEach((v, i) => tb[i] = +v);
       this.x.aor_set_target(); this.ready = true;
     }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.aor_buffer(), n); b.set(buf.subarray(0, n)); this.x.aor_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.aor_buffer(), n)); }

@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -32,24 +32,27 @@ What it is
     - 6SL7 floating paraphase phase inverter, negative feedback from the
       16-ohm tap into its cathode
     - two 6L6GC in push-pull with fixed bias (-50 V from the 10D6 bias
-      supply), output transformer OT-214 (6.5 kOhm : 8/16 ohm)
+      supply), output transformer OT-214 (6.5 kOhm : 8/16 ohm) with core
+      saturation
     - power supply: 5AR4 rectifier on the PT-108 (750 V CT), 30/40/40/40 uF
       filter chain, so the supply sags under load as on the real amp
   The idle voltages match the voltage table of the factory within the
   meter tolerance (anodes, cathodes, screens, bias, B+); full power is about
   30 W into 8 ohm. Same engine as the web simulator
   (https://borg.fluxstatus.de/tonestack/ampfett-b15nf/).
-  Estimated (not in the schematic): transformer inductances, mains
-  transformer resistance, speaker data, screen grid current split of the
-  6L6GC. Tube models fitted to data sheets (Koren form). Details:
+  Estimated (not in the schematic): transformer inductances and core
+  saturation, mains transformer resistance, speaker data, screen grid
+  current split of the 6L6GC. Tube models fitted to data sheets (Koren form). Details:
   docs/b15nf/SCHALTPLAN.md in the source.
 
 Parameters
   Input jack (Bass / Guitar on channel 1, Inst. on channel 2), Volume 1,
   Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Standby, Power,
-  Speaker, Instrument level, Oversampling (1x, 2x, 4x), Output level.
+  Speaker, Instrument level, Oversampling (1x, 2x, 4x), Output level,
+  Power tube mismatch (0-10 %).
   Knob 10 = clockwise end = boost (treble, bass) / full volume.
-  Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x.
+  Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x,
+  mismatch 0 %.
 
 User interface
   Front panel drawn after photos of the original (no photo, no logo):
@@ -60,7 +63,8 @@ User interface
   OVERSAMPLING, the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
   inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
   0 V, marked - and the output power into 8 ohm, mark = 30 W), INPUT
-  (instrument level) and OUTPUT. Below that the small-signal frequency
+  (instrument level), OUTPUT and MISMATCH (idle current difference of the
+  two 6L6GC). Below that the small-signal frequency
   response at the operating point (relative to 1 kHz; dashed: all knobs at
   5 with the same jack). Window resizable. Needs libcairo2 and libX11.
 
@@ -96,6 +100,21 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.5
+  - Output transformer core saturation (estimate): extra magnetising
+    current above a flux of about 4 V*s across the primary. At full power
+    it sets in below about 25 Hz; at 41 Hz (low E) it adds a few percent.
+    Mostly audible on loud low notes with the volume up; the idle voltages
+    and everything else are unchanged.
+  - New parameter "Power tube mismatch" (0-10 %, MISMATCH knob in the model
+    strip): the two 6L6GC draw different idle currents, which adds even
+    harmonics and a DC flux in the output transformer. Glides over 0.3 s.
+    Projects from older versions load with 0 %.
+  - Tube models checked against more data (engine/tools/tube_fits.py): the
+    6SL7 model fits the data sheet and the first-stage voltages of the
+    factory table (within 4 V), the 6L6GC model stays as fitted to seven
+    data sheet points (Koren's published set is 5-10 % higher). Unchanged.
 
 1.4
   - Switching the FX off and on again in REAPER (or a host reset) caused a

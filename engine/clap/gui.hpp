@@ -29,7 +29,7 @@
 namespace aorgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_COUNT };
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_COUNT };
 static const char *TUBE_SHORT[5] = {"12AX7", "12AT7", "12AU7", "5751", "12AY7"};
 static const int KPARAM[9] = {P_V1, P_V2, P_PL, P_MV, P_T, P_M, P_B, P_PRES, -1};   // Knopf → Parameter (Reverb: keiner)
 static const char *KNAME[9] = {"PREAMP 1 VOLUME","PREAMP 2 VOLUME","PREAMP 1 LEVEL","MASTER VOLUME","TREBLE","MIDDLE","BASS","PRESENCE","REVERB"};
@@ -42,7 +42,8 @@ constexpr double SW_Y = 88;     // Mittelpunkt der Schalter und kleinen Regler
 static const double SW_X[6] = {56, 168, 280, 392, 726, 838};   // BASS MOD, FX LOOP, DISTORTION, SPEAKER, SOFT, LATE
 static const int SW_P[6] = {P_UMBAU, P_PA, P_NL, P_SPK, P_SOFT, P_PAD};
 constexpr double OS_X = 506, TAP_X = 614;            // Überabtastung (Drehwahlschalter), Kennlinie (Kippschalter, 3 Stellungen)
-static const double KN_X[2] = {980, 1100};          // INPUT, OUTPUT
+static const double KN_X[3] = {935, 1035, 1135};    // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf
+constexpr double KN_Y = 72;                         // Mittelpunkt der kleinen Regler
 static const char *REFLABEL = "original parts, stock tubes, all controls 5, boosts off";
 constexpr int NF = 120;        // Stützstellen des Diagramms (20 Hz … 20 kHz, logarithmisch)
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
@@ -148,7 +149,7 @@ struct Gui {
     cairo_restore(c);   // Ende Foto-Maßstab
     // ---- unterer Bereich in UI-Einheiten ----
     const double u = uscale(); bool nl = v[P_NL] > 0.5; int osv = std::max(0, std::min(3, (int)std::lround(v[P_OS]))), tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER])));
-    char vt[2][32]; std::snprintf(vt[0], 32, "%.0f mV", v[P_VIN]); std::snprintf(vt[1], 32, "%+.1f dB", v[P_OUT]);
+    char vt[3][32]; std::snprintf(vt[0], 32, "%.0f mV", v[P_VIN]); std::snprintf(vt[1], 32, "%+.1f dB", v[P_OUT]); std::snprintf(vt[2], 32, "%.1f %%", v[P_MIS]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
@@ -159,8 +160,8 @@ struct Gui {
       tsw::rotarySel(c, OS_X, SW_Y + 6, 4, osv, "OVERSAMPLING", osl, "distortion only", !nl);
       tsw::toggle(c, TAP_X, SW_Y, 3, tp, "TAPER", tl, "middle, presence"); }
     // kleine Regler: Instrument (log) und Ausgang
-    for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
-      tsw::smallKnob(c, KN_X[i], SW_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 9 + i || hover == 9 + i, i == 0 && !nl); }
+    for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
+      tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe
     // Röhrenbestückung: V101, V102, V103 (Taste schaltet den Typ durch), RESET = Bestückung wie im Gerät
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x16181c); cairo_rectangle(c, 0, 0, tsw::UW, TUBEU); cairo_fill(c);
       setrgb(c, 0xdcdee2); tsw::text(c, "TUBES", 16, 28, 14, true);
@@ -190,12 +191,12 @@ struct Gui {
     // Wertanzeige in Bildschirmpixeln
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[96]; double ax, ay;
       if (i < 9) { const KnobGeo &g = KG[i]; ax = g.rx * s; ay = (g.ry - g.R * 1.12) * s; if (i == 8) std::snprintf(buf, 96, "REVERB: not modelled"); else if (i == 7 && !pa) std::snprintf(buf, 96, "PRESENCE %.1f (needs FX loop + power amp)", v[P_PRES]); else std::snprintf(buf, 96, "%s %.1f", KNAME[i], v[KPARAM[i]]); }
-      else { ax = KN_X[i - 9] * u; ay = FH * s + (SW_Y - 30) * u; std::snprintf(buf, 96, "%s", vt[i - 9]); }
+      else { ax = KN_X[i - 9] * u; ay = FH * s + (KN_Y - 30) * u; if (i == 11) std::snprintf(buf, 96, "POWER TUBE MISMATCH %s%s", vt[2], nl && pa ? "" : " (needs tube distortion + power amp)"); else std::snprintf(buf, 96, "%s", vt[i - 9]); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }
   // ---- Treffer ----
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < 9; i++) { double dx = x - KG[i].rx, dy = y - KG[i].ry; if (dx*dx + dy*dy <= KG[i].R * KG[i].R * 1.1) return i; }
-    double lx, ly; toLower(px, py, lx, ly); /* Fensterpixel, nicht Foto-Einheiten */ for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - SW_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
+    double lx, ly; toLower(px, py, lx, ly); /* Fensterpixel, nicht Foto-Einheiten */ for (int i = 0; i < 3; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitPull(double x, double y) const { double s = scale(); x /= s; y /= s; for (auto &l : LG) { int pp = -1; if (!std::strcmp(l.t, "PULL ON")) pp = P_CH; else if (!std::strcmp(l.t, "PULL BOOST")) pp = !std::strcmp(l.k, "t") ? P_TOP : !std::strcmp(l.k, "m") ? P_MID : P_BASS;
       if (pp >= 0 && x >= l.x - 8 && x <= l.x + l.w + 8 && y >= l.y - 10 && y <= l.y + l.h + 10) return pp; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J[2] = {JACK_HIGH, JACK_LOW}; for (int i = 0; i < 2; i++) { double dx = x - J[i][0], dy = y - J[i][1]; if (dx*dx + dy*dy <= (J[i][2] + 14) * (J[i][2] + 14)) return i; } return -1; }
@@ -210,9 +211,9 @@ struct Gui {
     if (p == P_TAPER) { int t = (int)std::lround(getP(P_TAPER)); setP(P_TAPER, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }
     else if (p == P_OS) { int o = (int)std::lround(getP(P_OS)); setP(P_OS, dir == 0 ? (o + 1) % 4 : std::max(0, std::min(3, o + dir))); }
     else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }
-  int knobParam(int i) const { return i < 9 ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
-  double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
-  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 9) { if (KPARAM[i] >= 0) setP(KPARAM[i], std::round(u * 10) / 10); } else if (i == 9) setP(P_VIN, std::round(std::pow(1000, u / 10))); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
+  int knobParam(int i) const { return i < 9 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
+  double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }
+  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 9) { if (KPARAM[i] >= 0) setP(KPARAM[i], std::round(u * 10) / 10); } else if (i == 9) setP(P_VIN, std::round(std::pow(1000, u / 10))); else if (i == 11) setP(P_MIS, std::round(u * 10) / 10); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
   // ---- Ereignisse: liefert true, wenn neu gezeichnet werden soll ----
 #ifndef __APPLE__
   bool handle(XEvent &ev) {
@@ -231,7 +232,7 @@ struct Gui {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0 && k != 8) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else if (k < 0) { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, p == P_OS ? (button == 4 ? 1 : -1) : (button == 4 ? -1 : 1)); } return true; }
         if (button != 1) return false;
         int k = hitKnob(x, y);
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture && k != 8) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 0 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture && k != 8) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_INP, j == 0 ? 0 : 1); return true; }
         int tb2 = hitTube(x, y); if (tb2 == 3) { for (int i = 0; i < 3; i++) setP(P_TUBE1 + i, 0); return true; } if (tb2 >= 0) { setP(P_TUBE1 + tb2, std::fmod(std::lround(getP(P_TUBE1 + tb2)) + 1, 5)); return true; }

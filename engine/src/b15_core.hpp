@@ -54,10 +54,20 @@ inline void sdiode(const double *v, double *i, double *J) { const double Is = 1e
   if (x > 40) { double e = std::exp(40.0); i[0] = Is * (e * (1 + x - 40) - 1); J[0] = Is * e / nVt; return; }
   double e = std::exp(x); i[0] = Is * (e - 1); J[0] = Is * e / nVt; }
 
-enum Kind { K_6SL7 = 0, K_6L6 = 1, K_RECT = 2, K_SI = 3 };
+// Kernsättigung des Ausgangsübertragers (Schätzung, kein Datenblatt): zusätzlicher Magnetisierungsstrom parallel zur Primärwicklung,
+// i = φ/Lp·(|φ|/φs)^6 mit φ = ∫u dt (Volt·Sekunden über der ganzen Primärwicklung). Bis φs bleibt der Übertrager fast linear, darüber
+// bricht die Induktivität ein. φs = 4 V·s: Einsatz bei Vollaussteuerung (624 V Spitze an 6,5 kΩ) unter etwa 25 Hz, bei 41 Hz (tiefes E) noch
+// gut 10 % Mehrstrom – ein großzügig bemessener Bassübertrager. Der Fluss enthält auch den Gleichanteil ungleicher Endröhren.
+struct Sat { double lp, phis; };
+static const Sat OT_SAT = {40, 4.0};
+inline void satI(const Sat &S, double phi, double ht, double *i, double *J) { double r = std::fabs(phi) / S.phis, r6 = r * r * r; r6 *= r6;
+  i[0] = phi / S.lp * r6; J[0] = 7 * r6 / S.lp * ht; }
+enum Kind { K_6SL7 = 0, K_6L6 = 1, K_RECT = 2, K_SI = 3, K_SAT = 4 };
 // 6SL7 mit der Formel statt einer Tabelle: eine bilinear interpolierte Tabelle erzeugte bei kleinem Signal unechte Oberwellen (H4/H5 um −60 dB)
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
-  switch (d.kind) { case K_6SL7: triode(T6SL7, v, i, J); break; case K_6L6: pentode(P6L6, v, i, J); break; case K_RECT: vdiode(v, i, J); break; default: sdiode(v, i, J); } }
+  switch (d.kind) { case K_6SL7: triode(T6SL7, v, i, J); break;
+    case K_6L6: pentode(P6L6, v, i, J); if (d.sc != 1) { for (int k = 1; k < 3; k++) i[k] *= d.sc; for (int k = 3; k < 9; k++) J[k] *= d.sc; } break;   // Streuung: Anoden- und Schirmgitterstrom
+    case K_RECT: vdiode(v, i, J); break; case K_SAT: satI(*(const Sat *)d.model, d.st + d.ht * (d.vl + v[0]), d.ht, i, J); break; default: sdiode(v, i, J); } }
 
 // ---------- Bauteile und Einstellungen ----------
 struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
@@ -79,7 +89,7 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
 };
 // Buchsen: 0 = Kanal 1 "Bass" (ohne Teiler), 1 = Kanal 1 "Guitar" (mit 120 k + 100 k der leeren Bass-Buchse), 2 = Kanal 2
-struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; };   // Regler 0…1 (Knopf 0…10)
+struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; };   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.vol1, &s.treb1, &s.bass1, &s.vol2, &s.treb2, &s.bass2}; return *f[i]; }
 inline double logTaper(double x) { const double m = 0.15; if (x <= 0) return 0; if (x >= 1) return 1; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // 15 % in Mittelstellung
 
@@ -121,7 +131,9 @@ inline Built build(const Parts &v, const Setting &s) {
   // --- Endstufe V4/V5 (6L6GC), feste Vorspannung über 270 k ---
   o.c("pA", "c5", v.cc3); o.r("c5", "BIAS", v.rgl); o.r("c5", "g5", v.rgs);
   o.c("pB", "c4", v.cc3); o.r("c4", "BIAS", v.rgl); o.r("c4", "g4", v.rgs);
-  B.mon[3] = (int)o.P.size(); pen("g5", "B2", "a5", "0"); B.mon[4] = (int)o.P.size(); pen("g4", "B2", "a4", "0"); mark(); G = 3;
+  B.mon[3] = (int)o.P.size(); pen("g5", "B2", "a5", "0"); dev.back().sc = 1 + s.mis / 2; B.mon[4] = (int)o.P.size(); pen("g4", "B2", "a4", "0"); dev.back().sc = 1 - s.mis / 2;
+  { int p = o.port("a5w", "a4w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; d.mem = true; dev.push_back(d); }   // Kernsättigung (Fluss über der ganzen Primärwicklung)
+  mark(); G = 3;
   // --- Ausgangsübertrager: zwei Primärhälften, Sekundär 0–8 Ω–16 Ω; Gleichstromwiderstände als Reihenwiderstände ---
   { double np = 1, n8 = std::sqrt(8 / v.ot_zp), n16 = std::sqrt(16 / v.ot_zp);   // Windungen relativ zur ganzen Primärwicklung
     double n[4] = {np / 2, np / 2, n8, n16 - n8}, L0 = v.ot_lp; dk::Mat L(4, 4);
@@ -150,7 +162,7 @@ inline Built build(const Parts &v, const Setting &s) {
 // ---------- Laufzeit ----------
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0, hvOn = 1;
-  void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
+  void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); apply(s); w = 2 * PI * v.mains_hz / fs; t = 0;
     // Startwerte: Kondensatoren auf die Spannungen der Spannungstabelle (Technical Data), damit das Netzteil nicht minutenlang einschwingen muss
     std::map<std::string, double> g = {{"B1", 430}, {"B2", 425}, {"B3", 345}, {"B4", 350}, {"BIAS", -50}, {"br", -60}, {"p1a", 165}, {"p2a", 165}, {"p1b", 175}, {"p2b", 175},
@@ -203,6 +215,7 @@ struct Amp {
   // alle 64 Abtastwerte (Grundrate) einen Schritt Richtung Ziel; Netz neu aufbauen kostet etwa 0,1 ms
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
+    { double d = tgt.mis - n.mis; if (d != 0) { moved = true; if (std::fabs(d) > 1e-5) n.mis += d * (1 - std::exp(-64 / (0.3 * fsB))); else n.mis = tgt.mis; } }   // Streuung gleitet 0,3 s: der Gleichstrom durch den Übertrager ändert sich langsam, kein Plopp
     if (moved) c.apply(n); }
   double run1(double x) { double y[O_NO]; c.hvOn = standby ? 0 : 1; c.step(x, y);
     for (int i = 0; i < 5; i++) { double d = std::fabs(c.run.vp[c.bl.mon[i]] - vgk0[i]); if (d > peak[i]) peak[i] = d; }

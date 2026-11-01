@@ -64,7 +64,8 @@ Einzig der Innenwiderstand des Netztrafos ist an 430 V angepasst (380 Ω je Häl
 Hoch­ohmige Anoden misst ein 20-kΩ/V-Gerät etwas zu niedrig (bei V1A etwa 4 %).
 
 ## Geschätzt (nicht im Plan, nicht in der Tabelle)
-- Übertrager: Primärinduktivität 40 H, Kopplung 0,9998 (Streuinduktivität), Wicklungskapazität 500 pF (Anode–Anode), Eisenverluste 150 kΩ, keine Kernsättigung (noch).
+- Übertrager: Primärinduktivität 40 H, Kopplung 0,9998 (Streuinduktivität), Wicklungskapazität 500 pF (Anode–Anode), Eisenverluste 150 kΩ, Kernsättigung ab 1.5: zusätzlicher Magnetisierungsstrom φ/Lp·(|φ|/φs)^6 mit φ = ∫u dt über der ganzen Primärwicklung, φs = 4 V·s (Einsatz bei Vollaussteuerung unter etwa 25 Hz; Bassübertrager großzügig bemessen angenommen).
+- Streuung der Endröhren (ab 1.5, Parameter 0–10 %): Anoden- und Schirmgitterstrom von V5 × (1 + m/2), V4 × (1 − m/2). Bei 10 %: Fluss-Gleichanteil −0,05 V·s; 110 Hz, 100 mV Eingang: H2 −54,6 statt −56,4 dB, H4 −83 statt −92 dB; der Brumm bleibt gleich (Schirmgitter und Anoden an derselben gesiebten Spannung).
 - Lautsprecher CTS 15" im geschlossenen Gehäuse: Fs 40 Hz, Qms 5, Qes 0,55, Vas 280 l, Gehäuse 85 l; Schwingspule Le 1 mH mit 20 Ω Wirbelstromverlust parallel.
 - Schirmgitterstrom-Aufteilung der 6L6GC bei kleiner Anodenspannung.
 - Innenwiderstand der Quelle 1 kΩ.

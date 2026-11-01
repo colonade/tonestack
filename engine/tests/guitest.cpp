@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
   send(MotionNotify, kx(1145), kx(190), 0); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   // INPUT und OUTPUT nach oben ziehen (bis 3.10 nicht getroffen)
   { auto drag = [&](int x, int y) { send(ButtonPress, x, y, 1); tim->on_timer(p, 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, x, y - i * 4, 0); tim->on_timer(p, 1); } send(ButtonRelease, x, y - 40, 1); tim->on_timer(p, 1); };
-    drag(ux(980), uy(88)); drag(ux(1100), uy(88)); }
+    drag(ux(935), uy(72)); drag(ux(1035), uy(72)); drag(ux(1135), uy(72)); }   // INPUT, OUTPUT, MISMATCH (ab 3.20)
   // Röhren: V101 zweimal weiter (12AU7), V103 einmal (12AT7); Kippschalter: Verzerrung aus, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
   send(ButtonPress, ux(159), uy(173), 1); send(ButtonRelease, ux(159), uy(173), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(159), uy(173), 1); send(ButtonRelease, ux(159), uy(173), 1); tim->on_timer(p, 1);

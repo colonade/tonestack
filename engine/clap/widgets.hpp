@@ -81,6 +81,13 @@ inline void smallKnob(cairo_t *c, double cx, double cy, double u01, const char *
   rgb(c, dim ? 0x6a6a68 : 0xdcdee2); text(c, name, cx + 34, cy - 3, 14, true); rgb(c, dim ? 0x6a6a68 : 0xcfd1d6); text(c, val, cx + 34, cy + 16, 13, false);
 }
 
+// kleiner Drehknopf mit Beschriftung darunter (schmal, für drei Knöpfe nebeneinander); (cx, cy) = Knopfmitte
+inline void smallKnobV(cairo_t *c, double cx, double cy, double u01, const char *name, const char *val, bool hot, bool dim) {
+  rgb(c, 0x0c0c0c); cairo_new_path(c); cairo_arc(c, cx, cy, 22, 0, 2 * TPI); cairo_fill(c); rgb(c, 0x45474c); cairo_set_line_width(c, 1.5); cairo_arc(c, cx, cy, 22, 0, 2 * TPI); cairo_stroke(c);
+  cairo_save(c); cairo_translate(c, cx, cy); cairo_rotate(c, (-150 + 300 * u01) * TPI / 180); rgb(c, 0xf2f2ee); cairo_set_line_width(c, 4); cairo_move_to(c, 0, -6); cairo_line_to(c, 0, -19); cairo_stroke(c); cairo_restore(c);
+  if (hot) { rgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, cx, cy, 28, 0, 2 * TPI); cairo_stroke(c); }
+  rgb(c, dim ? 0x6a6a68 : 0xdcdee2); text(c, name, cx, cy + 42, 13, true, 1); rgb(c, dim ? 0x6a6a68 : 0xcfd1d6); text(c, val, cx, cy + 59, 12, false, 1);
+}
 // Werteanzeige (Sprechblase) in Bildschirm-Pixeln: Anker (px, py) = Mitte oberhalb des Bedienelements; u = Pixel je UI-Einheit
 inline void tip(cairo_t *c, const char *t, double px, double py, double u, double winW) {
   cairo_save(c); cairo_identity_matrix(c); cairo_translate(c, 0, 0); font(c, 14 * u, true); cairo_text_extents_t e; cairo_text_extents(c, t, &e);

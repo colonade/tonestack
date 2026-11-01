@@ -12,6 +12,7 @@
 #include <mutex>
 #endif
 #include "parts_gen.h"
+#include "laney_pa.hpp"
 
 namespace aor {
 constexpr double PI = 3.14159265358979323846;
@@ -39,10 +40,13 @@ struct Setting {
   double mid = 0, top = 0, bass = 0, ch1 = 1, low = 0;
   int tube[3] = {0, 0, 0};   // Röhrentyp je Fassung V101, V102, V103 (Index in TUBE_MODELS; 0 = 12AX7/ECC83 wie im Gerät)
 };
-// Röhrenmodelle (Koren): 12AX7, 12AT7, 12AU7 nach Koren (Glass Audio 1996, Tabelle 1); 5751 und 12AY7 an Datenblatt-Arbeitspunkte angepasst (mu fest, kvb 300)
+// Röhrenmodelle (Koren-Form): 12AT7, 12AU7 nach Koren (Glass Audio 1996, Tabelle 1); 5751 und 12AY7 an Datenblatt-Arbeitspunkte angepasst (mu fest, kvb 300).
+// 12AX7 (ab 3.20): an RCA-Datenblatt (100 V/−1 V: 0,5 mA, 1,25 mA/V, 80 kΩ; 250 V/−2 V: 1,2 mA, 1,6 mA/V, 62,5 kΩ) und die fünf Vorstufen-Arbeitspunkte
+// des Laney-Plans (V101A/B, V102A/B, V103B) angepasst, mu 100 fest. Koren 1996 (ex 1,4, kg1 1060, kp 600) traf bei 100 V/−1 V nur 0,1 mA statt 0,5 mA und
+// lag in den Laney-Stufen 10–25 % zu niedrig (Anoden 6–10 V zu hoch); jetzt Anoden auf 1–6 V am Plan, Rechnung: engine/tools/tube_fits.py.
 struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; };
 static const TubeModel TUBE_MODELS[5] = {
-  {"12AX7 / ECC83", 100,  1.4,   1060, 600, 300, 1.6e-12, 1.7e-12, false},
+  {"12AX7 / ECC83", 100,  1.2,   1090.9, 287.3, 300, 1.6e-12, 1.7e-12, true},
   {"12AT7 / ECC81", 60,   1.35,  460,  300, 300, 2.7e-12, 2.2e-12, false},
   {"12AU7 / ECC82", 21.5, 1.3,   1180, 84,  300, 2.5e-12, 2.0e-12, false},
   {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true},
@@ -200,54 +204,41 @@ inline LinNet netPA(const Parts &v, double pres, double fs) {
   return o;
 }
 inline LinSys buildPA(const Parts &v, double pres, double fs) { return netPA(v, pres, fs).compile("br", {}); }
-// Endstufe für den Röhrenmodus: dasselbe Netz, aber der braune Abgriff wird von außen gespeist (Quelle br = Vs/Gp), damit Endröhren und
-// Übertrager innerhalb der Gegenkopplung nichtlinear gerechnet werden können. srcBr = false: Eingang u, br an Masse; true: Quelle an br, u an Masse.
-inline LinSys buildPAx(const Parts &v, double pres, double fs, bool srcBr) {
-  LinNet o; const std::string U = srcBr ? "u0" : "in", BR = srcBr ? "in" : "br";
-  auto buf = [&](const std::string &a, const std::string &b) { o.vccs(a, "0", b, 1); o.R(b, "0", 1); };
-  o.N("in"); o.R(U,"fa",1e3); o.C("fa","fb",v.c201,fs); o.C("fb","fc",v.c202,fs); o.R("fc","0",1/(1/39e3+1/55e3));
-  buf("fc","bb"); o.R("bb","ga0",1e3); o.C("ga0","ga",v.c18,fs); o.R("ga","n",1e6); o.R("gb","n",1e6); o.R("n","k",470); o.R("n","x",10e3);
-  o.triode("ga","pa","k",1.23e-3,v,fs); o.triode("gb","pb","k",1.17e-3,v,fs); o.R("pa","0",82e3); o.R("pb","0",100e3); o.C("pa","pb",v.c20,fs);
-  o.C("pa","g1",v.c21,fs); o.R("g1","0",220e3); o.C("pb","g2",v.c21,fs); o.R("g2","0",220e3);
-  o.C("gb","x",v.c19,fs); o.R("x","0",v.r105); o.R("x","px",v.vr108*(1-pres)); o.C("px","0",v.c110,fs);
-  o.R(srcBr ? "u0" : "br", "0", 1e-3);   // die jeweils andere Quelle liegt auf 0
-  o.R(BR,"x", v.r38 / std::max(v.gp, 1e-6));   // Quelle br = Vs/Gp = volle Gitterdifferenz → Strom Gp·Δg/R38 wie in netPA (dort br = Δg/2 über R38/2/Gp)
-  return o.compile("x", {{"g2","g1"}});
-}
-// Endröhren und Ausgangsübertrager (Schätzung, auf die Sekundärseite bezogen, 8-Ω-Last):
-//   Röhren: Leerlaufspannung E = Gp·(1 + RS/RL)·(Gitterdifferenz), weich begrenzt (Knie ab 75 %, höchstens 30 V Spitze an 8 Ω ≈ 56 W);
-//   Innenwiderstand RS = 8 Ω (Pentoden ohne Gegenkopplung, Dämpfungsfaktor etwa 1);
-//   Übertrager: Hauptinduktivität LM = 0,08 H (≈ 40 H primär bei 4 kΩ : 8 Ω), Sättigung über den Fluss φ = ∫Vs dt:
-//   Magnetisierungsstrom φ/LM·(1 + (|φ|/PHIS)^6), PHIS = 0,09 V·s (Sättigungseinsatz bei Volllast, 28 V Spitze, unterhalb etwa 50 Hz; Gitarrenübertrager).
-//   Der Magnetisierungsstrom fließt über RS und fehlt an der Last; die Gegenkopplung (R38) gleicht aus, bis die Röhren begrenzen.
-struct PaNl {
-  static constexpr double RL = 8, RS = 8, LM = 0.08, PHIS = 0.09, EMAX = 30, KNEE = 0.75;
-  double fs; LinSys su, sb; std::vector<double> Ih, vc; double cur = 0, tgt = 0; Parts v; bool hasV = false; int cnt = 0; double norm = 1;
-  double Vs = 0, phi = 0, peak = 0;   // peak: höchste Spannung an der Last (V) seit dem letzten Abholen
-  explicit PaNl(double fs_) : fs(fs_) {}
-  void build() { su = buildPAx(v, cur, fs, false); sb = buildPAx(v, cur, fs, true); if ((int)Ih.size() != su.nc) { Ih.assign(su.nc, 0); vc.assign(su.nc, 0); } }
-  void setTarget(const Parts &pv, double pres, double nrm) { tgt = pres; norm = nrm; if (!hasV || !(pv == v)) { v = pv; if (!hasV) cur = pres; hasV = true; build(); } }
-  void tick() { if (++cnt < 32) return; cnt = 0; double d = tgt - cur; if (d == 0) return; double a = 1 - std::exp(-32 / (0.015 * fs));   // alle 32 Abtastwerte: feine Stufen beim Drehen von Presence
-    if (std::fabs(d) > 1e-5) cur += d * a; else cur = tgt; build(); }
-  static void mag(double ph, double &i, double &di) { double r = std::fabs(ph) / PHIS, r6 = r * r * r; r6 *= r6; i = ph / LM * (1 + r6); di = (1 + 7 * r6) / LM; }
-  static void clip(double x, double emax, double &e, double &de) { double kn = KNEE * emax, a = std::fabs(x);
-    if (a <= kn) { e = x; de = 1; return; } double t = std::tanh((a - kn) / (emax - kn)); e = (x < 0 ? -1 : 1) * (kn + (emax - kn) * t); de = 1 - t * t; }
-  double restDev() const { double d = std::max(std::fabs(Vs), std::fabs(phi)); for (double x : vc) d = std::max(d, std::fabs(x)); return d; }   // Abstand von der Ruhe (Schlafzustand im Plugin)
-  void settle() { std::fill(Ih.begin(), Ih.end(), 0.0); std::fill(vc.begin(), vc.end(), 0.0); Vs = 0; phi = 0; }
-  double step(double u) {   // u: Spannung am Vorverstärkerausgang (V); Rückgabe wie PaCore (normiert)
-    const int nc = su.nc; const double g = std::max(v.gp, 1e-6), A = 1 + RS / RL, h = 0.5 / fs, emax = EMAX * A;
-    double a = su.md[0] * u; for (int j = 0; j < nc; j++) a += su.mc[0][j] * Ih[j];
-    const double b = sb.md[0];
-    double x = Vs; for (int it = 0; it < 40; it++) {
-      double ph = phi + h * (Vs + x), im, dim, e, de; mag(ph, im, dim); clip(g * A * (a + b * x / g), emax, e, de);
-      double f = A * x + RS * im - e, df = A + RS * dim * h - de * A * b; double dx = f / df; x -= dx; if (std::fabs(dx) < 1e-9 * (1 + std::fabs(x))) break; }
-    if (!std::isfinite(x)) x = 0;
-    phi += h * (Vs + x); Vs = x; peak = std::max(peak, std::fabs(x));
-    const double br = x / g;
-    for (int i = 0; i < nc; i++) { double s1 = su.k[i] * u + sb.k[i] * br; int o = i * nc; for (int j = 0; j < nc; j++) s1 += su.K[o + j] * Ih[j]; vc[i] = s1; }
-    for (int i = 0; i < nc; i++) Ih[i] = su.G2[i] * vc[i] - Ih[i];
-    return 0.5 * br / 20 / norm;   // gleicher Maßstab wie PaCore (dort Ausgang br = Δg/2)
-  }
+// Endstufe im Röhrenmodus: ganze Schaltung (laney_pa.hpp, DK-Methode) – Phasenumkehr, zwei EL34, Ausgangsübertrager mit Kernsättigung,
+// Netzteil mit Brückengleichrichter und Vorspannung, Lautsprecher als Last. Läuft mit der Grundabtastrate (wie das bisherige Modell).
+// Ausgang wie bisher: Spannung am Lautsprecher, so skaliert, dass der Pegel bei 1 kHz, kleinem Signal und Presence 5 dem bisherigen entspricht.
+struct PaDk {
+  static constexpr double SCALE = lpa::OUT_SCALE;   // Ausgang = Vs · SCALE
+  double fs; lpa::Core c; lpa::Vals tgt; bool hasV = false; int cnt = 0; double vgk0[3] = {0, 0, 0};
+  explicit PaDk(double fs_) : fs(fs_) {}
+  static lpa::Vals valsOf(const Parts &v, double pres, double mis) { lpa::Vals x; x.c201 = v.c201; x.c202 = v.c202; x.c18 = v.c18; x.c19 = v.c19; x.c20 = v.c20; x.c21 = v.c21;
+    x.r105 = v.r105; x.vr108 = v.vr108; x.c110 = v.c110; x.r38 = v.r38; x.pres = pres; x.mis = mis; return x; }
+  // eingeschwungene Endstufe (Ruhezustand) je Abtastrate und Bauteilsatz, prozessweit zwischengespeichert; Presence und Streuung werden danach eingestellt
+  static std::map<std::string, lpa::Core> &cache() { static std::map<std::string, lpa::Core> c; return c; }
+#ifdef __wasm__
+  struct Lock { Lock() {} };
+#else
+  static std::mutex &mtx() { static std::mutex m; return m; }
+  struct Lock { std::lock_guard<std::mutex> g; Lock() : g(mtx()) {} };
+#endif
+  // compute = false (Audio-Thread): fehlt der Eintrag für diese Streuung, wird der Ruhezustand ohne Streuung genommen und umgestellt (kurzer Einschwingvorgang
+  // im Übertrager statt 0,1 s Rechenzeit); nur wenn auch der fehlt, wird gerechnet. Vorab füllen: pl_activate, Frequenzgang-Diagramm (compute = true).
+  static std::string keyOf(double fs, lpa::Vals v) { v.pres = 0.5; return std::string(reinterpret_cast<const char*>(&v), sizeof v) + std::to_string(fs); }
+  static lpa::Core settled(double fs, const lpa::Vals &v, bool compute = true) { Lock lk; auto &c = cache(); auto it = c.find(keyOf(fs, v)); if (it != c.end()) return it->second;
+    if (!compute) { lpa::Vals z = v; z.mis = 0; auto i0 = c.find(keyOf(fs, z)); if (i0 != c.end()) return i0->second; }
+    lpa::Vals s = v; s.pres = 0.5; lpa::Core k; k.init(fs, s); k.settle(0.6); if (c.size() >= 16) c.clear(); c[keyOf(fs, v)] = k; return k; }
+  void mark() { for (int i = 0; i < 3; i++) vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; }
+  void setTarget(const Parts &pv, double pres, double mis) { lpa::Vals n = valsOf(pv, pres, mis);
+    if (!hasV) { c = settled(fs, n, false); if (!(c.cur == n)) c.apply(n); hasV = true; tgt = n; mark(); return; }
+    lpa::Vals a = n; a.pres = c.cur.pres; a.mis = c.cur.mis; bool parts = !(a == c.cur); tgt = n;
+    if (parts) { lpa::Vals k = c.cur; lpa::Vals s = n; s.pres = k.pres; s.mis = k.mis; c.apply(s); } }   // Bauteilwechsel: neu übersetzen, Zustände bleiben
+  // alle 256 Abtastwerte Richtung Ziel (Neuaufbau des Netzes kostet etwa 0,1 ms): Presence in 15 ms, Streuung in 0,3 s (Gleichstrom durch den Übertrager ändert sich langsam, kein Plopp)
+  void tick() { if (++cnt < 256) return; cnt = 0; lpa::Vals n = c.cur; bool moved = false;
+    auto glide = [&](double &x, double t, double tau) { double d = t - x; if (d == 0) return; moved = true; if (std::fabs(d) > 1e-5) x += d * (1 - std::exp(-256 / (tau * fs))); else x = t; };
+    glide(n.pres, tgt.pres, 0.015); glide(n.mis, tgt.mis, 0.3); if (moved) c.apply(n); }
+  double step(double u) { return c.step(u) * SCALE; }
+  double restDev() const { double d = std::fabs(c.last); for (int i = 0; i < 2; i++) d = std::max(d, std::fabs(c.vgk(i) - vgk0[i])); return std::max(d, std::fabs(c.run.vp[0] - vgk0[2])); }   // Abstand von der Ruhe
+  void settle() { lpa::Vals n = c.cur; c = settled(fs, n, false); c.apply(n); mark(); }   // Ruhezustand (Neustart, Aufwachen)
 };
 
 // Zustandsrechner für ein lineares Netz mit Überblendung bei Neuaufbau
@@ -282,7 +273,7 @@ struct LinRunner {
 
 // ---------- Röhrenmodell (Koren 12AX7) mit Tabelle ----------
 struct Tube {
-  double KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300;
+  double KP = 287.3, MU = 100, EX = 1.2, KG1 = 1090.9, KVB = 300;
   int type = 0;   // Anodenstrom immer aus der Formel: eine bilinear interpolierte Tabelle (bis 3.18) erzeugte bei leisem Spiel unechte Oberwellen (H4…H6 um −80 dB) und brauchte mehr Newton-Schritte
   void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; }
   void tube(double vgk, double vpk, double *out) const {
@@ -604,7 +595,7 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   double lo = (w*w*w*w*Ts*Ts*Tb*Tb) / std::hypot(dr, di), le = 1 / std::hypot(1.0, w * m.Le / m.Re), w0 = 2 * PI * m.fc, cone = w0*w0 / std::hypot(w0*w0 - w*w, w0*w/m.Qc);
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
-struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; };   // spk: Lautsprecher am Ausgang
+struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; };   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
 struct Norms { double pa = 5.957573504094253; };   // Endstufe: Verstärkung bei 1 kHz in der Bezugsstellung (Pegel mit/ohne Endstufe gleich)
 
 struct PaCore {
@@ -646,7 +637,7 @@ struct LinCore : CoreBase {
 };
 
 struct NlCore : CoreBase {
-  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaNl paC; Norms N;
+  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaDk paC; Norms N;
   static std::map<std::string, Snapshot> &cache() { static std::map<std::string, Snapshot> c; return c; }
   static std::string cacheKey(const Parts &v, double fs, int os, const int tube[3]) { std::string key(reinterpret_cast<const char*>(&v), sizeof v); return key + std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(tube[0]) + std::to_string(tube[1]) + std::to_string(tube[2]); }
 #ifdef __wasm__
@@ -664,13 +655,13 @@ struct NlCore : CoreBase {
       auto &c = cache(); auto it = c.find(key);
       if (it == c.end()) { amp.init(v, cur); if (c.size() >= 32) c.clear(); c[key] = amp.snapshot(); } else amp.initFrom(v, cur, it->second);   // begrenzter Zwischenspeicher
     } else tgt = s;
-    paC.setTarget(t.v, t.s.pres, N.pa);
+    if (pa) paC.setTarget(t.v, t.s.pres, t.mis);
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (tgt.ch1 != cur.ch1) { cur.ch1 = tgt.ch1; moved = true; }
     if (moved) amp.retarget(v, cur); }
-  double step(double u) override { double y = amp.step(u * vin) / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // Endstufe mit Röhrenbegrenzung und Übertragersättigung (absolute Spannung)
+  double step(double u) override { double y = amp.step(u * vin) / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // Endstufe als ganze Schaltung (absolute Vorverstärkerspannung)
   CoreBase *clone() const override { return new NlCore(*this); }
   bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };

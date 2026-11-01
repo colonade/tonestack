@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.19
+Version 3.20
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -38,11 +38,12 @@ Parameters
   FX loop + power amp (Presence), Middle/Presence pot taper, Output level,
   Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 2x),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
-  Soft and Late (circuit ideas, see 3.12).
+  Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
+  3.20).
   Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
   other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
   2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
-  on, Late and speaker off.
+  on, Late and speaker off, mismatch 0 %.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -53,7 +54,7 @@ User interface
   flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (click
   turns it on, wheel turns either way), a three-position toggle for the
   middle/presence pot TAPER (click the upper or lower half to move the
-  lever), INPUT and OUTPUT. Below: the three tube sockets (click to change
+  lever), INPUT, OUTPUT and MISMATCH. Below: the three tube sockets (click to change
   the type; * = model fitted to the data sheet), the tube DRIVE meters and
   the frequency response. Text in
   the lower part is sized for the screen (12-14 pixels at the default
@@ -67,17 +68,17 @@ User interface
 Tubes
   Three parameters Tube V101, Tube V102, Tube V103 (each socket is a twin
   triode) choose the tube type: 12AX7/ECC83 (stock), 12AT7/ECC81, 12AU7/ECC82,
-  5751, 12AY7. The models for 12AX7, 12AT7 and 12AU7 are Norman Koren's
-  published parameters; 5751 and 12AY7 are Koren-type models fitted to the
-  data sheet operating point (mu fixed) and are marked "fitted" - less
-  certain away from that point. The operating points (bias, plate voltages)
+  5751, 12AY7. The models for 12AT7 and 12AU7 are Norman Koren's published
+  parameters; 12AX7 (since 3.20), 5751 and 12AY7 are Koren-type models fitted
+  to data (mu fixed) and are marked "fitted" - less certain away from those
+  points. The operating points (bias, plate voltages)
   follow from the model and the circuit, so a different tube also shifts the
   bias of its stage. In the user interface the row above the frequency
   response shows the sockets; clicking a socket cycles the type, RESET TO
   STOCK restores 3 x 12AX7. Stock tubes are bit-exact with version 3.3.
-  Not modelled: sample-to-sample variation, microphonics, ageing; the phase
-  inverter V104 stays linear; the power tubes limit softly (estimated) and
-  the output transformer saturates at low frequencies (estimated).
+  Not modelled: sample-to-sample variation of the preamp tubes, microphonics,
+  ageing. With tube distortion on, the phase inverter, the power tubes and
+  the output transformer are computed as a circuit (see 3.20).
 
 Frequency response
   Below the model strip the plugin draws the small-signal frequency response
@@ -85,7 +86,9 @@ Frequency response
   circuit network as the audio (complex nodal analysis, 20 Hz to 20 kHz).
   The dashed grey line is the reference: original parts, all controls at 5,
   boosts off, same channel, input and FX-loop setting. With tube distortion
-  on, the curve still shows the linear (small-signal) response. The window
+  on, the curve still shows the small-signal response; the power amp part
+  then comes from the power amp circuit at its operating point (with the
+  speaker as load). The window
   can be resized; the plot scales with it.
 
 Meters and load
@@ -116,6 +119,46 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.20 (power amp as a circuit, tube models fitted to more data)
+  - With tube distortion and "FX loop + power amp" on, the power amp is now
+    computed as the whole circuit of the schematic (DRG 1054), like the
+    AmpFett: phase inverter V104 (12AX7, long-tailed pair with R38 negative
+    feedback and presence), two EL34 with fixed bias (-36 V), output
+    transformer with core saturation, power supply with bridge rectifier,
+    choke and filter caps (the supply sags under load), bias supply, and the
+    speaker (CB158 in the 78 l vented box) as the load on the 8 ohm tap.
+    Before, the power tubes were one soft limiter and the transformer one
+    saturating inductance. Now the push-pull stage produces the typical odd
+    harmonics (3rd harmonic dominant) already well below clipping, the
+    supply sag and the phase inverter shape the clipping, and the voltage
+    at the speaker terminal follows the speaker impedance like on a real
+    tube amp: up to about +5 dB around 100 Hz relative to 1 kHz (the speaker
+    resonance with the vented box), more treble above 3 kHz. Level at 1 kHz
+    and small signal as before.
+    Idle voltages as in the schematic: B+ 405 / 403 / 329 V (plan 400 / 398 /
+    326), phase inverter plates 217 / 208 V (225 / 209), bias -35.9 V (-36),
+    EL34 idle current 35 mA each.
+    Estimated (not in the schematic): EL34 (stock tube type according to
+    dealers), output transformer 4 kOhm : 8 ohm with 40 H, leakage, winding
+    capacitance, core loss and saturation, choke 5 H, mains transformer
+    resistance, preamp load on the 326 V rail. The linear mode keeps the
+    simpler linear power amp (no speaker load), so linear and tube mode now
+    differ in the bass by a few dB when the power amp is on.
+  - New parameter "Power tube mismatch" (0-10 %, MISMATCH knob in the model
+    strip): difference of the idle current of the two EL34. Mismatched
+    tubes add even harmonics (2nd, 4th) and a small DC through the output
+    transformer. The knob glides over 0.3 s (no thump). Projects from older
+    versions load with 0 %.
+  - 12AX7 model refitted: Koren's 1996 parameters gave only 0.1 mA at
+    100 V / -1 V (RCA data sheet 0.5 mA) and 10-25 % too little current in the
+    preamp stages of the Laney (plates 6-10 V above the schematic). Now fitted
+    to the RCA data sheet and the five preamp operating points of the
+    schematic: plates within 1-6 V. Affects V101-V103 when set to 12AX7 and
+    the phase inverter. 5751 and 12AY7 (default 5751) unchanged.
+  - CPU: the power amp circuit costs about 15-25 % of one core extra on this
+    test machine (half of that on a current desktop CPU), independent of the
+    oversampling setting (it runs at the base sample rate).
 
 3.19 (findings from the AmpFett B-15NF tube check)
   - Tubes are now computed with the full formula instead of an interpolated

@@ -1,6 +1,6 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -22,7 +22,7 @@ namespace bgui { struct Gui; }
 #endif
 using namespace b15;
 
-enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_COUNT };
+enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_JACK[] = {"Bass (channel 1)", "Guitar (channel 1)", "Inst. (channel 2)"}; static const char *N_ONOFF[] = {"Off", "On"};
 static const char *N_STBY[] = {"Off (playing)", "On (no high voltage)"}; static const char *N_OS[] = {"1x", "2x", "4x"};
@@ -30,7 +30,8 @@ static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 2, 0, N_JACK, 3}, {"Volume 1", 0, 10, 5, 0, 0}, {"Treble 1", 0, 10, 5, 0, 0}, {"Bass 1", 0, 10, 5, 0, 0},
   {"Volume 2", 0, 10, 5, 0, 0}, {"Treble 2", 0, 10, 5, 0, 0}, {"Bass 2", 0, 10, 5, 0, 0},
   {"Standby", 0, 1, 0, N_STBY, 2}, {"Power", 0, 1, 1, N_ONOFF, 2}, {"Speaker (CTS 15\", sealed box, estimated)", 0, 1, 0, N_ONOFF, 2},
-  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0} };
+  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0},
+  {"Power tube mismatch (%)", 0, 10, 0, 0, 0} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -56,7 +57,7 @@ struct Plugin {
   std::unique_ptr<Core> plotC; double plotFs = 0;   // eigene Instanz für den Frequenzgang (Oberflächen-Faden), zur Abtastrate plotFs
   int osWant() const { return osFactor((int)std::lround(val[P_OS])); }
   Setting setting(double k1, double t1, double b1, double k2, double t2, double b2) const { Setting s; s.vol1 = k1 / 10; s.treb1 = t1 / 10; s.bass1 = b1 / 10; s.vol2 = k2 / 10; s.treb2 = t2 / 10; s.bass2 = b2 / 10;
-    s.jack = std::max(0, std::min(2, (int)std::lround(val[P_JACK]))); return s; }
+    s.jack = std::max(0, std::min(2, (int)std::lround(val[P_JACK]))); s.mis = val[P_MIS] / 100; return s; }
   Setting target() const { return setting(val[P_V1], val[P_T1], val[P_B1], val[P_V2], val[P_T2], val[P_B2]); }
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->standby = val[P_STBY] > 0.5; a->power = val[P_PWR] > 0.5; a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); if (worker.joinable()) worker.join(); building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } }

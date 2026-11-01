@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.19"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.20"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -19,12 +19,12 @@ namespace aorgui { struct Gui; }
 #endif
 using namespace aor;
 
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_COUNT };
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_INP[] = {"HIGH (~1 mV)", "LOW (~30 mV)"}; static const char *N_CH[] = {"Preamp 1 (high gain)", "Preamp 2"};
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_UMB[] = {"Original", "Bass mod C2 C3 C14"};
 static const char *N_TAP[] = {"Log 15 %", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x", "2x", "4x", "8x"};
-static const char *N_TUBE[] = {"12AX7 / ECC83 (stock)", "12AT7 / ECC81", "12AU7 / ECC82", "5751 (fitted model)", "12AY7 (fitted model)"};
+static const char *N_TUBE[] = {"12AX7 / ECC83 (stock, fitted model)", "12AT7 / ECC81", "12AU7 / ECC82", "5751 (fitted model)", "12AY7 (fitted model)"};
 static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 1, 0, N_INP, 2}, {"Channel", 0, 1, 0, N_CH, 2},
   {"Preamp 1 Volume", 0, 10, 2, 0, 0}, {"Preamp 2 Volume", 0, 10, 2, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 2, 0, 0},
@@ -35,7 +35,8 @@ static const PDef PD[P_COUNT] = {
   {"Oversampling (distortion)", 0, 3, 1, N_OS, 4}, {"Presence", 0, 10, 5, 0, 0},
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
-  {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2} };
+  {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2},
+  {"Power tube mismatch (%)", 0, 10, 0, 0, 0} };
 
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
@@ -51,6 +52,7 @@ struct Plugin {
     t.s.ch1 = val[P_CH] < 0.5 ? 1 : 0; t.s.low = val[P_INP] > 0.5; t.pa = val[P_PA] > 0.5; t.nl = val[P_NL] > 0.5;
     t.vin = val[P_VIN] / 1000; int o = (int)std::lround(val[P_OS]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;
     for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(val[P_TUBE1 + i]))); t.spk = val[P_SPK] > 0.5;
+    t.mis = val[P_MIS] / 100;   // Streuung der Endröhren (Ruhestrom-Unterschied), nur Röhrenmodus mit Endstufe
     if (val[P_SOFT] > 0.5) t.v.c3 = 1e-9; t.v.rpad = val[P_PAD] > 0.5 ? 2.2e6 : 0;   // Umbauideen wie im Web: „Sanft“ = C3 an V101B ab, „Später“ = 2,2 MΩ vor Preamp 2 Volume (nur HIGH-Eingang)
     return t; }
 };
@@ -140,7 +142,10 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
   }
 #endif
   delete pl->eng; delete pl->eng2; delete pl; }
-static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
+static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr;
+  // eingeschwungene Endstufe vorab (Haupt-Thread), nicht erst im Audio-Thread
+  for (double m : {0.0, pl->val[P_MIS] / 100}) PaDk::settled(sr, PaDk::valsOf(Parts::orig(), 0.5, m));
+  delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
@@ -223,7 +228,9 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) {   // Kleinsignal-Frequenzgang wie im Web-Simulator
       Target t = pl->target(); double fs = pl->fs; auto curveOf = [&](const Parts &v, const Setting &s, bool pa, std::vector<double> &out) {
         std::vector<TriSS> ss; const std::vector<TriSS> *sp = nullptr; if (!stockTubes(s)) { ss = smallSignal(v, s, fs); sp = &ss; }
-        LinNet o = netLin(v, s, fs, sp), q = netPA(v, s.pres, fs); auto g = [&](double f) { double m = std::abs(responseAt(o, f, "W3")); if (pa) m *= std::abs(responseAt(q, f, "br")); if (t.spk) m *= spkMag(f); return m; };
+        LinNet o = netLin(v, s, fs, sp), q = netPA(v, s.pres, fs);
+        lpa::Core dkPa; bool dk = pa && t.nl; if (dk) { lpa::Vals pv = PaDk::valsOf(v, s.pres, t.mis); dkPa = PaDk::settled(fs, pv); dkPa.apply(pv); }   // Röhrenmodus: Endstufe als Schaltung (mit Lautsprecher als Last)
+        auto g = [&](double f) { double m = std::abs(responseAt(o, f, "W3")); if (dk) m *= std::abs(dkPa.response(f)); else if (pa) m *= std::abs(responseAt(q, f, "br")); if (t.spk) m *= spkMag(f); return m; };
         double r = g(1000); out.resize(aorgui::NF); for (int i = 0; i < aorgui::NF; i++) out[i] = 20 * std::log10(std::max(1e-12, g(aorgui::freqAt(i)) / r)); };
       curveOf(t.v, t.s, t.pa, cur);
       Setting rs; rs.v1 = rs.v2 = rs.t = rs.b = rs.mv = rs.pl = 0.5; rs.m = taper(0.5, t.taper); rs.pres = taper(0.5, t.taper); rs.ch1 = t.s.ch1; rs.low = t.s.low; curveOf(Parts::orig(), rs, t.pa, ref); }; }

@@ -3,7 +3,8 @@
 using namespace b15;
 static Amp *A = nullptr; static Core *P = nullptr; static float bufB[8192]; static double tgtB[16], peakB[8], freqB[512], respB[512];
 static Setting fromT() { Setting s; for (int i = 0; i < 6; i++) { double x = tgtB[i]; sfield(s, i) = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0.5; }
-  double j = tgtB[6]; s.jack = (std::isfinite(j) && j >= 0 && j <= 2) ? (int)j : 0; return s; }
+  double j = tgtB[6]; s.jack = (std::isfinite(j) && j >= 0 && j <= 2) ? (int)j : 0;
+  double m = tgtB[11]; s.mis = std::isfinite(m) ? std::min(0.1, std::max(0.0, m)) : 0; return s; }   // Streuung der Endröhren 0 … 0,1
 extern "C" {
 float *bf_buffer() { return bufB; } double *bf_target_buffer() { return tgtB; } double *bf_peaks_buffer() { return peakB; } double *bf_freq_buffer() { return freqB; } double *bf_resp_buffer() { return respB; }
 // tgtB = vol1, treb1, bass1, vol2, treb2, bass2 (0…1), jack (0 Bass, 1 Guitar, 2 Inst.), vin (V Spitze bei 0 dBFS), spk, standby, power
