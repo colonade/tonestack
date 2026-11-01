@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.7
+Version 1.8
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -8,7 +8,7 @@ Two formats, one engine
   clap-wrapper (free-audio, MIT) and the VST3 SDK 3.8 (Steinberg, MIT) and
   passes Steinberg's validator (47 of 47 tests). A project saved with one
   format does not load its settings into the other.
-  Third-party licenses (all MIT or public domain): THIRD-PARTY-LICENSES.txt.
+  Third-party licenses (MIT, public domain; Mac Audio Unit also Apache 2.0): THIRD-PARTY-LICENSES.txt.
 
 Installation (CLAP)
   mkdir -p ~/.clap && cp Yamaha_B100II.clap ~/.clap/
@@ -35,7 +35,7 @@ What it is
 Parameters
   Input jack (HIGH / LOW, LOW = -12 dB like the real jacks), Volume, Treble,
   Middle, Bass (0-10), EQ 60/150/320/640/1250 Hz (-5 ... +5, 0 = flat, about
-  +-10 dB nominal at the ends), Pot taper (log 15 %, log 10 %, linear),
+  +10 / -9.5 dB at the ends), Pot taper (log 15 %, log 10 %, linear),
   Power amp, Instrument level, Speaker, Output level.
   Defaults: HIGH, all controls 5, EQ flat, power amp off, speaker off.
 
@@ -86,8 +86,28 @@ Frequency response
   the audio (complex nodal analysis, 20 Hz to 20 kHz), with input divider
   and speaker when selected. Dashed grey: the service-manual setting (volume,
   treble, middle, bass 10, EQ flat) with the same jack and speaker. E and B
-  mark the low E (41 Hz) and low B (31 Hz) of a bass. The power amp is not in
-  the plot (it is flat apart from the 9 Hz high-pass).
+  mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
+  power amp input (MA board input network included); the power amp itself is
+  flat above 20 Hz apart from its clipping.
+
+1.8 (code audit, schematic re-check)
+  - EQ: the G50K pots have a grounded centre tap (schematic). With the knob
+    at 0 the band is now switched off completely; boost/cut at the ends is
+    +10 / -9.5 dB, exactly the Table 7 value of the service manual (before
+    +11 to +12 dB).
+  - Power amp (MA board) input: 10 kOhm and 3300 pF to ground, 1 uF to the
+    gate of TR301. The 3300 pF roll off the treble (-3.3 dB at 10 kHz), which
+    is exactly what the factory curve Fig. 1 shows: the model now matches
+    Fig. 1 within 0.6 dB from 40 Hz to 19 kHz (before: 3.3 dB off at 10 kHz).
+  - MA board gain from the schematic: 1.8 MOhm feedback against
+    100 kOhm || (10 kOhm + 1 uF), 199x (46 dB) above 16 Hz. The chain is still
+    calibrated to Table 3 (0.775 mV at HIGH -> 2.2 V at the speaker).
+  - Without the power amp the output is about 7 dB quieter than in 1.7 (the
+    MA input network now loads the PA board as in the real amp); turn up
+    Output level if needed.
+  - Instrument level glides over 20 ms (no click when changing it with the
+    power amp on); output level glides too.
+  - Plot grid lines and redraw fixed; no memory leak when closing the window.
 
 1.7
   The plugin now also exists for macOS (Audio Unit for Logic and VST3,

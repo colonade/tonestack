@@ -1,6 +1,6 @@
-// Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64)
+// Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.7"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "yamaha_core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -30,7 +30,7 @@ static const PDef PD[P_COUNT] = {
 
 struct Plugin {
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; YCore *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};
-  std::atomic<double> load{0}; std::atomic<double> pk{0}; int pkCnt = 0; std::vector<float> mono, mono2; double outg = 1; bool eng2Has = false; YSetting lastT;
+  std::atomic<double> load{0}; std::atomic<double> pk{0}; int pkCnt = 0; std::vector<float> mono, mono2; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */ bool eng2Has = false; YSetting lastT;
   long quiet = 0; std::atomic<bool> sleeping{false};
   ygui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt;
   int taperOf() const { return std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); }
@@ -84,7 +84,7 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
   int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
-static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); }
+static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
     size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); }
   P(p)->dirty = true; return true; }
@@ -126,10 +126,12 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
     return CLAP_PROCESS_SLEEP; }
   pl->eng->block(m, (int)n); if (stereo) pl->eng2->block(m2, (int)n);
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
-  for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = (float)(src[i] * pl->outg); else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i] * pl->outg; }
+  { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));   // Ausgangspegel gleitet (kein Knacken beim Drehen)
+    for (uint32_t i = 0; i < n; i++) { g += (gt - g) * k; m[i] = (float)(m[i] * g); if (stereo) m2[i] = (float)(m2[i] * g); } pl->outCur = g; }
+  for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = src[i]; else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i]; }
   if ((pl->pkCnt += n) >= pl->fs / 10) { pl->pkCnt = 0; double q = pl->eng->takePeak(); if (stereo) q = std::max(q, pl->eng2->takePeak()); pl->pk = q; }
   // Schlafen: Eingang still (< −120 dBFS) und Ausgang abgeklungen (< −100 dBFS) für 0,5 s (längste Zeitkonstante des Netzes: 47 µF-Koppelkondensatoren, unter 0,5 s)
-  double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0) * pl->outg);
+  double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0));
   if (inPk < 1e-6f && outPk < 1e-5) pl->quiet += n; else pl->quiet = 0;
   if (pl->quiet >= (long)(0.5 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; pl->pk = 0; } return CLAP_PROCESS_SLEEP; }
   return CLAP_PROCESS_CONTINUE;

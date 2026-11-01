@@ -78,5 +78,5 @@ function(tonestack_plugin name src entry outname bundle version aucode)
   endif()
 endfunction()
 
-tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   3.17 Lany)
-tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Yamaha_B100II de.tonestack.yamaha-b100ii.vst3 1.7  B100)
+tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   3.18 Lany)
+tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Yamaha_B100II de.tonestack.yamaha-b100ii.vst3 1.8  B100)

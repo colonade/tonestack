@@ -3,11 +3,11 @@
 // K, k, c, d werden bei Regler-/Schalteränderung aus der Knotenmatrix neu berechnet (LU-Zerlegung).
 (() => {
 // Nichtlineares Modell des Laney AOR 50 Vorverstärkers (Schätzung).
-// Röhren: Koren-12AX7-Modell (veröffentlicht), Gitterstrom als weiche Diode mit 2 kΩ.
+// Röhren: Koren-Modell (veröffentlicht; 12AX7 als Standard des JS-Ersatzkerns), Gitterstrom als weiche Diode. Der WebAssembly-Kern rechnet die gewählten Röhrentypen.
 // Schaltung in Abschnitte zwischen den Röhren zerlegt; jeder Abschnitt linear (Trapezregel), Röhrenströme per Newton.
 // Die Kapazitäten Gitter–Anode von V101A..V102B werden als Miller-Ersatzkapazität am Gitter angenähert.
 const NL = (() => {
-  const KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300, RGI = 2000, SG = 0.02;
+  const KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300;
   function tube(vgk, vpk, out) {                   // Anodenstrom und Ableitungen nach vgk, vpk
     if (vpk <= 1e-6) { out[0] = 0; out[1] = 0; out[2] = 0; return; }
     const s = Math.sqrt(KVB + vpk * vpk), q = KP * (1 / MU + vgk / s);
@@ -461,12 +461,6 @@ const NLAMP = ((NL) => {
     clone() { const c = new PaCore(this.fs); Object.assign(c, this, { v: { ...this.v }, Ih: Float64Array.from(this.Ih), vc: Float64Array.from(this.vc) }); return c; }
   }
 
-  // Hochpässe im Effektweg und am Endstufeneingang (erster Ordnung, bilinear)
-  function hpCoef(fc, fs) { const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, a1: (K - 1) / a0 }; }
-  function paStages(v, fs) {
-    const cser = 1 / (1 / v.c201 + 1 / v.c202), two = Math.PI * 2;
-    return [1 / (two * (1e3 + 1 / (1 / 39e3 + 1 / 55e3)) * cser), 1 / (two * (1e3 + 1e6) * v.c18), 1 / (two * 280e3 * v.c21)].map(f => hpCoef(f, fs));
-  }
 
   // Kanalwechsel: VT1 so überblenden, dass sich die Dämpfung am Teiler (1 kHz) gleichmäßig in dB ändert.
   const vt1Div = (v, rvt) => {
@@ -481,15 +475,14 @@ const NLAMP = ((NL) => {
     for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (vt1Div(v, Math.exp(mid)) > gt) hi = mid; else lo = mid; }
     return Math.exp((lo + hi) / 2);
   }
-  const chanShape = (v, x) => vt1Div(v, vt1R(v, 1 - x));
   const SMOOTH = ['v1','v2','t','b','m','mv','pl','mid','top','bass'];
   class Core {
     constructor(fs) { this.fs = fs; this.every = 256; this.sys = null; this.prevSys = null; this.blend = 1; this.prevNorm = 1; this.cur = null; this.tgt = null; this.v = null; this.cnt = 0; this.Ih = null; this.vc = null;
-      this.pa = false; this.paCore = new PaCore(fs); this.norm = 1; this.normP1 = 1; this.normP2 = 1; this.vin = 0.1; this.peak = new Float64Array(MON.length); }
+      this.pa = false; this.paCore = new PaCore(fs); this.norm = 1; this.vin = 0.1; this.peak = new Float64Array(MON.length); }
     setTarget(m) {
       const s = { ...m.s, mid: m.sw.mid ? 1 : 0, top: m.sw.top ? 1 : 0, bass: m.sw.bass ? 1 : 0, ch1: m.sw.ch === 1 ? 1 : 0, low: m.sw.inp === 'low' ? 1 : 0 };
       const partsChanged = !this.v || Object.keys(m.v).some(k => m.v[k] !== this.v[k]);
-      this.tgt = s; if ('normP1' in m) { this.normP1 = m.normP1; this.normP2 = m.normP2; } if ('vin' in m) this.vin = m.vin;
+      this.tgt = s; if ('vin' in m) this.vin = m.vin;
       const chChanged = this.cur && this.cur.ch1 !== s.ch1;
       if (chChanged) this.cur.ch1 = s.ch1;
       if (partsChanged || !this.cur || chChanged) {
@@ -508,8 +501,7 @@ const NLAMP = ((NL) => {
     rebuild() {
       this.prevSys = this.sys; this.prevNorm = this.norm; this.blend = this.prevSys ? 0 : 1;
       this.sys = build(this.v, this.cur, this.fs);
-      const x = this.cur.ch1, r0 = chanShape(this.v, 0), r1 = chanShape(this.v, 1);
-      this.norm = this.normP2 * (chanShape(this.v, x) / r0) * Math.pow(this.normP1 / (this.normP2 * r1 / r0), x);
+      this.norm = 1;   // linear wie im Röhrenmodus absolut: Ausgang = Vorverstärkerspannung / 20 V (siehe step), kein Pegelsprung beim Umschalten
       if (!this.prevSys) this.prevNorm = this.norm; if (!this.Ih || this.Ih.length !== this.sys.nc) { this.Ih = new Float64Array(this.sys.nc); this.vc = new Float64Array(this.sys.nc); } }
     tick() {
       if (!this.tgt || ++this.cnt < this.every) return; this.cnt = 0;
@@ -539,7 +531,7 @@ const NLAMP = ((NL) => {
         nrm = this.norm;
       }
       for (let i = 0; i < nc; i++) Ih[i] = S.G2[i] * vc[i] - Ih[i];
-      y /= nrm;
+      y = y / nrm * this.vin / 20;
       if (this.pa) { this.paCore.tick(); y = this.paCore.step(y); }
       return y;
     }

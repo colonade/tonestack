@@ -151,7 +151,6 @@ inline double vt1R(const Parts &v, double x) {
   for (int i = 0; i < 60; i++) { double mid = (lo + hi) / 2; if (vt1Div(v, std::exp(mid)) > gt) hi = mid; else lo = mid; }
   return std::exp((lo + hi) / 2);
 }
-inline double chanShape(const Parts &v, double x) { return vt1Div(v, vt1R(v, 1 - x)); }
 
 std::vector<TriSS> smallSignal(const Parts &v, const Setting &s, double fs);
 inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vector<TriSS> *ss = nullptr) {
@@ -212,7 +211,7 @@ inline LinSys buildPAx(const Parts &v, double pres, double fs, bool srcBr) {
   o.C("pa","g1",v.c21,fs); o.R("g1","0",220e3); o.C("pb","g2",v.c21,fs); o.R("g2","0",220e3);
   o.C("gb","x",v.c19,fs); o.R("x","0",v.r105); o.R("x","px",v.vr108*(1-pres)); o.C("px","0",v.c110,fs);
   o.R(srcBr ? "u0" : "br", "0", 1e-3);   // die jeweils andere Quelle liegt auf 0
-  o.R(BR,"x", v.r38 * 0.5 / std::max(v.gp, 1e-6));
+  o.R(BR,"x", v.r38 / std::max(v.gp, 1e-6));   // Quelle br = Vs/Gp = volle Gitterdifferenz → Strom Gp·Δg/R38 wie in netPA (dort br = Δg/2 über R38/2/Gp)
   return o.compile("x", {{"g2","g1"}});
 }
 // Endröhren und Ausgangsübertrager (Schätzung, auf die Sekundärseite bezogen, 8-Ω-Last):
@@ -228,7 +227,7 @@ struct PaNl {
   explicit PaNl(double fs_) : fs(fs_) {}
   void build() { su = buildPAx(v, cur, fs, false); sb = buildPAx(v, cur, fs, true); if ((int)Ih.size() != su.nc) { Ih.assign(su.nc, 0); vc.assign(su.nc, 0); } }
   void setTarget(const Parts &pv, double pres, double nrm) { tgt = pres; norm = nrm; if (!hasV || !(pv == v)) { v = pv; if (!hasV) cur = pres; hasV = true; build(); } }
-  void tick() { if (++cnt < 256) return; cnt = 0; double d = tgt - cur; if (d == 0) return; double a = 1 - std::exp(-256 / (0.015 * fs));
+  void tick() { if (++cnt < 32) return; cnt = 0; double d = tgt - cur; if (d == 0) return; double a = 1 - std::exp(-32 / (0.015 * fs));   // alle 32 Abtastwerte: feine Stufen beim Drehen von Presence
     if (std::fabs(d) > 1e-5) cur += d * a; else cur = tgt; build(); }
   static void mag(double ph, double &i, double &di) { double r = std::fabs(ph) / PHIS, r6 = r * r * r; r6 *= r6; i = ph / LM * (1 + r6); di = (1 + 7 * r6) / LM; }
   static void clip(double x, double emax, double &e, double &de) { double kn = KNEE * emax, a = std::fabs(x);
@@ -247,7 +246,7 @@ struct PaNl {
     const double br = x / g;
     for (int i = 0; i < nc; i++) { double s1 = su.k[i] * u + sb.k[i] * br; int o = i * nc; for (int j = 0; j < nc; j++) s1 += su.K[o + j] * Ih[j]; vc[i] = s1; }
     for (int i = 0; i < nc; i++) Ih[i] = su.G2[i] * vc[i] - Ih[i];
-    return br / 20 / norm;
+    return 0.5 * br / 20 / norm;   // gleicher Maßstab wie PaCore (dort Ausgang br = Δg/2)
   }
 };
 
@@ -283,7 +282,7 @@ struct LinRunner {
 
 // ---------- Röhrenmodell (Koren 12AX7) mit Tabelle ----------
 struct Tube {
-  double KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300; static constexpr double RGI = 2000, SG = 0.02;
+  double KP = 600, MU = 100, EX = 1.4, KG1 = 1060, KVB = 300;
   static constexpr double G0 = -12, GS = 0.01, P0 = 0, PS = 1; static constexpr int GN = 1501, PN = 321;
   std::vector<float> TAB; int type = 0;
   void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; }
@@ -418,13 +417,13 @@ struct AmpState { std::vector<double> Ih, vc; };
 struct Snapshot { std::vector<AmpState> st; std::vector<std::vector<double>> I; double vkPrev[4], vgkDC[5], w3DC; };
 
 struct Amp {
-  int os; double fs; const Tube *tube; const Tube *tubes[3]; bool low = false;
+  int os; double fs; const Tube *tubes[3]; bool low = false;
   std::vector<Sec> sec, dcSec; std::vector<AmpState> st; double vkPrev[4] = {0,0,0,0}, vgkDC[5] = {0,0,0,0,0}, peak[5] = {0,0,0,0,0}, w3DC = 0;
   double g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, tb[3], gb[2], Ib[8], Dn[8]; double tol = 1e-9; bool dcMode = false, dcExact = false;
   void tubeAt(const Tube *T, double vgk, double vpk) { if (dcMode && (dcExact || vgk < Tube::G0)) T->tube(vgk, vpk, tb); else T->tubeT(vgk, vpk, tb); }   // Gleichstrom: links der Tabelle exakt, damit der Löser eine Richtung hat
   std::vector<double> h, hp; int L = 0; std::vector<double> xb, yb; int xi = 0, yi = 0;
   struct Blend { std::vector<double> Mp, Mc, dV; }; std::vector<Blend> bFrom, bTo; bool blending = false; int bpos = 0;
-  Amp(double fsBase, int os_, const Tube *t) : os(os_), fs(os_ * fsBase), tube(t) { tubes[0] = tubes[1] = tubes[2] = t;
+  Amp(double fsBase, int os_, const Tube *t) : os(os_), fs(os_ * fsBase) { tubes[0] = tubes[1] = tubes[2] = t;
     if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, w = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * w; sum += h[k]; }
@@ -620,7 +619,7 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
 struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; };   // spk: Lautsprecher am Ausgang
-struct Norms { double high1 = 35986.334852078886, high2 = 920.5260111823894, low1 = 29.12973364705375, low2 = 37.52073127705745, pa = 5.957573504094253; };
+struct Norms { double pa = 5.957573504094253; };   // Endstufe: Verstärkung bei 1 kHz in der Bezugsstellung (Pegel mit/ohne Endstufe gleich)
 
 struct PaCore {
   double fs; LinRunner r; double cur = 0, tgt = 0; Parts v; bool hasV = false; int cnt = 0; double norm = 1;
@@ -640,9 +639,7 @@ struct LinCore : CoreBase {
   double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaCore paC; Norms N; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
   explicit LinCore(double fs_) : fs(fs_), paC(fs_) {}
   void updSS() { useSS = !stockTubes(cur); if (useSS) ss = smallSignal(v, cur, fs); }
-  double normOf(const Setting &c) const { double nP1 = c.low ? N.low1 : N.high1, nP2 = c.low ? N.low2 : N.high2;
-    double x = c.ch1, r0 = chanShape(v, 0), r1 = chanShape(v, 1); return nP2 * (chanShape(v, x) / r0) * std::pow(nP1 / (nP2 * r1 / r0), x); }
-  void rebuild(bool keep) { r.set(buildLin(v, cur, fs, useSS ? &ss : nullptr), normOf(cur), keep); }
+  void rebuild(bool keep) { r.set(buildLin(v, cur, fs, useSS ? &ss : nullptr), 1, keep); }
   void setTarget(const Target &t) override {
     Setting s = t.s; bool tubesChanged = hasV && (cur.tube[0] != s.tube[0] || cur.tube[1] != s.tube[1] || cur.tube[2] != s.tube[2]); bool partsChanged = !hasV || !(t.v == v) || tubesChanged; tgt = s; vin = t.vin;
     bool chChanged = hasV && cur.ch1 != s.ch1; if (chChanged) cur.ch1 = s.ch1;
@@ -657,7 +654,7 @@ struct LinCore : CoreBase {
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (moved) rebuild(true); }
-  double step(double u) override { double y = r.step(u, peaks); if (pa) { paC.tick(); y = paC.step(y); } return y; }
+  double step(double u) override { double y = r.step(u, peaks) * vin / 20; if (pa) { paC.tick(); y = paC.step(y); } return y; }   // absolut wie der Röhrenkern (Vorverstärkerspannung / 20 V): kein Pegelsprung beim Umschalten linear ↔ Röhre
   CoreBase *clone() const override { return new LinCore(*this); }
   bool isNl() const override { return false; } int osOf() const override { return 1; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
@@ -716,6 +713,7 @@ struct Engine {
     CoreBase *newest = b ? b : a;
     bool chChange = newest->chOf() != (t.s.ch1 > 0.5 ? 1 : 2);
     if (b && replay && (kind != kindOfCore(b) || chChange || nlParts)) { delete b; b = nullptr; replay = false; newest = a; chChange = a->chOf() != (t.s.ch1 > 0.5 ? 1 : 2); }   // während des Nachrechnens erneut geändert: verwerfen (newest zeigte auf b)
+    if (b && !replay && (kind != kindOfCore(b) || chChange || nlParts)) { delete a; a = b; b = nullptr; newest = a; }   // während der Überblendung erneut umgeschaltet: Überblendung abschließen, dann neu umschalten (sonst ginge der Wechsel verloren)
     if (!b && (kind != kindOfCore(newest) || chChange || nlParts)) {
       b = make(t); qlen = std::min(hfill, (int)hist.size()); qpos = (hpos - qlen + (int)hist.size()) % (int)hist.size(); qdone = 0; replay = true; xf = 0;
     } else { a->setTarget(t); if (b) b->setTarget(t); }

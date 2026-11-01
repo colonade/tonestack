@@ -13,7 +13,7 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: macos-15   # macos-14 wurde 2026-11-02 abgeschaltet
+    runs-on: macos-15   # macos-14 wird von GitHub abgekündigt (Probeabschaltungen ab Ende Oktober 2026)
     permissions:
       contents: read
     steps:

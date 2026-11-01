@@ -10,7 +10,7 @@ const fmt = x => String(x);
   const ctx = {}; vm.runInNewContext(js.slice(i, j).replace(/^const /gm, 'var '), ctx);
   const P = ctx.LANEY_PARTS, F = ctx.LANEY_FIXED, v = {...F}, vu = {...F};
   for (const p of P) { const k0 = p.length > 7 ? p[7] : p[4]; v[p[0]] = k0 * p[3]; vu[p[0]] = (p[5] !== null ? p[5] : k0) * p[3]; }   // p[7]: abweichender Standardwert für Plugin/Kern (Umbauideen, die nur mit Häkchen gelten)
-  let out = '// erzeugt aus parts.js\n#define PARTS_LIST(X) \\\n'; for (const k of Object.keys(v)) out += '  X(' + k + ', ' + fmt(v[k]) + ', ' + fmt(vu[k]) + ') \\\n'; out += '\n';
+  let out = '// erzeugt von engine/tools/extract.js aus web/tonestack/laney-aor50/index.html (LANEY_PARTS)\n#define PARTS_LIST(X) \\\n'; for (const k of Object.keys(v)) out += '  X(' + k + ', ' + fmt(v[k]) + ', ' + fmt(vu[k]) + ') \\\n'; out += '\n';
   fs.writeFileSync(path.join(OUT, 'parts_gen.h'), out);
   const m = js.match(/const FRONT = (\{.*?\});\n/); fs.writeFileSync(path.join(OUT, 'geo.json'), m[1]);
   const h = fs.readFileSync(path.join(R, 'web/tonestack/laney-aor50/index.html'), 'utf8'); const b64 = h.match(/data:image\/jpeg;base64,([A-Za-z0-9+/=]+)/)[1];
@@ -21,8 +21,8 @@ const fmt = x => String(x);
 // Yamaha: PARTS aus der Seite
 { const js = scriptOf(path.join(R, 'web/tonestack/yamaha-b100ii/index.html'));
   const i = js.indexOf('const PARTS = ['); const PARTS = vm.runInNewContext(js.slice(i + 14, js.indexOf('];', i) + 1));
-  const keys = PARTS.map(p => p[0]); fs.writeFileSync(path.join(OUT, 'yparts_order.json'), JSON.stringify(keys));
-  fs.writeFileSync(path.join(OUT, 'yparts_gen.h'), '// erzeugt aus app.js (Yamaha B100-II): Bauteilschlüssel in Übergabe-Reihenfolge, Standardwerte (SI) für das Plugin\n#define YPARTS_LIST(X) \\\n' + keys.map(k => '  X(' + k + ') \\\n').join('') + '\n'
+  const keys = PARTS.map(p => p[0]);
+  fs.writeFileSync(path.join(OUT, 'yparts_gen.h'), '// erzeugt von engine/tools/extract.js aus web/tonestack/yamaha-b100ii/index.html (Yamaha B100-II): Bauteilschlüssel in Übergabe-Reihenfolge, Standardwerte (SI) für das Plugin\n#define YPARTS_LIST(X) \\\n' + keys.map(k => '  X(' + k + ') \\\n').join('') + '\n'
     + '#define YPARTS_DEFAULTS(X) \\\n' + PARTS.map(p => '  X(' + p[0] + ', ' + fmt(p[4] * p[3]) + ') \\\n').join('') + '\n');
   const ym = js.match(/const FRONT = (\{.*?\});\n/), yj = js.match(/const JACKS = (\{.*?\}), FJACK/);   // Frontplatte (Foto 1800 x 227): Kappen und Buchsen
   fs.writeFileSync(path.join(OUT, 'ygeo.json'), JSON.stringify({front: vm.runInNewContext('(' + ym[1] + ')'), jacks: vm.runInNewContext('(' + yj[1] + ')')}));

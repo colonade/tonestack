@@ -1,4 +1,4 @@
-// erzeugt aus parts.js
+// erzeugt von engine/tools/extract.js aus web/tonestack/laney-aor50/index.html (LANEY_PARTS)
 #define PARTS_LIST(X) \
   X(r1, 68000, 68000) \
   X(r5, 100000, 100000) \

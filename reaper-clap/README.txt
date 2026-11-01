@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.17
+Version 3.18
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -8,7 +8,7 @@ Two formats, one engine
   clap-wrapper (free-audio, MIT) and the VST3 SDK 3.8 (Steinberg, MIT) and
   passes Steinberg's validator (47 of 47 tests). A project saved with one
   format does not load its settings into the other.
-  Third-party licenses (all MIT or public domain): THIRD-PARTY-LICENSES.txt.
+  Third-party licenses (MIT, public domain; Mac Audio Unit also Apache 2.0): THIRD-PARTY-LICENSES.txt.
 
 Installation (CLAP)
   mkdir -p ~/.clap && cp Laney_AOR50.clap ~/.clap/
@@ -39,9 +39,10 @@ Parameters
   Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 2x),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12).
-  Defaults: Preamp 1, HIGH, all controls 5, tube distortion on, 2x oversampling,
-  bass mod on, FX loop + power amp on, stock tubes (3 x 12AX7), speaker, soft
-  and late off.
+  Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
+  other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
+  2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
+  on, Late and speaker off.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -75,7 +76,8 @@ Tubes
   response shows the sockets; clicking a socket cycles the type, RESET TO
   STOCK restores 3 x 12AX7. Stock tubes are bit-exact with version 3.3.
   Not modelled: sample-to-sample variation, microphonics, ageing; the phase
-  inverter V104 and the power tubes stay linear.
+  inverter V104 stays linear; the power tubes limit softly (estimated) and
+  the output transformer saturates at low frequencies (estimated).
 
 Frequency response
   Below the model strip the plugin draws the small-signal frequency response
@@ -114,6 +116,24 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.18 (code audit)
+  - Linear mode (tube distortion off) now plays at the same absolute level as
+    tube mode (within 0.6 dB at small signals); before it was normalised and
+    up to 60 dB louder at low instrument levels. The instrument level now
+    also applies in linear mode.
+  - Power amp with tube limiting: the level was 1/Gp too low (double
+    division) - corrected, now within 0.2 dB of the linear power amp.
+  - Presence knob: smoothed every 32 samples (no zipper noise).
+  - Output level: glides over 20 ms (no clicks).
+  - Switching between linear and tube mode while a crossfade is still
+    running no longer jumps.
+  - Projects saved before the presence, tube, speaker or Soft/Late
+    parameters existed load with the settings they had then (presence 5,
+    stock tubes, speaker, Soft and Late off) instead of the new defaults.
+  - Frequency-response grid lines at 20, 30 ... 90, 200 ... Hz; plot redraws
+    reliably after fast knob moves; the window no longer leaks 1.5 MB of
+    memory each time it is closed.
 
 3.17 (Mac version)
   The plugin now also exists for macOS (Audio Unit for Logic and VST3,

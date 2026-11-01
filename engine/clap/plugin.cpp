@@ -1,6 +1,6 @@
-// Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64)
+// Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.17"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.18"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #ifndef TS_NO_GUI
@@ -42,13 +42,13 @@ struct Plugin {
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
   long quiet = 0; std::atomic<bool> sleeping{false};   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
-  std::vector<float> mono; double outg = 1;
+  std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt;
   Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)std::lround(val[P_TAPER]);
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
     t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
     t.s.ch1 = val[P_CH] < 0.5 ? 1 : 0; t.s.low = val[P_INP] > 0.5; t.pa = val[P_PA] > 0.5; t.nl = val[P_NL] > 0.5;
-    t.vin = t.nl ? val[P_VIN] / 1000 : 1; int o = (int)std::lround(val[P_OS]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;
+    t.vin = val[P_VIN] / 1000; int o = (int)std::lround(val[P_OS]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;
     for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(val[P_TUBE1 + i]))); t.spk = val[P_SPK] > 0.5;
     if (val[P_SOFT] > 0.5) t.v.c3 = 1e-9; t.v.rpad = val[P_PAD] > 0.5 ? 2.2e6 : 0;   // Umbauideen wie im Web: „Sanft“ = C3 an V101B ab, „Später“ = 2,2 MΩ vor Preamp 2 Volume (nur HIGH-Eingang)
     return t; }
@@ -119,9 +119,12 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
   int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
-static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); }
+static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }   // Zustand ist knapp 1 KB; mehr ist kaputt
+  bool seen[P_COUNT] = {};
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
-    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); }
+    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
+  // Projekte älterer Fassungen: Parameter, die es damals nicht gab, so setzen, wie die alte Fassung klang (nicht die heutige Grundstellung)
+  for (int i = 0; i < P_COUNT; i++) if (!seen[i]) { double v = PD[i].def; if (i == P_PRES) v = 5; else if (i == P_TUBE1 || i == P_TUBE2 || i == P_TUBE3 || i == P_SPK || i == P_SOFT || i == P_PAD) v = 0; P(p)->val[i].store(v); }
   P(p)->dirty = true; return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
@@ -170,10 +173,12 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
     if (same) { bool eq = true; for (uint32_t i = 0; i < n; i++) if (std::fabs(m[i] - m2[i]) > 1e-7f) { eq = false; break; } if (eq) { pl->monoOK = true; pl->eng2Stale = true; } } }   // gleichauf: ab jetzt einmal rechnen
   else if (stereo) std::memcpy(m2, m, n * sizeof(float));
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
-  for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = (float)(src[i] * pl->outg); else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i] * pl->outg; }
+  { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));   // Ausgangspegel gleitet (kein Knacken beim Drehen)
+    for (uint32_t i = 0; i < n; i++) { g += (gt - g) * k; m[i] = (float)(m[i] * g); if (stereo) m2[i] = (float)(m2[i] * g); } pl->outCur = g; }
+  for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = src[i]; else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i]; }
   if ((pl->pkCnt += n) >= pl->fs / 10) { pl->pkCnt = 0; double q[5]; takePeaksFrom(pl->eng, q); for (int i = 0; i < 5; i++) pl->pk[i] = q[i]; }
   // Schlafen: Eingang still (< −120 dBFS), Ausgang abgeklungen (< −100 dBFS), kein Umschaltvorgang; nach 0,5 s darf der Host aussetzen
-  double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0) * pl->outg);
+  double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0));
   bool trans = pl->eng->b != nullptr || (dual && pl->eng2->b != nullptr);
   bool rest = inPk < 1e-6f && outPk < 1e-5 && !trans && restDev(pl->eng) < 5e-3 && (!dual || restDev(pl->eng2) < 5e-3);   // auch innen zur Ruhe gekommen (< 5 mV; langsamste Zeitkonstante: C12 mit 3,3 MΩ, etwa 1 s)
   if (rest) pl->quiet += n; else pl->quiet = 0;

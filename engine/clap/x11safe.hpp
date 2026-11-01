@@ -25,5 +25,4 @@ inline void close(Display *d) {
   if (!d) return; XSync(d, False); XCloseDisplay(d);   // offene Anfragen noch mit unserer Fehlerbehandlung abarbeiten
   Reg &r = reg(); std::lock_guard<std::mutex> lk(r.m); r.ours.erase(d);
   if (r.ours.empty() && r.installed) { XErrorHandler cur = XSetErrorHandler(r.prev); if (cur != onError) XSetErrorHandler(cur); r.installed = false; r.prev = nullptr; } }   // nur zurücksetzen, wenn wir noch zuständig sind
-inline int errorCount() { return reg().errors.load(); }
 } // namespace tsx

@@ -3,7 +3,7 @@
 #   1. Webserver:     tonestack-apache.zip      (über install-tonestack.sh, nur wenn neuer)
 #   2. Handy-Apps:    B100-II_Klangregler.apk, AOR50_Klangregler.apk   (per adb, Einstellungen bleiben)
 #   3. REAPER-Plugin: Laney_AOR50_REAPER.zip    (JSFX, nach ~/.config/REAPER/Effects)
-#   4. DAW-Plugins:   <Name>_CLAP-*.zip, <Name>_VST3-*.zip (oder <Name>_Plugin-*.zip mit beiden)   (CLAP nach ~/.clap, VST3 nach ~/.vst3; danach REAPER neu starten)
+#   4. DAW-Plugins:   <Name>_CLAP-*.zip, <Name>_VST3-*.zip   (CLAP nach ~/.clap, VST3 nach ~/.vst3; danach REAPER neu starten)
 #
 #   bash update-tonestack.sh [Optionen]          (als normaler Benutzer; für den Webserver wird sudo abgefragt)
 #
@@ -159,11 +159,11 @@ if teil plugins; then
   CLAPDIR="${HOME}/.clap"; VST3DIR="${HOME}/.vst3"; GEF=0
   # Je Verstärker und Format nur das Paket mit der höchsten Versionsnummer (3.12 > 3.9): ältere ZIPs im Download-Ordner
   # dürfen eine neue Fassung nicht wieder überschreiben.
-  neuestes() {   # $1 Verstärker, $2 Format (CLAP|VST3) → Pfad des neuesten Pakets, das dieses Format enthalten kann
+  neuestes() {   # $1 Verstärker, $2 Format (CLAP|VST3) → Pfad des neuesten Pakets dieses Formats
     local f v
-    for f in "$ORDNER/$1"_Plugin-*.zip "$ORDNER/$1_$2"-*.zip; do
+    for f in "$ORDNER/$1_$2"-*.zip; do
       [ -f "$f" ] || continue
-      v="$(basename "$f" .zip | sed -E 's/^.*_(Plugin|CLAP|VST3)-([0-9][0-9.]*).*$/\2/')"
+      v="$(basename "$f" .zip | sed -E 's/^.*_(CLAP|VST3)-([0-9][0-9.]*).*$/\2/')"
       printf '%s\t%s\n' "$v" "$f"
     done | sort -V -k1,1 | tail -n1 | cut -f2-
   }
@@ -171,7 +171,7 @@ if teil plugins; then
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
     GEF=1; NAME="$(basename "$PZ" .zip)"
-    ALTE="$(ls "$ORDNER/$AMP"_Plugin-*.zip "$ORDNER/${AMP}_$FMT"-*.zip 2>/dev/null | grep -vxF "$PZ" | wc -l)"
+    ALTE="$(ls "$ORDNER/${AMP}_$FMT"-*.zip 2>/dev/null | grep -vxF "$PZ" | wc -l)"
     [ "$ALTE" -gt 0 ] && info "$AMP $FMT: neuestes Paket $NAME ($ALTE ältere im Ordner ignoriert)"
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     if command -v unzip >/dev/null; then unzip -q -o "$PZ" -d "$T" 2>/dev/null

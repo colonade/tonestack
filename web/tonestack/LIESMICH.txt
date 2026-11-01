@@ -8,7 +8,7 @@ yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
 laney-aor50/                   Laney AOR 50 Klangregler-Simulator
 assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
 assets/icons/                  App-Symbole für den Startbildschirm
-download/                      DAW-Plugins (CLAP und VST3, Laney und Yamaha) zum Herunterladen, verlinkt von der Übersichtsseite
+download/                      DAW-Plugins zum Herunterladen, verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, beide Verstärker)
 sw.js                          Service Worker für Offline-Betrieb
 .htaccess                      Apache-Einstellungen (versteckte Datei!)
 
@@ -41,16 +41,17 @@ Anhören eigener Audiodateien (beide Simulatoren)
 ------------------------------------------------
 In beiden Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
 berechnete Schaltung abspielen. Die Datei wird nur im Browser verarbeitet,
-nichts wird zum Server übertragen. Die Rechnung läuft in
-yamaha-b100ii/b100ii-worklet.js bzw. laney-aor50/laney-worklet.js
-(beide müssen mit hochgeladen werden).
-Laney: Standardmäßig werden die Röhrenstufen linear gerechnet, also ohne
-Verzerrung. Optional lässt sich eine geschätzte Röhrenverzerrung einschalten
-(veröffentlichtes 12AX7-Modell von N. Koren, nicht mit einem echten AOR 50
-verglichen). Sie braucht deutlich mehr Rechenleistung; mit dem eingebetteten
-WebAssembly-Kern läuft sie 8-fach überabgetastet (Standard), der
-JavaScript-Ausweichkern misst beim Einschalten das Gerät und wählt 2- oder
-1-fach. Dazu Röhrenwahl je Fassung, Umbauideen (Sanft, Später), Lautsprecher,
+nichts wird zum Server übertragen. Die Rechnung läuft im eingebetteten WebAssembly-Kern; Ausweichkerne und
+Audio-Thread stehen in yamaha-b100ii/b100ii-worklet.js bzw.
+laney-aor50/laney-worklet.js (beide müssen mit hochgeladen werden).
+Laney: Standardmäßig ist die geschätzte Röhrenverzerrung eingeschaltet
+(Röhrenmodelle nach N. Koren mit Gitterstrom, Röhrentyp je Fassung wählbar,
+Grundeinstellung 3 x 5751; nicht mit einem echten AOR 50 verglichen); ohne
+sie werden die Röhrenstufen linear gerechnet, bei gleichem Pegel für kleine
+Signale. Mit dem eingebetteten WebAssembly-Kern läuft sie 2-fach
+überabgetastet (Standard, wählbar 1/2/4/8-fach, je nach gemessener Leistung
+des Geräts); der JavaScript-Ausweichkern rechnet mit 12AX7 und wählt 2- oder
+1-fach. Dazu Umbauideen (Sanft, Später), Endstufe mit Presence, Lautsprecher,
 Bypass (Taste B), Download der bearbeiteten Datei und Voreinstellungen.
 Über https läuft sie in einem eigenen Audio-Thread (AudioWorklet). Über reines
 http erlauben Browser das nicht; dann schaltet die Seite automatisch auf einen

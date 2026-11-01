@@ -93,7 +93,8 @@ inline void plot(cairo_t *c, const std::vector<double> &curve, const std::vector
     lo = std::min(lo, std::floor((mn - 3) / 5) * 5); hi = std::max(hi, std::ceil((mx + 3) / 5) * 5); if (hi - lo < 40) { double add = 40 - (hi - lo); lo -= std::floor(add / 10) * 5; hi = lo + 40; } }
   double step = (hi - lo) > 60 ? 10 : 5; auto X = [&](double f) { return px0 + (px1 - px0) * std::log(f / 20) / std::log(1000.0); }; auto Y = [&](double d) { return py1 - (py1 - py0) * (d - lo) / (hi - lo); };
   cairo_set_line_width(c, 1);
-  for (double f = 20; f < 20000; f *= 10) for (int m = 1; m < 10; m++) { double ff = f * m; if (ff > 20000) break; rgb(c, 0x23262b); cairo_move_to(c, X(ff), py0); cairo_line_to(c, X(ff), py1); cairo_stroke(c); }
+  // Teilstriche bei 1…9 · 10ⁿ
+  for (double f = 10; f < 20000; f *= 10) for (int m = 1; m < 10; m++) { double ff = f * m; if (ff < 20) continue; if (ff > 20000) break; rgb(c, 0x23262b); cairo_move_to(c, X(ff), py0); cairo_line_to(c, X(ff), py1); cairo_stroke(c); }
   for (double d = lo; d <= hi + 1e-9; d += step) { rgb(c, d == 0 ? 0x5a5e66 : 0x2a2d33); cairo_move_to(c, px0, Y(d)); cairo_line_to(c, px1, Y(d)); cairo_stroke(c); rgb(c, 0x9a9ea6); char t[16]; std::snprintf(t, 16, d == 0 ? "0" : "%+.0f", d); text(c, t, px0 - 8, Y(d) + 4, 12, false, 2); }
   const double fl[] = {20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000}; const char *fn[] = {"20", "50", "100", "200", "500", "1k", "2k", "5k", "10k", "20k"};
   for (int i = 0; i < 10; i++) { rgb(c, 0x3a3e46); cairo_move_to(c, X(fl[i]), py0); cairo_line_to(c, X(fl[i]), py1); cairo_stroke(c); rgb(c, 0x9a9ea6); text(c, fn[i], X(fl[i]), py1 + 17, 12, false, 1); }

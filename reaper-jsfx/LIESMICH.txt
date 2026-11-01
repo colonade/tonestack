@@ -1,6 +1,11 @@
 Laney AOR 50 Vorverstärker – Effekt für REAPER (JSFX)
 =====================================================
 
+EINGEFROREN: Diese Fassung wird nicht mehr weiterentwickelt (Stand vor Röhrenwahl,
+Gitterstrom, Endstufenbegrenzung und neuer Grundeinstellung). Für REAPER bitte das
+CLAP- oder VST3-Plugin verwenden (gleicher Klang wie die Web-Seite, deutlich
+weniger Rechenlast); diese Datei bleibt nur als Rückfall erhalten.
+
 Installation
 1. In REAPER: Menü Options → Show REAPER resource path in explorer/finder.
 2. „Laney AOR 50 Preamp.jsfx“ in den Unterordner „Effects“ kopieren

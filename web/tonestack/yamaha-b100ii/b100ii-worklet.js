@@ -38,12 +38,16 @@
     C('c5', 'BA', 47e-6); C('e5', 'BB', 47e-6);
     BANDCFG.forEach(([cs, cq], k) => {
       const p = s['e' + k];
-      R('BA', 'w' + k, Math.max(v.vreq * (1 - p), 1)); R('w' + k, 'BB', Math.max(v.vreq * p, 1));
+      // G50K mit geerdeter Mittenanzapfung (Schaltplan): Bahn BA–Mitte–BB, Schleifer auf der Hälfte, in der er steht; Mitte = Masse
+      const Rq = v.vreq, w = 'w' + k;
+      if (p >= 0.5) { R('BA', w, Math.max(Rq * (1 - p), 1)); R(w, '0', Math.max(Rq * (p - 0.5), 1)); R('0', 'BB', Rq / 2); }
+      else { R('BA', '0', Rq / 2); R('0', w, Math.max(Rq * (0.5 - p), 1)); R(w, 'BB', Math.max(Rq * p, 1)); }
       C('w' + k, 'n' + k, v[cs]); R('n' + k, 'ge' + k, v.rg); C('n' + k, 'gb' + k, v[cq]);
       R('gb' + k, '0', 110e3); C('gb' + k, 'ge' + k, v.cg); R('ge' + k, '0', 10e3);
       bjt('gb' + k, '0', 'ge' + k, 1.44e-3);
     });
-    RC('c5', 'o', 10e3, 4.7e-6); R('o', '0', 100e3);
+    RC('c5', 'po', 10e3, 4.7e-6); R('po', '0', 100e3);
+    R('po', '0', 10e3); C('po', '0', 3.3e-9); C('po', 'o', 1e-6); R('o', '0', 100e3);   // Eingang MA-Board: 10 kΩ und 3300 pF gegen Masse, 1 µF aufs Gate (100 kΩ)
     const M = n + 1, A = new Float64Array(M * M);
     const st = (a, b, g) => { if (a >= 0) A[a*M+a] += g; if (b >= 0) A[b*M+b] += g; if (a >= 0 && b >= 0) { A[a*M+b] -= g; A[b*M+a] -= g; } };
     for (const [a, b, g] of Rs) st(a, b, g);
@@ -80,17 +84,9 @@
     for (let i = 0; i < nc; i++) G2[i] = 2 * Cs[i][2];
     return { nc, K, k, G2, c, d, mc: [], md: new Float64Array(0) };
   }
-  // Hochpässe im Effektweg und am Endstufeneingang (erster Ordnung, bilinear)
-  function hpCoef(fc, fs) { const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, a1: (K - 1) / a0 }; }
-  function paStages(v, fs) {
-    const cser = 1 / (1 / v.c201 + 1 / v.c202), two = Math.PI * 2;
-    return [1 / (two * (1e3 + 1 / (1 / 39e3 + 1 / 55e3)) * cser), 1 / (two * (1e3 + 1e6) * v.c18), 1 / (two * 280e3 * v.c21)].map(f => hpCoef(f, fs));
-  }
-
   const SMOOTH = ['t','b','m','vol','e0','e1','e2','e3','e4'];
   class Core {
-    constructor(fs) { this.fs = fs; this.every = 256; this.sys = null; this.prevSys = null; this.blend = 1; this.prevNorm = 1; this.cur = null; this.tgt = null; this.v = null; this.cnt = 0; this.Ih = null; this.vc = null;
-      this.pa = false; this.paC = null; this.paZ = [0,0,0,0,0,0]; this.norm = 1; this.prevNorm = 1; }
+    constructor(fs) { this.fs = fs; this.every = 256; this.sys = null; this.prevSys = null; this.blend = 1; this.cur = null; this.tgt = null; this.v = null; this.cnt = 0; this.Ih = null; this.vc = null; }
     setTarget(m) {
       const s = { ...m.s };
       if (Array.isArray(s.eq)) s.eq.forEach((x, i) => { s['e' + i] = x; });   // EQ-Stellungen als e0…e4, damit sie geglättet und übernommen werden
@@ -99,20 +95,19 @@
       if (partsChanged || !this.cur) {
         const had = !!this.sys, oldG = had ? this.sys.G2 : null;
         this.v = { ...m.v }; if (!this.cur) this.cur = { ...s };
-        this.rebuild(); this.paC = paStages(this.v, this.fs);
+        this.rebuild();
         if (had) {
           // Bauteiltausch: sofort umschalten (keine Überblendung) und die Kondensatorspannungen erhalten.
           // Zustand Ih = G·v + i; bei neuem G ist Ih' = Ih + (G' − G)·v.
-          this.prevSys = null; this.blend = 1; this.prevNorm = this.norm;
+          this.prevSys = null; this.blend = 1;
           if (oldG.length === this.sys.nc) for (let j = 0; j < oldG.length; j++) this.Ih[j] += (this.sys.G2[j] - oldG[j]) / 2 * this.vc[j];
         }
       }
-      this.pa = !!m.pa;
     }
     rebuild() {
-      this.prevSys = this.sys; this.prevNorm = this.norm; this.blend = this.prevSys ? 0 : 1;
+      this.prevSys = this.sys; this.blend = this.prevSys ? 0 : 1;
       this.sys = build(this.v, this.cur, this.fs);
-      if (!this.prevSys) this.prevNorm = this.norm; if (!this.Ih || this.Ih.length !== this.sys.nc) { this.Ih = new Float64Array(this.sys.nc); this.vc = new Float64Array(this.sys.nc); } }
+      if (!this.Ih || this.Ih.length !== this.sys.nc) { this.Ih = new Float64Array(this.sys.nc); this.vc = new Float64Array(this.sys.nc); } }
     tick() {
       if (!this.tgt || ++this.cnt < this.every) return; this.cnt = 0;
       const a = 1 - Math.exp(-this.every / (0.015 * this.fs)); let moved = false;
@@ -124,40 +119,27 @@
     }
     step(u) {
       const S = this.sys, nc = S.nc, Ih = this.Ih, vc = this.vc;
-      let y, nrm;
+      let y;
       if (this.blend < 1 && this.prevSys && this.prevSys.nc === nc) {
         const a = this.blend, b = 1 - a, P = this.prevSys, K1 = S.K, K0 = P.K;
         y = (a * S.d + b * P.d) * u;
         for (let i = 0; i < nc; i++) { let s1 = S.k[i] * u, s0 = P.k[i] * u; const o = i * nc;
           for (let j = 0; j < nc; j++) { s1 += K1[o + j] * Ih[j]; s0 += K0[o + j] * Ih[j]; }
           vc[i] = a * s1 + b * s0; y += (a * S.c[i] + b * P.c[i]) * Ih[i]; }
-        nrm = a * this.norm + b * this.prevNorm; this.blend = Math.min(1, this.blend + 1 / this.every);
+        this.blend = Math.min(1, this.blend + 1 / this.every);
       } else {
         const K = S.K; y = S.d * u;
         for (let i = 0; i < nc; i++) { let s1 = S.k[i] * u; const o = i * nc; for (let j = 0; j < nc; j++) s1 += K[o + j] * Ih[j]; vc[i] = s1; y += S.c[i] * Ih[i]; }
-        for (let m = 0; m < S.mc.length; m++) { let s1 = S.md[m] * u; const r = S.mc[m]; for (let j = 0; j < nc; j++) s1 += r[j] * Ih[j]; const ab = Math.abs(s1); if (ab > this.peak[m]) this.peak[m] = ab; }
-        nrm = this.norm;
       }
       for (let i = 0; i < nc; i++) Ih[i] = S.G2[i] * vc[i] - Ih[i];
-      y /= nrm;
-      if (this.pa) { const z = this.paZ, C = this.paC;
-        for (let s2 = 0; s2 < 3; s2++) { const c = C[s2], x0 = y; y = c.b0 * x0 + c.b1 * z[2*s2] - c.a1 * z[2*s2+1]; z[2*s2] = x0; z[2*s2+1] = y; } }
       return y;
     }
-    clone() {
-      const c = new Core(this.fs);
-      Object.assign(c, this, { cur: { ...this.cur }, tgt: { ...this.tgt }, v: { ...this.v }, Ih: Float64Array.from(this.Ih), vc: Float64Array.from(this.vc),
-        paZ: this.paZ.slice(), peak: Float64Array.from(this.peak) });
-      return c;
-    }
   }
-  // Verwaltung des Kanalwechsels: Die neue Schaltung startet leer, rechnet die letzten 150 ms Eingangssignal nach
-  // (verteilt über mehrere Audioblöcke, damit der Audio-Thread nicht überlastet wird) und wird dann über 30 ms
-  // eingeblendet. So sind alle Kondensatoren beim Einblenden eingeschwungen wie im echten Betrieb.
   // ---------- Endstufe (MA-Board) und Lautsprecher, wie im C++-Kern (yamaha_core.hpp) ----------
-  // Kette geeicht an Service Manual Tabelle 3: TR101 8,7-fach, PA-Board laut Netz, MA-Board 1 + 820 kΩ/10 kΩ = 83-fach; Begrenzung ±42 V (Knie ab 38 V),
+  // Kette geeicht an Service Manual Tabelle 3: TR101 8,15-fach, PA-Board und MA-Eingang laut Netz, MA-Board 1,8 MΩ gegen 100 kΩ ∥ (10 kΩ + 1 µF) (199-fach ab 16 Hz);
+  // Begrenzung ±42 V (Knie ab 38 V),
   // Ausgangselko 2200 µF an 8 Ω (Hochpass 9 Hz), Vollaussteuerung = 48 V. Lautsprecher: Eminence Legend CB158 (Thiele-Small) im 78-L-Bassreflexgehäuse, 50 Hz.
-  const G_TR101 = 8.7, G_MA = 83.0, V_KNEE = 38.0, V_LIM = 42.0, V_FS = 48.0;
+  const G_TR101 = 8.15, V_KNEE = 38.0, V_LIM = 42.0, V_FS = 48.0;
   const clipMA = x => { const a = Math.abs(x); if (a <= V_KNEE) return x; const y = V_KNEE + (V_LIM - V_KNEE) * Math.tanh((a - V_KNEE) / (V_LIM - V_KNEE)); return x < 0 ? -y : y; };
   const SPK = { Fs: 34.2, Qts: 0.34, Vas: 336, Vb: 78, Fb: 50, Ql: 7, Re: 6.15, Le: 0.33e-3, fc: 4000, Qc: 0.7 };
   function bilinear(bs, as, n, fs) {   // s-Polynome (aufsteigend) → z (absteigend, a[0] = 1)
@@ -176,27 +158,29 @@
     const le = bilinear([1, 0], [1, m.Le / m.Re], 1, fs); const w0 = 2 * Math.PI * m.fc; const cone = bilinear([w0*w0, 0, 0], [w0*w0, w0/m.Qc, 1], 2, fs);
     return { lo, le, cone, step(x) { return iirStep(cone, iirStep(le, iirStep(lo, x))); }, reset() { iirReset(lo); iirReset(le); iirReset(cone); } };
   }
-  class LaneyEngine {                 // einfache Hülle: Schaltung plus Endstufe/Lautsprecher
-    constructor(fs) { this.fs = fs; this.a = new Core(fs); this.vin = 0.1; this.ing = 1; this.ingCur = 1; this.pwr = false; this.spk = false; this.pkPre = 0;
-      this.speaker = speakerDesign(fs); this.hpOut = bilinear([0, 2200e-6 * 8], [1, 2200e-6 * 8], 1, fs); }
+  class YEngine {                     // JS-Ersatz für den WebAssembly-Kern, verhält sich wie YCore::block (yamaha_core.hpp)
+    constructor(fs) { this.fs = fs; this.a = new Core(fs); this.vin = 0.1; this.ing = 1; this.pwr = 0; this.spkT = 0; this.ingCur = 1; this.vinCur = -1; this.pwrMix = -1; this.spkMix = -1; this.pkPre = 0;
+      this.speaker = speakerDesign(fs); this.hpOut = bilinear([0, 2200e-6 * 8], [1, 2200e-6 * 8], 1, fs); this.ma = maDesign(fs); this.st = 1 / (0.02 * fs); this.kv = 1 - Math.exp(-1 / (0.02 * fs)); }
     get sys() { return this.a.sys; }
-    get cur() { return this.a.cur; }
-    setTarget(m) { this.a.setTarget(m); const s = m.s || {}; this.vin = s.vin > 0 ? s.vin : 0.1; this.ing = s.ing > 0 ? s.ing : 1;
-      if (!!s.pwr !== this.pwr) { this.pwr = !!s.pwr; iirReset(this.hpOut); } if (!!s.spk !== this.spk) { this.spk = !!s.spk; this.speaker.reset(); } }
+    setTarget(m) { this.a.setTarget(m); const s = m.s || {}; this.vin = s.vin > 0 ? s.vin : 0.1; this.ing = s.ing > 0 ? s.ing : 1; this.pwr = s.pwr ? 1 : 0; this.spkT = s.spk ? 1 : 0;
+      if (this.vinCur < 0) this.vinCur = this.vin; if (this.pwrMix < 0) this.pwrMix = this.pwr; if (this.spkMix < 0) this.spkMix = this.spkT; }
     tick() { this.a.tick(); }
-    step(u) {
-      const t = this.ing, st = 1.0 / (0.02 * this.fs); if (this.ingCur < t) this.ingCur = Math.min(t, this.ingCur + st); else if (this.ingCur > t) this.ingCur = Math.max(t, this.ingCur - st);
-      let y;
-      if (this.pwr) { const vo = this.a.step(u * this.vin * this.ingCur * G_TR101) * G_MA; const a = Math.abs(vo); if (a > this.pkPre) this.pkPre = a; y = iirStep(this.hpOut, clipMA(vo)) / V_FS; }
-      else y = this.a.step(u) * this.ingCur;
-      if (this.spk) y = this.speaker.step(y);
+    step(u) {   // Eingangsteiler, Endstufe und Lautsprecher gleiten in 20 ms (kein Knacken beim Umschalten)
+      const st = this.st, ramp = (c, t) => c < t ? Math.min(t, c + st) : c > t ? Math.max(t, c - st) : c;
+      this.ingCur = ramp(this.ingCur, this.ing); this.pwrMix = ramp(this.pwrMix, this.pwr); this.spkMix = ramp(this.spkMix, this.spkT); this.vinCur += (this.vin - this.vinCur) * this.kv;
+      const lin = this.a.step(u) * this.ingCur; let y = lin;
+      const vo = iirStep(this.ma, lin * this.vinCur * G_TR101);   // MA-Board-Filter läuft immer mit
+      if (this.pwrMix > 0) { const ab = Math.abs(vo); if (ab > this.pkPre) this.pkPre = ab;
+        const yp = iirStep(this.hpOut, clipMA(vo)) / V_FS; y = lin + this.pwrMix * (yp - lin); }
+      else iirStep(this.hpOut, 0);
+      const ys = this.speaker.step(y); y += this.spkMix * (ys - y);
+      if (!Number.isFinite(y)) { this.a.Ih.fill(0); this.a.vc.fill(0); iirReset(this.hpOut); iirReset(this.ma); this.speaker.reset(); return 0; }
       return -y;   // Polarität wie am Eingang (wie im C++-Kern)
     }
     takePeak() { const p = this.pkPre; this.pkPre = 0; return p; }
-    work() {}
-    rebuild() { this.a.rebuild(); }
   }
   // WebAssembly-Kern (C++-Übersetzung desselben Netzes): blockweise Verarbeitung
+  const maDesign = fs => { const g0 = 1 + 1.8e6 / 100e3, tg = 10e3 * 1e-6; return bilinear([g0, g0 * tg + 1.8e6 * 1e-6], [1, tg], 1, fs); };
   const PORDER = ["rs", "rsl", "ct", "cb", "cm", "rt", "rb", "rm", "cl", "rs2", "rbias", "ccb", "hfe", "re", "rc", "vol", "vreq", "rg", "cg", "cs0", "cq0", "cs1", "cq1", "cs2", "cq2", "cs3", "cq3", "cs4", "cq4"];
   class WasmEngine {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.x.y_init(fs); this.ready = false;
@@ -208,11 +192,11 @@
     takePeak() { return this.x.y_take_peak ? this.x.y_take_peak() : 0; }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.y_buffer(), n); b.set(buf.subarray(0, n)); this.x.y_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.y_buffer(), n)); }
   }
-  const api = { build, LaneyEngine, WasmEngine };
+  const api = { build, YEngine, WasmEngine };
   if (typeof registerProcessor === 'function') {
     class B100Processor extends AudioWorkletProcessor {
       constructor(options) {
-        super(); this.eng = new LaneyEngine(sampleRate); this.bypass = false; this.mix = 1; this.rep = 0;
+        super(); this.eng = new YEngine(sampleRate); this.bypass = false; this.mix = 1; this.rep = 0;
         // Bypass mit Pegelangleich (Effektivwerte, 1 s) und Eingangsteiler HIGH/LOW (ing, über 20 ms geglättet)
         this.match = true; this.msDry = 0; this.msAmp = 0; this.gMatch = 1; this.avg = 1 / (1.0 * sampleRate);
         const init = options && options.processorOptions;

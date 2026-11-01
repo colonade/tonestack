@@ -1,4 +1,4 @@
-// Oberfläche des Yamaha-CLAP-Plugins: X11-Fenster (im Host eingebettet), gezeichnet mit Cairo. Foto der Frontplatte (Kappen retuschiert), Zeiger, Buchsen, Modellstreifen, Frequenzgang.
+// Oberfläche des Yamaha-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm. Foto der Frontplatte (Kappen retuschiert), Zeiger, Buchsen, Modellstreifen, Frequenzgang.
 #pragma once
 #ifndef TS_VERSION
 #define TS_VERSION "?"
@@ -55,7 +55,10 @@ struct Gui {
   std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;   // gesture: Ziehen beginnt/endet (Parameter-ID)
   double meter = 0; bool meterOn = false;   // Spitze am Ausgang der Endstufe vor der Begrenzung (V), nur mit Endstufe
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;   // Kurven in dB (bezogen auf 1 kHz): aktuell, Service-Einstellung
-  std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0;
+  std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0; bool curveStale = false;
+  ~Gui() { if (img) cairo_surface_destroy(img); }   // Frontplattenbild gehört der Oberfläche (sonst bei jedem Öffnen/Schließen 1,5 MB verloren)
+  // snprintf-Anhängen mit Begrenzung (n bleibt innerhalb des Puffers, auch wenn ein Wert unerwartet lang wird)
+  template <class... A> static void sapp(char *b, size_t cap, int &n, const char *f, A... a) { if (n < 0 || (size_t)n >= cap - 1) return; int k = std::snprintf(b + n, cap - n, f, a...); if (k > 0) n = (int)std::min((size_t)(n + k), cap - 1); }
   int drag = -1; double dragY0 = 0, dragV0 = 0; int hover = -1; bool showTip = false; double lastClick = 0; int lastClickId = -2;
   double scale() const { return (double)W / YFW; }
   double uscale() const { return (double)W / tsw::UW; }
@@ -98,7 +101,7 @@ struct Gui {
   void textC(cairo_t *c, const char *t, double x, double y, double px, bool bold = true) { font(c, px, bold); cairo_text_extents_t e; cairo_text_extents(c, t, &e); cairo_move_to(c, x - e.width / 2 - e.x_bearing, y + e.height / 2); cairo_show_text(c, t); }
   static double knobPos(int i, double pv) { return i >= 4 ? pv + 5 : pv; }   // EQ-Parameter −5 … +5 → Knopf 0 … 10
   void knobText(int i, double pv, char *buf, size_t n) const {
-    if (i >= 4) { if (std::fabs(pv) < 0.05) std::snprintf(buf, n, "%s  0 (flat)", KNAME[i]); else std::snprintf(buf, n, "%s  %+.1f (nominal %+.0f dB)", KNAME[i], pv, pv / 5 * 10); }
+    if (i >= 4) { if (std::fabs(pv) < 0.05) std::snprintf(buf, n, "%s  0 (flat)", KNAME[i]); else std::snprintf(buf, n, "%s  %+.1f (end stop about %s10 dB)", KNAME[i], pv, pv > 0 ? "+" : "-"); }
     else std::snprintf(buf, n, "%s  %.1f", KNAME[i], pv); }
   // ---- Zeichnen ----
 #ifndef __APPLE__
@@ -145,8 +148,9 @@ struct Gui {
       tsw::smallKnob(c, KN_X[i], SW_Y, uu, i == 0 ? "INPUT" : "OUTPUT", i == 0 && !pwr ? "(used with power amp)" : vt[i], drag == 9 + i || hover == 9 + i, i == 0 && !pwr); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
     { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_VOL, P_T, P_M, P_B, P_E0, P_E1, P_E2, P_E3, P_E4, P_TAPER, P_SPK};
-      for (int id : ks) kn += std::snprintf(kb + kn, sizeof kb - kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-      if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; } }
+      for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+      if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
+      curveStale = computeCurves && key != curveKey; }   // noch nicht nachgerechnet: signature() sorgt für ein weiteres Neuzeichnen
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x14161a); cairo_rectangle(c, 0, 0, tsw::UW, PLOTU); cairo_fill(c);
       double px0 = 58, px1 = tsw::UW - 18, py0 = 36, py1 = PLOTU - 40;
       setrgb(c, 0xc8ccd4); tsw::text(c, spk ? "FREQUENCY RESPONSE  (small signal, re 1 kHz, with speaker)" : "FREQUENCY RESPONSE  (small signal, re 1 kHz)", px0, 22, 13, true);
@@ -200,8 +204,8 @@ struct Gui {
     }
   }
   std::string lastSig;
-  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) n += std::snprintf(b + n, sizeof b - n, "%.4g|", getP(i));
-    n += std::snprintf(b + n, sizeof b - n, "%.2f|%d|%d|%d|%d|%d", meter, meterOn ? 1 : 0, drag, hover, showTip ? 1 : 0, W); std::string s(b, n); if (diag) s += diag(); return s; }
+  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
+    sapp(b, sizeof b, n, "%.2f|%d|%d|%d|%d|%d|%d", std::min(std::max(meter, -1.0), 99.0), meterOn ? 1 : 0, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
   // Fenster vom Host mit dem Containerfenster zerstört: nicht mehr zeichnen und nicht noch einmal zerstören
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
