@@ -128,8 +128,8 @@ viel Volt ein voll ausgesteuertes Signal am Instrumentenkabel hätte
 
 Rechenlast: Die Plugins rechnen die ganze Schaltung in jedem Abtastwert.
 Laney mit Röhrenverzerrung und Endstufe bei 2-facher Überabtastung etwa
-ein halber Prozessorkern, AmpFett etwa ein Viertel bis ein Drittel; 4- und
-8-fach entsprechend mehr. Mehrere Instanzen addieren sich. Ein Plugin auf
+ein halber Prozessorkern, AmpFett etwa ein Viertel bis ein Drittel; 4-fach
+entsprechend mehr (8-fach gibt es ab Laney 3.28 nicht mehr). Mehrere Instanzen addieren sich. Ein Plugin auf
 einer Spur läuft in Logic immer auf einem Kern; Logic verteilt nur
 verschiedene Spuren auf verschiedene Kerne.
 

@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.27
+Version 3.28
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -46,7 +46,7 @@ Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
   Treble, Middle, Bass, Master Volume, Mid/Top/Bass Boost, Bass mod,
   FX loop + power amp (Presence), Output level,
-  Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 2x),
+  Tube distortion, Instrument level, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
   3.20).
@@ -62,7 +62,7 @@ User interface
   (settings that do not exist on the amp): toggle switches for BASS MOD,
   FX LOOP (+ power amp), DISTORTION, SPEAKER, SOFT and LATE (lever up = on, click to
   flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (1x, eco,
-  2x, 4x, 8x: click a label to select it directly, click the knob to turn it
+  2x, 4x: click a label to select it directly, click the knob to turn it
   on, wheel turns either way), INPUT, OUTPUT and TUBE MISMATCH. Below: the three tube sockets (click to change
   the type), the tube DRIVE meters and
   the frequency response. Text in
@@ -125,6 +125,11 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.28
+  - 8x oversampling removed. It needed about two CPU cores; under JACK the
+    audio server could throw REAPER out (crash, beeping from dropouts).
+    Projects saved with 8x now run at 4x. Sound at 4x and below unchanged.
 
 3.27
   - Crash/stall when switching OVERSAMPLING (or eco) while playing: the

@@ -42,8 +42,8 @@ constexpr double SW_Y = 88;     // Mittelpunkt der Schalter und kleinen Regler
 static const double SW_X[6] = {56, 168, 280, 392, 726, 838};   // BASS MOD, FX LOOP, DISTORTION, SPEAKER, SOFT, LATE
 static const int SW_P[6] = {P_UMBAU, P_PA, P_NL, P_SPK, P_SOFT, P_PAD};
 constexpr double OS_X = 560;            // Überabtastung (Drehwahlschalter); TAPER ab 3.27 entfallen (Potis wie im Plan, log)
-// Stellung des Überabtastungs-Wahlschalters: 1x, eco (2x mit Endstufe in Grundrate), 2x, 4x, 8x (Parameter Oversampling und Eco)
-inline int osIdx(double os, double eco) { int o = std::max(0, std::min(3, (int)std::lround(os))); return o == 0 ? 0 : o == 1 ? (eco > 0.5 ? 1 : 2) : o + 1; }
+// Stellung des Überabtastungs-Wahlschalters: 1x, eco (2x mit Endstufe in Grundrate), 2x, 4x (Parameter Oversampling und Eco; 8x ab 3.28 entfernt)
+inline int osIdx(double os, double eco) { int o = std::max(0, std::min(2, (int)std::lround(os))); return o == 0 ? 0 : o == 1 ? (eco > 0.5 ? 1 : 2) : o + 1; }
 static const double KN_X[3] = {935, 1035, 1135};    // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf
 constexpr double KN_Y = 72;                         // Mittelpunkt der kleinen Regler
 static const char *REFLABEL = "original parts, stock tubes, all controls 5, boosts off";
@@ -156,10 +156,10 @@ struct Gui {
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const char *oo[2] = {"ON", "OFF"}, *osl[5] = {"1x", "eco", "2x", "4x", "8x"};
+    { const char *oo[2] = {"ON", "OFF"}, *osl[4] = {"1x", "eco", "2x", "4x"};
       const char *tt[6] = {"BASS MOD", "FX LOOP", "DISTORTION", "SPEAKER", "SOFT", "LATE"}, *ts[6] = {"bass capacitors", "+ power amp", "tube model", "15\" CB158, 78 l", "mod: C3 off", "mod: 2.2 M pad"};
       for (int k = 0; k < 6; k++) tsw::toggle(c, SW_X[k], SW_Y, 2, v[SW_P[k]] > 0.5 ? 0 : 1, tt[k], oo, ts[k], k == 5 && low);   // LATE wirkt nur am HIGH-Eingang
-      tsw::rotarySel(c, OS_X, SW_Y + 6, 5, osv, "OVERSAMPLING", osl, osv == 1 ? "eco: 2x, amp 1x" : "distortion only", !nl); }
+      tsw::rotarySel(c, OS_X, SW_Y + 6, 4, osv, "OVERSAMPLING", osl, osv == 1 ? "eco: 2x, amp 1x" : "distortion only", !nl); }
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe
@@ -206,11 +206,11 @@ struct Gui {
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly);
     for (int k = 0; k < 6; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; }
     if (tsw::rotaryHit(lx, ly, OS_X, SW_Y + 6)) { double dx = lx - OS_X, dy = ly - (SW_Y + 6); half = -1;   // Klick auf eine Beschriftung wählt diese Stellung direkt, Klick auf den Knopf schaltet weiter
-      if (dx * dx + dy * dy > 20 * 20) { double a = std::atan2(dx, -dy) * 180 / PI; half = std::max(0, std::min(4, (int)std::lround((a + 80) / 40))); } return P_OS; }
+      if (dx * dx + dy * dy > 20 * 20) { double a = std::atan2(dx, -dy) * 180 / PI; half = std::max(0, std::min(3, (int)std::lround((a + 60) / 40))); } return P_OS; }
     return -1; }
   // Schalter bewegen: dir −1 = nach oben / links, +1 = nach unten / rechts (zweistufig: oben = an); 0 = umschalten bzw. weiterdrehen
   void moveSwitch(int p, int dir) {
-    if (p == P_OS) { int i = osIdx(getP(P_OS), getP(P_ECO)); i = dir >= 100 ? dir - 100 : dir == 0 ? (i + 1) % 5 : std::max(0, std::min(4, i + dir)); setP(P_OS, i == 0 ? 0 : i <= 2 ? 1 : i - 1); setP(P_ECO, i == 1 ? 1 : 0); }
+    if (p == P_OS) { int i = osIdx(getP(P_OS), getP(P_ECO)); i = dir >= 100 ? dir - 100 : dir == 0 ? (i + 1) % 4 : std::max(0, std::min(3, i + dir)); setP(P_OS, i == 0 ? 0 : i <= 2 ? 1 : i - 1); setP(P_ECO, i == 1 ? 1 : 0); }
     else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }
   int knobParam(int i) const { return i < 9 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
   double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }

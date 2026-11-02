@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   send(ButtonPress, ux(838), uy(88), 1); send(ButtonRelease, ux(838), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(280), uy(88), 1); send(ButtonRelease, ux(280), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(392), uy(88), 1); send(ButtonRelease, ux(392), uy(88), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(538), uy(68), 1); send(ButtonRelease, ux(538), uy(68), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);   // Beschriftung „eco“ am Wahlschalter
+  send(ButtonPress, ux(548), uy(62), 1); send(ButtonRelease, ux(548), uy(62), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);   // Beschriftung „eco“ am Wahlschalter
   { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argc > 3 ? argv[3] : "gui_tubes.png"); cairo_surface_destroy(xs); }
   char t[64]; const int ids[] = {3, 1, 0, 18, 27, 16, 23, 17, 15, 24, 25, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
   XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(632), uy(173), 1); send(ButtonRelease, ux(632), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
