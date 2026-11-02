@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.26"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.27"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -14,6 +14,7 @@ namespace aorgui { struct Gui; }
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <thread>
 #include <atomic>
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
 #include "x11safe.hpp"
@@ -31,7 +32,7 @@ static const PDef PD[P_COUNT] = {
   {"Preamp 1 Volume", 0, 10, 2, 0, 0}, {"Preamp 2 Volume", 0, 10, 2, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 2, 0, 0},
   {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Master Volume", 0, 10, 5, 0, 0},
   {"Mid Boost (S105)", 0, 1, 1, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 1, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 1, N_ONOFF, 2},
-  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Middle/Presence pot taper", 0, 2, 0, N_TAP, 3},
+  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Pot taper (unused since 3.27, log as original)", 0, 2, 0, N_TAP, 3},
   {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
   {"Oversampling (distortion)", 0, 3, 1, N_OS, 4}, {"Presence", 0, 10, 5, 0, 0},
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
@@ -45,11 +46,11 @@ struct Plugin {
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
-  long quiet = 0; std::atomic<bool> sleeping{false};
+  long quiet = 0; std::atomic<bool> sleeping{false}; std::thread warm;   // warm: füllt den Ruhezustand der Endstufe für alle Raten vorab
   std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt;
-  Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)std::lround(val[P_TAPER]);
+  Target target() const { Target t; t.v = val[P_UMBAU] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = 0;   /* ab 3.27 fest: Middle und Presence 22KA (log) wie im Plan; Parameter bleibt für alte Projekte, wirkt nicht */
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
     t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
     t.s.ch1 = val[P_CH] < 0.5 ? 1 : 0; t.s.low = val[P_INP] > 0.5; t.pa = val[P_PA] > 0.5; t.nl = val[P_NL] > 0.5;
@@ -61,20 +62,8 @@ struct Plugin {
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
 // Ruhezustand nach langer Stille: Arbeitspunkte wie beim Start, Koppelkondensatoren entladen, Filterspeicher leer.
-// Wird beim Aufwachen angewandt; so hängt das Ergebnis weder von der Schlafdauer ab noch davon, ob der Host den Schlaf befolgt.
+// Wird beim Neubeginn angewandt (start_processing, Pause des Hosts über 0,2 s); nach dem Schlaf geht es ab 3.27 mit dem eingefrorenen Zustand weiter.
 static void settleRunner(LinRunner &r) { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; }
-// Größte Abweichung aller Kondensatorspannungen vom Ruhezustand (V): Maß dafür, ob der Kern innerlich zur Ruhe gekommen ist
-static double restDev(Engine *E) {
-  if (!E || !E->a || E->b) return 1e9; CoreBase *c = E->a; double d = 0;
-  auto lin = [&](LinRunner &r) { for (double x : r.vc) d = std::max(d, std::fabs(x)); };
-  if (c->isNl()) { NlCore *n = (NlCore*)c;
-    std::string key = NlCore::cacheKey(n->v, n->fs, n->os, n->cur.tube); NlCore::CacheLock lk;
-    auto &ca = NlCore::cache(); auto it = ca.find(key); if (it == ca.end()) return 1e9;
-    const Snapshot &s = it->second; for (size_t k = 0; k < n->amp.st.size() && k < s.st.size(); k++) for (size_t i = 0; i < n->amp.st[k].vc.size() && i < s.st[k].vc.size(); i++) d = std::max(d, std::fabs(n->amp.st[k].vc[i] - s.st[k].vc[i]));
-    if (n->pa) d = std::max(d, n->paC.restDev()); }
-  else { LinCore *l = (LinCore*)c; lin(l->r); if (l->pa) d = std::max(d, l->paC.restDev()); }
-  return d;
-}
 static void settle(Engine *E) {
   if (!E || !E->a || E->b) return; CoreBase *c = E->a;
   if (c->isNl()) { NlCore *n = (NlCore*)c;
@@ -88,7 +77,7 @@ static void settle(Engine *E) {
 static uint32_t par_count(const clap_plugin_t *) { return P_COUNT; }
 static bool par_info(const clap_plugin_t *, uint32_t i, clap_param_info_t *info) {
   if (i >= P_COUNT) return false; const PDef &d = PD[i]; std::memset(info, 0, sizeof *info); info->id = i;
-  info->flags = CLAP_PARAM_IS_AUTOMATABLE | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
+  info->flags = (i == P_TAPER ? CLAP_PARAM_IS_HIDDEN : CLAP_PARAM_IS_AUTOMATABLE) | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
   info->min_value = d.lo; info->max_value = d.hi; info->default_value = d.def; std::snprintf(info->name, sizeof info->name, "%s", d.name); std::snprintf(info->module, sizeof info->module, "%s", "Laney AOR 50"); return true; }
 static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id >= P_COUNT) return false; *out = P(p)->val[id]; return true; }
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
@@ -137,7 +126,7 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----
 static bool pl_init(const clap_plugin_t *) { warmTubes(); return true; }   // Röhrentabellen jetzt (Haupt-Thread), nicht erst im Audio-Thread
-static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); 
+static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm.joinable()) pl->warm.join();
 #ifndef TS_NO_GUI
   { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
 #ifndef __APPLE__
@@ -149,9 +138,12 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr;
   // eingeschwungene Endstufe vorab (Haupt-Thread), nicht erst im Audio-Thread
   { int o = (int)std::lround(pl->val[P_OS]), os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;   // Grundrate (1x, linear) und Rate der gewählten Überabtastung
-    for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true, pl->val[P_ECO] > 0.5)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m)); }
+    for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true, pl->val[P_ECO] > 0.5)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m));
+    // die übrigen Raten (Umschalten der Überabtastung im Betrieb) im Hintergrund; bis dahin startet eine neue Endstufe aus den Planspannungen (3.26: Sekunden im Audio-Thread)
+    if (pl->warm.joinable()) pl->warm.join();
+    double mis = pl->val[P_MIS] / 100; pl->warm = std::thread([sr, mis]() { for (double m : {0.0, mis}) for (double r : {sr, 2 * sr, 4 * sr}) { lpa::Vals v = PaDk::valsOf(Parts::orig(), 0.5, m); if (!PaDk::has(r, v)) PaDk::settled(r, v); } }); }
   delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
-static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
+static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm.joinable()) pl->warm.join(); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
 static void pl_reset(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->eng) { delete pl->eng; delete pl->eng2; pl->eng = new Engine(pl->fs); pl->eng2 = new Engine(pl->fs); pl->eng->pad = pl->eng2->pad = LATENCY; pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; } }
@@ -167,7 +159,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   // Neubeginn aus der Ruhe (wie ein Verstärker, der während der Pause still weiterlief): nach start_processing (REAPER: FX wieder an)
   // oder einer Pause zwischen zwei Aufrufen über 0,2 s bzw. drei Blocklängen; sonst liefe der beim Ausschalten eingefrorene Zustand kurz nach
   { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
-    if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs)) pl->fresh = true; }
+    if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs) && !pl->sleeping) pl->fresh = true; }   // im Schlaf darf der Host aussetzen: kein Neubeginn
   if (pl->fresh.exchange(false)) { settle(pl->eng); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; }   // zweite Engine wird bei Bedarf vom ersten geklont
   auto t0 = std::chrono::steady_clock::now();
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } m[i] = (float)x; m2[i] = (float)x2; }
@@ -180,7 +172,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   bool dual = stereo && !(same && pl->monoOK);
   if (dual && !pl->eng2Has) { pl->eng2->setTarget(pl->lastT); pl->eng2Has = true; }
   float inPk = 0; for (uint32_t i = 0; i < n; i++) inPk = std::max(inPk, std::max(std::fabs(m[i]), std::fabs(m2[i])));
-  if (pl->sleeping && inPk >= 1e-6f) { settle(pl->eng); if (dual) settle(pl->eng2); pl->sleeping = false; pl->quiet = 0; }   // Aufwachen: vom Ruhezustand aus weiterrechnen
+  if (pl->sleeping && inPk >= 1e-6f) { pl->sleeping = false; pl->quiet = 0; }   // Aufwachen: mit dem beim Einschlafen eingefrorenen (eingeschwungenen) Zustand weiterrechnen
   if (pl->sleeping) {   // Schlaf auch ohne Mitwirkung des Hosts: Kern übergehen, Stille ausgeben (echter Ausgang läge unter −100 dBFS)
     for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
     return CLAP_PROCESS_SLEEP; }
@@ -196,9 +188,11 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   // Schlafen: Eingang still (< −120 dBFS), Ausgang abgeklungen (< −100 dBFS), kein Umschaltvorgang; nach 0,5 s darf der Host aussetzen
   double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0));
   bool trans = pl->eng->b != nullptr || (dual && pl->eng2->b != nullptr);
-  bool rest = inPk < 1e-6f && outPk < 1e-5 && !trans && restDev(pl->eng) < 5e-3 && (!dual || restDev(pl->eng2) < 5e-3);   // auch innen zur Ruhe gekommen (< 5 mV; langsamste Zeitkonstante: C12 mit 3,3 MΩ, etwa 1 s)
+  // Ab 3.27 ohne Vergleich mit dem gespeicherten Ruhezustand (die gekoppelte Vorstufe/Endstufe ruht nicht genau dort, das Plugin schlief seit 3.21 nie ein):
+  // 2 s Stille am Eingang und am Ausgang (langsamste Zeitkonstante etwa 1 s), dann einfrieren; beim Aufwachen geht es vom eingefrorenen Zustand weiter.
+  bool rest = inPk < 1e-6f && outPk < 1e-5 && !trans;
   if (rest) pl->quiet += n; else pl->quiet = 0;
-  if (pl->quiet >= (long)(0.5 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; for (int i = 0; i < 5; i++) pl->pk[i] = 0; } return CLAP_PROCESS_SLEEP; }
+  if (pl->quiet >= (long)(2.0 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; for (int i = 0; i < 5; i++) pl->pk[i] = 0; } return CLAP_PROCESS_SLEEP; }
   return CLAP_PROCESS_CONTINUE;
 }
 // Hülle: Denormals abschalten (FTZ/DAZ, danach wiederherstellen); eine Ausnahme darf nie die C-Grenze zum Host überschreiten

@@ -332,13 +332,6 @@ select{max-width:100%}
     <button type="button" id="mRel" aria-pressed="true">Bezogen auf 1 kHz</button>
     <button type="button" id="mAbs" aria-pressed="false">Absolut</button>
   </div>
-  <label>Poti-Kennlinie
-    <select id="taper">
-      <option value="a15">Logarithmisch, 15 % in Mittelstellung</option>
-      <option value="a10">Logarithmisch, 10 % in Mittelstellung</option>
-      <option value="lin">Linear</option>
-    </select>
-  </label>
   <label><input type="checkbox" id="showRef" checked> Service-Einstellung einblenden</label>
   <label><input type="checkbox" id="showFig" checked> Werksmessung Fig. 1 einblenden</label>
 </div>
@@ -643,7 +636,7 @@ let cmp = null;
 const save = () => { try { localStorage.setItem('b100ts-v3', JSON.stringify(S)); } catch(e) {} };
 
 const vals = () => ({...FIXED, ...Object.fromEntries(PARTS.map(p => [p[0], S.parts[p[0]] * p[3]]))});
-const frac = k => ENGINE.taper(k / 10, S.taper);
+const frac = k => ENGINE.taper(k / 10, 'a15');
 const setting = (kn, inp = S.sw.inp) => ({ t: frac(kn.t), b: frac(kn.b), m: frac(kn.m), vol: Math.max(frac(kn.vol ?? 10), 0.001),   // Volume-Poti: 0,1 % Restwiderstand
   eq: [0,1,2,3,4].map(i => 1 - kn['e' + i] / 10), ing: ING[inp] || 1, pwr: !!S.sw.pwr, spk: !!S.sw.spk, vin: Math.pow(10, S.vin ?? 2) / 1000 });    // Knopf 10 = Anhebung, 0 = Absenkung, 5 = neutral
 const fmt = (x, d=1) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(d).replace('.', ',');
@@ -919,7 +912,7 @@ $('reset').onclick = () => { document.querySelectorAll('.pf').forEach(d => d._re
 // ---------- Leiste ----------
 $('mRel').onclick = () => { S.mode = 'rel'; render(); };
 $('mAbs').onclick = () => { S.mode = 'abs'; render(); };
-$('taper').value = S.taper; $('taper').onchange = e => { S.taper = e.target.value; updKnobs(); render(); };
+S.taper = 'a15';   // Poti-Kennlinie fest wie im Original (A = logarithmisch); Auswahl ab 2026-11-02 entfallen
 $('showRef').checked = S.showRef; $('showRef').onchange = e => { S.showRef = e.target.checked; render(); };
 $('showFig').checked = S.showFig; $('showFig').onchange = e => { S.showFig = e.target.checked; render(); };
 $('pwr').onchange = e => { S.sw.pwr = e.target.checked; render(); }; $('spk').onchange = e => { S.sw.spk = e.target.checked; render(); };

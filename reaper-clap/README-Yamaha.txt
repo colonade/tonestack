@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.10
+Version 1.11
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -41,8 +41,7 @@ What it is
 Parameters
   Input jack (HIGH / LOW, LOW = -12 dB like the real jacks), Volume, Treble,
   Middle, Bass (0-10), EQ 60/150/320/640/1250 Hz (-5 ... +5, 0 = flat, about
-  +10 / -9.5 dB at the ends), Pot taper (log 15 %, log 10 %, linear),
-  Power amp, Instrument level, Speaker, Output level.
+  +10 / -9.5 dB at the ends), Power amp, Instrument level, Speaker, Output level.
   Defaults: HIGH, all controls 5, EQ flat, power amp off, speaker off.
 
 User interface
@@ -50,8 +49,7 @@ User interface
   works too), double-click = centre. Click the HIGH or LOW jack to plug in
   there. Model strip below (settings that do not exist on the amp): toggle
   switches for POWER AMP and SPEAKER (lever up = on, click to flip, mouse
-  wheel up/down), a three-position toggle for the POT TAPER (log 15 %,
-  log 10 %, linear; click the upper or lower half to move the lever), the
+  wheel up/down), the
   power amp peak meter, INPUT (instrument level) and OUTPUT (level in dB).
   Text in the lower part is sized for the screen (12-14 pixels at the
   default width), independent of the photo resolution. Every change is sent to
@@ -95,6 +93,12 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+1.11
+  - POT TAPER switch removed: volume, treble, middle and bass are always
+    logarithmic as in the original (service manual: A25K, A1K; A =
+    logarithmic, as the former default). The parameter stays hidden for old
+    projects but has no effect.
 
 1.10
   - Mono tracks: input and output can now be mono or stereo (1->1, 1->2,

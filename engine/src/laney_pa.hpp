@@ -54,7 +54,9 @@ struct Fixed {   // Werte aus dem Plan bzw. Schätzungen
   // Vorstufenschienen: R26, R14, R4 je 10 k, C106/C102 50 µF, C an 240 V geschätzt 47 µF; Ruhelast nach den Röhrenströmen im Plan (geschätzt)
   double r26 = 10e3, r14 = 10e3, r4 = 10e3, c106 = 50e-6, c102 = 50e-6, c240 = 47e-6, l260 = 100e3, l252 = 252e3, l240 = 400e3;
   double bias_rms = 86, bias_r = 50, r46 = 22e3, c24 = 22e-6, r45 = 15e3, c23 = 10e-6, r44 = 45e3;      // Vorspannungswicklung auf −36 V abgeglichen, C23 geschätzt
-  int flip = 0, nofb = 0;   // Prüfzwecke: Wicklungssinn der Sekundärseite, Gegenkopplung aus
+  int flip = 0, nofb = 0;
+  // Netzteil ab 3.27 (dc = 1): Hochspannung dc_v hinter dc_r (aus dem Trafomodell: B1 400,5 V in Ruhe, 4 V Abfall bei 40 mA Zusatzlast → 97 Ω), Vorspannung bias_v hinter bias_r
+  int dc = 1; double dc_v = 408.9, dc_r = 97, bias_v = -65.87;   // Prüfzwecke: Wicklungssinn der Sekundärseite, Gegenkopplung aus
   double spk_re = 6.15, spk_le = 0.33e-3, spk_r2 = 20, spk_fs = 34.2, spk_qms = 5, spk_qes = 0.365, spk_vas = 336, spk_vb = 78, spk_fb = 50, spk_ql = 7;
 };
 enum { O_SPK = 0, O_B1 = 1, O_BIAS = 2, O_R240 = 3, O_R252 = 4, O_R260 = 5, O_NO = 6 };
@@ -96,12 +98,16 @@ inline Built build(const Fixed &f, const Vals &v) {
   // Netztrafo (ab 3.21): Primärwicklung an der Netzspannung (Eingang 1), Hochspannung als zwei gegenphasige Hälften (für die Gleichspannungsseite
   // gleichwertig zur Brücke an der ganzen Wicklung, ohne schwebende Knoten), Vorspannungswicklung auf demselben Kern. Streuung und Wicklungswiderstände
   // geschätzt; gemeinsamer Primärwiderstand und Streuung lassen Hoch- und Vorspannung zusammen nachgeben wie am echten Trafo.
+  if (f.dc) {   // ab 3.27: Gleichspannung hinter Innenwiderstand statt Netztrafo (kein Netzbrummen, Ruhezustand erreichbar); Werte am Trafomodell abgeglichen
+    o.src("ha", f.dc_r, 1); diode("ha", "B1"); o.src("bs", f.bias_r, 5); diode("bm", "bs");
+  } else {
   o.src("mp", f.mt_rp, 1);
   { double n[4] = {1, f.hv_rms / f.mains_v, f.hv_rms / f.mains_v, f.bias_rms / f.mains_v}; dk::Mat L(4, 4);
     for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) { double k = i == j ? 1 : (i == 0 || j == 0) ? f.mt_k : ((i == 3 || j == 3) ? f.mt_kb : f.mt_kh); L(i, j) = k * n[i] * n[j] * f.mt_lm; }
     o.coupled({{"mp", "0"}, {"haw", "0"}, {"0", "hbw"}, {"bsw", "0"}}, L); }
   o.r("haw", "ha", f.mt_rs); o.r("hbw", "hb", f.mt_rs); diode("ha", "B1"); diode("hb", "B1");
   o.r("ha", "0", 100e3); o.r("hb", "0", 100e3); o.r("bs", "0", 100e3);   // Wicklungsenden nie ganz offen (sonst schwingt die Trapezregel bei gesperrten Dioden mit halber Abtastrate)
+  o.r("bsw", "bs", f.bias_r); diode("bm", "bs"); }
   o.c("B1", "0", f.c_b1); { dk::Mat L(1, 1); L(0, 0) = f.ch_l; o.coupled({{"B1", "chk"}}, L); } o.r("chk", "B2", f.ch_r); o.c("B2", "0", f.c_b2);
   o.r("B2", "B3", f.r41); o.c("B3", "0", f.c_b3);
   // Vorstufen-Versorgung (ab 3.21): R26 → 260 V (C106), R14 → 252 V (C102), R4 → 240 V; Ruhelast je Schiene nach den Röhrenströmen,
@@ -110,7 +116,7 @@ inline Built build(const Fixed &f, const Vals &v) {
   o.r("R260", "R252", f.r14); o.c("R252", "0", f.c102); o.r("R252", "0", f.l252); o.isrc("R252", "0", 3, 1);
   o.r("R252", "R240", f.r4); o.c("R240", "0", f.c240); o.r("R240", "0", f.l240); o.isrc("R240", "0", 2, 1);
   // Vorspannung
-  o.r("bsw", "bs", f.bias_r); diode("bm", "bs"); o.r("bm", "b48", f.r46); o.c("b48", "0", f.c24); o.r("b48", "BIAS", f.r45); o.c("BIAS", "0", f.c23); o.r("BIAS", "0", f.r44);
+  o.r("bm", "b48", f.r46); o.c("b48", "0", f.c24); o.r("b48", "BIAS", f.r45); o.c("BIAS", "0", f.c23); o.r("BIAS", "0", f.r44);
   mark();
   o.out("s8"); o.out("B1"); o.out("BIAS"); o.out("R240"); o.out("R252"); o.out("R260");
   return B;
@@ -130,7 +136,7 @@ struct Core {
     run.vp1 = run.vp; }
   double rail[3] = {0, 0, 0};   // Vorstufenschienen 240 / 252 / 260 V (nach dem letzten Abtastwert)
   // u: Eingangsspannung (V); di: Stromänderung der Vorstufe je Schiene (A, 240/252/260), nullptr = keine
-  double step(double u, const double *di = nullptr) { double in[5] = {u, std::sqrt(2.0) * f.mains_v * std::sin(t), di ? di[0] : 0, di ? di[1] : 0, di ? di[2] : 0}, y[O_NO];
+  double step(double u, const double *di = nullptr) { double in[6] = {u, f.dc ? f.dc_v : std::sqrt(2.0) * f.mains_v * std::sin(t), di ? di[0] : 0, di ? di[1] : 0, di ? di[2] : 0, f.bias_v}, y[O_NO];
     t += w; if (t > 2 * PI) t -= 2 * PI;
     run.step(in, y); last = y[O_SPK]; rail[0] = y[O_R240]; rail[1] = y[O_R252]; rail[2] = y[O_R260]; if (std::fabs(last) > peak) peak = std::fabs(last); return last; }
   void settle(double seconds) { long n = (long)(seconds * fs); for (long i = 0; i < n; i++) step(0); peak = 0; }

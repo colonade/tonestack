@@ -41,7 +41,7 @@ static const double TOTALH = FH + (STRIPU + TUBEU + PLOTU) * FW / tsw::UW;   // 
 constexpr double SW_Y = 88;     // Mittelpunkt der Schalter und kleinen Regler
 static const double SW_X[6] = {56, 168, 280, 392, 726, 838};   // BASS MOD, FX LOOP, DISTORTION, SPEAKER, SOFT, LATE
 static const int SW_P[6] = {P_UMBAU, P_PA, P_NL, P_SPK, P_SOFT, P_PAD};
-constexpr double OS_X = 506, TAP_X = 614;            // Überabtastung (Drehwahlschalter), Kennlinie (Kippschalter, 3 Stellungen)
+constexpr double OS_X = 560;            // Überabtastung (Drehwahlschalter); TAPER ab 3.27 entfallen (Potis wie im Plan, log)
 // Stellung des Überabtastungs-Wahlschalters: 1x, eco (2x mit Endstufe in Grundrate), 2x, 4x, 8x (Parameter Oversampling und Eco)
 inline int osIdx(double os, double eco) { int o = std::max(0, std::min(3, (int)std::lround(os))); return o == 0 ? 0 : o == 1 ? (eco > 0.5 ? 1 : 2) : o + 1; }
 static const double KN_X[3] = {935, 1035, 1135};    // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf
@@ -150,17 +150,16 @@ struct Gui {
       if (i == drag || i == hover) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, g.rx, g.ry, g.R * 0.8, 0, 2 * PI); cairo_stroke(c); } }
     cairo_restore(c);   // Ende Foto-Maßstab
     // ---- unterer Bereich in UI-Einheiten ----
-    const double u = uscale(); bool nl = v[P_NL] > 0.5; int osv = osIdx(v[P_OS], v[P_ECO]), tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER])));
+    const double u = uscale(); bool nl = v[P_NL] > 0.5; int osv = osIdx(v[P_OS], v[P_ECO]);
     char vt[3][32]; std::snprintf(vt[0], 32, "%.0f mV", v[P_VIN]); std::snprintf(vt[1], 32, "%+.1f dB", v[P_OUT]); std::snprintf(vt[2], 32, "%.1f %%", v[P_MIS]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const char *oo[2] = {"ON", "OFF"}, *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}, *osl[5] = {"1x", "eco", "2x", "4x", "8x"};
+    { const char *oo[2] = {"ON", "OFF"}, *osl[5] = {"1x", "eco", "2x", "4x", "8x"};
       const char *tt[6] = {"BASS MOD", "FX LOOP", "DISTORTION", "SPEAKER", "SOFT", "LATE"}, *ts[6] = {"bass capacitors", "+ power amp", "tube model", "15\" CB158, 78 l", "mod: C3 off", "mod: 2.2 M pad"};
       for (int k = 0; k < 6; k++) tsw::toggle(c, SW_X[k], SW_Y, 2, v[SW_P[k]] > 0.5 ? 0 : 1, tt[k], oo, ts[k], k == 5 && low);   // LATE wirkt nur am HIGH-Eingang
-      tsw::rotarySel(c, OS_X, SW_Y + 6, 5, osv, "OVERSAMPLING", osl, osv == 1 ? "eco: 2x, amp 1x" : "distortion only", !nl);
-      tsw::toggle(c, TAP_X, SW_Y, 3, tp, "TAPER", tl, "middle, presence"); }
+      tsw::rotarySel(c, OS_X, SW_Y + 6, 5, osv, "OVERSAMPLING", osl, osv == 1 ? "eco: 2x, amp 1x" : "distortion only", !nl); }
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe
@@ -181,7 +180,7 @@ struct Gui {
           setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], bx + bw / 2, by + bh + 15, 11, false, 1); } }
       cairo_restore(c); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
-    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD};
+    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }   // noch nicht nachgerechnet: signature() sorgt für ein weiteres Neuzeichnen
@@ -206,12 +205,12 @@ struct Gui {
   // Schalter im Modellstreifen: liefert Parameter und half (0 obere, 1 untere Hälfte)
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly);
     for (int k = 0; k < 6; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; }
-    if (tsw::rotaryHit(lx, ly, OS_X, SW_Y + 6)) { half = 0; return P_OS; }
-    half = tsw::toggleHit(lx, ly, TAP_X, SW_Y, 62); if (half >= 0) return P_TAPER; return -1; }
+    if (tsw::rotaryHit(lx, ly, OS_X, SW_Y + 6)) { double dx = lx - OS_X, dy = ly - (SW_Y + 6); half = -1;   // Klick auf eine Beschriftung wählt diese Stellung direkt, Klick auf den Knopf schaltet weiter
+      if (dx * dx + dy * dy > 20 * 20) { double a = std::atan2(dx, -dy) * 180 / PI; half = std::max(0, std::min(4, (int)std::lround((a + 80) / 40))); } return P_OS; }
+    return -1; }
   // Schalter bewegen: dir −1 = nach oben / links, +1 = nach unten / rechts (zweistufig: oben = an); 0 = umschalten bzw. weiterdrehen
   void moveSwitch(int p, int dir) {
-    if (p == P_TAPER) { int t = (int)std::lround(getP(P_TAPER)); setP(P_TAPER, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }
-    else if (p == P_OS) { int i = osIdx(getP(P_OS), getP(P_ECO)); i = dir == 0 ? (i + 1) % 5 : std::max(0, std::min(4, i + dir)); setP(P_OS, i == 0 ? 0 : i <= 2 ? 1 : i - 1); setP(P_ECO, i == 1 ? 1 : 0); }
+    if (p == P_OS) { int i = osIdx(getP(P_OS), getP(P_ECO)); i = dir >= 100 ? dir - 100 : dir == 0 ? (i + 1) % 5 : std::max(0, std::min(4, i + dir)); setP(P_OS, i == 0 ? 0 : i <= 2 ? 1 : i - 1); setP(P_ECO, i == 1 ? 1 : 0); }
     else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }
   int knobParam(int i) const { return i < 9 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
   double knobVal(int i) const { if (i < 9) return i == 8 ? 9.3 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }
@@ -238,7 +237,7 @@ struct Gui {
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_INP, j == 0 ? 0 : 1); return true; }
         int tb2 = hitTube(x, y); if (tb2 == 3) { for (int i = 0; i < 3; i++) setP(P_TUBE1 + i, 0); return true; } if (tb2 >= 0) { setP(P_TUBE1 + tb2, std::fmod(std::lround(getP(P_TUBE1 + tb2)) + 1, 5)); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS && half >= 0 ? 100 + half : 0); return true; } }
         return false; }
       case 1: {
         if (drag >= 0 && drag != 8) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }   /* Foto-Knöpfe: 250 Foto-Einheiten, INPUT/OUTPUT: 200 Pixel bei Standardgröße für den ganzen Weg */

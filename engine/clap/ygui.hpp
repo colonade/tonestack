@@ -37,8 +37,8 @@ constexpr double STRIPU = 150;  // Modellstreifen: Kippschalter, Endstufenanzeig
 constexpr double PLOTU = 300;   // Frequenzgang-Diagramm
 static const double TOTALH = YFH + (STRIPU + PLOTU) * YFW / tsw::UW;   // Gesamthöhe in Foto-Einheiten
 constexpr double SW_Y = 88;     // Mittelpunkt der Kippschalter und kleinen Regler
-static const double SW_X[3] = {64, 186, 306};      // POWER AMP, SPEAKER, POT TAPER
-static const int SW_P[3] = {P_PWR, P_SPK, P_TAPER};
+static const double SW_X[2] = {64, 186};      // POWER AMP, SPEAKER (POT TAPER ab 1.11 entfallen: Potis wie im Original, A = logarithmisch)
+static const int SW_P[2] = {P_PWR, P_SPK};
 static const double KN_X[2] = {830, 1046};        // INPUT, OUTPUT
 constexpr int NF = 120;         // Stützstellen des Diagramms (20 Hz … 20 kHz, logarithmisch)
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
@@ -123,16 +123,15 @@ struct Gui {
       if (i == drag || i == hover) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, g.x, g.y, g.r * 1.08, 0, 2 * PI); cairo_stroke(c); } }
     cairo_restore(c);   // Ende Foto-Maßstab
     // ---- unterer Bereich in UI-Einheiten ----
-    const double u = uscale(); int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER])));
+    const double u = uscale();
     char vt[2][40]; std::snprintf(vt[0], 40, "%.0f mV at 0 dBFS", v[P_VIN]); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]);
     cairo_save(c); cairo_translate(c, 0, YFH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const char *oo[2] = {"ON", "OFF"}, *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"};
+    { const char *oo[2] = {"ON", "OFF"};
       tsw::toggle(c, SW_X[0], SW_Y, 2, pwr ? 0 : 1, "POWER AMP", oo, "MA board");
-      tsw::toggle(c, SW_X[1], SW_Y, 2, spk ? 0 : 1, "SPEAKER", oo, "15\" CB158, 78 l");
-      tsw::toggle(c, SW_X[2], SW_Y, 3, tp, "POT TAPER", tl, "volume and tone"); }
+      tsw::toggle(c, SW_X[1], SW_Y, 2, spk ? 0 : 1, "SPEAKER", oo, "15\" CB158, 78 l"); }
     // Endstufe: Spitze vor der Begrenzung (dB bezogen auf die Grenze von 42 V; rot = übersteuert)
     { double mx = 440, mw = 320, my = 50, mh = 24; setrgb(c, pwr ? 0xdcdee2 : 0x6a6a68); tsw::text(c, "POWER AMP PEAK", mx, 38, 14, true); setrgb(c, 0x8d919a); tsw::text(c, "before clipping, 0 dB = 42 V", mx + mw, 38, 12, false, 2);
       setrgb(c, 0x0f1114); cairo_rectangle(c, mx, my, mw, mh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, mx + 0.5, my + 0.5, mw - 1, mh - 1); cairo_stroke(c);
@@ -147,7 +146,7 @@ struct Gui {
     for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
       tsw::smallKnob(c, KN_X[i], SW_Y, uu, i == 0 ? "INPUT" : "OUTPUT", i == 0 && !pwr ? "(used with power amp)" : vt[i], drag == 9 + i || hover == 9 + i, i == 0 && !pwr); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
-    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_VOL, P_T, P_M, P_B, P_E0, P_E1, P_E2, P_E3, P_E4, P_TAPER, P_SPK};
+    { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_VOL, P_T, P_M, P_B, P_E0, P_E1, P_E2, P_E3, P_E4, P_SPK};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }   // noch nicht nachgerechnet: signature() sorgt für ein weiteres Neuzeichnen
@@ -167,7 +166,7 @@ struct Gui {
     double lx, ly; toLower(px, py, lx, ly); /* Fensterpixel, nicht Foto-Einheiten */ for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - SW_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J[2] = {YJACK_HIGH, YJACK_LOW}; for (int i = 0; i < 2; i++) { double dx = x - J[i][0], dy = y - J[i][1]; if (dx*dx + dy*dy <= (J[i][2] + 14) * (J[i][2] + 14)) return i; } return -1; }
   // Kippschalter: liefert Parameter und half (0 obere, 1 untere Hälfte)
-  int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 3; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, k == 2 ? 62 : 30); if (half >= 0) return SW_P[k]; } return -1; }
+  int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 2; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
   // Kippschalter bewegen: dir −1 = nach oben, +1 = nach unten (zweistufig: oben = an); 0 = umschalten
   void moveSwitch(int p, int dir) { if (p == P_TAPER) { int t = (int)std::lround(getP(P_TAPER)); setP(P_TAPER, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }
   int knobParam(int i) const { return i < 9 ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }

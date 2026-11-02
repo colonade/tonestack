@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
   send(ButtonPress, kx(613.7), kx(167.1), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(613.7), kx(167.1) + i * 10, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(613.7), kx(267), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(430), kx(52), 1); send(ButtonRelease, kx(430), kx(52), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(272), kx(218), 1); send(ButtonRelease, kx(272), kx(218), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(506), uy(94), 1); send(ButtonRelease, ux(506), uy(94), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(560), uy(94), 1); send(ButtonRelease, ux(560), uy(94), 1); tim->on_timer(p, 1);
   send(MotionNotify, kx(1145), kx(190), 0); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   // INPUT und OUTPUT nach oben ziehen (bis 3.10 nicht getroffen)
   { auto drag = [&](int x, int y) { send(ButtonPress, x, y, 1); tim->on_timer(p, 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, x, y - i * 4, 0); tim->on_timer(p, 1); } send(ButtonRelease, x, y - 40, 1); tim->on_timer(p, 1); };
@@ -50,9 +50,9 @@ int main(int argc, char **argv) {
   send(ButtonPress, ux(838), uy(88), 1); send(ButtonRelease, ux(838), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(280), uy(88), 1); send(ButtonRelease, ux(280), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(392), uy(88), 1); send(ButtonRelease, ux(392), uy(88), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(614), uy(110), 1); send(ButtonRelease, ux(614), uy(110), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
+  send(ButtonPress, ux(538), uy(68), 1); send(ButtonRelease, ux(538), uy(68), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);   // Beschriftung „eco“ am Wahlschalter
   { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argc > 3 ? argv[3] : "gui_tubes.png"); cairo_surface_destroy(xs); }
-  char t[64]; const int ids[] = {3, 1, 0, 18, 16, 23, 14, 17, 15, 24, 25, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
+  char t[64]; const int ids[] = {3, 1, 0, 18, 27, 16, 23, 17, 15, 24, 25, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
   XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(632), uy(173), 1); send(ButtonRelease, ux(632), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   for (int id : {20, 21, 22}) { double v; params->get_value(p, id, &v); params->value_to_text(p, id, v, t, 64); printf("  nach RESET: Tube %d = %s\n", id - 19, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);

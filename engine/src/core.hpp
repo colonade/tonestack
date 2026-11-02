@@ -217,9 +217,14 @@ struct PaDk {
   // compute = false (Audio-Thread): fehlt der Eintrag für diese Streuung, wird der Ruhezustand ohne Streuung genommen und umgestellt (kurzer Einschwingvorgang
   // im Übertrager statt 0,1 s Rechenzeit); nur wenn auch der fehlt, wird gerechnet. Vorab füllen: pl_activate, Frequenzgang-Diagramm (compute = true).
   static std::string keyOf(double fs, lpa::Vals v) { v.pres = 0.5; return std::string(reinterpret_cast<const char*>(&v), sizeof v) + std::to_string(fs); }
-  static lpa::Core settled(double fs, const lpa::Vals &v, bool compute = true) { Lock lk; auto &c = cache(); auto it = c.find(keyOf(fs, v)); if (it != c.end()) return it->second;
-    if (!compute) { lpa::Vals z = v; z.mis = 0; auto i0 = c.find(keyOf(fs, z)); if (i0 != c.end()) return i0->second; }
-    lpa::Vals s = v; s.pres = 0.5; lpa::Core k; k.init(fs, s); k.settle(0.6); if (c.size() >= 16) c.clear(); c[keyOf(fs, v)] = k; return k; }
+  // Ab 3.27 rechnet der Audio-Thread (compute = false) nie ein: fehlt auch der Eintrag ohne Streuung, startet die Endstufe aus den Planspannungen
+  // (kurzes Einschwingen hörbar statt Sekunden Rechenzeit im Audio-Thread; der Hintergrund-Thread des Plugins füllt alle Raten vorab). Gerechnet wird ohne Sperre.
+  static lpa::Core settled(double fs, const lpa::Vals &v, bool compute = true) {
+    { Lock lk; auto &c = cache(); auto it = c.find(keyOf(fs, v)); if (it != c.end()) return it->second;
+      if (!compute) { lpa::Vals z = v; z.mis = 0; auto i0 = c.find(keyOf(fs, z)); if (i0 != c.end()) return i0->second; } }
+    lpa::Vals s = v; s.pres = 0.5; lpa::Core k; k.init(fs, s); if (!compute) return k;
+    k.settle(0.6); { Lock lk; auto &c = cache(); if (c.size() >= 16) c.clear(); c[keyOf(fs, v)] = k; } return k; }
+  static bool has(double fs, const lpa::Vals &v) { Lock lk; return cache().count(keyOf(fs, v)) > 0; }
   void mark() { for (int i = 0; i < 3; i++) { vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; rail0[i] = c.rail[i]; } }
   double railDev(int k) const { return c.rail[k] - rail0[k]; }   // Änderung der Vorstufenschiene k (240/252/260 V) gegen die Ruhe
   void setTarget(const Parts &pv, double pres, double mis) { lpa::Vals n = valsOf(pv, pres, mis);
@@ -246,7 +251,8 @@ struct PaLin {
     if (!hasV || !(a == b) || n.mis != cur.mis) { op = PaDk::settled(fs, n, false); cur = n; hasV = true; build(); } }
   void tick() { if (++cnt < 256) return; cnt = 0; double d = tgt.pres - cur.pres; if (d == 0) return;
     if (std::fabs(d) > 1e-5) cur.pres += d * (1 - std::exp(-256 / (0.015 * fs))); else cur.pres = tgt.pres; build(); }
-  double step(double u) { double in[5] = {u, 0, 0, 0, 0}, y[lpa::O_NO]; r.step(in, y); return y[lpa::O_SPK] * PaDk::SCALE; }
+  // in: so viele Eingänge wie das Netz (ab 3.27 sechs: Vorspannung als Quelle 5)
+  double step(double u) { double in[8] = {u, 0, 0, 0, 0, 0, 0, 0}, y[lpa::O_NO]; r.step(in, y); return y[lpa::O_SPK] * PaDk::SCALE; }
   double restDev() const { double d = 0; for (double x : r.h) d = std::max(d, std::fabs(x)); return d; }
   void settle() { std::fill(r.h.begin(), r.h.end(), 0.0); }
 };

@@ -53,3 +53,6 @@ Pegel: Ausgang = Lautsprecherspannung × 0,00625534254, damit 1 kHz bei kleinem 
 ## Ab 3.26
 - Abbruchgrenze des Lösers 1e-5 V statt 1e-6 V (2,4 statt 3,0 Newton-Schritte je Abtastwert, Abweichung unter −100 dB).
 - ECO (Parameter „Eco“, Wahlschalterstellung „eco“): bei 2x rechnet die Endstufe mit der Grundrate (Mittel aus zwei Teilschritten, Ausgabe gehalten, Abgriff letzte Teilphase), wie bis 3.20. Etwa ein Drittel weniger Rechenzeit als 2x.
+
+## Ab 3.27
+- Netzteil ohne Netztrafo (Fixed::dc = 1): Hochspannung 408,9 V hinter 97 Ω über eine Diode an B1, Vorspannung −65,87 V hinter 50 Ω über die Diode an bm; am Trafomodell abgeglichen (B1 400,4 V in Ruhe, 4 V Abfall je 40 mA, Vorspannung −35,85 V). Kein Netzbrummen mehr; das Trafomodell bleibt mit dc = 0 verfügbar.

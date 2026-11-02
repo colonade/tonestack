@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.26
+Version 3.27
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -45,7 +45,7 @@ What it is
 Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
   Treble, Middle, Bass, Master Volume, Mid/Top/Bass Boost, Bass mod,
-  FX loop + power amp (Presence), Middle/Presence pot taper, Output level,
+  FX loop + power amp (Presence), Output level,
   Tube distortion, Instrument level, Oversampling (1x/2x/4x/8x, default 2x),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
@@ -61,11 +61,10 @@ User interface
   switches, click the HIGH/LOW jack to choose the input. Model strip below
   (settings that do not exist on the amp): toggle switches for BASS MOD,
   FX LOOP (+ power amp), DISTORTION, SPEAKER, SOFT and LATE (lever up = on, click to
-  flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (click
-  turns it on, wheel turns either way), a three-position toggle for the
-  middle/presence pot TAPER (click the upper or lower half to move the
-  lever), INPUT, OUTPUT and TUBE MISMATCH. Below: the three tube sockets (click to change
-  the type; * = model fitted to the data sheet), the tube DRIVE meters and
+  flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (1x, eco,
+  2x, 4x, 8x: click a label to select it directly, click the knob to turn it
+  on, wheel turns either way), INPUT, OUTPUT and TUBE MISMATCH. Below: the three tube sockets (click to change
+  the type), the tube DRIVE meters and
   the frequency response. Text in
   the lower part is sized for the screen (12-14 pixels at the default
   width), independent of the photo resolution. Every change is
@@ -109,15 +108,12 @@ Meters and load
   the oversampling in use and the sample rate.
 
 Idle
-  When the input has been silent for a while and the circuit has settled
-  (all capacitor voltages within 5 mV of their resting values), the plugin
+  When input and output have been silent for 2 s, the plugin
   tells REAPER it may stop calling it (CLAP "sleep") and, whether or not the
   host honours that, skips its own processing and outputs silence; the CPU
-  line then shows "idle (silent input)". With tube distortion this takes about 9 s after the
-  last note, because of C12 (3.3 MOhm feedback, about 1 s time constant);
-  in linear mode about 1 s. On the next note it continues from the resting
-  state, so the result does not depend on whether or how long it slept
-  (deviation from uninterrupted processing below -115 dB).
+  line then shows "idle (silent input)". On the next note it continues from
+  the state in which it went to sleep (the circuit had come to rest), so the
+  result does not depend on whether or how long it slept.
 
 Speaker (since 3.6)
   The SPEAKER toggle in the model strip (parameter "Speaker") adds a
@@ -129,6 +125,24 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.27
+  - Crash/stall when switching OVERSAMPLING (or eco) while playing: the
+    power amp's resting state for a new sample rate was computed on the
+    audio thread (0.3 s here, seconds on slower machines or under Rosetta;
+    REAPER could crash). Now all rates are prepared in the background right
+    after loading; the audio thread never computes it.
+  - Click on a label of the OVERSAMPLING selector selects it directly (no
+    need to step through 4x and 8x to reach eco).
+  - Idle at silence works again: since 3.21 the plugin never went idle with
+    the power amp on, so it used full CPU during silence. Now it sleeps after
+    2 s of silence and continues from the frozen state on the next note.
+  - Power supply without simulated mains hum: high voltage and bias as DC
+    behind their internal resistance (matched to the transformer model:
+    B+ 400 V, bias -35.9 V, sag 4 V per 40 mA). Sound otherwise unchanged.
+  - Pot TAPER switch removed: middle and presence are always logarithmic
+    (22KA in the schematic, as the former default). The parameter stays
+    hidden for old projects but has no effect.
 
 3.26
   - Faster: the circuit solver works with a slightly looser convergence

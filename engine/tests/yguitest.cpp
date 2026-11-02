@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   double s = w / 1800.0; auto kx = [&](double v) { return (int)(v * s); };
   // unterer Bereich in UI-Einheiten (1200 breit), beginnt unter dem Foto (Höhe 227 Foto-Einheiten)
   double uu = w / 1200.0; auto ux = [&](double v) { return (int)(v * uu); }; auto uy = [&](double v) { return (int)(227 * s + v * uu); };
-  // Treble nach oben ziehen; LOW antippen; Endstufe, Lautsprecher, Taper antippen; über 60-Hz-Knopf schweben
+  // Treble nach oben ziehen; LOW antippen; Endstufe, Lautsprecher antippen; über 60-Hz-Knopf schweben
   send(ButtonPress, kx(456.7), kx(119.3), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(456.7), kx(119.3) - i * 8, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(456.7), kx(39), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(217), kx(120), 1); send(ButtonRelease, kx(217), kx(120), 1); tim->on_timer(p, 1);
   // INPUT und OUTPUT nach oben ziehen (bis 1.3 nicht getroffen)
@@ -41,7 +41,6 @@ int main(int argc, char **argv) {
   // Kippschalter: Endstufe an, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
   send(ButtonPress, ux(64), uy(88), 1); send(ButtonRelease, ux(64), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(186), uy(88), 1); send(ButtonRelease, ux(186), uy(88), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(306), uy(110), 1); send(ButtonRelease, ux(306), uy(110), 1); tim->on_timer(p, 1);
   send(ButtonPress, kx(982.4), kx(119.8), 4); tim->on_timer(p, 1); send(ButtonPress, kx(982.4), kx(119.8), 4); tim->on_timer(p, 1);
   send(MotionNotify, kx(982.4), kx(119.8), 0); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);
   char t[64]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
