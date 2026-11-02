@@ -232,7 +232,7 @@ struct Gui {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0 && k != 8) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else if (k < 0) { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, p == P_OS ? (button == 4 ? 1 : -1) : (button == 4 ? -1 : 1)); } return true; }
         if (button != 1) return false;
         int k = hitKnob(x, y);
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 0 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture && k != 8) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35 && k != 8) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 8 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture && k != 8) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_INP, j == 0 ? 0 : 1); return true; }
         int tb2 = hitTube(x, y); if (tb2 == 3) { for (int i = 0; i < 3; i++) setP(P_TUBE1 + i, 0); return true; } if (tb2 >= 0) { setP(P_TUBE1 + tb2, std::fmod(std::lround(getP(P_TUBE1 + tb2)) + 1, 5)); return true; }

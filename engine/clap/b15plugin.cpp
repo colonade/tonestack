@@ -1,6 +1,6 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.9"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -32,7 +32,7 @@ static const PDef PD[P_COUNT] = {
   {"Volume 2", 0, 10, 5, 0, 0}, {"Treble 2", 0, 10, 5, 0, 0}, {"Bass 2", 0, 10, 5, 0, 0},
   {"Standby", 0, 1, 0, N_STBY, 2}, {"Power", 0, 1, 1, N_ONOFF, 2}, {"Speaker (CTS 15\", sealed box, estimated)", 0, 1, 0, N_ONOFF, 2},
   {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0},
-  {"Power tube mismatch (%)", 0, 10, 0, 0, 0}, {"Mains frequency", 0, 1, 0, N_MAINS, 2} };
+  {"Power tube mismatch (%)", 0, 10, 8, 0, 0}, {"Mains frequency", 0, 1, 0, N_MAINS, 2} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -110,8 +110,11 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
   int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
+  bool seen[P_COUNT] = {};
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
-    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); }
+    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
+  // Projekte älterer Fassungen: Parameter, die es damals nicht gab, wie damals (Streuung 0 %, 60 Hz), nicht die heutige Grundstellung
+  for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(i == P_MIS || i == P_MAINS ? 0.0 : PD[i].def);
   Plugin *pl = P(p); pl->dirty = true; if (pl->active && pl->osWant() != pl->osAct) ask_main(pl); return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 

@@ -199,7 +199,7 @@ struct Gui {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, button == 4 ? -1 : 1); } return true; }
         if (button != 1) return false;
         int k = hitKnob(x, y);
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 0 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 8 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_JACK, JACKVAL[j]); return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
         { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS ? (half == 0 ? -1 : 1) : 0); return true; } }

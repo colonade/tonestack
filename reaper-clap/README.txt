@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.23
+Version 3.24
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -53,7 +53,7 @@ Parameters
   Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
   other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
   2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
-  on, Late and speaker off, mismatch 0 %.
+  on, Late and speaker off, tube mismatch 8 %.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -129,6 +129,11 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.24
+  - Tube mismatch now defaults to 8 % (a realistic pair of power tubes;
+    double-click on the knob also sets 8 %). Projects saved with older
+    versions keep 0 %, so they sound as before.
 
 3.23
   - The knob in the model strip is now labelled TUBE MISMATCH (was MISMATCH).

@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.8
+Version 1.9
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -59,7 +59,7 @@ Parameters
   export).
   Knob 10 = clockwise end = boost (treble, bass) / full volume.
   Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x,
-  mismatch 0 %, mains 60 Hz.
+  tube mismatch 8 %, mains 60 Hz.
 
 User interface
   Front panel drawn after photos of the original (no photo, no logo):
@@ -107,6 +107,11 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.9
+  - Tube mismatch now defaults to 8 % (a realistic pair of power tubes;
+    double-click on the knob also sets 8 %). Projects saved with older
+    versions keep 0 %, so they sound as before.
 
 1.8
   - The knob in the model strip is now labelled TUBE MISMATCH (was MISMATCH).

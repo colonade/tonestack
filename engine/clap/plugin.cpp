@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.23"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.24"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -37,7 +37,7 @@ static const PDef PD[P_COUNT] = {
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
   {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2},
-  {"Power tube mismatch (%)", 0, 10, 0, 0, 0} };
+  {"Power tube mismatch (%)", 0, 10, 8, 0, 0} };   // Grundstellung 8 % (Nutzer, 2026-11-02)
 
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
@@ -130,7 +130,7 @@ static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::stri
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
     size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   // Projekte älterer Fassungen: Parameter, die es damals nicht gab, so setzen, wie die alte Fassung klang (nicht die heutige Grundstellung)
-  for (int i = 0; i < P_COUNT; i++) if (!seen[i]) { double v = PD[i].def; if (i == P_PRES) v = 5; else if (i == P_TUBE1 || i == P_TUBE2 || i == P_TUBE3 || i == P_SPK || i == P_SOFT || i == P_PAD) v = 0; P(p)->val[i].store(v); }
+  for (int i = 0; i < P_COUNT; i++) if (!seen[i]) { double v = PD[i].def; if (i == P_PRES) v = 5; else if (i == P_TUBE1 || i == P_TUBE2 || i == P_TUBE3 || i == P_SPK || i == P_SOFT || i == P_PAD || i == P_MIS) v = 0; P(p)->val[i].store(v); }
   P(p)->dirty = true; return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
