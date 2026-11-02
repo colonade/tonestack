@@ -63,6 +63,7 @@ Die Röhrenmodelle sind nur an Datenblätter angepasst, nicht an diese Tabelle; 
 Einzig der Innenwiderstand des Netztrafos ist an 430 V angepasst (380 Ω je Hälfte, er fasst Wicklung, Primärseite und Netz zusammen).
 Ab 1.6: Netztrafo als Trafo (Primärwicklung 120 V an der Netzspannung, Hauptinduktivität 1,5 H, Kopplung primär–sekundär 0,998, zwischen den Hochspannungshälften 0,9995, Primärwiderstand 0,3 Ω; alles geschätzt). STANDBY öffnet die Mittelanzapfung (100 MΩ), die Vorspannung kommt über 100 k vom Wicklungsende. Netzfrequenz 60 Hz (Original) oder 50 Hz (Export) als Parameter. Leerlauf 1 MΩ am Wicklungsende hvb (sonst schwingt die Trapezregel bei gesperrter Diode).
 Ab 1.6: 6SL7 in der Dempwolf-Form (G 1,215197e-3, C 1,66175, mu 70, γ 1,26), angepasst an RCA 250 V/−2 V (2,3 mA, 1,6 mA/V, 44 kΩ) und V1A/V1B dieser Tabelle; rms-Fehler 0,029 statt 0,055 (Koren). Die Vorstufen ziehen etwas mehr Strom, die Verstärkung steigt um etwa 2 dB.
+Ab 1.10: 6L6GC als Pentode nach Reefman (Derk-Form, ohne Sekundäremission, αs = 10 fest): mu 8,2817, ex 1,5630, kg1 1150,8, kp 36,842, kVB 300, kg2 26080, A 4,752e-4, β 0,06718; angepasst an fünf Einzelröhren-Ruhepunkte (Ia, Ig2, S, ri), zwei AB-Ruhepunkte und sechs Gegentakt-Vollaussteuerungen des Datenblatts (mittlere Ia, Ig2, Leistung), rms-Fehler 0,071. Das Koren-Modell bis 1.9 traf die Ruhepunkte ähnlich, hatte aber ein viel zu weiches Knie (Ug1 0 V, Ug2 250 V, Ua 50 V: 94 statt 136 mA) und lieferte bei den Gegentakt-Vollaussteuerungen 11–26 % zu wenig Leistung (Derk: 1–9 %). Ruhestrom 26,1 mA je Röhre (vorher 25,8), Verstärkung 1 kHz 41,9 dB (vorher 42,2), Vollleistung unverändert. Code: `b15::pentodeD`, `D6L6`; Rechnung: engine/tools/tube_fits.py.
 Ab 1.6: Übertragerkern mit Hysterese (sechs Stop-Glieder, Radien 4–46 % von φs gleichmäßig, Schleifenbreite ±15 % des Magnetisierungsstroms bei φs/2; Rayleigh-artig).
 Hoch­ohmige Anoden misst ein 20-kΩ/V-Gerät etwas zu niedrig (bei V1A etwa 4 %).
 
@@ -70,7 +71,7 @@ Hoch­ohmige Anoden misst ein 20-kΩ/V-Gerät etwas zu niedrig (bei V1A etwa 4 %
 - Übertrager: Primärinduktivität 40 H, Kopplung 0,9998 (Streuinduktivität), Wicklungskapazität 500 pF (Anode–Anode), Eisenverluste 150 kΩ, Kernsättigung ab 1.5: zusätzlicher Magnetisierungsstrom φ/Lp·(|φ|/φs)^6 mit φ = ∫u dt über der ganzen Primärwicklung, φs = 4 V·s (Einsatz bei Vollaussteuerung unter etwa 25 Hz; Bassübertrager großzügig bemessen angenommen).
 - Streuung der Endröhren (ab 1.5, Parameter 0–10 %): Anoden- und Schirmgitterstrom von V5 × (1 + m/2), V4 × (1 − m/2). Bei 10 %: Fluss-Gleichanteil −0,05 V·s; 110 Hz, 100 mV Eingang: H2 −54,6 statt −56,4 dB, H4 −83 statt −92 dB; der Brumm bleibt gleich (Schirmgitter und Anoden an derselben gesiebten Spannung).
 - Lautsprecher CTS 15" im geschlossenen Gehäuse: Fs 40 Hz, Qms 5, Qes 0,55, Vas 280 l, Gehäuse 85 l; Schwingspule Le 1 mH mit 20 Ω Wirbelstromverlust parallel.
-- Schirmgitterstrom-Aufteilung der 6L6GC bei kleiner Anodenspannung.
+- Schirmgitterstrom-Aufteilung der 6L6GC bei kleiner Anodenspannung (ab 1.10 aus der Derk-Form, αs gesetzt, nicht gemessen).
 - Innenwiderstand der Quelle 1 kΩ.
 
 ## Unterschiede der Stände

@@ -14,7 +14,7 @@ constexpr double PI = 3.14159265358979323846;
 // ---------- Röhren- und Diodenmodelle ----------
 struct Triode { double mu, ex, kg1, kp, kvb; };
 struct Pentode { double mu, ex, kg1, kg2, kp, kvb, c2; };
-// 6L6GC: Koren-Pentode, an sieben Ruhepunkte und S/ri des Datenblatts angepasst; Schirmgitterstrom-Aufteilung geschätzt (c2)
+// 6L6GC bis AmpFett 1.9: Koren-Pentode, an sieben Ruhepunkte und S/ri des Datenblatts angepasst; Schirmgitterstrom-Aufteilung geschätzt (c2). Ab 1.10: D6L6 (Derk-Form, unten)
 static const Pentode P6L6 = {8.753, 1.358, 1499.6, 26600, 38.93, 54.50, 1.0};
 // Gitterstrom nach Dempwolf/Zölzer (2011), wie im Laney-Kern
 inline void gridI(double v, double &i, double &d) { const double GG = 6.177e-4, CG = 9.901, XI = 1.314; double x = CG * v;
@@ -60,6 +60,34 @@ inline void pentode(const Pentode &P, const double *v, double *i, double *J) {
   J[6] = 2 * dpw * de1g1 / P.kg1 * at; J[7] = 2 * dpw * de1g2 / P.kg1 * at; J[8] = 2 * pw / P.kg1 * dat;
   double f2 = 1 + P.c2 * (PI / 2 - at), ig2 = 2 * pw / P.kg2 * f2; i[1] = ig2;              // Schirmgitter: steigt, wenn die Anode tief schwingt
   J[3] = 2 * dpw * de1g1 / P.kg2 * f2; J[4] = 2 * dpw * de1g2 / P.kg2 * f2; J[5] = -2 * pw / P.kg2 * P.c2 * dat; }
+// Pentode/Strahltetrode nach Reefman ("Derk", EM4 Theory 2016, Gl. 14/15, 23–27, 41–46): Koren-Kern I_P = E1^ex,
+// E1 = Ug2/kp·ln(1 + exp(kp·(1/mu + Ug1/√(kvb + Ug2²)))), Knie über f = 1/(1 + β·Ua):
+//   Ig2 = sg·I_P/kg2·(1 + αs·f + Ps),  Ia = sa·I_P·((1/kg1 − 1/kg2)·(1 − f) + A·Ua/kg1 − Ps/kg2)
+//   Ps = S·Ua·(1 + tanh(−ap·(Ua − (Ug2/λ − ν·Ug1 − w))))  (Sekundäremission; S = 0: aus)
+// Ia + Ig2 ist bei Ua = 0 der volle Kathodenstrom auf dem Schirmgitter; mit steigender Anodenspannung wandert er zur Anode (Knie),
+// darüber steigt Ia nur noch mit A (Innenwiderstand). sa, sg: Maßstab auf die Datenblatt-Ruhewerte.
+struct PentodeD { double mu, ex, kg1, kp, kvb, kg2, A, be, als, S, ap, w, nu, lam, sa, sg; };
+inline void pentodeD(const PentodeD &P, const double *v, double *i, double *J) {
+  for (int k = 0; k < 9; k++) J[k] = 0;
+  double g1 = v[0], g2 = std::max(v[1], 1.0), ig, dg; gridI(g1, ig, dg); i[0] = ig; J[0] = dg; bool g2on = v[1] > 1.0;
+  double s = std::sqrt(P.kvb + g2 * g2), q = P.kp * (1 / P.mu + g1 / s), sp, sig;
+  if (q < -40) { i[1] = i[2] = 0; return; }
+  if (q > 35) { sp = q; sig = 1; } else { double e = std::exp(q); sp = std::log1p(e); sig = e / (1 + e); }
+  double e1 = g2 / P.kp * sp, ip = std::exp(P.ex * std::log(e1)), dip = P.ex * ip / e1;
+  double de1g1 = g2 * sig / s, de1g2 = g2on ? sp / P.kp - sig * g1 * g2 * g2 / (s * s * s) : 0;
+  bool von = v[2] > 0; double va = von ? v[2] : 0, f = 1 / (1 + P.be * va), df = von ? -P.be * f * f : 0;
+  double ps = 0, pv = 0, p1 = 0, p2 = 0;
+  if (P.S != 0) { double t = std::tanh(-P.ap * (va - (g2 / P.lam - P.nu * g1 - P.w))), u = P.S * va * (1 - t * t) * P.ap;
+    ps = P.S * va * (1 + t); pv = von ? P.S * (1 + t) - u : 0; p1 = -u * P.nu; p2 = g2on ? u / P.lam : 0; }
+  double c = 1 / P.kg1 - 1 / P.kg2, G2 = (1 + P.als * f + ps) / P.kg2, Fa = c * (1 - f) + P.A * va / P.kg1 - ps / P.kg2;
+  i[1] = P.sg * ip * G2; i[2] = P.sa * ip * Fa;
+  J[3] = P.sg * (dip * de1g1 * G2 + ip * p1 / P.kg2); J[4] = P.sg * (dip * de1g2 * G2 + ip * p2 / P.kg2); J[5] = P.sg * ip * (P.als * df + pv) / P.kg2;
+  J[6] = P.sa * (dip * de1g1 * Fa - ip * p1 / P.kg2); J[7] = P.sa * (dip * de1g2 * Fa - ip * p2 / P.kg2);
+  J[8] = P.sa * ip * (-c * df + (von ? P.A / P.kg1 : 0) - pv / P.kg2); }
+// 6L6GC ab AmpFett 1.10: Derk-Form ohne Sekundäremission (Strahltetrode), an das Datenblatt angepasst (engine/tools/tube_fits.py): fünf Ruhepunkte
+// mit Ia, Ig2, S, ri, zwei AB1-Ruhepunkte und sechs Gegentakt-Vollaussteuerungen (mittlere Ia, Ig2, Ausgangsleistung); αs = 10 fest.
+// Das bisherige Koren-Modell (atan-Knie, kvb 54,5) hatte ein viel zu weiches Knie: bei Ug1 0 und 50 V Anode 94 statt jetzt 136 mA, Gegentakt-Leistungen bis 26 % zu klein (AB2 47 W: Koren 34,9 W, Derk 42,9 W).
+static const PentodeD D6L6 = {8.281661842, 1.562959483, 1150.834177, 36.84207058, 300, 26080.39458, 4.751966359e-4, 0.06717976054, 10, 0, 0, 0, 0, 1, 1, 1};
 // 5AR4/GZ34 (Vakuumdiode): i = k·v^1,5 (17 V bei 225 mA je Anode), sanfter Einsatz unter 0,5 V
 inline void vdiode(const double *v, double *i, double *J) { const double k = 3.21e-3, w = 0.5;
   double x = v[0] / w, sp, sg; if (x > 35) { sp = x; sg = 1; } else if (x < -40) { i[0] = 0; J[0] = 0; return; } else { double e = std::exp(x); sp = std::log1p(e); sg = e / (1 + e); }
@@ -92,7 +120,7 @@ enum Kind { K_6SL7 = 0, K_6L6 = 1, K_RECT = 2, K_SI = 3, K_SAT = 4 };
 // 6SL7 (Dempwolf-Form) mit der Formel statt einer Tabelle: eine bilinear interpolierte Tabelle erzeugte bei kleinem Signal unechte Oberwellen (H4/H5 um −60 dB)
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
   switch (d.kind) { case K_6SL7: triodeD(T6SL7, v, i, J); break;
-    case K_6L6: pentode(P6L6, v, i, J); if (d.sc != 1) { for (int k = 1; k < 3; k++) i[k] *= d.sc; for (int k = 3; k < 9; k++) J[k] *= d.sc; } break;   // Streuung: Anoden- und Schirmgitterstrom
+    case K_6L6: pentodeD(D6L6, v, i, J); if (d.sc != 1) { for (int k = 1; k < 3; k++) i[k] *= d.sc; for (int k = 3; k < 9; k++) J[k] *= d.sc; } break;   // Streuung: Anoden- und Schirmgitterstrom
     case K_RECT: vdiode(v, i, J); break; case K_SAT: satI(d, *(const Sat *)d.model, v[0], i, J); break; default: sdiode(v, i, J); } }
 
 // ---------- Bauteile und Einstellungen ----------

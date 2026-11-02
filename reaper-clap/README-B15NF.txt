@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.9
+Version 1.10
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -48,7 +48,8 @@ What it is
   (https://borg.fluxstatus.de/tonestack/ampfett-b15nf/).
   Estimated (not in the schematic): transformer inductances and core
   saturation, mains transformer resistance, speaker data, screen grid
-  current split of the 6L6GC. Tube models fitted to data sheets (Koren form). Details:
+  current split of the 6L6GC. Tube models fitted to data sheets (6SL7 Dempwolf form,
+  6L6GC Reefman pentode form). Details:
   docs/b15nf/SCHALTPLAN.md in the source.
 
 Parameters
@@ -107,6 +108,16 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.10
+  - Power tubes 6L6GC: new pentode model after Derk Reefman with a proper
+    knee and screen current, fitted to the data sheet: five single-tube
+    operating points (plate and screen current, transconductance, plate
+    resistance) and six push-pull full-power conditions (average currents
+    and output power). The old Koren model had a far too soft knee (at
+    0 V grid and 50 V plate 94 instead of 136 mA) and gave up to 26 % too
+    little power in the push-pull conditions. Idle current 26 mA as before;
+    small-signal gain about 0.3 dB lower; full power unchanged (about 33 W).
 
 1.9
   - Tube mismatch now defaults to 8 % (a realistic pair of power tubes;

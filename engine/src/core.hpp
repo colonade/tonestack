@@ -40,7 +40,11 @@ struct Setting {
   double mid = 0, top = 0, bass = 0, ch1 = 1, low = 0;
   int tube[3] = {0, 0, 0};   // Röhrentyp je Fassung V101, V102, V103 (Index in TUBE_MODELS; 0 = 12AX7/ECC83 wie im Gerät)
 };
-// Röhrenmodelle (Koren-Form): 12AT7, 12AU7 nach Koren (Glass Audio 1996, Tabelle 1); 5751 und 12AY7 an Datenblatt-Arbeitspunkte angepasst (mu fest, kvb 300).
+// Röhrenmodelle: ab 3.25 alle in der Dempwolf-Form (form 1), G und C (bei 12AT7/12AU7 auch γ, bei 12AU7 auch mu) an Datenblatt-Arbeitspunkte angepasst
+// (engine/tools/tube_fits.py): 12AT7 250 V/−2 V 10 mA 5,5 mA/V 10,9 kΩ und 100 V/−1 V 3,7 mA 4,0 mA/V 15 kΩ (rms-Fehler Koren 0,25 → 0,04);
+// 12AU7 250 V/−8,5 V 10,5 mA 2,2 mA/V 7,7 kΩ und 100 V/0 V 11,8 mA 3,1 mA/V 6,25 kΩ (0,07 → 0,08; die beiden Datenblattpunkte widersprechen sich im mu, 17 vs 19,5);
+// 5751 250 V/−3 V 1,0 mA 1,2 mA/V 58 kΩ (0,08 → 0,002); 12AY7 250 V/−4 V 3,0 mA 1,75 mA/V 25 kΩ (Koren-Fit bis 3.24 lieferte dort nur 1,7 mA; 0,45 → 0,002).
+// Die Koren-Spalten (mu, ex, kg1, kp, kvb; bis 3.24 verwendet) bleiben für den Vergleich stehen.
 // 12AX7 ab 3.21 in der Dempwolf-Form (Dempwolf/Zölzer 2011, γ 1,26 wie dort gemessen, mu 100, G und C an dieselben Daten angepasst; rms-Fehler 0,21 → 0,15,
 // RCA-Ströme 0,52 / 1,18 mA statt 0,35 / 1,60 mA). Die Koren-Werte darunter (3.20) bleiben für den Vergleich stehen.
 // 12AX7 (ab 3.20): an RCA-Datenblatt (100 V/−1 V: 0,5 mA, 1,25 mA/V, 80 kΩ; 250 V/−2 V: 1,2 mA, 1,6 mA/V, 62,5 kΩ) und die fünf Vorstufen-Arbeitspunkte
@@ -49,10 +53,10 @@ struct Setting {
 struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; int form = 0; double G = 0, C = 0, ga = 0; };   // form 1: Dempwolf (G, C, ga; mu), sonst Koren
 static const TubeModel TUBE_MODELS[5] = {
   {"12AX7 / ECC83", 100,  1.2,   1090.9, 287.3, 300, 1.6e-12, 1.7e-12, true, 1, 2.019059e-3, 2.02928, 1.26},
-  {"12AT7 / ECC81", 60,   1.35,  460,  300, 300, 2.7e-12, 2.2e-12, false},
-  {"12AU7 / ECC82", 21.5, 1.3,   1180, 84,  300, 2.5e-12, 2.0e-12, false},
-  {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true},
-  {"12AY7",         44,   1.700, 3781, 206, 300, 1.3e-12, 1.3e-12, true} };
+  {"12AT7 / ECC81", 60,   1.35,  460,  300, 300, 2.7e-12, 2.2e-12, true, 1, 4.684130e-3, 1.98586, 1.09},
+  {"12AU7 / ECC82", 19.74, 1.3,  1180, 84,  300, 2.5e-12, 2.0e-12, true, 1, 9.627442e-4, 0.350357, 1.5},
+  {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true, 1, 1.413620e-3, 1.70240, 1.26},
+  {"12AY7",         44,   1.700, 3781, 206, 300, 1.3e-12, 1.3e-12, true, 1, 1.395767e-3, 1.04151, 1.26} };
 constexpr int NTUBES = 5;
 inline bool stockTubes(const Setting &s) { return s.tube[0] == 0 && s.tube[1] == 0 && s.tube[2] == 0; }
 // Kleinsignalwerte eines Triodensystems im Arbeitspunkt (aus dem Gleichstromlöser des Röhrenkerns abgeleitet)

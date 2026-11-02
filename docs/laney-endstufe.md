@@ -42,3 +42,10 @@ Pegel: Ausgang = Lautsprecherspannung × 0,00625534254, damit 1 kHz bei kleinem 
 - Übertragerkern mit Hysterese (wie AmpFett, φs 2 V·s).
 - 12AX7 in der Dempwolf-Form (G 2,019059e-3, C 2,02928, mu 100, γ 1,26). Ausgangsmaßstab neu 0,00549522876 (Pegel 1 kHz wie 3.19).
 - Ruhe: B+ 400,3 / 398,7 / 327,5 V, V104-Anoden 217,1 / 208,2 V, Vorspannung −35,9 V, EL34 je 33 mA.
+
+## Ab 3.25
+- EL34 als Derk-Strahltetrode nach Reefman (EM4 Theory 2016, Gl. 14/15 und 45/46, mit Sekundäremission): Parameter einer mit dem uTracer gemessenen EL34 (ExtractModel, TubeLib.inc 2013: mu 12,5, ex 1,363, kg1 217,7, kp 50,5, kVB 1282,7, kg2 1950,2, A/kg1 1,6e-6, β 0,105, αs 6,09, S 0,022, ap 0,033, w 64, ν 2,91, λ 4,23), Ströme auf den Datenblattpunkt 250/250/−12,2 V skaliert (Ia ×1,1854, Ig2 ×1,2193). Code: `b15::pentodeD`, `lpa::DEL34`; Rechnung: engine/tools/tube_fits.py.
+- Gegen das Koren-Modell bis 3.24: Innenwiderstand 20 kΩ statt 39 kΩ (Datenblatt 15–20 kΩ), Knie bei Ug1 0 V / Ug2 250 V: 20 V Anode 193 mA statt 128 mA, 50 V 246 statt 207 mA; Schirmgitterstrom bei 20 V Anode 116 mA (steigt beim Übersteuern stark).
+- Ruhe: EL34 je 32,8 mA, Ig2 4,3 mA (vorher 33,0 / 4,6 mA), B+ 400,5 V.
+- Ausgangsmaßstab 0,00579406058 (Endstufe allein bei 1 kHz, 20 mV, Presence 5 so laut wie 3.24; das neue Modell war 0,46 dB leiser).
+- Klirr der Endstufe allein bei 1 kHz (Eingang 0,3 / 1 / 4 V): 0,52 / 3,5 / 15,1 % (3.24: 0,35 / 2,3 / 15,1 %); höchste Spannung am Lautsprecher 28,7 statt 28,0 V.

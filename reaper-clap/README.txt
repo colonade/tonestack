@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.24
+Version 3.25
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -30,7 +30,7 @@ Installation (VST3)
 
 What it is
   The same engine as the web simulator (linear network from schematic
-  DRG 1054, tube stage with Koren 12AX7 model and Newton solver, power amp
+  DRG 1054, tube stage with Dempwolf triode models and Newton solver, power amp
   with negative feedback and presence), translated to C++. Verified against
   the simulator: linear within -137 dB, tube stage 2x oversampling bit-exact.
   About 20 times faster than the JSFX version. CPU load measured on a
@@ -78,10 +78,10 @@ User interface
 Tubes
   Three parameters Tube V101, Tube V102, Tube V103 (each socket is a twin
   triode) choose the tube type: 12AX7/ECC83 (stock), 12AT7/ECC81, 12AU7/ECC82,
-  5751, 12AY7. The models for 12AT7 and 12AU7 are Norman Koren's published
-  parameters; 12AX7 (since 3.20), 5751 and 12AY7 are Koren-type models fitted
-  to data (mu fixed) and are marked "fitted" - less certain away from those
-  points. The operating points (bias, plate voltages)
+  5751, 12AY7. Since 3.25 all five use the Dempwolf/Zoelzer triode formula,
+  fitted to data sheet operating points (plate current, transconductance,
+  plate resistance); the 12AX7 also to the five preamp operating points of
+  the schematic. Less certain away from those points. The operating points (bias, plate voltages)
   follow from the model and the circuit, so a different tube also shifts the
   bias of its stage. In the user interface the row above the frequency
   response shows the sockets; clicking a socket cycles the type, RESET TO
@@ -129,6 +129,22 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.25
+  - Preamp tube types 12AT7, 12AU7, 5751 and 12AY7 now use the Dempwolf
+    triode formula (like the 12AX7 since 3.21), fitted to data sheet
+    operating points: 5751 and 12AY7 within 1 % (the old 12AY7 model gave
+    only 1.7 instead of 3 mA at its data sheet point), 12AT7 within 4 %,
+    12AU7 within 8 %. With the default 3 x 5751 the preamp is about 0.9 dB
+    louder at low level and has slightly more even harmonics.
+  - Power tubes EL34: new pentode model after Derk Reefman (parameters from
+    a uTracer measurement of an EL34, scaled to the data sheet point
+    250/250/-12.2 V: 100 mA, 14.9 mA): sharper knee at low plate voltage,
+    screen current that rises when the plate swings low, plate resistance
+    20 kOhm as in the data sheet (old Koren model: 39 kOhm). Idle current
+    unchanged (about 33 mA), small-signal level unchanged (output scale
+    re-matched); a bit more third harmonic at medium level, slightly more
+    output before clipping.
 
 3.24
   - Tube mismatch now defaults to 8 % (a realistic pair of power tubes;
