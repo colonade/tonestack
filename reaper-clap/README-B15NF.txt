@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.7
+Version 1.8
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -70,7 +70,7 @@ User interface
   OVERSAMPLING, MAINS (60/50 Hz), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
   inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
   0 V, marked - and the output power into 8 ohm, mark = 30 W), INPUT
-  (instrument level), OUTPUT and MISMATCH (idle current difference of the
+  (instrument level), OUTPUT and TUBE MISMATCH (idle current difference of the
   two 6L6GC). Below that the small-signal frequency
   response at the operating point (relative to 1 kHz; dashed: all knobs at
   5 with the same jack). Window resizable. Needs libcairo2 and libX11.
@@ -107,6 +107,10 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.8
+  - The knob in the model strip is now labelled TUBE MISMATCH (was MISMATCH).
+    Sound unchanged.
 
 1.7
   - Mono tracks: input and output can now be mono or stereo (1->1, 1->2,

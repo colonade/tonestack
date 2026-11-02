@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.22
+Version 3.23
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -64,7 +64,7 @@ User interface
   flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (click
   turns it on, wheel turns either way), a three-position toggle for the
   middle/presence pot TAPER (click the upper or lower half to move the
-  lever), INPUT, OUTPUT and MISMATCH. Below: the three tube sockets (click to change
+  lever), INPUT, OUTPUT and TUBE MISMATCH. Below: the three tube sockets (click to change
   the type; * = model fitted to the data sheet), the tube DRIVE meters and
   the frequency response. Text in
   the lower part is sized for the screen (12-14 pixels at the default
@@ -129,6 +129,10 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.23
+  - The knob in the model strip is now labelled TUBE MISMATCH (was MISMATCH).
+    Sound unchanged.
 
 3.22
   - Mono tracks: input and output can now be mono or stereo (1->1, 1->2,

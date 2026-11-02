@@ -161,7 +161,7 @@ struct Gui {
       tsw::toggle(c, TAP_X, SW_Y, 3, tp, "TAPER", tl, "middle, presence"); }
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
-      tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe
+      tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe
     // Röhrenbestückung: V101, V102, V103 (Taste schaltet den Typ durch), RESET = Bestückung wie im Gerät
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x16181c); cairo_rectangle(c, 0, 0, tsw::UW, TUBEU); cairo_fill(c);
       setrgb(c, 0xdcdee2); tsw::text(c, "TUBES", 16, 28, 14, true);
