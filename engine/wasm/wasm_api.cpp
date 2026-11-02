@@ -23,7 +23,7 @@ void aor_set_target() {
   PARTS_LIST(X)
 #undef X
   T.v = p; T.s.v1 = tgtG[0]; T.s.v2 = tgtG[1]; T.s.t = tgtG[2]; T.s.m = tgtG[3]; T.s.b = tgtG[4]; T.s.mv = tgtG[5]; T.s.pl = tgtG[6]; T.s.pres = tgtG[7];
-  T.s.mid = tgtG[8]; T.s.top = tgtG[9]; T.s.bass = tgtG[10]; T.s.ch1 = tgtG[11]; T.s.low = tgtG[12]; T.pa = tgtG[13] > 0.5; T.vin = tgtG[14]; T.nl = tgtG[15] > 0.5; { int o = std::isfinite(tgtG[16]) ? (int)tgtG[16] : 2; T.os = (o == 1 || o == 2 || o == 4 || o == 8) ? o : 2; } for (int i = 0; i < 3; i++) { int t = (int)tgtG[17 + i]; T.s.tube[i] = (t >= 0 && t < NTUBES) ? t : 0; } T.spk = tgtG[20] > 0.5; T.mis = std::isfinite(tgtG[21]) ? std::min(0.1, std::max(0.0, tgtG[21])) : 0; T.eco = tgtG[22] > 0.5;
+  T.s.mid = tgtG[8]; T.s.top = tgtG[9]; T.s.bass = tgtG[10]; T.s.ch1 = tgtG[11]; T.s.low = tgtG[12]; T.pa = tgtG[13] > 0.5; T.vin = tgtG[14]; T.nl = tgtG[15] > 0.5; { int o = std::isfinite(tgtG[16]) ? (int)tgtG[16] : 2; T.os = (o == 1 || o == 2 || o == 4 || o == 8) ? o : 2; } for (int i = 0; i < 3; i++) { int t = (int)tgtG[17 + i]; T.s.tube[i] = (t >= 0 && t < NTUBES) ? t : 0; } T.spk = tgtG[20] > 0.5; T.mis = std::isfinite(tgtG[21]) ? std::min(0.1, std::max(0.0, tgtG[21])) : 0; T.eco = tgtG[22] > 0.5; T.s.late = p.rpad > 0 ? 1 : 0; T.v.rpad = 2.2e6;   // „Später“ ab 3.29 gleitend (Setting.late) statt Bauteilwechsel
   E->setTarget(T); haveT = true;
 }
 void aor_process(int n) { if (n < 0) return; if (n > 8192) n = 8192;   // Puffergrenze

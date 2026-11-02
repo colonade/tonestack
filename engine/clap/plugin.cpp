@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.28"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.29"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -57,7 +57,7 @@ struct Plugin {
     t.vin = val[P_VIN] / 1000; int o = (int)std::lround(val[P_OS]); t.os = o <= 0 ? 1 : o == 1 ? 2 : 4; t.eco = val[P_ECO] > 0.5;
     for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(val[P_TUBE1 + i]))); t.spk = val[P_SPK] > 0.5;
     t.mis = val[P_MIS] / 100;   // Streuung der Endröhren (Ruhestrom-Unterschied), nur Röhrenmodus mit Endstufe
-    if (val[P_SOFT] > 0.5) t.v.c3 = 1e-9; t.v.rpad = val[P_PAD] > 0.5 ? 2.2e6 : 0;   // Umbauideen wie im Web: „Sanft“ = C3 an V101B ab, „Später“ = 2,2 MΩ vor Preamp 2 Volume (nur HIGH-Eingang)
+    if (val[P_SOFT] > 0.5) t.v.c3 = 1e-9; t.v.rpad = 2.2e6; t.s.late = val[P_PAD] > 0.5 ? 1 : 0;   // Umbauideen wie im Web: „Sanft“ = C3 an V101B ab, „Später“ = 2,2 MΩ vor Preamp 2 Volume (nur HIGH-Eingang)
     return t; }
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }

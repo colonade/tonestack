@@ -38,6 +38,7 @@ struct Parts {
 struct Setting {
   double v1 = 1, v2 = 1, t = 1, m = 1, b = 1, mv = 0.5, pl = 1, pres = 0.15;
   double mid = 0, top = 0, bass = 0, ch1 = 1, low = 0;
+  double late = 0;   // Umbauidee „Später“ (ab 3.29 als gleitender Wert wie ein Poti statt Bauteilwechsel: kein Neuaufbau, keine Lastspitze): 0 = aus, 1 = Vorwiderstand rpad
   int tube[3] = {0, 0, 0};   // Röhrentyp je Fassung V101, V102, V103 (Index in TUBE_MODELS; 0 = 12AX7/ECC83 wie im Gerät)
 };
 // Röhrenmodelle: ab 3.25 alle in der Dempwolf-Form (form 1), G und C (bei 12AT7/12AU7 auch γ, bei 12AU7 auch mu) an Datenblatt-Arbeitspunkte angepasst
@@ -61,7 +62,8 @@ constexpr int NTUBES = 5;
 inline bool stockTubes(const Setting &s) { return s.tube[0] == 0 && s.tube[1] == 0 && s.tube[2] == 0; }
 // Kleinsignalwerte eines Triodensystems im Arbeitspunkt (aus dem Gleichstromlöser des Röhrenkerns abgeleitet)
 struct TriSS { double gm, rp, cgk, cga; };
-inline double &sfield(Setting &s, int i) { double *f[] = {&s.v1,&s.v2,&s.t,&s.b,&s.m,&s.mv,&s.pl,&s.mid,&s.top,&s.bass}; return *f[i]; }
+inline double &sfield(Setting &s, int i) { double *f[] = {&s.v1,&s.v2,&s.t,&s.b,&s.m,&s.mv,&s.pl,&s.mid,&s.top,&s.bass,&s.late}; return *f[i]; }
+constexpr int NSFIELD = 11;
 
 inline double taper(double x, int type) {     // 0: log 15 % in Mittelstellung, 1: log 10 %, 2: linear
   if (type == 2) return x;
@@ -74,6 +76,8 @@ inline double blendR(double ron, double roff, double x, double rref) {
   double yon = rref / (ron + rref), yoff = rref / (roff + rref), y = yoff + x * (yon - yoff);
   return rref * (1 / y - 1);
 }
+// Vorwiderstand „Später“ vor Preamp 2 Volume: aus = 1 Ω (Netz bleibt gleich), an = rpad (Bauteil, Standard 2,2 MΩ)
+inline double lateR(const Parts &v, const Setting &s) { return blendR(v.rpad > 0 ? v.rpad : 2.2e6, 1.0, s.late, 1e6); }
 inline double rpOf(double Ia, const Parts &v) { return v.rp0 * std::pow(v.ia0 / Ia, 1.0 / 3); }
 
 // ---------- generisches lineares Netz (Knotenanalyse, Trapezregel) ----------
@@ -173,7 +177,7 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vec
   o.R("t1","0", vt1R(v, 1 - s.ch1));
   o.R("t1","g2",v.vr101*(1-s.v1)); o.R("g2","0",v.vr101*s.v1);
   tri("g2","p2","k2",0.69e-3); o.R("k2","0",2.7e3); o.C("k2","0",v.c3,fs); o.R("p2","0",100e3);
-  if (!s.low && v.rpad > 0) { o.C("p2","t2p",v.ck,fs); o.R("t2p","t2",v.rpad); } else o.C("p2", s.low ? "0" : "t2", v.ck, fs);   // Umbauidee „Später": Vorwiderstand vor Preamp 2 Volume
+  if (!s.low) { o.C("p2","t2p",v.ck,fs); o.R("t2p","t2",lateR(v, s)); } else o.C("p2", "0", v.ck, fs);   // Umbauidee „Später": Vorwiderstand vor Preamp 2 Volume
   o.R("t2","w2",v.vr102*(1-s.v2)); o.R("w2","0",v.vr102*s.v2); o.R("w2","g3",68e3);
   tri("g3","p3","k3",0.31e-3); o.R("k3","0",10e3); o.R("p3","0",100e3);
   o.C("p3","n12",v.c4,fs); o.R("n12","g4",470e3); o.C("n12","g4",v.c5,fs); o.R("g4","0",470e3);
@@ -385,7 +389,7 @@ inline std::vector<Net> defs(const Parts &v, const Setting &s) {
     o.port("p1","k1"); o.port("g2","0"); o.port("0","k1"); o.probe("p1"); o.probe("k1"); o.probe("g2"); }
   { Net &o = S[2]; o.src("B"); o.r("B","p2",100e3); o.r("k2","0",2.7e3); o.c("k2","0",v.c3);
     o.src("lin"); o.r("lin","t2", s.low ? 1e-3 : 1e12);
-    if (!s.low && v.rpad > 0) { o.c("p2","t2p",v.ck); o.r("t2p","t2",v.rpad); } else o.c("p2", s.low ? "0" : "t2", v.ck);   // Umbauidee „Später"
+    if (!s.low) { o.c("p2","t2p",v.ck); o.r("t2p","t2",lateR(v, s)); } else o.c("p2", "0", v.ck);   // Umbauidee „Später"
     o.r("t2","w2",v.vr102*(1-s.v2)); o.r("w2","0",v.vr102*s.v2); o.r("w2","g3",68e3); o.c("g3","0",CMg3);
     o.port("p2","k2"); o.port("g3","0"); o.port("0","k2"); o.probe("p2"); o.probe("k2"); o.probe("g3"); }
   { Net &o = S[3]; o.src("B"); o.r("B","p3",100e3); o.r("k3","0",10e3);
@@ -654,7 +658,7 @@ struct LinCore : CoreBase {
     pa = t.pa; if (pa) paC.setTarget(t.v, t.s.pres, t.mis);
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
-    for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
+    for (int i = 0; i < NSFIELD; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (moved) rebuild(true); }
   double step(double u) override { double y = r.step(u, peaks) * vin / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } return y; }   // absolut wie der Röhrenkern (Vorverstärkerspannung / 20 V): kein Pegelsprung beim Umschalten linear ↔ Röhre
   CoreBase *clone() const override { return new LinCore(*this); }
@@ -684,7 +688,7 @@ struct NlCore : CoreBase {
     if (pa) paC.setTarget(t.v, t.s.pres, t.mis);
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
-    for (int i = 0; i < 10; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
+    for (int i = 0; i < NSFIELD; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (tgt.ch1 != cur.ch1) { cur.ch1 = tgt.ch1; moved = true; }
     if (moved) amp.retarget(v, cur); }
   double step(double u) override { amp.pa = pa ? &paC : nullptr; if (pa) paC.tick(); double y = amp.step(u * vin); if (!pa) y /= 20; amp.pa = nullptr;
