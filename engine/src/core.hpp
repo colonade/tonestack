@@ -38,6 +38,7 @@ struct Parts {
 struct Setting {
   double v1 = 1, v2 = 1, t = 1, m = 1, b = 1, mv = 0.5, pl = 1, pres = 0.15;
   double mid = 0, top = 0, bass = 0, ch1 = 1, low = 0;
+  double soft = 0, bmod = 0;   // ab 3.30 gleitend statt Bauteilwechsel: SOFT (C3 an V101B ab, 1 nF) und BASS MOD (C2, C3, C14 auf die Umbauwerte)
   double late = 0;   // Umbauidee „Später“ (ab 3.29 als gleitender Wert wie ein Poti statt Bauteilwechsel: kein Neuaufbau, keine Lastspitze): 0 = aus, 1 = Vorwiderstand rpad
   int tube[3] = {0, 0, 0};   // Röhrentyp je Fassung V101, V102, V103 (Index in TUBE_MODELS; 0 = 12AX7/ECC83 wie im Gerät)
 };
@@ -62,8 +63,8 @@ constexpr int NTUBES = 5;
 inline bool stockTubes(const Setting &s) { return s.tube[0] == 0 && s.tube[1] == 0 && s.tube[2] == 0; }
 // Kleinsignalwerte eines Triodensystems im Arbeitspunkt (aus dem Gleichstromlöser des Röhrenkerns abgeleitet)
 struct TriSS { double gm, rp, cgk, cga; };
-inline double &sfield(Setting &s, int i) { double *f[] = {&s.v1,&s.v2,&s.t,&s.b,&s.m,&s.mv,&s.pl,&s.mid,&s.top,&s.bass,&s.late}; return *f[i]; }
-constexpr int NSFIELD = 11;
+inline double &sfield(Setting &s, int i) { double *f[] = {&s.v1,&s.v2,&s.t,&s.b,&s.m,&s.mv,&s.pl,&s.mid,&s.top,&s.bass,&s.late,&s.soft,&s.bmod}; return *f[i]; }
+constexpr int NSFIELD = 13;
 
 inline double taper(double x, int type) {     // 0: log 15 % in Mittelstellung, 1: log 10 %, 2: linear
   if (type == 2) return x;
@@ -78,6 +79,14 @@ inline double blendR(double ron, double roff, double x, double rref) {
 }
 // Vorwiderstand „Später“ vor Preamp 2 Volume: aus = 1 Ω (Netz bleibt gleich), an = rpad (Bauteil, Standard 2,2 MΩ)
 inline double lateR(const Parts &v, const Setting &s) { return blendR(v.rpad > 0 ? v.rpad : 2.2e6, 1.0, s.late, 1e6); }
+// SOFT und BASS MOD (ab 3.30): die Kondensatoren bleiben fest, die Umschaltung macht ein gleitender Widerstand in Reihe mit dem Zusatz-
+// kondensator (an 0,01 Ω, aus 1 TΩ). C2 und C14: Bauteilwert + (Umbauwert − Bauteilwert) über Schalter BASS MOD. C3: 1 nF fest (SOFT),
+// + (Bauteilwert − 1 nF) über „nicht SOFT“, + (Umbauwert − Bauteilwert) über „nicht SOFT und BASS MOD“.
+inline double swR(double x, double c) { return x >= 1 ? 0.01 : x <= 0 ? 1e12 : blendR(0.01, 1e12, x, 1 / (2 * PI * 100 * c)); }
+struct ModCaps { double c2, c2x, c3s, c3a, c3x, c14, c14x; };
+inline ModCaps modCaps(const Parts &v) { const Parts U = Parts::umbau(); ModCaps m;
+  m.c2 = v.c2; m.c2x = std::max(U.c2 - v.c2, 1e-12); m.c14 = v.c14; m.c14x = std::max(U.c14 - v.c14, 1e-12);
+  m.c3s = std::min(1e-9, v.c3); m.c3a = std::max(v.c3 - m.c3s, 1e-12); m.c3x = std::max(U.c3 - v.c3, 1e-12); return m; }
 inline double rpOf(double Ia, const Parts &v) { return v.rp0 * std::pow(v.ia0 / Ia, 1.0 / 3); }
 
 // ---------- generisches lineares Netz (Knotenanalyse, Trapezregel) ----------
@@ -173,10 +182,11 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vec
     if (ss) { const TriSS &t = (*ss)[ti]; o.R(p, k, t.rp); o.vccs(g, p, k, t.gm); o.C(g, k, t.cgk, fs); o.C(g, p, t.cga, fs); } else o.triode(g, p, k, Ia, v, fs); ti++; };
   if (s.low) { o.R("g1","0",v.r1); o.R("in","t2",1e-3); } else o.R("in","g1",v.r1);
   tri("g1","p1","k1",0.62e-3); o.R("k1","0",2.7e3); o.C("k1","0",47e-6,fs); o.R("p1","0",100e3);
-  o.C("p1","n5",v.c2,fs); o.R("n5","t1",v.r5);
+  const ModCaps mc = modCaps(v);
+  o.C("p1","n5",mc.c2,fs); o.RC("p1","n5",swR(s.bmod, mc.c2x),mc.c2x,fs); o.R("n5","t1",v.r5);
   o.R("t1","0", vt1R(v, 1 - s.ch1));
   o.R("t1","g2",v.vr101*(1-s.v1)); o.R("g2","0",v.vr101*s.v1);
-  tri("g2","p2","k2",0.69e-3); o.R("k2","0",2.7e3); o.C("k2","0",v.c3,fs); o.R("p2","0",100e3);
+  tri("g2","p2","k2",0.69e-3); o.R("k2","0",2.7e3); o.C("k2","0",mc.c3s,fs); o.RC("k2","0",swR(1 - s.soft, mc.c3a),mc.c3a,fs); o.RC("k2","0",swR((1 - s.soft) * s.bmod, mc.c3x),mc.c3x,fs); o.R("p2","0",100e3);
   if (!s.low) { o.C("p2","t2p",v.ck,fs); o.R("t2p","t2",lateR(v, s)); } else o.C("p2", "0", v.ck, fs);   // Umbauidee „Später": Vorwiderstand vor Preamp 2 Volume
   o.R("t2","w2",v.vr102*(1-s.v2)); o.R("w2","0",v.vr102*s.v2); o.R("w2","g3",68e3);
   tri("g3","p3","k3",0.31e-3); o.R("k3","0",10e3); o.R("p3","0",100e3);
@@ -189,7 +199,7 @@ inline LinNet netLin(const Parts &v, const Setting &s, double fs, const std::vec
   o.R("P","Mw",v.vr107*(1-s.m)); o.R("Mw","0",v.vr107*s.m); o.C("Y","Mw",v.c10,fs);
   o.C("T","n19",v.c9,fs); o.R("n19","g6",1e6); o.R("g6","0",1e6); o.R("g6","n20",3.3e6); o.C("n20","p6",v.c12,fs);
   tri("g6","p6","k6",1.18e-3); o.R("k6","0",820); o.C("k6","0",v.c13,fs); o.R("p6","0",100e3);
-  o.C("p6","n24",v.c14,fs); o.R("n24","J",68e3);
+  o.C("p6","n24",mc.c14,fs); o.RC("p6","n24",swR(s.bmod, mc.c14x),mc.c14x,fs); o.R("n24","J",68e3);
   o.R("J","Q",33e3); o.C("Q","0",v.c15,fs); o.R("Q","0", blendR(1e12, v.rts, s.bass, 33e3));
   o.R("J","W4",v.vr104*(1-s.mv)); o.R("W4","N2",v.vr104*s.mv);
   o.R("N2","0",22e3); o.C("N2","0",v.c16,fs); o.R("N2","0", blendR(1e12, v.rts, s.bass, 22e3));
@@ -381,13 +391,13 @@ inline Sec compileSec(const Net &o, double fs, bool dc) {
   return C;
 }
 inline std::vector<Net> defs(const Parts &v, const Setting &s) {
-  std::vector<Net> S(5); const TubeModel &T3 = TUBE_MODELS[s.tube[2]]; double cgk3 = stockTubes(s) ? v.cgk : T3.cgk, cga3 = stockTubes(s) ? v.cga : T3.cga;
+  std::vector<Net> S(5); const ModCaps mc = modCaps(v); const TubeModel &T3 = TUBE_MODELS[s.tube[2]]; double cgk3 = stockTubes(s) ? v.cgk : T3.cgk, cga3 = stockTubes(s) ? v.cga : T3.cga;
   { Net &o = S[0]; o.src("in"); o.r("in","g1",v.r1); o.c("g1","0",CMg1); o.port("g1","0"); o.probe("g1"); }
   { Net &o = S[1]; o.src("B"); o.r("B","p1",100e3); o.r("k1","0",2.7e3); o.c("k1","0",47e-6);
-    o.c("p1","n5",v.c2); o.r("n5","t1",v.r5); o.r("t1","0", s.ch1 <= 0 ? v.ronvt + v.r6 : s.ch1 >= 1 ? 1e12 : blendR(v.ronvt + v.r6, 1e12, 1 - s.ch1, 5e4));
+    o.c("p1","n5",mc.c2); o.rcs("p1","n5",swR(s.bmod, mc.c2x),mc.c2x); o.r("n5","t1",v.r5); o.r("t1","0", s.ch1 <= 0 ? v.ronvt + v.r6 : s.ch1 >= 1 ? 1e12 : blendR(v.ronvt + v.r6, 1e12, 1 - s.ch1, 5e4));
     o.r("t1","g2",v.vr101*(1-s.v1)); o.r("g2","0",v.vr101*s.v1); o.c("g2","0",CMg2);
     o.port("p1","k1"); o.port("g2","0"); o.port("0","k1"); o.probe("p1"); o.probe("k1"); o.probe("g2"); }
-  { Net &o = S[2]; o.src("B"); o.r("B","p2",100e3); o.r("k2","0",2.7e3); o.c("k2","0",v.c3);
+  { Net &o = S[2]; o.src("B"); o.r("B","p2",100e3); o.r("k2","0",2.7e3); o.c("k2","0",mc.c3s); o.rcs("k2","0",swR(1 - s.soft, mc.c3a),mc.c3a); o.rcs("k2","0",swR((1 - s.soft) * s.bmod, mc.c3x),mc.c3x);
     o.src("lin"); o.r("lin","t2", s.low ? 1e-3 : 1e12);
     if (!s.low) { o.c("p2","t2p",v.ck); o.r("t2p","t2",lateR(v, s)); } else o.c("p2", "0", v.ck);   // Umbauidee „Später"
     o.r("t2","w2",v.vr102*(1-s.v2)); o.r("w2","0",v.vr102*s.v2); o.r("w2","g3",68e3); o.c("g3","0",CMg3);
@@ -404,7 +414,7 @@ inline std::vector<Net> defs(const Parts &v, const Setting &s) {
     o.r("P","Mw",v.vr107*(1-s.m)); o.r("Mw","0",v.vr107*s.m); o.c("Y","Mw",v.c10);
     o.c("T","n19",v.c9); o.r("n19","g6",1e6); o.r("g6","0",1e6); o.r("g6","n20",3.3e6); o.c("n20","p6",v.c12);
     o.r("B","p6",100e3); o.r("k6","0",820); o.c("k6","0",v.c13); o.c("g6","k6",cgk3); o.c("g6","p6",cga3);
-    o.c("p6","n24",v.c14); o.r("n24","J",68e3); o.r("J","Q",33e3); o.c("Q","0",v.c15);
+    o.c("p6","n24",mc.c14); o.rcs("p6","n24",swR(s.bmod, mc.c14x),mc.c14x); o.r("n24","J",68e3); o.r("J","Q",33e3); o.c("Q","0",v.c15);
     o.r("Q","0", s.bass <= 0 ? v.rts : s.bass >= 1 ? 1e12 : blendR(1e12, v.rts, s.bass, 33e3));
     o.r("J","W4",v.vr104*(1-s.mv)); o.r("W4","N2",v.vr104*s.mv); o.r("N2","0",22e3); o.c("N2","0",v.c16);
     o.r("N2","0", s.bass <= 0 ? v.rts : s.bass >= 1 ? 1e12 : blendR(1e12, v.rts, s.bass, 22e3));

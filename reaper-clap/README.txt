@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.29
+Version 3.30
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -125,6 +125,12 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.30
+  - SOFT and BASS MOD switches: no more CPU spike either. The capacitors
+    stay in place; the switch is a resistor in series with the extra
+    capacitor that glides in 15 ms (like LATE since 3.29). Sound differs from
+    3.29 by less than -114 dB in every combination.
 
 3.29
   - LATE switch: no more CPU spike. It used to rebuild the whole tube stage
