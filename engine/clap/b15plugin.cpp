@@ -1,6 +1,6 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.12"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.13"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -20,6 +20,11 @@ namespace bgui { struct Gui; }
 #include <thread>
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
 #include "x11safe.hpp"
+#endif
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#define TSX_GUARD tsx::Guard xg_   // eigene X-Fehlerbehandlung nur während unserer X-Aufrufe (x11safe.hpp)
+#else
+#define TSX_GUARD (void)0
 #endif
 using namespace b15;
 
@@ -124,7 +129,7 @@ static void newEngines(Plugin *pl, int os) { delete pl->eng; delete pl->eng2; de
 static bool pl_init(const clap_plugin_t *) { return true; }
 static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); pl->joinWorker();
 #ifndef TS_NO_GUI
-  { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; }
+  { TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; }
 #ifndef __APPLE__
   tsx::close(pl->dpy); pl->dpy = nullptr;
 #endif
@@ -219,7 +224,7 @@ static void curves(Plugin *pl, std::vector<double> &cur, std::vector<double> &re
   auto curveOf = [&](const Setting &s, std::vector<double> &o) { C.apply(s); double r = std::abs(C.response(1000)); o.resize(bgui::NF);
     for (int i = 0; i < bgui::NF; i++) o[i] = 20 * std::log10(std::max(1e-12, std::abs(C.response(bgui::freqAt(i))) / std::max(r, 1e-30))); };
   curveOf(pl->target(), cur); curveOf(pl->setting(5, 5, 5, 5, 5, 5), ref); }
-static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); if (std::strcmp(api, TS_WINAPI) || floating) return false;
+static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); TSX_GUARD; if (std::strcmp(api, TS_WINAPI) || floating) return false;
   { std::lock_guard<std::recursive_mutex> glk(pl->gm);
 #ifndef __APPLE__
   if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
@@ -234,7 +239,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
   auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId == CLAP_INVALID_ID) ht->register_timer(pl->host, 33, &pl->timerId);
 #endif
   return true; }
-static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
+static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
   std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; }
 #ifndef __APPLE__
   if (pl->dpy) { XSync(pl->dpy, False); }
@@ -250,8 +255,8 @@ static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugi
 static bool g_can_resize(const clap_plugin_t *) { return true; }
 static bool g_resize_hints(const clap_plugin_t *, clap_gui_resize_hints_t *h) { h->can_resize_horizontally = true; h->can_resize_vertically = true; h->preserve_aspect_ratio = true; h->aspect_ratio_width = (uint32_t)bgui::FW; h->aspect_ratio_height = (uint32_t)bgui::TOTALH; return true; }
 static bool g_adjust_size(const clap_plugin_t *, uint32_t *w, uint32_t *h) { double ww = std::max(700.0, std::min(2600.0, (double)*w)); *w = (uint32_t)std::lround(ww); *h = (uint32_t)std::lround(ww * bgui::TOTALH / bgui::FW); return true; }
-static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
-static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
+static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
+static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
 #ifdef __APPLE__
   return pl->gui->attach(win->cocoa, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
 #else
@@ -259,14 +264,14 @@ static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plu
 #endif
 static bool g_set_transient(const clap_plugin_t *, const clap_window_t *) { return false; }
 static void g_suggest_title(const clap_plugin_t *, const char *) {}
-static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
-static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->hide(); return true; }
+static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
+static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->hide(); return true; }
 static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_destroy, g_set_scale, g_get_size, g_can_resize, g_resize_hints, g_adjust_size, g_set_size, g_set_parent, g_set_transient, g_suggest_title, g_show, g_hide};
 #endif
 static uint32_t g_latency(const clap_plugin_t *) { return LATENCY; }
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
-static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
+static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
   try { if (pl->gui) { gui_tick(pl); pl->gui->pump(); } } catch (...) {} }
 static const clap_plugin_timer_support_t EXT_TIMER = {on_timer};
 #endif

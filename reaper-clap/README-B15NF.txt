@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.12
+Version 1.13
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -108,6 +108,13 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.13
+  - X11 error handling only during the plugin's own window calls. Before,
+    each plugin hooked permanently into the process-wide X error handler
+    chain; with several of our plugins loaded and one removed first, that
+    chain could point into unloaded code. Tested: host window destroyed
+    under an open plugin window, no crash, host handler restored afterwards.
 
 1.12
   - Plugin window: much cheaper to draw. The photo used to be rescaled for

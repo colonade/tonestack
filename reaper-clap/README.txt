@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.31
+Version 3.32
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -125,6 +125,17 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.32
+  - X11 error handling only during the plugin's own window calls. Before,
+    each plugin hooked permanently into the process-wide X error handler
+    chain; with several of our plugins loaded and one removed first, that
+    chain could point into unloaded code. Tested: host window destroyed
+    under an open plugin window, no crash, host handler restored afterwards.
+  - Frequency plot: when the power amp's resting state for a setting was
+    missing (e.g. after moving TUBE MISMATCH), the window computed it on
+    REAPER's main thread (up to a few tenths of a second, REAPER's interface
+    froze). Now a background thread does it and the plot redraws afterwards.
 
 3.31
   - Plugin window: much cheaper to draw. The photo used to be rescaled for

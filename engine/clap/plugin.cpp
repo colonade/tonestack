@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.31"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.32"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -18,6 +18,11 @@ namespace aorgui { struct Gui; }
 #include <atomic>
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
 #include "x11safe.hpp"
+#endif
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#define TSX_GUARD tsx::Guard xg_   // eigene X-Fehlerbehandlung nur während unserer X-Aufrufe (x11safe.hpp)
+#else
+#define TSX_GUARD (void)0
 #endif
 using namespace aor;
 
@@ -46,7 +51,7 @@ struct Plugin {
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
-  long quiet = 0; std::atomic<bool> sleeping{false}; std::thread warm;   // warm: füllt den Ruhezustand der Endstufe für alle Raten vorab
+  long quiet = 0; std::atomic<bool> sleeping{false}; std::thread warm, curveJob; std::atomic<bool> curveBusy{false}, curveRedo{false};   // curveJob: Ruhezustand der Endstufe für das Diagramm im Hintergrund   // warm: füllt den Ruhezustand der Endstufe für alle Raten vorab
   std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt, diagMode; int diagCnt = 0;
@@ -126,9 +131,9 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----
 static bool pl_init(const clap_plugin_t *) { warmTubes(); return true; }   // Röhrentabellen jetzt (Haupt-Thread), nicht erst im Audio-Thread
-static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm.joinable()) pl->warm.join();
+static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm.joinable()) pl->warm.join(); if (pl->curveJob.joinable()) pl->curveJob.join();
 #ifndef TS_NO_GUI
-  { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
+  { TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
 #ifndef __APPLE__
   tsx::close(pl->dpy); pl->dpy = nullptr;
 #endif
@@ -204,6 +209,8 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
 #ifndef TS_NO_GUI
 // ---- Oberfläche (Linux: X11, macOS: NSView; eingebettet) ----
 static void gui_tick(Plugin *pl);
+static void startCurveJob(Plugin *pl, double fs, lpa::Vals pv) { if (pl->curveBusy.exchange(true)) return; if (pl->curveJob.joinable()) pl->curveJob.join();
+  pl->curveJob = std::thread([pl, fs, pv]() { PaDk::settled(fs, pv); pl->curveRedo = true; pl->curveBusy = false; }); }
 static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
   { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }   // Geste, damit der Host (VST3: performEdit, Automation „Touch“) die Änderung zuordnet
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
@@ -218,7 +225,7 @@ static void gui_gesture(Plugin *pl, int id, bool begin) { if (id < 0 || id >= P_
 #endif
 static bool g_supported(const clap_plugin_t *, const char *api, bool floating) { return !std::strcmp(api, TS_WINAPI) && !floating; }
 static bool g_preferred(const clap_plugin_t *, const char **api, bool *floating) { *api = TS_WINAPI; *floating = false; return true; }
-static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); if (std::strcmp(api, TS_WINAPI) || floating) return false;
+static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); TSX_GUARD; if (std::strcmp(api, TS_WINAPI) || floating) return false;
   { std::lock_guard<std::recursive_mutex> glk(pl->gm);
 #ifndef __APPLE__
   if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
@@ -228,7 +235,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
       Target t = pl->target(); double fs = pl->fs; auto curveOf = [&](const Parts &v, const Setting &s, bool pa, std::vector<double> &out) {
         std::vector<TriSS> ss; const std::vector<TriSS> *sp = nullptr; if (!stockTubes(s)) { ss = smallSignal(v, s, fs); sp = &ss; }
         LinNet o = netLin(v, s, fs, sp);
-        lpa::Core dkPa; if (pa) { lpa::Vals pv = PaDk::valsOf(v, s.pres, t.mis); dkPa = PaDk::settled(fs, pv); dkPa.apply(pv); }   // Endstufe als Schaltung (mit Lautsprecher als Last), beide Betriebsarten
+        lpa::Core dkPa; if (pa) { lpa::Vals pv = PaDk::valsOf(v, s.pres, t.mis); if (!PaDk::has(fs, pv)) startCurveJob(pl, fs, pv); dkPa = PaDk::settled(fs, pv, false); dkPa.apply(pv); }   // ab 3.32 nie im Hauptfaden einschwingen: fehlt der Ruhezustand, rechnet ein Hintergrund-Thread, danach wird neu gezeichnet   // Endstufe als Schaltung (mit Lautsprecher als Last), beide Betriebsarten
         auto g = [&](double f) { double m = std::abs(responseAt(o, f, "W3")); if (pa) m *= std::abs(dkPa.response(f)); if (t.spk) m *= spkMag(f); return m; };
         double r = g(1000); out.resize(aorgui::NF); for (int i = 0; i < aorgui::NF; i++) out[i] = 20 * std::log10(std::max(1e-12, g(aorgui::freqAt(i)) / r)); };
       curveOf(t.v, t.s, t.pa, cur);
@@ -241,7 +248,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
   auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId == CLAP_INVALID_ID) ht->register_timer(pl->host, 33, &pl->timerId);
 #endif
   return true; }
-static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
+static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
   std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
 #ifndef __APPLE__
   if (pl->dpy) { XSync(pl->dpy, False); }
@@ -252,14 +259,14 @@ static void upd_diag(Plugin *pl) {   // Textzeile: CPU-Wert höchstens zweimal j
   if (++pl->diagCnt < 15 && pl->diagMode == m) return; pl->diagCnt = 0; pl->diagMode = m;
   char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %s", pl->load.load() * 100, m); pl->diagTxt = b; }
 // Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
-static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
+static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; if (pl->curveRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }
 static bool g_resize_hints(const clap_plugin_t *, clap_gui_resize_hints_t *h) { h->can_resize_horizontally = true; h->can_resize_vertically = true; h->preserve_aspect_ratio = true; h->aspect_ratio_width = (uint32_t)FW; h->aspect_ratio_height = (uint32_t)aorgui::TOTALH; return true; }
 static bool g_adjust_size(const clap_plugin_t *, uint32_t *w, uint32_t *h) { double ww = std::max(600.0, std::min(2600.0, (double)*w)); *w = (uint32_t)std::lround(ww); *h = (uint32_t)std::lround(ww * aorgui::TOTALH / FW); return true; }
-static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
-static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
+static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
+static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
 #ifdef __APPLE__
   return pl->gui->attach(win->cocoa, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
 #else
@@ -267,15 +274,15 @@ static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plu
 #endif
 static bool g_set_transient(const clap_plugin_t *, const clap_window_t *) { return false; }
 static void g_suggest_title(const clap_plugin_t *, const char *) {}
-static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
-static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->hide(); return true; }
+static bool g_show(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->show(); pl->gui->draw(); return true; }
+static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; pl->gui->hide(); return true; }
 static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_destroy, g_set_scale, g_get_size, g_can_resize, g_resize_hints, g_adjust_size, g_set_size, g_set_parent, g_set_transient, g_suggest_title, g_show, g_hide};
 #endif
 // Latenz: Überabtastungsfilter genau 31 Abtastwerte (Amp::step); linear und 1-fach werden im Kern um 31 verzögert (Engine::pad)
 static uint32_t g_latency(const clap_plugin_t *) { return LATENCY; }   // fest, unabhängig vom Modus (CLAP: Latenz darf sich nur beim Aktivieren ändern)
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
-static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
+static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
   try {
   if (pl->gui) { gui_tick(pl); pl->gui->pump(); } } catch (...) {} }
 static const clap_plugin_timer_support_t EXT_TIMER = {on_timer};
