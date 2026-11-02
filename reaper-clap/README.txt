@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.30
+Version 3.31
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -125,6 +125,16 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.31
+  - Plugin window: much cheaper to draw. The photo used to be rescaled for
+    every frame (about 30 times a second) and the window redrawn whenever a
+    meter moved by a hair; with the window open that cost up to half a CPU
+    core on the GUI thread, which the CPU figure in the model strip does not
+    include (it measures only the audio processing). Now the photo is
+    scaled once per window size, meters redraw only when a bar moves by a
+    pixel, the CPU figure updates twice a second. Measured here: Laney window
+    45 % -> 7 % of a core, Yamaha 18 % -> 1.4 %, AmpFett 22 % -> 2.8 %.
 
 3.30
   - SOFT and BASS MOD switches: no more CPU spike either. The capacitors

@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.11
+Version 1.12
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -93,6 +93,16 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+1.12
+  - Plugin window: much cheaper to draw. The photo used to be rescaled for
+    every frame (about 30 times a second) and the window redrawn whenever a
+    meter moved by a hair; with the window open that cost up to half a CPU
+    core on the GUI thread, which the CPU figure in the model strip does not
+    include (it measures only the audio processing). Now the photo is
+    scaled once per window size, meters redraw only when a bar moves by a
+    pixel, the CPU figure updates twice a second. Measured here: Laney window
+    45 % -> 7 % of a core, Yamaha 18 % -> 1.4 %, AmpFett 22 % -> 2.8 %.
 
 1.11
   - POT TAPER switch removed: volume, treble, middle and bass are always

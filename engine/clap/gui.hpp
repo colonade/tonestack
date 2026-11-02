@@ -97,7 +97,7 @@ struct Gui {
   void show() { if (win && xs) { XMapWindow(dpy, win); XFlush(dpy); } }
   void hide() { if (win) { XUnmapWindow(dpy, win); XFlush(dpy); } }
   void resize(int w, int h) { W = w; H = h; if (win && xs) { XResizeWindow(dpy, win, w, h); cairo_xlib_surface_set_size(xs, w, h); } }
-  void destroy() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } if (win) { XDestroyWindow(dpy, win); win = 0; } }
+  void destroy() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } if (base) { cairo_surface_destroy(base); base = nullptr; } if (win) { XDestroyWindow(dpy, win); win = 0; } }
 #endif
   // ---- Hilfen ----
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
@@ -114,19 +114,31 @@ struct Gui {
   void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
     cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy); }
 #endif
-  void drawTo(cairo_t *c) {
-    double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
-    bool ch1 = v[P_CH] < 0.5, low = v[P_INP] > 0.5, pa = v[P_PA] > 0.5;
-    setrgb(c, 0x0a0a0a); cairo_paint(c);
-    cairo_save(c); cairo_scale(c, s, s);
+  // Foto mit Skalenaufdruck (Foto-Einheiten)
+  void drawBase(cairo_t *c) {
     cairo_set_source_surface(c, img, 0, 0); cairo_rectangle(c, 0, 0, FW, FH); cairo_fill(c);
-    // Aufdruck: Skalen
-    setrgb(c, 0xd3d2cc); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND);
+    setrgb(c, 0xd3d2cc); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND);   // Aufdruck: Skalen
     for (int i = 0; i < 9; i++) { const KnobGeo &g = KG[i]; double rm = (SEG0 + SEG1) / 2 * g.R, sw = (SEG1 - SEG0) * g.R, capA = (sw / 2) / rm; cairo_set_line_width(c, sw);
       for (int q = 0; q < 5; q++) { double cen = (-120 + 60 * q) * PI / 180; cairo_new_sub_path(c); cairo_arc(c, g.rx, g.ry, rm, cen - SEGHA * PI / 180 + capA - PI / 2, cen + SEGHA * PI / 180 - capA - PI / 2); cairo_stroke(c); }
       double rd = (DIG0 + DIG1) / 2 * g.R, dh = (DIG1 - DIG0) * g.R; const char *digs[6] = {"0","2","4","6","8","10"};
       for (int q = 0; q < 6; q++) { double a = ang(q * 2); cairo_save(c); cairo_translate(c, g.rx + rd * std::sin(a), g.ry - rd * std::cos(a)); cairo_rotate(c, a); font(c, dh / 0.72, true);
         cairo_text_extents_t e; cairo_text_extents(c, digs[q], &e); cairo_move_to(c, -e.width / 2 - e.x_bearing, dh / 2); cairo_show_text(c, digs[q]); cairo_restore(c); } }
+  }
+  cairo_surface_t *base = nullptr; double baseS = 0;
+  void drawTo(cairo_t *c) {
+    double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
+    bool ch1 = v[P_CH] < 0.5, low = v[P_INP] > 0.5, pa = v[P_PA] > 0.5;
+    setrgb(c, 0x0a0a0a); cairo_paint(c);
+#ifndef __APPLE__
+    // Foto und Skalenaufdruck ändern sich nur mit der Fenstergröße: einmal je Größe vorgezeichnet (ab 3.31; vorher je Bild neu skaliert,
+    // die Oberfläche kostete bei offenen Fenster etwa einen halben Kern, der in der CPU-Anzeige nicht auftaucht)
+    if (!base || baseS != s) { if (base) cairo_surface_destroy(base); base = cairo_image_surface_create(CAIRO_FORMAT_RGB24, (int)std::ceil(FW * s), (int)std::ceil(FH * s)); baseS = s;
+      cairo_t *b = cairo_create(base); cairo_scale(b, s, s); drawBase(b); cairo_destroy(b); }
+    cairo_set_source_surface(c, base, 0, 0); cairo_rectangle(c, 0, 0, FW * s, FH * s); cairo_fill(c);
+    cairo_save(c); cairo_scale(c, s, s);
+#else
+    cairo_save(c); cairo_scale(c, s, s); drawBase(c);
+#endif
     // Zugschalter-Hintergründe und Beschriftungen
     for (auto &l : LG) { int pp = -1; if (!std::strcmp(l.t, "PULL ON")) pp = P_CH; else if (!std::strcmp(l.t, "PULL BOOST")) pp = !std::strcmp(l.k, "t") ? P_TOP : !std::strcmp(l.k, "m") ? P_MID : P_BASS;
       bool on = pp >= 0 && (pp == P_CH ? ch1 : v[pp] > 0.5);
@@ -247,9 +259,9 @@ struct Gui {
       default: return false;
     }
   }
-  std::string lastSig;
+  std::string lastSig;   // Signatur: Anzeigebalken auf ganze Pixel gerundet, damit nur sichtbare Änderungen neu zeichnen
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
-    for (int i = 0; i < 5; i++) sapp(b, sizeof b, n, "%.2f|", std::min(std::max(meter[i], -1.0), 99.0)); sapp(b, sizeof b, n, "%d|%d|%d|%d|%d", drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
+    for (int i = 0; i < 5; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + 9 * std::min(std::max(meter[i], 0.0), 2.0) / 2) * 74));   sapp(b, sizeof b, n, "%d|%d|%d|%d|%d", drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
   // Fenster vom Host mit dem Containerfenster zerstört: nicht mehr zeichnen und nicht noch einmal zerstören
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }

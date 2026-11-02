@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.30"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.31"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -49,7 +49,7 @@ struct Plugin {
   long quiet = 0; std::atomic<bool> sleeping{false}; std::thread warm;   // warm: füllt den Ruhezustand der Endstufe für alle Raten vorab
   std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
-  aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt;
+  aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt, diagMode; int diagCnt = 0;
   Target target() const { Target t; t.v = Parts::orig(); t.s.bmod = val[P_UMBAU] > 0.5 ? 1 : 0;   /* BASS MOD und SOFT ab 3.30 gleitend (Setting), nicht als Bauteilwechsel */ t.taper = 0;   /* ab 3.27 fest: Middle und Presence 22KA (log) wie im Plan; Parameter bleibt für alte Projekte, wirkt nicht */
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
     t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
@@ -247,7 +247,10 @@ static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gestI
   if (pl->dpy) { XSync(pl->dpy, False); }
 #endif
   }
-static void upd_diag(Plugin *pl) { char b[160]; int o = (int)std::lround(pl->val[P_OS]); std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling%s · %.0f Hz · stereo%s", pl->load.load() * 100, o <= 0 ? 1 : o == 1 ? 2 : 4, o == 1 && pl->val[P_ECO] > 0.5 ? " eco" : "", pl->fs, pl->sleeping ? " · idle (silent input)" : ""); pl->diagTxt = b; }
+static void upd_diag(Plugin *pl) {   // Textzeile: CPU-Wert höchstens zweimal je Sekunde neu (jede Änderung zeichnet das Fenster neu), Modus sofort
+  int o = (int)std::lround(pl->val[P_OS]); char m[96]; std::snprintf(m, sizeof m, "%dx oversampling%s · %.0f Hz · stereo%s", o <= 0 ? 1 : o == 1 ? 2 : 4, o == 1 && pl->val[P_ECO] > 0.5 ? " eco" : "", pl->fs, pl->sleeping ? " · idle (silent input)" : "");
+  if (++pl->diagCnt < 15 && pl->diagMode == m) return; pl->diagCnt = 0; pl->diagMode = m;
+  char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %s", pl->load.load() * 100, m); pl->diagTxt = b; }
 // Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
 static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }

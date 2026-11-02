@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.11
+Version 1.12
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -108,6 +108,16 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.12
+  - Plugin window: much cheaper to draw. The photo used to be rescaled for
+    every frame (about 30 times a second) and the window redrawn whenever a
+    meter moved by a hair; with the window open that cost up to half a CPU
+    core on the GUI thread, which the CPU figure in the model strip does not
+    include (it measures only the audio processing). Now the photo is
+    scaled once per window size, meters redraw only when a bar moves by a
+    pixel, the CPU figure updates twice a second. Measured here: Laney window
+    45 % -> 7 % of a core, Yamaha 18 % -> 1.4 %, AmpFett 22 % -> 2.8 %.
 
 1.11
   - Faster: the circuit solver works with a slightly looser convergence

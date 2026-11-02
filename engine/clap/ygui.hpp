@@ -92,7 +92,7 @@ struct Gui {
   void show() { if (win && xs) { XMapWindow(dpy, win); XFlush(dpy); } }
   void hide() { if (win) { XUnmapWindow(dpy, win); XFlush(dpy); } }
   void resize(int w, int h) { W = w; H = h; if (win && xs) { XResizeWindow(dpy, win, w, h); cairo_xlib_surface_set_size(xs, w, h); } }
-  void destroy() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } if (win) { XDestroyWindow(dpy, win); win = 0; } }
+  void destroy() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } if (base) { cairo_surface_destroy(base); base = nullptr; } if (win) { XDestroyWindow(dpy, win); win = 0; } }
 #endif
   // ---- Hilfen ----
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
@@ -108,12 +108,21 @@ struct Gui {
   void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
     cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy); }
 #endif
+  cairo_surface_t *base = nullptr; double baseS = 0;
   void drawTo(cairo_t *c) {
     double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
     bool low = v[P_INP] > 0.5, pwr = v[P_PWR] > 0.5, spk = v[P_SPK] > 0.5;
     setrgb(c, 0x0a0a0a); cairo_paint(c);
+#ifndef __APPLE__
+    // Foto einmal je Fenstergröße vorskaliert (ab Laney 3.31 / Yamaha 1.12 / AmpFett 1.12; vorher je Bild neu skaliert)
+    if (!base || baseS != s) { if (base) cairo_surface_destroy(base); base = cairo_image_surface_create(CAIRO_FORMAT_RGB24, (int)std::ceil(YFW * s), (int)std::ceil(YFH * s)); baseS = s;
+      cairo_t *b = cairo_create(base); cairo_scale(b, s, s); cairo_set_source_surface(b, img, 0, 0); cairo_rectangle(b, 0, 0, YFW, YFH); cairo_fill(b); cairo_destroy(b); }
+    cairo_set_source_surface(c, base, 0, 0); cairo_rectangle(c, 0, 0, YFW * s, YFH * s); cairo_fill(c);
+    cairo_save(c); cairo_scale(c, s, s);
+#else
     cairo_save(c); cairo_scale(c, s, s);
     cairo_set_source_surface(c, img, 0, 0); cairo_rectangle(c, 0, 0, YFW, YFH); cairo_fill(c);
+#endif
     // Buchsen: Ring an der belegten Buchse, Stecker als dunkler Punkt
     const double *J[2] = {YJACK_HIGH, YJACK_LOW}; for (int i = 0; i < 2; i++) { bool act = (i == 1) == low;
       if (act) { setrgb(c, 0xe0382a); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, J[i][0], J[i][1], J[i][2] + 4, 0, 2 * PI); cairo_stroke(c); setrgb(c, 0x202020); cairo_new_path(c); cairo_arc(c, J[i][0], J[i][1], J[i][2] * 0.42, 0, 2 * PI); cairo_fill(c); setrgb(c, 0x8a8a8a); cairo_set_line_width(c, 1.5); cairo_new_path(c); cairo_arc(c, J[i][0], J[i][1], J[i][2] * 0.42, 0, 2 * PI); cairo_stroke(c); } }
@@ -204,7 +213,7 @@ struct Gui {
   }
   std::string lastSig;
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
-    sapp(b, sizeof b, n, "%.2f|%d|%d|%d|%d|%d|%d", std::min(std::max(meter, -1.0), 99.0), meterOn ? 1 : 0, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
+    sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d", (int)std::lround(std::log10(1 + std::min(std::max(meter, 0.0), 99.0)) * 60), meterOn ? 1 : 0, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
   // Fenster vom Host mit dem Containerfenster zerstört: nicht mehr zeichnen und nicht noch einmal zerstören
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
