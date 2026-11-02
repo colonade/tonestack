@@ -63,7 +63,7 @@ inline int toggleHit(double x, double y, double cx, double cy, double labelW) {
 // Drehwahlschalter mit n Stellungen (Zeiger auf Stellung idx), Beschriftungen im Bogen darüber
 inline void rotarySel(cairo_t *c, double cx, double cy, int n, int idx, const char *title, const char *const *labels, const char *sub, bool dim = false) {
   if (title) { rgb(c, dim ? 0x6a6a68 : 0xdcdee2); text(c, title, cx, cy - 48, 14, true, 1); }
-  auto angOf = [&](int i) { return (-60 + 120.0 * i / (n - 1)) * TPI / 180; };
+  const double span = n >= 5 ? 160 : 120; auto angOf = [&](int i) { return (-span / 2 + span * i / (n - 1)) * TPI / 180; };   // ab 5 Stellungen weiter gespreizt
   for (int i = 0; i < n; i++) { double a = angOf(i); bool act = i == idx; rgb(c, dim ? 0x5a5a58 : act ? 0xffd98a : 0x8d919a); text(c, labels[i], cx + 34 * std::sin(a), cy - 34 * std::cos(a) + 4, 12.5, act, 1);
     rgb(c, act && !dim ? 0xffd98a : 0x50535a); cairo_new_path(c); cairo_arc(c, cx + 23 * std::sin(a), cy - 23 * std::cos(a), 1.8, 0, 2 * TPI); cairo_fill(c); }
   cairo_pattern_t *g = cairo_pattern_create_radial(cx - 5, cy - 6, 2, cx, cy, 18); cairo_pattern_add_color_stop_rgb(g, 0, 0.32, 0.31, 0.3); cairo_pattern_add_color_stop_rgb(g, 1, 0.05, 0.05, 0.055);

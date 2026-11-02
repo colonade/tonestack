@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.25
+Version 3.26
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -129,6 +129,18 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.26
+  - Faster: the circuit solver works with a slightly looser convergence
+    limit (10 instead of 1 microvolt at the tube ports; difference to 3.25
+    below -100 dB even at very low levels) and with precomputed sparse
+    matrices. About 20 % less CPU at 2x oversampling.
+  - New oversampling setting "eco" (parameter "Eco", on the OVERSAMPLING
+    selector between 1x and 2x): preamp at 2x, power amp at the base rate as
+    up to 3.20. About a third less CPU than 2x; level and phase within
+    0.2 dB / 0.5 degrees of 2x, slightly more aliasing when the power amp
+    clips hard.
+  - Mac/Logic: run Logic natively, not under Rosetta (see LIESMICH-Mac.txt).
 
 3.25
   - Preamp tube types 12AT7, 12AU7, 5751 and 12AY7 now use the Dempwolf

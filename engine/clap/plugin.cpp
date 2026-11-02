@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.25"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.26"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -20,7 +20,7 @@ namespace aorgui { struct Gui; }
 #endif
 using namespace aor;
 
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_COUNT };
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_ECO, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_INP[] = {"HIGH (~1 mV)", "LOW (~30 mV)"}; static const char *N_CH[] = {"Preamp 1 (high gain)", "Preamp 2"};
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_UMB[] = {"Original", "Bass mod C2 C3 C14"};
@@ -37,7 +37,8 @@ static const PDef PD[P_COUNT] = {
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
   {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2},
-  {"Power tube mismatch (%)", 0, 10, 8, 0, 0} };   // Grundstellung 8 % (Nutzer, 2026-11-02)
+  {"Power tube mismatch (%)", 0, 10, 8, 0, 0},   // Grundstellung 8 % (Nutzer, 2026-11-02)
+  {"Eco (2x: power amp at base rate, about 1/3 less CPU)", 0, 1, 0, N_ONOFF, 2} };   // ab 3.26
 
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
@@ -52,7 +53,7 @@ struct Plugin {
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
     t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
     t.s.ch1 = val[P_CH] < 0.5 ? 1 : 0; t.s.low = val[P_INP] > 0.5; t.pa = val[P_PA] > 0.5; t.nl = val[P_NL] > 0.5;
-    t.vin = val[P_VIN] / 1000; int o = (int)std::lround(val[P_OS]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;
+    t.vin = val[P_VIN] / 1000; int o = (int)std::lround(val[P_OS]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8; t.eco = val[P_ECO] > 0.5;
     for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(val[P_TUBE1 + i]))); t.spk = val[P_SPK] > 0.5;
     t.mis = val[P_MIS] / 100;   // Streuung der Endröhren (Ruhestrom-Unterschied), nur Röhrenmodus mit Endstufe
     if (val[P_SOFT] > 0.5) t.v.c3 = 1e-9; t.v.rpad = val[P_PAD] > 0.5 ? 2.2e6 : 0;   // Umbauideen wie im Web: „Sanft“ = C3 an V101B ab, „Später“ = 2,2 MΩ vor Preamp 2 Volume (nur HIGH-Eingang)
@@ -148,7 +149,7 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr;
   // eingeschwungene Endstufe vorab (Haupt-Thread), nicht erst im Audio-Thread
   { int o = (int)std::lround(pl->val[P_OS]), os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8;   // Grundrate (1x, linear) und Rate der gewählten Überabtastung
-    for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m)); }
+    for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true, pl->val[P_ECO] > 0.5)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m)); }
   delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
@@ -252,7 +253,7 @@ static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->gestI
   if (pl->dpy) { XSync(pl->dpy, False); }
 #endif
   }
-static void upd_diag(Plugin *pl) { char b[160]; int o = (int)std::lround(pl->val[P_OS]); std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling · %.0f Hz · stereo%s", pl->load.load() * 100, o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); pl->diagTxt = b; }
+static void upd_diag(Plugin *pl) { char b[160]; int o = (int)std::lround(pl->val[P_OS]); std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling%s · %.0f Hz · stereo%s", pl->load.load() * 100, o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8, o == 1 && pl->val[P_ECO] > 0.5 ? " eco" : "", pl->fs, pl->sleeping ? " · idle (silent input)" : ""); pl->diagTxt = b; }
 // Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
 static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }

@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.10
+Version 1.11
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -108,6 +108,13 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.11
+  - Faster: the circuit solver works with a slightly looser convergence
+    limit (10 instead of 1 microvolt; difference to 1.10 below -100 dB even
+    at low levels) and with precomputed sparse matrices. About 10-15 % less
+    CPU.
+  - Mac/Logic: run Logic natively, not under Rosetta (see LIESMICH-Mac.txt).
 
 1.10
   - Power tubes 6L6GC: new pentode model after Derk Reefman with a proper

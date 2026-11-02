@@ -129,8 +129,23 @@ viel Volt ein voll ausgesteuertes Signal am Instrumentenkabel hätte
 Rechenlast: Die Plugins rechnen die ganze Schaltung in jedem Abtastwert.
 Laney mit Röhrenverzerrung und Endstufe bei 2-facher Überabtastung etwa
 ein halber Prozessorkern, AmpFett etwa ein Viertel bis ein Drittel; 4- und
-8-fach entsprechend mehr. Wenn es knackt: 1-fach wählen oder in Logic die
-Puffergröße erhöhen. Mehrere Instanzen addieren sich.
+8-fach entsprechend mehr. Mehrere Instanzen addieren sich. Ein Plugin auf
+einer Spur läuft in Logic immer auf einem Kern; Logic verteilt nur
+verschiedene Spuren auf verschiedene Kerne.
+
+Wenn Logic überlastet meldet oder es knackt:
+  1. Logic NICHT mit Rosetta starten: Programme → Logic Pro → Informationen
+     → Haken bei „Mit Rosetta öffnen“ entfernen. Die Plugins enthalten eine
+     Fassung für Apple-Prozessoren; unter Rosetta läuft stattdessen die
+     Intel-Fassung, übersetzt und deutlich langsamer.
+  2. Beim Abspielen eine andere Spur auswählen. Die ausgewählte Spur rechnet
+     Logic mit dem kleinen Eingangspuffer auf einem einzigen Kern.
+  3. Logic → Einstellungen → Audio: I/O-Puffergröße 256 oder 512,
+     Prozesspufferbereich „Groß“.
+  4. Laney: OVERSAMPLING auf „eco“ (2-fach, Endstufe mit einfacher Rate,
+     etwa ein Drittel weniger Last) oder „1x“.
+  5. Für den Bass eine Mono-Spur verwenden: auf einer Stereospur mit
+     verschiedenem Links/Rechts rechnet das Plugin beide Seiten.
 
 
 6. Entfernen

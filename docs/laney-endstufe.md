@@ -49,3 +49,7 @@ Pegel: Ausgang = Lautsprecherspannung × 0,00625534254, damit 1 kHz bei kleinem 
 - Ruhe: EL34 je 32,8 mA, Ig2 4,3 mA (vorher 33,0 / 4,6 mA), B+ 400,5 V.
 - Ausgangsmaßstab 0,00579406058 (Endstufe allein bei 1 kHz, 20 mV, Presence 5 so laut wie 3.24; das neue Modell war 0,46 dB leiser).
 - Klirr der Endstufe allein bei 1 kHz (Eingang 0,3 / 1 / 4 V): 0,52 / 3,5 / 15,1 % (3.24: 0,35 / 2,3 / 15,1 %); höchste Spannung am Lautsprecher 28,7 statt 28,0 V.
+
+## Ab 3.26
+- Abbruchgrenze des Lösers 1e-5 V statt 1e-6 V (2,4 statt 3,0 Newton-Schritte je Abtastwert, Abweichung unter −100 dB).
+- ECO (Parameter „Eco“, Wahlschalterstellung „eco“): bei 2x rechnet die Endstufe mit der Grundrate (Mittel aus zwei Teilschritten, Ausgabe gehalten, Abgriff letzte Teilphase), wie bis 3.20. Etwa ein Drittel weniger Rechenzeit als 2x.

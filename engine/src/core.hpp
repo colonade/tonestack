@@ -418,7 +418,8 @@ struct Amp {
   // Endstufe (ab 3.21) im Takt der Überabtastung: pa != nullptr (von NlCore je Aufruf gesetzt) → step liefert den Endstufen-Ausgang.
   // Bei 1x und 2x rechnet sie jeden Teilschritt, bei 4x und 8x jeden zweiten mit dem Mittel aus zwei (Rechenrate 2x bzw. 4x); die Ausgabe gilt bis zur nächsten Gruppe.
   // Die Vorstufe rechnet mit den Schienenspannungen ub (Ruhe UB plus Änderung aus dem Netzteil der Endstufe) und meldet ihre Stromänderungen zurück.
-  static int paGroup(int os, bool on) { return on && os > 2 ? 2 : 1; }   // Teilschritte je Endstufen-Schritt
+  static int paGroup(int os, bool on, bool eco = false) { return on && (os > 2 || (eco && os == 2)) ? 2 : 1; }   // Teilschritte je Endstufen-Schritt; ECO (ab 3.26): bei 2x rechnet die Endstufe mit der Grundrate
+  bool eco = false;
   PaDk *pa = nullptr; double ub[4] = {UB[0], UB[1], UB[2], UB[3]}, i0[3] = {0, 0, 0}, paAcc = 0, paHold = 0; int paCnt = 0;
   void railI(double *o) const { o[0] = sec[1].I[0]; o[1] = sec[2].I[0] + sec[3].I[0]; o[2] = sec[4].I[0] + sec[4].I[1] + sec[4].I[3]; }   // Anodenströme je Schiene 240/252/260 V
   void markIdle() { railI(i0); for (int k = 0; k < 4; k++) ub[k] = UB[k]; paAcc = paHold = 0; paCnt = 0; }
@@ -572,7 +573,7 @@ struct Amp {
     // Laufzeit: Interpolation + Dezimation (symmetrische Filter) ergeben 31 − 1/os Abtastwerte (gemessen); die Dezimation wird deshalb
     // nach der vorletzten Teilphase abgegriffen (+1/os), so ist die Latenz in jeder Überabtastung genau 31 (= Engine::pad, gemeldete Plugin-Latenz).
     // Mit Endstufe bei 4x/8x verzögert die Zweiergruppe um einen Teilschritt; der Abgriff rückt dafür einen Teilschritt später (letzte Teilphase).
-    const int m = paGroup(os, pa != nullptr), tap = os - 2 + (m - 1);
+    const int m = paGroup(os, pa != nullptr, eco), tap = os - 2 + (m - 1);
     double out = 0;
     for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
       double y = run(os * u, false) - w3DC; trackPeak(); if (pa) y = paSub(y, m); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = y;
@@ -624,10 +625,10 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   double lo = (w*w*w*w*Ts*Ts*Tb*Tb) / std::hypot(dr, di), le = 1 / std::hypot(1.0, w * m.Le / m.Re), w0 = 2 * PI * m.fc, cone = w0*w0 / std::hypot(w0*w0 - w*w, w0*w/m.Qc);
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
-struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; };   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
+struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; };   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
 
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
-  std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; double peaks[5] = {0,0,0,0,0};
+  std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; virtual bool ecoOf() const { return false; } double peaks[5] = {0,0,0,0,0};
   virtual CoreBase *clone() const = 0; };   // vollständige Kopie samt Zustand (Plugin: rechter Kanal übernimmt den linken)
 
 struct LinCore : CoreBase {
@@ -664,7 +665,8 @@ struct NlCore : CoreBase {
   static std::mutex &cacheMutex() { static std::mutex m; return m; }
   struct CacheLock { std::lock_guard<std::mutex> g; CacheLock() : g(cacheMutex()) {} };
 #endif
-  NlCore(double fs_, int os_, const Tube *t) : fs(fs_), os(os_), amp(fs_, os_, t), paC(fs_ * os_ / Amp::paGroup(os_, true), fs_) {}
+  bool eco = false;
+  NlCore(double fs_, int os_, const Tube *t, bool eco_ = false) : fs(fs_), os(os_), amp(fs_, os_, t), paC(fs_ * os_ / Amp::paGroup(os_, true, eco_ && os_ == 2), fs_), eco(eco_ && os_ == 2) { amp.eco = eco; }
   void setTarget(const Target &t) override {
     Setting s = t.s; vin = t.vin; pa = t.pa; amp.low = s.low > 0.5;
     bool partsChanged = !hasV || !(t.v == v) || cur.tube[0] != s.tube[0] || cur.tube[1] != s.tube[1] || cur.tube[2] != s.tube[2];
@@ -682,7 +684,7 @@ struct NlCore : CoreBase {
   double step(double u) override { amp.pa = pa ? &paC : nullptr; if (pa) paC.tick(); double y = amp.step(u * vin); if (!pa) y /= 20; amp.pa = nullptr;
     for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // mit Endstufe: deren Ausgang (im Takt der Überabtastung gerechnet), sonst Vorverstärkerspannung / 20 V
   CoreBase *clone() const override { return new NlCore(*this); }
-  bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
+  bool ecoOf() const override { return eco; } bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
 
 // Moduswechsel (linear/Röhre, Überabtastung, Buchse, Kanal): neue Schaltung rechnet die letzten 150 ms nach und wird über 30 ms eingeblendet
@@ -695,16 +697,16 @@ struct Engine {
     replay(o.replay), last(o.last), hasLast(o.hasLast), spk(o.spk), spkOn(o.spkOn), spkMix(o.spkMix), pad(o.pad) {}   // tiefe Kopie (Kerne geklont)
   Engine &operator=(const Engine &) = delete;
   void recover() { delete a; delete b; a = b = nullptr; replay = false; xf = 0; spk.lo.reset(); spk.le.reset(); spk.cone.reset(); spkMix = spkOn ? 1 : 0; if (hasLast) a = make(last); }
-  static std::string kindOf(bool nl, int os, bool low) { return (nl ? "nl" + std::to_string(os) : std::string("lin")) + (low ? "|low" : "|high"); }
-  std::string kindOfCore(const CoreBase *c) const { return kindOf(c->isNl(), c->osOf(), c->lowOf()); }
+  static std::string kindOf(bool nl, int os, bool low, bool eco = false) { return (nl ? "nl" + std::to_string(os) + (eco && os == 2 ? "e" : "") : std::string("lin")) + (low ? "|low" : "|high"); }
+  std::string kindOfCore(const CoreBase *c) const { return kindOf(c->isNl(), c->osOf(), c->lowOf(), c->ecoOf()); }
   int pad = 0;   // Plugin: feste Gesamtlatenz; Kerne ohne eigene Laufzeit (linear, 1-fach) werden um pad Abtastwerte verzögert, damit die Latenz nicht mit dem Modus wechselt
-  CoreBase *make(const Target &t) { CoreBase *c = t.nl ? (CoreBase*)new NlCore(fs, t.os, &tubeOf(0)) : (CoreBase*)new LinCore(fs); c->setTarget(t); c->prepDelay(ownLatency(c) == 0 ? pad : 0); return c; }
+  CoreBase *make(const Target &t) { CoreBase *c = t.nl ? (CoreBase*)new NlCore(fs, t.os, &tubeOf(0), t.eco) : (CoreBase*)new LinCore(fs); c->setTarget(t); c->prepDelay(ownLatency(c) == 0 ? pad : 0); return c; }
   static int ownLatency(const CoreBase *c) { return c->isNl() && c->osOf() > 1 ? 31 : 0; }
   void setTarget(const Target &t) {
     // Bauteil- oder Röhrenwechsel im Röhrenmodus: der Kern müsste neu in den Arbeitspunkt (Sprung im Signal) → wie ein Moduswechsel frisch nachrechnen und überblenden
     bool nlParts = hasLast && t.nl && last.nl && (!(t.v == last.v) || t.s.tube[0] != last.s.tube[0] || t.s.tube[1] != last.s.tube[1] || t.s.tube[2] != last.s.tube[2]);
     last = t; hasLast = true; spkOn = t.spk;
-    std::string kind = kindOf(t.nl, t.os, t.s.low > 0.5);
+    std::string kind = kindOf(t.nl, t.os, t.s.low > 0.5, t.eco);
     if (!a) { a = make(t); spkMix = spkOn ? 1 : 0; return; }
     CoreBase *newest = b ? b : a;
     bool chChange = newest->chOf() != (t.s.ch1 > 0.5 ? 1 : 2);
