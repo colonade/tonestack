@@ -47,6 +47,11 @@ Technical Data bestätigt die Leiterplatte: 220k/.00047 oben, .001/.01 in der Mi
 - B1 (Gleichrichter-Katode, Mittelanzapfung des Übertragers): 30 µF/600 V. B1 → 1 kΩ/10 W → B2 (Schirmgitter): 40 µF.
   B2 → 22 kΩ/1 W → B3 (Phasenumkehr): 40 µF. B2 → 22 kΩ/1 W → B4 (Vorstufen): 40 µF.
 - Vorspannung: Ende der HV-Wicklung → 100 kΩ/2 W → Knoten mit 56 kΩ an Masse → 10D6 (Anode am Vorspannungsknoten) → −50 V mit 47 kΩ und 100 µF/100 V.
+- Modell ab AmpFett 1.15 wahlweise: **vollständig** (Netztrafo mit Streuung, 5AR4 an der Wechselspannung, Brumm, wie bis 1.14) oder **einfach** (Grundstellung):
+  Gleichspannung 482,14 V hinter 846,3 Ω und der 5AR4-Kennlinie an B1, Vorspannung −87,408 V hinter 35,9 kΩ (100 k ∥ 56 k) und 10D6, dahinter 47 kΩ/100 µF.
+  Angepasst an das vollständige Modell (engine/tests bzw. Anpassprogramm, 48 kHz, Kanal 1 Volume 10, 55 Hz): B1 in Ruhe 424,1 V, bei Vollaussteuerung im Mittel 341,8 V
+  (vollständig ebenso), BIAS −49,56 V (Ruhe) / −50,32 V (voll: −50,46 V). b15test: Arbeitspunkte, Frequenzgang und Ausgangsleistung innerhalb 0,1 dB gleich;
+  Newton-Schritte in Ruhe 1,7 statt 3,1, Rechenzeit etwa ein Fünftel weniger. STANDBY (öffnete die Mittelanzapfung) und GROUND sind ab 1.15 entfernt.
 
 ## Prüfung gegen die Spannungstabelle (Technical Data, ohne Signal, Messgerät 20 kΩ/V, Toleranz ±5 %)
 

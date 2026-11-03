@@ -31,7 +31,7 @@
 namespace bgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_MAINS, P_COUNT };
+enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_MAINS, P_PSU, P_COUNT };
 static const int KPARAM[6] = {P_V1, P_T1, P_B1, P_V2, P_T2, P_B2};   // Knopf (Reihenfolge B15KNOB) → Parameter
 static const char *KNAME[6] = {"VOLUME 1", "TREBLE 1", "BASS 1", "VOLUME 2", "TREBLE 2", "BASS 2"};
 static const int JACKVAL[3] = {1, 0, 2};   // Buchse (Reihenfolge B15JACK: Guitar, Bass, Inst.) → Parameterwert (0 Bass, 1 Guitar, 2 Inst.)
@@ -40,8 +40,9 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-static const double SW_X[3] = {64, 186, 300};   // SPEAKER, OVERSAMPLING, MAINS
-static const int SW_P[3] = {P_SPK, P_OS, P_MAINS};
+static const double SW_X[3] = {64, 186, 310};   // SPEAKER, OVERSAMPLING, POWER SUPPLY (DC / voll 60 Hz / voll 50 Hz; ab 1.15 statt MAINS)
+static const int SW_P[3] = {P_SPK, P_OS, P_PSU};
+inline int psuPos(const double *v) { return v[P_PSU] > 0.5 ? (v[P_MAINS] > 0.5 ? 2 : 1) : 0; }
 static const double KN_X[3] = {870, 990, 1110}; // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
@@ -59,7 +60,7 @@ struct Gui {
   std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;
   double meter[5] = {0, 0, 0, 0, 0}; bool meterOn = false;   // Aussteuerung V1A, V1B, V3, 6L6GC (1 = Gitter erreicht 0 V), Leistung (W an 8 Ω)
   int osActive = 0;   // Überabtastung, mit der der Kern gerade rechnet (Umschalten dauert einen Augenblick)
-  bool ground = false;   // Polaritätsschalter: nur Anzeige
+  int psuActive = 0;   // Netzteil, mit dem der Kern gerade rechnet (Umschalten dauert einen Augenblick)
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;
   std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0; bool curveStale = false;
   ~Gui() { if (img) cairo_surface_destroy(img); if (base) cairo_surface_destroy(base); }
@@ -103,8 +104,8 @@ struct Gui {
   void knobText(int i, double v, char *buf, size_t n) const {
     if (i == 0 || i == 3) std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, log)", KNAME[i], v, logTaper(v / 10) * 100);
     else std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, linear)", KNAME[i], v, v * 10); }
-  // Schalter auf der Frontplatte: Hebel oben = obere Beschriftung (ON, GROUND, ON)
-  bool swUp(int k, const double *v) const { return k == 0 ? v[P_STBY] < 0.5 : k == 1 ? !ground : v[P_PWR] > 0.5; }
+  // Schalter auf der Frontplatte (ab 1.15 nur POWER; STANDBY und GROUND entfernt): Hebel oben = ON
+  bool swUp(int, const double *v) const { return v[P_PWR] > 0.5; }
 #ifndef __APPLE__
   void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
     cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy); }
@@ -133,7 +134,7 @@ struct Gui {
       cairo_save(c); cairo_translate(c, g[0], g[1]); cairo_rotate(c, ang(v[KPARAM[i]])); setrgb(c, 0xf2f2f2); cairo_set_line_width(c, 4.5); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND); cairo_move_to(c, 0, -g[2] * 0.25); cairo_line_to(c, 0, -g[2] * 0.92); cairo_stroke(c); cairo_restore(c);
       if (i == drag || i == hover) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] * 1.08, 0, 2 * PI); cairo_stroke(c); } }
     // Schalterhebel: von der Mutter schräg nach oben bzw. unten
-    for (int k = 0; k < 3; k++) { double x = B15SW[k][0], y = B15SW[k][1], d = swUp(k, v) ? -1 : 1;
+    for (int k = 0; k < B15NSW; k++) { double x = B15SW[k][0], y = B15SW[k][1], d = swUp(k, v) ? -1 : 1;
       cairo_new_path(c); cairo_move_to(c, x - 6, y); cairo_line_to(c, x - 8, y + d * 40); cairo_curve_to(c, x - 8 + 16.0 / 3, y + d * (40 + 16.0 / 3), x + 8 - 16.0 / 3, y + d * (40 + 16.0 / 3), x + 8, y + d * 40); cairo_line_to(c, x + 6, y); cairo_close_path(c);
       setrgb(c, 0xd8dadf); cairo_fill_preserve(c); setrgb(c, 0x4a4d52); cairo_set_line_width(c, 2); cairo_stroke(c);
       if (hover == 20 + k) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, x, y, 26, 0, 2 * PI); cairo_stroke(c); } }
@@ -148,7 +149,8 @@ struct Gui {
     { const char *oo[2] = {"ON", "OFF"}, *ol[3] = {"1x", "2x", "4x"};
       tsw::toggle(c, SW_X[0], SW_Y, 2, spk ? 0 : 1, "SPEAKER", oo, "CTS 15\", sealed");
       tsw::toggle(c, SW_X[1], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
-      const char *mh[2] = {"60 Hz", "50 Hz"}; tsw::toggle(c, SW_X[2], SW_Y, 2, v[P_MAINS] > 0.5 ? 1 : 0, "MAINS", mh, "US / export"); }
+      const char *mh[3] = {"DC", "60 Hz", "50 Hz"}; int pp = psuPos(v);
+      tsw::toggle(c, SW_X[2], SW_Y, 3, pp, "SUPPLY", mh, (pp > 0) != (psuActive > 0) ? "switching ..." : pp == 0 ? "DC, no hum" : "mains, 5AR4"); }
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht 0 V, Strich), Leistung an 8 Ω (Strich = 30 W)
     { const char *tn[5] = {jack == 2 ? "V2A" : "V1A", jack == 2 ? "V2B" : "V1B", "V3 phase inv.", "6L6GC grid", "power"};
       double lx = 390, bx = 480, bw = 260, bh = 15, y0 = 40, dy = 21; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 32, 13, true);
@@ -163,7 +165,7 @@ struct Gui {
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, false); }   // MISMATCH: Ruhestrom-Unterschied der 6L6GC
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
-    { char kb[256]; int kn = 0; const int ks[] = {P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_SPK};
+    { char kb[256]; int kn = 0; const int ks[] = {P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_SPK, P_PSU};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }
@@ -176,7 +178,7 @@ struct Gui {
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[112]; double ax, ay;
       if (i < 6) { const double *g = B15KNOB[i]; ax = g[0] * s; ay = (g[1] - g[2] * 1.12) * s; knobText(i, v[KPARAM[i]], buf, sizeof buf); }
       else if (i >= 20) { int k = i - 20; ax = B15SW[k][0] * s; ay = (B15SW[k][1] - 60) * s;
-        std::snprintf(buf, sizeof buf, "%s", k == 0 ? (v[P_STBY] > 0.5 ? "STANDBY: heaters on, no high voltage" : "STANDBY switch: ON (playing)") : k == 1 ? "GROUND SWITCH: polarity of the mains cap, no effect on sound" : (v[P_PWR] > 0.5 ? "POWER: ON" : "POWER: OFF")); }
+        std::snprintf(buf, sizeof buf, "%s", v[P_PWR] > 0.5 ? "POWER: ON" : "POWER: OFF (muted)"); }
       else { ax = KN_X[i - 9] * u; ay = FH * s + (KN_Y - 30) * u; if (i == 11) std::snprintf(buf, sizeof buf, "6L6GC MISMATCH %s (idle current difference)", vt[2]); else std::snprintf(buf, sizeof buf, "%s", vt[i - 9]); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }
@@ -184,10 +186,12 @@ struct Gui {
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < 6; i++) { double dx = x - B15KNOB[i][0], dy = y - B15KNOB[i][1]; if (dx*dx + dy*dy <= B15KNOB[i][2] * B15KNOB[i][2] * 1.69) return i; }
     double lx, ly; toLower(px, py, lx, ly); for (int i = 0; i < 3; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 3; i++) { const double *J = B15JACK[i]; double dx = x - J[0], dy = y - J[1]; if (dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14)) return i; } return -1; }
-  int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < 3; k++) if (std::fabs(x - B15SW[k][0]) <= 32 && std::fabs(y - B15SW[k][1]) <= 52) return k; return -1; }
+  int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < B15NSW; k++) if (std::fabs(x - B15SW[k][0]) <= 32 && std::fabs(y - B15SW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 3; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
-  void moveSwitch(int p, int dir) { if (p == P_OS) { int t = (int)std::lround(getP(P_OS)); setP(P_OS, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else if (p == P_MAINS) setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // MAINS: oben = 60 Hz
-  void togglePanel(int k) { if (k == 0) setP(P_STBY, getP(P_STBY) > 0.5 ? 0 : 1); else if (k == 1) ground = !ground; else setP(P_PWR, getP(P_PWR) > 0.5 ? 0 : 1); }
+  void setPsuPos(int pos) { pos = std::max(0, std::min(2, pos)); if (pos > 0) setP(P_MAINS, pos == 2 ? 1 : 0); setP(P_PSU, pos > 0 ? 1 : 0); }   // DC / voll 60 Hz / voll 50 Hz
+  void moveSwitch(int p, int dir) { if (p == P_PSU) { double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i); int t = psuPos(v); setPsuPos(dir == 0 ? (t + 1) % 3 : t + dir); return; }
+    if (p == P_OS) { int t = (int)std::lround(getP(P_OS)); setP(P_OS, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else if (p == P_MAINS) setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // MAINS: oben = 60 Hz
+  void togglePanel(int) { setP(P_PWR, getP(P_PWR) > 0.5 ? 0 : 1); }   // einziger Frontplattenschalter: POWER
   int knobParam(int i) const { return i < 6 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
   double knobVal(int i) const { if (i < 6) return getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }
   void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 6) setP(KPARAM[i], std::round(u * 10) / 10); else if (i == 9) setP(P_VIN, std::round(std::pow(1000, u / 10))); else if (i == 11) setP(P_MIS, std::round(u * 10) / 10); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
@@ -211,7 +215,7 @@ struct Gui {
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 8 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_JACK, JACKVAL[j]); return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS ? (half == 0 ? -1 : 1) : 0); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_PSU ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
       case 1: {
         if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }
@@ -225,7 +229,7 @@ struct Gui {
   std::string lastSig;
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
     for (int i = 0; i < 5; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + std::min(std::max(meter[i], 0.0), 999.0)) * 60));   /* nur sichtbare Änderungen neu zeichnen */
-    sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d|%d", meterOn ? 1 : 0, osActive, ground ? 1 : 0, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
+    sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d|%d", meterOn ? 1 : 0, osActive, psuActive, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
   void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }

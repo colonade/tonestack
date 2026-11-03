@@ -8,9 +8,10 @@
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
     setTarget(p) { if (!p) return; const s = p.s || {}, t = this.f64(this.x.bf_target_buffer(), 16), num = (v, d) => Number.isFinite(+v) ? +v : d;
       [s.vol1, s.treb1, s.bass1, s.vol2, s.treb2, s.bass2].forEach((v, i) => t[i] = Math.min(1, Math.max(0, num(v, 0.5))));
-      t[6] = num(p.jack, 0); t[7] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[8] = p.spk ? 1 : 0; t[9] = p.standby ? 1 : 0; t[10] = p.power === false ? 0 : 1; t[11] = Math.min(0.1, Math.max(0, num(p.mis, 0))); t[12] = p.mains === 50 ? 1 : 0;
+      t[6] = num(p.jack, 0); t[7] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[8] = p.spk ? 1 : 0; t[9] = 0; t[10] = p.power === false ? 0 : 1; t[11] = Math.min(0.1, Math.max(0, num(p.mis, 0))); t[12] = p.mains === 50 ? 1 : 0; t[13] = p.psu ? 1 : 0;
       const os = [1, 2, 4].includes(p.os) ? p.os : 1;
-      if (!this.ready || os !== this.os) { this.x.bf_init(this.fs, os); this.os = os; }   // Neuaufbau mit Einschwingen des Netzteils (etwa 1 s Rechenzeit)
+      const psu = p.psu ? 1 : 0;
+      if (!this.ready || os !== this.os || psu !== this.psu) { this.x.bf_init(this.fs, os); this.os = os; this.psu = psu; }   // Neuaufbau mit Einschwingen des Netzteils (etwa 1 s Rechenzeit)
       this.x.bf_set_target(); this.ready = true; }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.bf_buffer(), n); b.set(buf.subarray(0, n)); this.x.bf_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.bf_buffer(), n)); }
     takePeaks() { this.x.bf_take_peaks(); return Array.from(this.f64(this.x.bf_peaks_buffer(), 6)); }

@@ -1,4 +1,4 @@
-// Prüfstand B-15NF-Kern: Arbeitspunkte gegen Technical Data, Rechenzeit, Frequenzgang, Ausgangsleistung
+// Prüfstand B-15NF-Kern: Arbeitspunkte gegen Technical Data, Rechenzeit, Frequenzgang, Ausgangsleistung   b15test [fs] [Netzteil 0/1]
 #include "b15_core.hpp"
 #include <chrono>
 #include <cstdio>
@@ -7,6 +7,7 @@ using namespace b15;
 static double v_mains(Core &c) { return c.v.mains_hz * 2; }
 static void dc(Core &c) {
   std::vector<double> u = {0, std::sqrt(2.0) * c.v.hv_rms * std::sin(c.t), 0, 0}; u[2] = -u[1]; u[3] = u[1];
+  if (c.v.psu == 0) u = {0, c.v.dc_v, c.v.bias_v, 0};   // einfaches Netzteil: Gleichspannungen
   auto v = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip);
   auto V = [&](const char *n) { return v[c.net.idx.at(n)]; };
   printf("Knoten        Rechnung  Technical Data\n");
@@ -21,7 +22,8 @@ static void dc(Core &c) {
   printf("Anodenstrom V5 %.1f mA, V4 %.1f mA (über den Wicklungswiderstand)\n", ia5 * 1e3, ia4 * 1e3);
 }
 int main(int argc, char **argv) {
-  double fs = argc > 1 ? atof(argv[1]) : 96000; Parts p; Setting s; Core c;
+  double fs = argc > 1 ? atof(argv[1]) : 96000; Parts p; p.psu = argc > 2 ? atoi(argv[2]) : 0; Setting s; Core c;   // b15test [fs] [Netzteil 0 einfach, 1 voll]
+  printf("Netzteil: %s\n", p.psu ? "vollständig" : "einfach (Gleichspannung)");
   auto t0 = std::chrono::steady_clock::now(); c.init(fs, p, s);
   printf("Knoten %d, Zustände %d, Tore %d\n", c.run.s.nn, c.run.s.nh, c.run.s.m);
   c.settle(1.0); c.run.fails = 0; long its = 0; auto ta = std::chrono::steady_clock::now(); { double y[O_NO]; for (int i = 0; i < 48000; i++) { c.step(0, y); its += c.run.lastIt; } } printf("Newton-Schritte im Mittel %.2f, %.2f µs je Abtastwert\n", its / 48000.0, std::chrono::duration<double>(std::chrono::steady_clock::now() - ta).count() / 48000 * 1e6);

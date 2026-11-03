@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.14
+Version 1.15
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -54,21 +54,23 @@ What it is
 
 Parameters
   Input jack (Bass / Guitar on channel 1, Inst. on channel 2), Volume 1,
-  Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Standby, Power,
-  Speaker, Instrument level, Oversampling (1x, 2x, 4x), Output level,
-  Power tube mismatch (0-10 %), Mains frequency (60 Hz US original / 50 Hz
-  export).
+  Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Power, Speaker,
+  Instrument level, Oversampling (1x, 2x, 4x), Output level, Power tube
+  mismatch (0-10 %), Power supply (simple / full), Mains frequency (full
+  power supply only: 60 Hz US original / 50 Hz export). Standby was
+  removed in 1.15 (the parameter is still there for old projects, hidden
+  and without effect).
   Knob 10 = clockwise end = boost (treble, bass) / full volume.
-  Defaults: Bass jack, all knobs 5, standby off, power on, speaker off, 1x,
-  tube mismatch 8 %, mains 60 Hz.
+  Defaults: Bass jack, all knobs 5, power on, speaker off, 1x, tube
+  mismatch 8 %, simple power supply. Projects saved before 1.15 load with
+  the full power supply, so they sound as before.
 
 User interface
   Front panel drawn after photos of the original (no photo, no logo):
   knobs to turn (drag vertically, mouse wheel, double-click = 5), click a
-  jack to plug in there, click the STANDBY and POWER switches. The GROUND
-  switch (polarity of the mains capacitor) only moves - it has no effect on
-  the sound. Below the panel the model strip (not on the amp): SPEAKER,
-  OVERSAMPLING, MAINS (60/50 Hz), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
+  jack to plug in there, click the POWER switch (STANDBY and GROUND were
+  removed in 1.15). Below the panel the model strip (not on the amp):
+  SPEAKER, OVERSAMPLING, SUPPLY (DC / 60 Hz / 50 Hz, see below), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
   inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
   0 V, marked - and the output power into 8 ohm, mark = 30 W), INPUT
   (instrument level), OUTPUT and TUBE MISMATCH (idle current difference of the
@@ -83,10 +85,19 @@ Levels
   with SPEAKER on, equal at 1 kHz), 24 V peak = 0 dBFS. The amp clips softly
   above about 20 V peak.
 
-Standby and power
-  STANDBY removes the high voltage as on the amp: the filter capacitors
-  discharge through the circuit and the sound dies away over a second or
-  two. POWER off mutes the output (ramp of 20 ms).
+Power supply and power
+  SUPPLY DC (default since 1.15): the high voltage comes from a DC source
+  behind an internal resistance and the 5AR4 rectifier tube, the bias from
+  a DC source behind the bias divider's resistance. Fitted to the full
+  model: 424 V at idle and 342 V on average at full drive (sag), bias
+  -49.6 V; operating points, gain, frequency response and output power
+  agree within 0.1 dB. No hum, about 20 % less CPU.
+  SUPPLY 60 Hz / 50 Hz: the full power supply - mains transformer, 5AR4 on
+  the AC voltage, filter capacitors - with hum (about 80 dB below full
+  output) and the sag following the mains cycle. Switching between DC and
+  the full supply prepares a new engine in the background like the
+  oversampling switch.
+  POWER off mutes the output (ramp of 20 ms).
 
 Speaker
   SPEAKER adds the 15" speaker of the B-15 in its closed box (estimated
@@ -103,11 +114,27 @@ Oversampling and latency
   setting.
 
 CPU
-  About 25-45 % of one core at 48 kHz and 1x on a typical desktop (the whole
-  amp including the power supply is solved every sample); stereo with
+  About 25-45 % of one core at 48 kHz and 1x on a typical desktop with the
+  full power supply (measured on an Apple M1: about 28 %), about a fifth
+  less with the simple one (the whole amp is solved every sample); stereo with
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.15
+  - Power supply selectable: simple (DC behind internal resistance and
+    5AR4, the new default; no hum, about 20 % less CPU, measured: 17 % fewer
+    instructions, 1.7 instead of 3.1 Newton steps per sample at idle) or
+    full (mains transformer, rectifier on the AC voltage, hum; unchanged,
+    sample-identical to 1.14). The simple one is fitted to the full one at
+    idle and at full drive; operating points, gain, frequency response and
+    output power agree within 0.1 dB.
+  - STANDBY and the GROUND switch removed (panel and parameters; the
+    Standby parameter stays hidden for old projects and has no effect).
+  - Projects from before 1.15 load with the full power supply.
+  - Tried and not adopted: own exp/log routines for the tube formulas. With
+    the same accuracy they were slower than the system's (24.6 vs 18.7 ns),
+    with less accuracy only as fast.
 
 1.14
   - STANDBY with a strong input signal: in some states, single blocks took up

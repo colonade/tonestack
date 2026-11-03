@@ -138,6 +138,9 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double ot_cpp = 500e-12, ot_rc = 150e3;   // geschätzt: Wicklungskapazität der Primärseite (Anode–Anode) und Eisenverluste; dämpfen das Umschalten der Endröhren wie im echten Übertrager
   // Netztrafo PT-108: 750 V Mittelanzapfung, 160 mA; Innenwiderstand je Hälfte geschätzt (an 430 V im Ruhezustand angepasst)
   double hv_rms = 375, hv_r = 380, mains_hz = 60, mains_v = 120, mt_rp = 0.3, mt_lm = 1.5, mt_k = 0.998, mt_kh = 0.9995;   // ab 1.6 Trafo-Modell (Streuung, Lm geschätzt)
+  // Netzteil (ab 1.15): psu 0 = einfach (Gleichspannung hinter Innenwiderstand und 5AR4, Vorspannung ebenso; kein Brumm, etwa 20 % weniger Rechenzeit),
+  // 1 = vollständig (Netztrafo, 5AR4 an der Wechselspannung, Brumm, Durchhängen). Werte des einfachen an das vollständige angepasst (Ruhe und Volllast, siehe docs)
+  int psu = 0; double dc_v = 482.14, dc_r = 846.3, bias_v = -87.408, bias_rs = 35.9e3;   // angepasst: B1 Ruhe 424,1 V, Volllast 341,8 V (im Mittel), BIAS Ruhe −49,56 V, Volllast −50,3 V (voll: −50,5 V)
   // Lautsprecher CTS 15" 8 Ω im geschlossenen Portaflex-Gehäuse: alles geschätzt
   double spk_r2 = 20;   // geschätzt: Wirbelstromverluste der Schwingspule (20 Ω parallel zu Le, Impedanz bei 10 kHz etwa 25 Ω statt 64 Ω)
   double spk_re = 6.3, spk_le = 1.0e-3, spk_fs = 40, spk_qms = 5, spk_qes = 0.55, spk_vas = 280, spk_vb = 85;
@@ -205,6 +208,12 @@ inline Built build(const Parts &v, const Setting &s) {
   // Netztrafo PT-108 (ab 1.6): Primärwicklung an der Netzspannung (Eingang 1), Hochspannung 2 × 375 V mit Mittelanzapfung; Streuung, Haupt-
   // induktivität und Widerstände geschätzt. STANDBY trennt die Mittelanzapfung von Masse (Schalter im Netz, 100 MΩ offen); die Vorspannung kommt
   // weiter über 100 k vom Wicklungsende, wie im Plan.
+  if (v.psu == 0) {   // einfach: Gleichspannung hinter Innenwiderstand und Gleichrichterröhre (Kennlinie wie 5AR4), Vorspannung hinter dem Teiler-Innenwiderstand und 10D6
+    o.src("hvdc", v.dc_r, 1); { int p = o.port("hvdc", "B1"); dev.push_back({K_RECT, p, 1, nullptr}); }
+    o.c("B1", "0", v.c_b1); o.r("B1", "B2", v.r_b12); o.c("B2", "0", v.c_b2); o.r("B2", "B3", v.r_b23); o.c("B3", "0", v.c_b3); o.r("B2", "B4", v.r_b24); o.c("B4", "0", v.c_b4);
+    o.src("br", v.bias_rs, 2); { int p = o.port("BIAS", "br"); dev.push_back({K_SI, p, 1, nullptr}); }
+    o.r("BIAS", "0", v.bias_r3); o.c("BIAS", "0", v.bias_c);
+    mark(); o.out(s.tap16 ? "s16" : "s8"); o.out("sm"); o.out("B1"); o.out("BIAS"); return B; }
   o.src("mp", v.mt_rp, 1);
   { double n = v.hv_rms / v.mains_v; dk::Mat L(3, 3); double nn[3] = {1, n, n};
     for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) { double k = i == j ? 1 : (i == 0 || j == 0) ? v.mt_k : v.mt_kh; L(i, j) = k * nn[i] * nn[j] * v.mt_lm; }
@@ -227,14 +236,14 @@ struct Core {
   void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(dk::compile(net, fs)); }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); apply(s); w = 2 * PI * v.mains_hz / fs; t = 0;
     // Startwerte: Kondensatoren auf die Spannungen der Spannungstabelle (Technical Data), damit das Netzteil nicht minutenlang einschwingen muss
-    std::map<std::string, double> g = {{"B1", 430}, {"B2", 425}, {"B3", 345}, {"B4", 350}, {"BIAS", -50}, {"br", -60}, {"p1a", 165}, {"p2a", 165}, {"p1b", 175}, {"p2b", 175},
+    std::map<std::string, double> g = {{"B1", 430}, {"hvdc", 445}, {"B2", 425}, {"B3", 345}, {"B4", 350}, {"BIAS", -50}, {"br", -60}, {"p1a", 165}, {"p2a", 165}, {"p1b", 175}, {"p2b", 175},
       {"k1a", 2.2}, {"k2a", 2.2}, {"k1b", 2}, {"k2b", 2}, {"pA", 235}, {"pB", 225}, {"kA", 2.4}, {"N", 2.2}, {"J", 230}, {"c5", -50}, {"c4", -50}, {"g5", -50}, {"g4", -50}};
     std::vector<double> V(net.nn + 1, 0.0); for (auto &kv : net.idx) { auto it = g.find(kv.first); if (it != g.end()) V[kv.second] = it->second; }
     for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V[net.C[k].a] - V[net.C[k].b]);
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; }
   // Abtastwert: x = Eingangsspannung (V); y[O_NO] Ausgänge
-  void step(double x, double *y) { double u[2] = {x, std::sqrt(2.0) * v.mains_v * std::sin(t)}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }
+  void step(double x, double *y) { double u[3] = {x, v.psu ? std::sqrt(2.0) * v.mains_v * std::sin(t) : v.dc_v, v.bias_v}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }   // u[2] nur beim einfachen Netzteil
   void setMains(double hz) { v.mains_hz = hz; w = 2 * PI * hz / fs; }
   void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); } }   // cancel: Abbruch (Hintergrund-Faden)
   // Kleinsignal-Frequenzgang Eingang → Lautsprecherklemme im aktuellen Arbeitspunkt

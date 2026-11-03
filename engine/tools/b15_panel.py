@@ -19,7 +19,7 @@ KNOBS = [('vol1', 505, 'VOLUME 1'), ('treb1', 655, 'TREBLE 1'), ('bass1', 805, '
 JY = 128; JR = 25
 JACKS = [('guitar', 165, 'GUITAR'), ('bass', 265, 'BASS'), ('inst', 370, 'INST.')]
 SY = 122
-SWITCHES = [('standby', 1430, 'ON', 'STANDBY'), ('ground', 1530, 'GROUND', 'SWITCH'), ('power', 1630, 'ON', 'OFF')]
+SWITCHES = [('power', 1530, 'ON', 'OFF')]   # ab 1.15 nur noch POWER (STANDBY und GROUND entfernt)
 
 def font(px, f=FB): return ImageFont.truetype(f, px * S)
 def main():
@@ -85,6 +85,6 @@ def main():
         f.write('static const int B15W = %d, B15H = %d;\n' % (W, H))
         f.write('static const double B15KNOB[6][3] = {%s};\n' % ', '.join('{%d, %d, %d}' % (x, KY, KR) for _, x, _ in KNOBS))
         f.write('static const double B15JACK[3][3] = {%s};\n' % ', '.join('{%d, %d, %d}' % (x, JY, JR) for _, x, _ in JACKS))
-        f.write('static const double B15SW[3][2] = {%s};\n' % ', '.join('{%d, %d}' % (x, SY) for _, x, _, _ in SWITCHES))
+        f.write('static const int B15NSW = %d;\nstatic const double B15SW[%d][2] = {%s};\n' % (len(SWITCHES), len(SWITCHES), ', '.join('{%d, %d}' % (x, SY) for _, x, _, _ in SWITCHES)))
     print('b15panel.jpg', len(data), 'Bytes')
 if __name__ == '__main__': main()

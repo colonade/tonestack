@@ -1,6 +1,6 @@
 // GUI-Test (AmpFett B-15NF): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   b15guitest AmpFett_B15NF.clap bild.png
-// Prüft: Buchse Guitar, Treble 1 ziehen, Standby an und wieder aus, Lautsprecher an, Überabtastung 2x (Kernwechsel im Hilfsfaden), Mausrad auf Bass 2.
+// Prüft: Buchse Guitar, Treble 1 ziehen, POWER aus und wieder an, Lautsprecher an, Überabtastung 2x und volles Netzteil 50 Hz (Kernwechsel im Hilfsfaden), Mausrad auf Bass 2.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -52,11 +52,11 @@ int main(int argc, char **argv) {
   auto pv = [&](int id) { double v; params->get_value(p, id, &v); return v; };
   click(kx(165), kx(128)); printf("Buchse Guitar: %g (erwartet 1)\n", pv(0));
   send(ButtonPress, kx(655), kx(112), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(655), kx(112) - i * 8, 0); tick(); } send(ButtonRelease, kx(655), kx(32), 1); tick(); printf("Treble 1: %g (erwartet > 5)\n", pv(2));
-  click(kx(1430), kx(110)); printf("Standby: %g (erwartet 1)\n", pv(7)); audio(40); printf("Ausgang nach 0,2 s Standby: %.3f\n", outPk); click(kx(1430), kx(110)); printf("Standby: %g\n", pv(7));
+  click(kx(1530), kx(110)); printf("Power: %g (erwartet 0)\n", pv(8)); audio(40); printf("Ausgang nach 0,2 s aus: %.3f (erwartet 0)\n", outPk); click(kx(1530), kx(110)); printf("Power: %g (erwartet 1)\n", pv(8));
   click(ux(64), uy(88)); printf("Lautsprecher: %g (erwartet 1)\n", pv(9));
   click(ux(186), uy(70)); click(ux(186), uy(100)); printf("Überabtastung: %g (erwartet 1 = 2x)\n", pv(11));
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
-  send(ButtonPress, ux(1110), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1110), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1110), uy(32), 1); tick(); printf("Mismatch: %g (erwartet > 0)\n", pv(13)); click(ux(300), uy(88)); printf("Netz: %g (erwartet 1 = 50 Hz)\n", pv(14));
+  send(ButtonPress, ux(1110), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1110), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1110), uy(32), 1); tick(); printf("Mismatch: %g (erwartet > 0)\n", pv(13)); click(ux(310), uy(100)); click(ux(310), uy(100)); printf("Netzteil: %g (erwartet 1 = voll), Netz: %g (erwartet 1 = 50 Hz)\n", pv(15), pv(14)); for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
   send(ButtonPress, kx(1265), kx(112), 4); tick(); send(ButtonPress, kx(1265), kx(112), 4); tick(); printf("Bass 2: %g (erwartet 5.4)\n", pv(6));
   send(MotionNotify, kx(1115), kx(112), 0); tick(); usleep(200000); for (int i = 0; i < 6; i++) tick();
   printf("Ausgang Spitze: %.3f\n", outPk);
