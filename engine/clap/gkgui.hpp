@@ -50,7 +50,7 @@ constexpr double KN_Y = 72;
 constexpr int NF = 120;
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
 static const char *REFLABEL = "knobs at 5, switches off";
-inline double logTaper(double x) { const double m = 0.15; if (x <= 0) return 0; if (x >= 1) return 1; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }
+inline double potTaper(double x, int mode) { if (x <= 0) return 0; if (x >= 1) return 1; if (mode == 2) return x; const double m = mode == 1 ? 0.10 : 0.15; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // wie im Kern (ohne dessen Header, für mac/test/render.mm)
 
 #ifdef __APPLE__
 struct Gui : tsmac::Client {
@@ -103,7 +103,7 @@ struct Gui {
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
   static double ang(double v) { return (-150 + 30 * v) * PI / 180; }   // Knopfstellung 0 … 10
   void knobText(int i, double v, char *buf, size_t n) const {
-    if (i == 0) { int tp = std::max(0, std::min(2, (int)std::lround(getP(P_TAPER)))); std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, %s)", KNAME[i], v, gk::potTaper(v / 10, tp) * 100, tp == 2 ? "linear" : tp == 1 ? "log 10 %" : "log 15 %"); }
+    if (i == 0) { int tp = std::max(0, std::min(2, (int)std::lround(getP(P_TAPER)))); std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, %s)", KNAME[i], v, potTaper(v / 10, tp) * 100, tp == 2 ? "linear" : tp == 1 ? "log 10 %" : "log 15 %"); }
     else if (i == 6) { static const double FX[11] = {78, 147, 208, 268, 330, 395, 472, 563, 673, 822, 1029}; int k = (int)std::floor(std::min(9.999, std::max(0.0, v))); double t = v - k;   // Trennfrequenz je Knopfstellung (gerechnet, engine/tests/gktest.cpp)
       std::snprintf(buf, n, "%s  %.1f  (crossover about %.0f Hz)", KNAME[i], v, FX[k] + (FX[k + 1] - FX[k]) * t); }
     else std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, linear)", KNAME[i], v, v * 10); }
