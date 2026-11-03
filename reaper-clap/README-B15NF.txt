@@ -118,7 +118,8 @@ CPU
     output is otherwise sample-identical.
   - Frequency plot: the settled amp for the plot is computed in a background
     thread. Before, opening the window the first time at 2x or 4x (or after a
-    sample-rate change) froze the host's interface for 0.4 to 2 seconds.
+    sample-rate change) froze the host's interface, measured on an M1 about a
+    third of a second at 48 kHz and correspondingly longer at higher rates.
   - Background work (oversampling switch, plot) stops at once when the plugin
     is deactivated or removed, instead of being waited for.
   - A host pause while the plugin sleeps (silent input) no longer starts it
@@ -126,9 +127,9 @@ CPU
   - Removed without closing the window first: the window timer is now
     unregistered (Linux).
   - Mac (Audio Unit, VST3): the window draws the photo and printing once per
-    size in screen pixels and keeps its text layouts; measured on an M1 about
-    5 ms per frame and 3 to 7 % of one core with the window open while
-    playing (Rosetta about twice that). The window's class name is now unique
+    size in screen pixels and keeps its text layouts; measured on an M1: 4 to
+    6 ms per frame, 1 to 7 % of one core with the window open while playing
+    (under Rosetta up to about 10 %). The window's class name is now unique
     per loaded file: before, the VST3 and the Audio Unit (or an old and a new
     copy) used the same name, and when a host loaded both, the window could
     run code from the other file and crash once that file was unloaded.

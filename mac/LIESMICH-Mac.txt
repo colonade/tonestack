@@ -133,7 +133,13 @@ Laney mit Röhrenverzerrung und Endstufe bei 2-facher Überabtastung etwa
 ein halber Prozessorkern, AmpFett etwa ein Viertel bis ein Drittel; 4-fach
 entsprechend mehr (8-fach gibt es ab Laney 3.28 nicht mehr). Mehrere Instanzen addieren sich. Ein Plugin auf
 einer Spur läuft in Logic immer auf einem Kern; Logic verteilt nur
-verschiedene Spuren auf verschiedene Kerne.
+verschiedene Spuren auf verschiedene Kerne. Gemessen auf einem M1 (48 kHz,
+Puffer 128, ein Kanal): Laney in der Grundstellung etwa 40 % eines Kerns,
+unter Rosetta etwa 60 %; AmpFett etwa 28 %; Yamaha etwa 5 %. Beim Umschalten
+von DISTORTION, Überabtastung, Röhren oder Kanal rechnet der Laney für etwa
+0,2 s die neue Schaltung mit, das kostet in dieser Zeit rund das Dreifache
+(bis 3.32 bis zum Fünffachen). Das offene Plugin-Fenster kostet 1 bis 7 %
+eines Kerns (unter Rosetta bis etwa 10 %).
 
 Wenn Logic überlastet meldet oder es knackt:
   1. Logic NICHT mit Rosetta starten: Programme → Logic Pro → Informationen

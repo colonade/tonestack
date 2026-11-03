@@ -100,9 +100,9 @@ Frequency response
   - Removed without closing the window first: the window timer is now
     unregistered (Linux).
   - Mac (Audio Unit, VST3): the window draws the photo and printing once per
-    size in screen pixels and keeps its text layouts; measured on an M1 about
-    5 ms per frame and 3 to 7 % of one core with the window open while
-    playing (Rosetta about twice that). The window's class name is now unique
+    size in screen pixels and keeps its text layouts; measured on an M1: 4 to
+    6 ms per frame, 1 to 7 % of one core with the window open while playing
+    (under Rosetta up to about 10 %). The window's class name is now unique
     per loaded file: before, the VST3 and the Audio Unit (or an old and a new
     copy) used the same name, and when a host loaded both, the window could
     run code from the other file and crash once that file was unloaded.
