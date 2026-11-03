@@ -1,0 +1,92 @@
+KLANGREGLER-SIMULATOREN – Installation auf einem Apache-Webserver
+==================================================================
+
+Inhalt
+------
+index.html                     Übersichtsseite mit Links zu allen vier Simulatoren
+yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
+laney-aor50/                   Laney AOR 50 Klangregler-Simulator
+ampfett-b15nf/                 AmpFett B-15NF Simulator, Nachbau des Ampeg B-15NF (ganzer Verstärker; Rechen-Thread b15nf-render.js)
+ampeg-b15nf/                   Weiterleitung auf ampfett-b15nf/ (alter Name)
+gk-800rb/                      GK 800RB Simulator, Nachbau nach dem Service-Manual (Vorstufe, Endstufen; Rechen-Thread gk-render.js)
+assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
+assets/icons/                  App-Symbole für den Startbildschirm
+download/                      DAW-Plugins zum Herunterladen (Inhalt aus dem GitHub-Release, siehe scripts/pack-web.sh), verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, alle vier Verstärker)
+sw.js                          Service Worker für Offline-Betrieb
+.htaccess                      Apache-Einstellungen (versteckte Datei!)
+
+Hochladen
+---------
+1. Den kompletten Ordner "tonestack" in das Webverzeichnis kopieren,
+   z. B. /var/www/html/tonestack  ->  https://example.de/tonestack/
+   Der Ordner kann beliebig umbenannt werden oder direkt im Wurzelverzeichnis
+   liegen; alle Pfade sind relativ.
+2. Beim Upload per FTP darauf achten, dass die versteckte Datei .htaccess
+   mit übertragen wird (im FTP-Programm "versteckte Dateien anzeigen").
+3. Rechte: Ordner 755, Dateien 644. Beispiel auf dem Server:
+     find tonestack -type d -exec chmod 755 {} \;
+     find tonestack -type f -exec chmod 644 {} \;
+
+Apache-Voraussetzungen
+----------------------
+- Apache 2.4.
+- Die .htaccess wird nur gelesen, wenn für das Verzeichnis AllowOverride
+  gesetzt ist (mindestens: AllowOverride FileInfo Indexes Options).
+  Bei Webhostern ist das in der Regel so.
+- Empfohlene Module: mod_mime, mod_headers, mod_expires, mod_deflate.
+  Fehlt ein Modul, wird der Block ignoriert; die Seiten funktionieren trotzdem.
+  Auf eigenen Servern aktivieren (Debian/Ubuntu):
+     a2enmod headers expires deflate && systemctl reload apache2
+- Alternativ zur .htaccess können die Einstellungen in einen
+  <Directory>-Block der VirtualHost-Konfiguration übernommen werden.
+
+Anhören eigener Audiodateien (alle Simulatoren)
+------------------------------------------------
+In allen Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
+berechnete Schaltung abspielen. Die Datei wird nur im Browser verarbeitet,
+nichts wird zum Server übertragen. Die Rechnung läuft im eingebetteten WebAssembly-Kern; Ausweichkerne und
+Audio-Thread stehen in yamaha-b100ii/b100ii-worklet.js, laney-aor50/laney-worklet.js
+bzw. ampfett-b15nf/b15nf-worklet.js und b15nf-render.js, gk-800rb/gk-worklet.js und gk-render.js (müssen mit hochgeladen werden).
+Laney: Standardmäßig ist die geschätzte Röhrenverzerrung eingeschaltet
+(Röhrenmodelle nach N. Koren mit Gitterstrom, Röhrentyp je Fassung wählbar,
+Grundeinstellung 3 x 5751; nicht mit einem echten AOR 50 verglichen); ohne
+sie werden die Röhrenstufen linear gerechnet, bei gleichem Pegel für kleine
+Signale. Mit dem eingebetteten WebAssembly-Kern läuft sie 2-fach
+überabgetastet (Standard, wählbar 1/2/4/8-fach, je nach gemessener Leistung
+des Geräts); der JavaScript-Ausweichkern rechnet mit 12AX7 und wählt 2- oder
+1-fach. Dazu Umbauideen (Sanft, Später), Endstufe mit Presence, Lautsprecher,
+Bypass (Taste B), Download der bearbeiteten Datei und Voreinstellungen.
+Über https läuft sie in einem eigenen Audio-Thread (AudioWorklet). Über reines
+http erlauben Browser das nicht; dann schaltet die Seite automatisch auf einen
+Ausweichbetrieb um, der genauso rechnet, aber beim Drehen etwas träger reagiert.
+
+HTTPS
+-----
+Die Seiten funktionieren auch über http. Die Offline-Funktion und
+"Zum Startbildschirm hinzufügen" als eigenständige App gibt es aber nur über
+https (z. B. kostenloses Zertifikat mit Let's Encrypt / certbot).
+
+Auf dem Handy als App
+---------------------
+Seite im Browser öffnen, dann im Browsermenü "Zum Startbildschirm hinzufügen"
+bzw. "App installieren". Jeder Simulator erscheint als eigenes Symbol.
+
+Aktualisieren
+-------------
+Nach dem Austausch der Seiten in sw.js die Zeile VERSION ändern
+(z. B. Datum hochzählen). Dann holen sich installierte Handys die neue Fassung.
+
+Datenschutz
+-----------
+Die Seiten laden nichts von fremden Servern, setzen keine Cookies und
+senden keine Daten. Reglerstellungen und Bauteilwerte werden nur im
+Browser des Besuchers gespeichert (localStorage).
+Hinweis: Öffentliche Websites in Deutschland können impressumspflichtig sein;
+das hängt vom Einzelfall ab.
+
+Prüfen nach dem Hochladen
+-------------------------
+  curl -I https://example.de/tonestack/
+  -> HTTP/1.1 200, Content-Security-Policy und Cache-Control: no-cache sichtbar
+  curl -I https://example.de/tonestack/assets/fonts/archivo-latin.woff2
+  -> Content-Type: font/woff2

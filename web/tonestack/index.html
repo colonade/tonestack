@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB</title>
+<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF und GK 800RB, berechnet aus den Schaltplänen.">
+<meta name="theme-color" content="#EEF1EC">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/yamaha-b100ii-192.png">
+<link rel="preload" href="assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face{font-family:"Archivo";src:url("assets/fonts/archivo-latin.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}</style>
+<style>
+:root{--paper:#EEF1EC;--paper2:#E3E8E2;--ink:#1F2B36;--ink2:#51606B;--line:#C3CBC6;--f:"Archivo","Helvetica Neue",Arial,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141917;--paper2:#1A201D;--ink:#D8E1DC;--ink2:#95A39C;--line:#33403A}}
+:root[data-theme="dark"]{--paper:#141917;--paper2:#1A201D;--ink:#D8E1DC;--ink2:#95A39C;--line:#33403A}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f);line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding:40px 20px}
+h1{font-stretch:78%;font-size:clamp(1.8rem,5vw,2.6rem);line-height:1.05;margin:0 0 10px}
+p{color:var(--ink2);max-width:62ch;margin:0 0 26px}
+.card{display:flex;gap:18px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;color:inherit;text-decoration:none}
+.card:hover{background:var(--paper2)}
+.card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.card img{flex:none;border-radius:14px}
+.card b{display:block;font-stretch:85%;font-size:1.25rem}
+.card span span{color:var(--ink2);font-size:.95rem}
+.card.dl{border-color:#1D5A94;background:linear-gradient(90deg,rgba(29,90,148,.08),transparent 60%)}
+.card.dl small{display:block;color:var(--ink2);font-size:.85rem;margin-top:6px}
+.card.dl:hover{background:linear-gradient(90deg,rgba(29,90,148,.08),transparent 60%)}
+.dls{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.dlb{display:inline-block;padding:8px 14px;border-radius:7px;background:#1D5A94;color:#fff!important;font-weight:600;text-decoration:none;font-size:.95rem}
+.dlb:hover{background:#174a7a}
+.dlb:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+h2{font-stretch:80%;font-size:1.15rem;margin:30px 0 10px}
+footer{margin-top:30px;border-top:1px solid var(--line);padding-top:12px;font-size:.82rem;color:var(--ink2)}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Klangregler-Simulatoren</h1>
+  <p>Klangregler und ganze Verstärker zum Durchdrehen, mit Bauteilwerten aus den Original-Schaltplänen und exakter Schaltungsberechnung. Auf dem Handy lassen sich die Seiten zum Startbildschirm hinzufügen und laufen dann auch offline.</p>
+
+  <a class="card" href="yamaha-b100ii/">
+    <img src="assets/icons/yamaha-b100ii-192.png" alt="" width="72" height="72">
+    <span><b>Yamaha B100-II Klangregler</b><span>Treble, Middle, Bass des Transistor-Bass-Combos, geprüft gegen die Werkskurve, mit Anhören eigener Audiodateien.</span></span>
+  </a>
+  <a class="card" href="laney-aor50/">
+    <img src="assets/icons/laney-aor50-192.png" alt="" width="72" height="72">
+    <span><b>Laney AOR 50 Vorverstärker</b><span>Kompletter Röhren-Vorverstärker mit beiden Kanälen, Boosts, Umbau-Kondensatoren und Anhören eigener Audiodateien, optional mit geschätzter Röhrenverzerrung.</span></span>
+  </a>
+  <a class="card" href="ampfett-b15nf/">
+    <img src="assets/icons/ampfett-b15nf-192.png" alt="" width="72" height="72">
+    <span><b>AmpFett B-15NF Portaflex</b><span>Der ganze Röhrenverstärker nach Werksschaltplan (1966): beide Kanäle, Phasenumkehr, Endstufe mit 6L6GC, Netzteil und Lautsprecher, geprüft gegen die Spannungstabelle des Werks.</span></span>
+  </a>
+  <a class="card" href="gk-800rb/">
+    <img src="assets/icons/gk-800rb-192.png" alt="" width="72" height="72">
+    <span><b>GK 800RB</b><span>Der Transistor-Bassverstärker nach dem Service-Manual (1991): Vorstufe mit −10 dB, LO CUT, MID CONTOUR, HI BOOST, vier Klangreglern und der BOOST-Stufe mit J113-FET, Bi-Amp-Weiche, beide Endstufen (300 W / 100 W) und Lautsprecher, geprüft gegen die Prüfpegel und Oszillogramme des Manuals.</span></span>
+  </a>
+  <h2>Für die DAW</h2>
+  <div class="card dl">
+    <span><b>Laney AOR 50 Preamp als DAW-Plugin</b><span>Derselbe Rechenkern wie der Simulator für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl, Lautsprecher, Umbauideen „Sanft" und „Später".</span>
+      <span class="dls"><a class="dlb" href="download/Laney_AOR50_CLAP-3.34.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Laney_AOR50_VST3-3.34.zip" download>VST3 herunterladen</a></span>
+      <small>Version 3.34 · je ZIP mit Anleitung (README.txt) · CLAP: <code>Laney_AOR50.clap</code> nach <code>~/.clap</code> · VST3: den Ordner <code>Laney_AOR50.vst3</code> nach <code>~/.vst3</code> · danach REAPER neu starten. Beide Formate klingen gleich; ein Format genügt. Braucht glibc 2.38 oder neuer (Ubuntu 24.04, Debian 13 oder vergleichbar).</small></span>
+  </div>
+  <div class="card dl">
+    <span><b>Yamaha B100-II Bass Amp als DAW-Plugin</b><span>Das PA-Board des Transistor-Combos (HIGH/LOW-Buchse, Volume, Treble, Middle, Bass, 5-Band-Equalizer), optional mit Endstufe (MA-Board, Begrenzung) und 15"-Lautsprecher; Frontplatte zum Drehen, Stereo, Frequenzgang.</span>
+      <span class="dls"><a class="dlb" href="download/Yamaha_B100II_CLAP-1.16.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Yamaha_B100II_VST3-1.16.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.16 · Installation wie beim Laney (<code>Yamaha_B100II.clap</code> bzw. Ordner <code>Yamaha_B100II.vst3</code>). Gleiche Systemvoraussetzungen.</small></span>
+  </div>
+  <div class="card dl">
+    <span><b>AmpFett B-15NF Bass Amp als DAW-Plugin</b><span>Der ganze Röhrenverstärker nach Werksschaltplan wie auf der Web-Seite: beide Kanäle mit den drei Eingangsbuchsen, Phasenumkehr mit Gegenkopplung, Endstufe mit 6L6GC, Netzteil mit 5AR4, Standby, optional Lautsprecher; Frontplatte zum Drehen, Aussteuerungsanzeige, Frequenzgang, Stereo, bis zu 4-fache Überabtastung.</span>
+      <span class="dls"><a class="dlb" href="download/AmpFett_B15NF_CLAP-1.16.zip" download>CLAP herunterladen</a><a class="dlb" href="download/AmpFett_B15NF_VST3-1.16.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.16 · Installation wie beim Laney (<code>AmpFett_B15NF.clap</code> bzw. Ordner <code>AmpFett_B15NF.vst3</code>). Gleiche Systemvoraussetzungen. Rechnet die ganze Schaltung samt Netzteil in jedem Abtastwert: je nach Rechner ein Viertel bis die Hälfte eines Prozessorkerns bei 48 kHz mit vollem Netzteil, mit dem einfachen (Grundstellung ab 1.15, ohne Brummen) etwa ein Fünftel weniger.</small></span>
+  </div>
+  <div class="card dl">
+    <span><b>GK 800RB Bass Amp als DAW-Plugin</b><span>Der Transistor-Bassverstärker nach dem Service-Manual wie auf der Web-Seite: Vorstufe als Schaltung mit allen Schaltern, Klangreglern, BOOST (J113) und Bi-Amp-Weiche, beide Endstufen mit Begrenzung, optional Lautsprecher oder DIRECT OUT; Frontplatte zum Drehen, Aussteuerungsanzeige, Frequenzgang, Stereo, bis zu 4-fache Überabtastung.</span>
+      <span class="dls"><a class="dlb" href="download/GK_800RB_CLAP-1.1.zip" download>CLAP herunterladen</a><a class="dlb" href="download/GK_800RB_VST3-1.1.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.1 · Installation wie beim Laney (<code>GK_800RB.clap</code> bzw. Ordner <code>GK_800RB.vst3</code>). Gleiche Systemvoraussetzungen. Braucht etwa ein Zehntel eines Prozessorkerns bei 48 kHz und 1x, bei 2x (Grundstellung) ein Fünftel.</small></span>
+  </div>
+  <div class="card dl">
+    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF und GK 800RB als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
+      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.34_Yamaha-1.16_B15NF-1.16_GK800RB-1.1.pkg" download>Mac-Installer herunterladen</a></span>
+      <small>Laney 3.34 · Yamaha 1.16 · AmpFett B-15NF 1.16 · GK 800RB 1.1 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+  </div>
+  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett), Transistor- und FET-Verzerrung (GK) bzw. Endstufenbegrenzung (Yamaha, GK); Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
+</main>
+</body>
+</html>

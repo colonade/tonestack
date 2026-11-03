@@ -1,0 +1,2 @@
+# Nur die VST3-Einstiege und clap_entry (sucht der Wrapper zur Laufzeit im eigenen Modul) exportieren; statisch eingebundene libstdc++ bleibt verborgen
+{ global: GetPluginFactory; ModuleEntry; ModuleExit; clap_entry; local: *; };

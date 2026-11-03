@@ -1,0 +1,27 @@
+*.jks
+*.keystore
+SCHLUESSEL-LIESMICH.txt
+engine/build/
+__pycache__/
+node_modules/
+*.bundle
+App-Signaturschluessel.zip
+tonestack-apache.zip
+*.pem
+*.p12
+
+# Bilder der GUI-Tests (engine/tests/guitest)
+gui_*.png
+
+# Binärdateien gehören nicht ins Repo: sie stehen im GitHub-Release (scripts/release.sh, Mac-Bau) und lassen sich aus jedem Commit neu bauen
+dist/
+web/tonestack/download/
+mac/test/out/
+reaper-clap/*.clap
+reaper-vst3/
+*.pkg
+
+# Fremde Schaltplan-Scans (Urheberrecht): nur lokal
+docs/b15nf/*
+!docs/b15nf/SCHALTPLAN.md
+*.PDF
