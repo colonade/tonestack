@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.15
+Version 1.16
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -57,7 +57,8 @@ Parameters
   Treble 1, Bass 1, Volume 2, Treble 2, Bass 2 (0-10), Power, Speaker,
   Instrument level, Oversampling (1x, 2x, 4x), Output level, Power tube
   mismatch (0-10 %), Power supply (simple / full), Mains frequency (full
-  power supply only: 60 Hz US original / 50 Hz export). Standby was
+  power supply only: 60 Hz US original / 50 Hz export), Volume pot taper
+  (log 15 % / log 10 % / linear, see 1.16). Standby was
   removed in 1.15 (the parameter is still there for old projects, hidden
   and without effect).
   Knob 10 = clockwise end = boost (treble, bass) / full volume.
@@ -120,6 +121,13 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.16
+  - New parameter "Volume pot taper" (POT TAPER toggle in the model strip):
+    taper of the two 1 MOhm volume pots: LOG 15 % (as on the amp, default),
+    LOG 10 % or LINEAR. Treble and bass are linear pots on the schematic and
+    stay linear. Old projects load unchanged (log 15 %). Same selector on
+    the web page.
 
 1.15
   - Power supply selectable: simple (DC behind internal resistance and

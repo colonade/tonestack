@@ -6,11 +6,11 @@
   class GKWasm {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.os = 0; this.ready = false; }
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
-    // p = { s: {vol, treb, himid, lomid, bass, boost, freq, hima, loma} 0…1, sw: {pad, locut, contour, hiboost, boostsw, biamp}, vin (V Spitze bei 0 dBFS), spk, power, direct, os }
+    // p = { s: {vol, treb, himid, lomid, bass, boost, freq, hima, loma} 0…1, sw: {pad, locut, contour, hiboost, boostsw, biamp}, vin (V Spitze bei 0 dBFS), spk, power, direct, os, taper (0 log 15 %, 1 log 10 %, 2 linear) }
     setTarget(p) { if (!p) return; const s = p.s || {}, w = p.sw || {}, t = this.f64(this.x.gk_target_buffer(), 24), num = (v, d) => Number.isFinite(+v) ? +v : d;
       [s.vol, s.treb, s.himid, s.lomid, s.bass, s.boost, s.freq, s.hima, s.loma].forEach((v, i) => t[i] = Math.min(1, Math.max(0, num(v, 0.5))));
       t[9] = w.pad ? 1 : 0; t[10] = w.locut ? 1 : 0; t[11] = w.contour ? 1 : 0; t[12] = w.hiboost ? 1 : 0; t[13] = w.boostsw === false ? 0 : 1; t[14] = w.biamp ? 1 : 0;
-      t[15] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[16] = p.spk ? 1 : 0; t[17] = p.power === false ? 0 : 1; t[18] = p.direct ? 1 : 0;
+      t[15] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[16] = p.spk ? 1 : 0; t[17] = p.power === false ? 0 : 1; t[18] = p.direct ? 1 : 0; t[19] = [1, 2].includes(p.taper) ? p.taper : 0;
       const os = [1, 2, 4].includes(p.os) ? p.os : 1;
       if (!this.ready || os !== this.os) { this.x.gk_init(this.fs, os); this.os = os; }   // Neuaufbau mit Einschwingen (etwa 0,1 s Rechenzeit)
       this.x.gk_set_target(); this.ready = true; }

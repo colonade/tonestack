@@ -1,6 +1,6 @@
 // Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.15"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.16"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "yamaha_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -31,7 +31,7 @@ static const char *N_INP[] = {"HIGH", "LOW (-12 dB)"}; static const char *N_ONOF
 static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 1, 0, N_INP, 2}, {"Volume", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0},
   {"EQ 60 Hz", -5, 5, 0, 0, 0}, {"EQ 150 Hz", -5, 5, 0, 0, 0}, {"EQ 320 Hz", -5, 5, 0, 0, 0}, {"EQ 640 Hz", -5, 5, 0, 0, 0}, {"EQ 1250 Hz", -5, 5, 0, 0, 0},
-  {"Pot taper (unused since 1.11, log as original)", 0, 2, 0, N_TAP, 3}, {"Power amp (MA board, clipping at 42 V)", 0, 1, 0, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
+  {"Pot taper (volume, tone)", 0, 2, 0, N_TAP, 3}, {"Power amp (MA board, clipping at 42 V)", 0, 1, 0, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2}, {"Output level (dB)", -36, 24, 0, 0, 0} };
 
 struct Plugin {
@@ -41,7 +41,7 @@ struct Plugin {
   long quiet = 0; std::atomic<bool> sleeping{false};
   std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen
   ygui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagMode; int diagCnt = 0; std::string diagTxt;
-  int taperOf() const { return 0; }   // ab 1.11 fest: A-Potis (Service Manual: A25K, A1K) logarithmisch, 15 % in Mittelstellung; Parameter bleibt für alte Projekte, wirkt nicht
+  int taperOf() const { return std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); }   // Kennlinie der A-Potis (Service Manual: A25K, A1K): 0 log 15 % in Mittelstellung (Original), 1 log 10 %, 2 linear; 1.11–1.15 fest log 15 %
   // Knopfstellungen → Netzgrößen wie setting() der Web-Seite: Potis mit Kennlinie, Volume mit 0,1 % Rest, EQ-Knopf 10 = Anhebung
   YSetting setting(double vol, double t, double m, double b, const double *eqKnob, bool low, bool pwr, bool spk) const {
     YSetting s; int tp = taperOf(); s.t = taper(t / 10, tp); s.b = taper(b / 10, tp); s.m = taper(m / 10, tp); s.vol = std::max(taper(vol / 10, tp), 0.001);
@@ -55,7 +55,7 @@ static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
 static uint32_t par_count(const clap_plugin_t *) { return P_COUNT; }
 static bool par_info(const clap_plugin_t *, uint32_t i, clap_param_info_t *info) {
   if (i >= P_COUNT) return false; const PDef &d = PD[i]; std::memset(info, 0, sizeof *info); info->id = i;
-  info->flags = (i == P_TAPER ? CLAP_PARAM_IS_HIDDEN : CLAP_PARAM_IS_AUTOMATABLE) | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
+  info->flags = CLAP_PARAM_IS_AUTOMATABLE | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
   info->min_value = d.lo; info->max_value = d.hi; info->default_value = d.def; std::snprintf(info->name, sizeof info->name, "%s", d.name); std::snprintf(info->module, sizeof info->module, "%s", "Yamaha B100-II"); return true; }
 static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id >= P_COUNT) return false; *out = P(p)->val[id]; return true; }
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {

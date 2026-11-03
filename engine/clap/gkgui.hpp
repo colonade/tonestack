@@ -31,7 +31,7 @@
 namespace gkgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_COUNT };
+enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_TAPER, P_COUNT };
 constexpr int NK = 9;
 static const int KPARAM[NK] = {P_VOL, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_FREQ, P_HIMA, P_LOMA};   // Knopf (Reihenfolge GKKNOB) → Parameter
 static const char *KNAME[NK] = {"VOLUME", "TREBLE", "HI MID", "LO MID", "BASS", "BOOST", "BI-AMP FREQ.", "HI MASTER", "LO MASTER"};
@@ -42,9 +42,9 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-constexpr int NSW = 4;
-static const double SW_X[NSW] = {64, 186, 318, 450};   // SPEAKER, OVERSAMPLING, OUTPUT (Lautsprecher / Direct Out), POWER AMPS (Begrenzung / linear)
-static const int SW_P[NSW] = {P_SPK, P_OS, P_DIRECT, P_PWR};
+constexpr int NSW = 5;
+static const double SW_X[NSW] = {60, 170, 282, 394, 506};   // SPEAKER, OVERSAMPLING, OUTPUT (Lautsprecher / Direct Out), POWER AMPS (Begrenzung / linear), POT TAPER (ab 1.1)
+static const int SW_P[NSW] = {P_SPK, P_OS, P_DIRECT, P_PWR, P_TAPER};
 static const double KN_X[2] = {1020, 1130}; // INPUT, OUTPUT, Beschriftung unter dem Knopf
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
@@ -103,7 +103,7 @@ struct Gui {
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
   static double ang(double v) { return (-150 + 30 * v) * PI / 180; }   // Knopfstellung 0 … 10
   void knobText(int i, double v, char *buf, size_t n) const {
-    if (i == 0) std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, audio taper)", KNAME[i], v, logTaper(v / 10) * 100);
+    if (i == 0) { int tp = std::max(0, std::min(2, (int)std::lround(getP(P_TAPER)))); std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, %s)", KNAME[i], v, gk::potTaper(v / 10, tp) * 100, tp == 2 ? "linear" : tp == 1 ? "log 10 %" : "log 15 %"); }
     else if (i == 6) { static const double FX[11] = {78, 147, 208, 268, 330, 395, 472, 563, 673, 822, 1029}; int k = (int)std::floor(std::min(9.999, std::max(0.0, v))); double t = v - k;   // Trennfrequenz je Knopfstellung (gerechnet, engine/tests/gktest.cpp)
       std::snprintf(buf, n, "%s  %.1f  (crossover about %.0f Hz)", KNAME[i], v, FX[k] + (FX[k + 1] - FX[k]) * t); }
     else std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, linear)", KNAME[i], v, v * 10); }
@@ -154,11 +154,12 @@ struct Gui {
     { const char *oo[2] = {"ON", "OFF"}, *ol[3] = {"1x", "2x", "4x"}, *od[2] = {"SPEAKER", "DIRECT"}, *op[2] = {"CLIP", "LINEAR"};
       tsw::toggle(c, SW_X[0], SW_Y, 2, spk ? 0 : 1, "SPEAKER", oo, "15\" CB158, est.");
       tsw::toggle(c, SW_X[1], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
-      tsw::toggle(c, SW_X[2], SW_Y, 2, direct ? 1 : 0, "OUTPUT", od, direct ? "post EQ, pre boost" : "300 W + 100 W amps");
-      tsw::toggle(c, SW_X[3], SW_Y, 2, v[P_PWR] > 0.5 ? 0 : 1, "POWER AMPS", op, v[P_PWR] > 0.5 ? "300 W / 100 W limit" : "no limit"); }
+      tsw::toggle(c, SW_X[2], SW_Y, 2, direct ? 1 : 0, "OUTPUT", od, direct ? "post EQ, pre boost" : "both amps summed");
+      tsw::toggle(c, SW_X[3], SW_Y, 2, v[P_PWR] > 0.5 ? 0 : 1, "POWER AMPS", op, v[P_PWR] > 0.5 ? "rated power limit" : "no limit");
+      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[4], SW_Y, 3, tp, "POT TAPER", tl, "volume (50KA)"); }
     // Aussteuerung: Stufen relativ zur Begrenzung (Strich = 100 %), Endstufen als Leistung (Strich = 300 bzw. 100 W)
     { const char *tn[5] = {"input stage", "EQ stages", "boost (J113)", "300 W amp", "100 W amp"};
-      double lx = 580, bx = 690, bw = 190, bh = 15, y0 = 40, dy = 21; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 32, 13, true);
+      double lx = 640, bx = 745, bw = 170, bh = 15, y0 = 40, dy = 21; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 32, 13, true);
       for (int i = 0; i < 5; i++) { double by = y0 + i * dy; setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], lx, by + 12, 12, false);
         setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
         double x = meter[i], f, mark; bool over; char t[24];
@@ -170,7 +171,7 @@ struct Gui {
     for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 9 + i || hover == 9 + i, false); }
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
-    { char kb[320]; int kn = 0; const int ks[] = {P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_SPK, P_DIRECT};
+    { char kb[320]; int kn = 0; const int ks[] = {P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_SPK, P_DIRECT, P_TAPER};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }
@@ -193,7 +194,7 @@ struct Gui {
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < GKNSW; k++) if (std::fabs(x - GKSW[k][0]) <= 32 && std::fabs(y - GKSW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
   void moveSwitch(int p, int dir) {
-    if (p == P_OS) { int t = (int)std::lround(getP(P_OS)); setP(P_OS, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }
+    if (p == P_OS || p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }
     else if (p == P_DIRECT) setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1);   // oben = SPEAKER
     else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // oben = ON / CLIP
   void togglePanel(int k) { setP(SWP[k], getP(SWP[k]) > 0.5 ? 0 : 1); }
@@ -219,7 +220,7 @@ struct Gui {
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS ? (half == 0 ? -1 : 1) : 0); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
       case 1: {
         if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }

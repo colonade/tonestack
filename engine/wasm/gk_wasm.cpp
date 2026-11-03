@@ -3,9 +3,9 @@
 using namespace gk;
 static Amp *A = nullptr; static Core *P = nullptr; static float bufB[8192]; static double tgtB[24], peakB[8], freqB[512], respB[512];
 // tgtB = 0…8 Regler vol, treb, himid, lomid, bass, boost, freq, hima, loma (0…1); 9 pad, 10 locut, 11 contour, 12 hiboost, 13 boostOn, 14 biamp (Schalter);
-// 15 vin (V Spitze bei 0 dBFS), 16 spk, 17 power (Endstufen begrenzen), 18 direct (DIRECT OUT statt Lautsprecher)
+// 15 vin (V Spitze bei 0 dBFS), 16 spk, 17 power (Endstufen begrenzen), 18 direct (DIRECT OUT statt Lautsprecher), 19 taper des Volume-Potis (0 log 15 %, 1 log 10 %, 2 linear)
 static Setting fromT() { Setting s; for (int i = 0; i < NKNOB; i++) { double x = tgtB[i]; sfield(s, i) = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0.5; }
-  s.pad = tgtB[9] > 0.5; s.locut = tgtB[10] > 0.5; s.contour = tgtB[11] > 0.5; s.hiboost = tgtB[12] > 0.5; s.boostOn = !(tgtB[13] < 0.5); s.biamp = tgtB[14] > 0.5; return s; }
+  s.pad = tgtB[9] > 0.5; s.locut = tgtB[10] > 0.5; s.contour = tgtB[11] > 0.5; s.hiboost = tgtB[12] > 0.5; s.boostOn = !(tgtB[13] < 0.5); s.biamp = tgtB[14] > 0.5; double tp = tgtB[19]; s.taper = std::isfinite(tp) ? std::max(0, std::min(2, (int)std::lround(tp))) : 0; return s; }
 static void switches() { double vin = tgtB[15]; A->vin = std::isfinite(vin) && vin > 0 ? vin : 0.1; A->spk = tgtB[16] > 0.5; A->power = !(tgtB[17] < 0.5); A->direct = tgtB[18] > 0.5; }
 extern "C" {
 float *gk_buffer() { return bufB; } double *gk_target_buffer() { return tgtB; } double *gk_peaks_buffer() { return peakB; } double *gk_freq_buffer() { return freqB; } double *gk_resp_buffer() { return respB; }

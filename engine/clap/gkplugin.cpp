@@ -1,6 +1,6 @@
 // GK 800RB (Gallien-Krueger, Service-Manual 1991: Vorstufe 406-0045-C als Schaltung, Endstufen 300 W / 100 W) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "gk_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -28,17 +28,17 @@ namespace gkgui { struct Gui; }
 #endif
 using namespace gk;
 
-enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_COUNT };
+enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_TAPER, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_INOUT[] = {"Out", "In"}; static const char *N_BSW[] = {"Off (preset level)", "On"}; static const char *N_BIAMP[] = {"Full range", "Bi-amp"};
-static const char *N_PWR[] = {"Linear (no clipping)", "On (clipping at 300 W / 100 W)"}; static const char *N_DIR[] = {"Speaker outputs (300 W + 100 W amps)", "Direct out (post EQ, pre boost)"}; static const char *N_OS[] = {"1x", "2x", "4x"};
+static const char *N_PWR[] = {"Linear (no clipping)", "On (clipping at 300 W / 100 W)"}; static const char *N_DIR[] = {"Speaker outputs (300 W + 100 W amps)", "Direct out (post EQ, pre boost)"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"};
 static const PDef PD[P_COUNT] = {
   {"-10 dB input pad", 0, 1, 0, N_INOUT, 2}, {"Volume", 0, 10, 5, 0, 0}, {"Lo Cut", 0, 1, 0, N_INOUT, 2}, {"Mid Contour", 0, 1, 0, N_INOUT, 2}, {"Hi Boost", 0, 1, 0, N_INOUT, 2},
   {"Treble", 0, 10, 5, 0, 0}, {"Hi Mid", 0, 10, 5, 0, 0}, {"Lo Mid", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0},
   {"Boost", 0, 10, 5, 0, 0}, {"Boost switch (footswitch)", 0, 1, 1, N_BSW, 2}, {"Bi-Amp", 0, 1, 0, N_BIAMP, 2}, {"Bi-Amp frequency", 0, 10, 5, 0, 0},
   {"Hi Master (100 W amp)", 0, 10, 5, 0, 0}, {"Lo Master (300 W amp)", 0, 10, 5, 0, 0},
   {"Power amps", 0, 1, 1, N_PWR, 2}, {"Speaker (15\" CB158, vented box, estimated)", 0, 1, 0, N_ONOFF, 2},
-  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Output", 0, 1, 0, N_DIR, 2} };
+  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Output", 0, 1, 0, N_DIR, 2}, {"Volume pot taper", 0, 2, 0, N_TAP, 3} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -70,8 +70,8 @@ struct Plugin {
   int cfgWant() const { return osFactor((int)std::lround(val[P_OS])); }
   Setting target() const { Setting s; s.vol = val[P_VOL] / 10; s.treb = val[P_TREB] / 10; s.himid = val[P_HIMID] / 10; s.lomid = val[P_LOMID] / 10; s.bass = val[P_BASS] / 10; s.boost = val[P_BOOST] / 10;
     s.freq = val[P_FREQ] / 10; s.hima = val[P_HIMA] / 10; s.loma = val[P_LOMA] / 10; s.pad = val[P_PAD] > 0.5; s.locut = val[P_LOCUT] > 0.5; s.contour = val[P_CONTOUR] > 0.5; s.hiboost = val[P_HIBOOST] > 0.5;
-    s.boostOn = val[P_BOOSTSW] > 0.5; s.biamp = val[P_BIAMP] > 0.5; return s; }
-  static Setting refSetting() { Setting s; return s; }   // Bezug des Diagramms: alle Regler 5, Schalter aus
+    s.boostOn = val[P_BOOSTSW] > 0.5; s.biamp = val[P_BIAMP] > 0.5; s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); return s; }   // taper: Kennlinie des Volume-Potis (50KA)
+  Setting refSetting() const { Setting s; s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); return s; }   // Bezug des Diagramms: alle Regler 5, Schalter aus, gleiche Kennlinie
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->power = val[P_PWR] > 0.5; a->direct = val[P_DIRECT] > 0.5; a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } }
 };
@@ -242,7 +242,7 @@ static void curves(Plugin *pl, std::vector<double> &cur, std::vector<double> &re
   auto mag = [&](double f) { if (direct) return std::abs(C.response(f, O_DIRECT)); double m = std::abs(C.response(f, O_PA300) + C.response(f, O_PA100)) * std::abs(paResponse(f, C.v)); return spk ? m * aor::spkMag(f) : m; };   // beide Endstufen gleich verstärkt, Summe wie im Ausgang (komplex: in der Weiche zählen die Phasen)
   auto curveOf = [&](const Setting &s, std::vector<double> &o) { C.apply(s); double r = mag(1000); o.resize(gkgui::NF);
     for (int i = 0; i < gkgui::NF; i++) o[i] = 20 * std::log10(std::max(1e-12, mag(gkgui::freqAt(i)) / std::max(r, 1e-30))); };
-  curveOf(pl->target(), cur); curveOf(Plugin::refSetting(), ref); }
+  curveOf(pl->target(), cur); curveOf(pl->refSetting(), ref); }
 static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); TSX_GUARD; if (std::strcmp(api, TS_WINAPI) || floating) return false;
   { std::lock_guard<std::recursive_mutex> glk(pl->gm);
 #ifndef __APPLE__

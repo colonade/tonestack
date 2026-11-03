@@ -4,10 +4,11 @@ using namespace b15;
 static Amp *A = nullptr; static Core *P = nullptr; static float bufB[8192]; static double tgtB[16], peakB[8], freqB[512], respB[512];
 static Setting fromT() { Setting s; for (int i = 0; i < 6; i++) { double x = tgtB[i]; sfield(s, i) = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0.5; }
   double j = tgtB[6]; s.jack = (std::isfinite(j) && j >= 0 && j <= 2) ? (int)j : 0;
-  double m = tgtB[11]; s.mis = std::isfinite(m) ? std::min(0.1, std::max(0.0, m)) : 0; return s; }   // Streuung der Endröhren 0 … 0,1
+  double m = tgtB[11]; s.mis = std::isfinite(m) ? std::min(0.1, std::max(0.0, m)) : 0;   // Streuung der Endröhren 0 … 0,1
+  double tp = tgtB[14]; s.taper = std::isfinite(tp) ? std::max(0, std::min(2, (int)std::lround(tp))) : 0; return s; }   // 14: Kennlinie der Volume-Potis (0 log 15 %, 1 log 10 %, 2 linear)
 extern "C" {
 float *bf_buffer() { return bufB; } double *bf_target_buffer() { return tgtB; } double *bf_peaks_buffer() { return peakB; } double *bf_freq_buffer() { return freqB; } double *bf_resp_buffer() { return respB; }
-// tgtB = vol1, treb1, bass1, vol2, treb2, bass2 (0…1), jack (0 Bass, 1 Guitar, 2 Inst.), vin (V Spitze bei 0 dBFS), spk, (9: frei, früher standby), power, mis, mains (1 = 50 Hz), psu (13: 1 = volles Netzteil)
+// tgtB = vol1, treb1, bass1, vol2, treb2, bass2 (0…1), jack (0 Bass, 1 Guitar, 2 Inst.), vin (V Spitze bei 0 dBFS), spk, (9: frei, früher standby), power, mis, mains (1 = 50 Hz), psu (13: 1 = volles Netzteil), 14 taper
 void bf_init(double fs, int os) { delete A; A = new Amp(); Parts p; p.psu = tgtB[13] > 0.5 ? 1 : 0; int o = (os == 1 || os == 2 || os == 4) ? os : 1; A->vin = 0.1;
   A->spk = tgtB[8] > 0.5; A->standby = false; A->power = !(tgtB[10] < 0.5); A->init(fs, o, p, fromT()); A->setMains(tgtB[12] > 0.5 ? 50 : 60); }   // Schalter vor init: Rampen starten schon in der richtigen Stellung
 int bf_latency() { return A ? A->latency() : 0; }

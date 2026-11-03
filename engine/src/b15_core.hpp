@@ -147,9 +147,10 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
 };
 // Buchsen: 0 = Kanal 1 "Bass" (ohne Teiler), 1 = Kanal 1 "Guitar" (mit 120 k + 100 k der leeren Bass-Buchse), 2 = Kanal 2
-struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; bool stby = false; };   // stby: STANDBY (Mittelanzapfung offen)   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
+struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; bool stby = false; int taper = 0; };   // taper: Kennlinie der Volume-Potis (1 MΩ log): 0 log 15 % in Mittelstellung, 1 log 10 %, 2 linear   // stby: STANDBY (Mittelanzapfung offen)   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.vol1, &s.treb1, &s.bass1, &s.vol2, &s.treb2, &s.bass2}; return *f[i]; }
-inline double logTaper(double x) { const double m = 0.15; if (x <= 0) return 0; if (x >= 1) return 1; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // 15 % in Mittelstellung
+inline double potTaper(double x, int mode) { if (x <= 0) return 0; if (x >= 1) return 1; if (mode == 2) return x; const double m = mode == 1 ? 0.10 : 0.15; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // log: m in Mittelstellung
+inline double logTaper(double x) { return potTaper(x, 0); }   // 15 % in Mittelstellung
 
 // Ausgänge der Netzliste
 enum { O_SPK = 0, O_MOT = 1, O_B1 = 2, O_BIAS = 3, O_NO = 4 };
@@ -170,7 +171,7 @@ inline Built build(const Parts &v, const Setting &s) {
   for (int ch = 1; ch <= 2; ch++) { std::string c = std::to_string(ch);
     o.r("g" + c + "a", "0", ch == 1 ? v.rg1 : v.rg2);
     tri("g" + c + "a", "p" + c + "a", "k" + c + "a"); if ((ch == 2) == (s.jack == 2)) B.mon[0] = B.lastTri; o.r("k" + c + "a", "0", v.rk1); o.r("p" + c + "a", "B4", v.ra1);
-    o.c("p" + c + "a", "vt" + c, v.cc1); pot("vt" + c, "g" + c + "b", "0", v.vol, logTaper(ch == 1 ? s.vol1 : s.vol2));
+    o.c("p" + c + "a", "vt" + c, v.cc1); pot("vt" + c, "g" + c + "b", "0", v.vol, potTaper(ch == 1 ? s.vol1 : s.vol2, s.taper));
     tri("g" + c + "b", "p" + c + "b", "k" + c + "b"); if ((ch == 2) == (s.jack == 2)) B.mon[1] = B.lastTri; o.r("k" + c + "b", "0", v.rk2); o.r("p" + c + "b", "B4", v.ra2);
     o.c("p" + c + "b", "I" + c, v.cc2);
     // Klangregler (Baxandall): Bass 1 M linear mit .001/.01 zum Schleifer, Treble 1 M linear mit .00047/.0047
@@ -280,8 +281,8 @@ struct Amp {
     ready = true; }
   int latency() const { return os > 1 ? 31 : 0; }
   // Schalter sofort (Buchse baut das Netz neu, Zustände bleiben), Regler gleiten (15 ms)
-  void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16; tgt = s;
-    if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
+  void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16 || s.taper != c.cur.taper; tgt = s;
+    if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; n.taper = s.taper; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
   // sofort auf das Ziel (ohne Gleiten), Schalter-Rampen am Ziel: nach Neustart aus dem Ruhezustand
   // Netzfrequenz (60 Hz Original USA, 50 Hz Exportfassung): ändert nur den Takt der Netzspannung
   void setMains(double hz) { if (hz == v.mains_hz) return; v.mains_hz = hz; c.setMains(hz); c0.setMains(hz); }

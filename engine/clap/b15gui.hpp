@@ -31,7 +31,7 @@
 namespace bgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_MAINS, P_PSU, P_COUNT };
+enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_MAINS, P_PSU, P_TAPER, P_COUNT };
 static const int KPARAM[6] = {P_V1, P_T1, P_B1, P_V2, P_T2, P_B2};   // Knopf (Reihenfolge B15KNOB) → Parameter
 static const char *KNAME[6] = {"VOLUME 1", "TREBLE 1", "BASS 1", "VOLUME 2", "TREBLE 2", "BASS 2"};
 static const int JACKVAL[3] = {1, 0, 2};   // Buchse (Reihenfolge B15JACK: Guitar, Bass, Inst.) → Parameterwert (0 Bass, 1 Guitar, 2 Inst.)
@@ -40,10 +40,10 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-static const double SW_X[3] = {64, 186, 310};   // SPEAKER, OVERSAMPLING, POWER SUPPLY (DC / voll 60 Hz / voll 50 Hz; ab 1.15 statt MAINS)
-static const int SW_P[3] = {P_SPK, P_OS, P_PSU};
+static const double SW_X[4] = {64, 186, 310, 434};   // SPEAKER, OVERSAMPLING, POWER SUPPLY (DC / voll 60 Hz / voll 50 Hz; ab 1.15 statt MAINS), POT TAPER (ab 1.16: Kennlinie der Volume-Potis)
+static const int SW_P[4] = {P_SPK, P_OS, P_PSU, P_TAPER};
 inline int psuPos(const double *v) { return v[P_PSU] > 0.5 ? (v[P_MAINS] > 0.5 ? 2 : 1) : 0; }
-static const double KN_X[3] = {870, 990, 1110}; // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf
+static const double KN_X[3] = {905, 1010, 1120}; // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf (ab 1.16 weiter rechts: Platz für POT TAPER)
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
@@ -102,7 +102,7 @@ struct Gui {
   static void setrgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
   static double ang(double v) { return (-150 + 30 * v) * PI / 180; }   // Knopfstellung 0 … 10
   void knobText(int i, double v, char *buf, size_t n) const {
-    if (i == 0 || i == 3) std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, log)", KNAME[i], v, logTaper(v / 10) * 100);
+    if (i == 0 || i == 3) { int tp = std::max(0, std::min(2, (int)std::lround(getP(P_TAPER)))); std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, %s)", KNAME[i], v, b15::potTaper(v / 10, tp) * 100, tp == 2 ? "linear" : tp == 1 ? "log 10 %" : "log 15 %"); }
     else std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, linear)", KNAME[i], v, v * 10); }
   // Schalter auf der Frontplatte (ab 1.15 nur POWER; STANDBY und GROUND entfernt): Hebel oben = ON
   bool swUp(int, const double *v) const { return v[P_PWR] > 0.5; }
@@ -150,10 +150,11 @@ struct Gui {
       tsw::toggle(c, SW_X[0], SW_Y, 2, spk ? 0 : 1, "SPEAKER", oo, "CTS 15\", sealed");
       tsw::toggle(c, SW_X[1], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
       const char *mh[3] = {"DC", "60 Hz", "50 Hz"}; int pp = psuPos(v);
-      tsw::toggle(c, SW_X[2], SW_Y, 3, pp, "SUPPLY", mh, (pp > 0) != (psuActive > 0) ? "switching ..." : pp == 0 ? "DC, no hum" : "mains, 5AR4"); }
+      tsw::toggle(c, SW_X[2], SW_Y, 3, pp, "SUPPLY", mh, (pp > 0) != (psuActive > 0) ? "switching ..." : pp == 0 ? "DC, no hum" : "mains, 5AR4");
+      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[3], SW_Y, 3, tp, "POT TAPER", tl, "volume 1 and 2"); }
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht 0 V, Strich), Leistung an 8 Ω (Strich = 30 W)
     { const char *tn[5] = {jack == 2 ? "V2A" : "V1A", jack == 2 ? "V2B" : "V1B", "V3 phase inv.", "6L6GC grid", "power"};
-      double lx = 390, bx = 480, bw = 260, bh = 15, y0 = 40, dy = 21; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 32, 13, true);
+      double lx = 540, bx = 630, bw = 170, bh = 15, y0 = 40, dy = 21; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 32, 13, true);
       for (int i = 0; i < 5; i++) { double by = y0 + i * dy; setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], lx, by + 12, 12, false);
         setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
         double x = meter[i], f, mark; bool over; char t[24];
@@ -165,7 +166,7 @@ struct Gui {
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, false); }   // MISMATCH: Ruhestrom-Unterschied der 6L6GC
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
-    { char kb[256]; int kn = 0; const int ks[] = {P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_SPK, P_PSU};
+    { char kb[256]; int kn = 0; const int ks[] = {P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_SPK, P_PSU, P_TAPER};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }
@@ -187,10 +188,10 @@ struct Gui {
     double lx, ly; toLower(px, py, lx, ly); for (int i = 0; i < 3; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 3; i++) { const double *J = B15JACK[i]; double dx = x - J[0], dy = y - J[1]; if (dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14)) return i; } return -1; }
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < B15NSW; k++) if (std::fabs(x - B15SW[k][0]) <= 32 && std::fabs(y - B15SW[k][1]) <= 52) return k; return -1; }
-  int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 3; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
+  int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 4; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
   void setPsuPos(int pos) { pos = std::max(0, std::min(2, pos)); if (pos > 0) setP(P_MAINS, pos == 2 ? 1 : 0); setP(P_PSU, pos > 0 ? 1 : 0); }   // DC / voll 60 Hz / voll 50 Hz
   void moveSwitch(int p, int dir) { if (p == P_PSU) { double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i); int t = psuPos(v); setPsuPos(dir == 0 ? (t + 1) % 3 : t + dir); return; }
-    if (p == P_OS) { int t = (int)std::lround(getP(P_OS)); setP(P_OS, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else if (p == P_MAINS) setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // MAINS: oben = 60 Hz
+    if (p == P_OS || p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else if (p == P_MAINS) setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // MAINS: oben = 60 Hz
   void togglePanel(int) { setP(P_PWR, getP(P_PWR) > 0.5 ? 0 : 1); }   // einziger Frontplattenschalter: POWER
   int knobParam(int i) const { return i < 6 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
   double knobVal(int i) const { if (i < 6) return getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }
@@ -215,7 +216,7 @@ struct Gui {
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 8 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_JACK, JACKVAL[j]); return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_PSU ? (half == 0 ? -1 : 1) : 0); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_PSU || b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
       case 1: {
         if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }

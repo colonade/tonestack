@@ -1,5 +1,5 @@
 GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -69,7 +69,8 @@ Parameters
   Bi-Amp (full range / bi-amp), Bi-Amp frequency, Hi Master (100 W amp),
   Lo Master (300 W amp), Power amps (linear / clipping), Speaker,
   Instrument level, Oversampling (1x, 2x, 4x), Output level, Output
-  (speaker outputs / direct out).
+  (speaker outputs / direct out), Volume pot taper (log 15 % / log 10 % /
+  linear).
   Knob 10 = clockwise end. The mid bands only cut (0 dB at 10, about -6 dB
   at 5, -15 dB at 0), as on the amp. BASS ranges from about +6 to -23 dB,
   TREBLE about +21 / -11 dB at 8 kHz.
@@ -118,6 +119,15 @@ CPU
   with different left and right signals doubles that. With the same signal
   on both channels it is computed once. After 2 s of silence at the input
   the plugin goes idle.
+
+1.1
+  - New parameter "Volume pot taper" (POT TAPER toggle in the model strip):
+    taper of VOLUME (50KA): LOG 15 % (as on the amp, default), LOG 10 % or
+    LINEAR; the other pots are linear (B) on the schematic and stay linear.
+    Old projects load unchanged. Same selector on the web page.
+  - J113 fitted to the schematic's level label (93 mV -> 1.1 V): Vp -1.75 V,
+    Idss 22 mA (was 12 mA / -2 V); C7 560 pF in the input stage feedback
+    added after a second check against the schematic.
 
 1.0
   - First release.

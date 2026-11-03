@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.33
+Version 3.34
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -49,7 +49,8 @@ Parameters
   Tube distortion, Instrument level, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
-  3.20).
+  3.20), Middle/Presence pot taper (log 15 % = original 22KA, log 10 %,
+  linear; POT TAPER toggle in the model strip).
   Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
   other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
   2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
@@ -125,6 +126,12 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.34
+  - POT TAPER toggle back in the model strip (removed in 3.27): taper of
+    the two log pots Middle and Presence (22KA): LOG 15 % (as on the amp,
+    unchanged default), LOG 10 % or LINEAR. The parameter kept its number,
+    old projects load unchanged. Same selector on the web page.
 
 3.33
   - Switching modes (DISTORTION, oversampling/eco, tubes, input jack,

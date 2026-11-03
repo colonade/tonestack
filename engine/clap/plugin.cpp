@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.33"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.34"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -37,7 +37,7 @@ static const PDef PD[P_COUNT] = {
   {"Preamp 1 Volume", 0, 10, 2, 0, 0}, {"Preamp 2 Volume", 0, 10, 2, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 2, 0, 0},
   {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Master Volume", 0, 10, 5, 0, 0},
   {"Mid Boost (S105)", 0, 1, 1, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 1, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 1, N_ONOFF, 2},
-  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Pot taper (unused since 3.27, log as original)", 0, 2, 0, N_TAP, 3},
+  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Middle/Presence pot taper", 0, 2, 0, N_TAP, 3},
   {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
   {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Presence", 0, 10, 5, 0, 0},
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
@@ -55,7 +55,7 @@ struct Plugin {
   std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt, diagMode; int diagCnt = 0;
-  Target target() const { Target t; t.v = Parts::orig(); t.s.bmod = val[P_UMBAU] > 0.5 ? 1 : 0;   /* BASS MOD und SOFT ab 3.30 gleitend (Setting), nicht als Bauteilwechsel */ t.taper = 0;   /* ab 3.27 fest: Middle und Presence 22KA (log) wie im Plan; Parameter bleibt für alte Projekte, wirkt nicht */
+  Target target() const { Target t; t.v = Parts::orig(); t.s.bmod = val[P_UMBAU] > 0.5 ? 1 : 0;   /* BASS MOD und SOFT ab 3.30 gleitend (Setting), nicht als Bauteilwechsel */ t.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER])));   /* Kennlinie der log-Potis Middle/Presence (22KA): 0 log 15 %, 1 log 10 %, 2 linear; 3.27–3.33 fest log 15 % */
     t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
     t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
     t.s.ch1 = val[P_CH] < 0.5 ? 1 : 0; t.s.low = val[P_INP] > 0.5; t.pa = val[P_PA] > 0.5; t.nl = val[P_NL] > 0.5;
@@ -87,7 +87,7 @@ static void settle(Engine *E) {
 static uint32_t par_count(const clap_plugin_t *) { return P_COUNT; }
 static bool par_info(const clap_plugin_t *, uint32_t i, clap_param_info_t *info) {
   if (i >= P_COUNT) return false; const PDef &d = PD[i]; std::memset(info, 0, sizeof *info); info->id = i;
-  info->flags = (i == P_TAPER ? CLAP_PARAM_IS_HIDDEN : CLAP_PARAM_IS_AUTOMATABLE) | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
+  info->flags = CLAP_PARAM_IS_AUTOMATABLE | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
   info->min_value = d.lo; info->max_value = d.hi; info->default_value = d.def; std::snprintf(info->name, sizeof info->name, "%s", d.name); std::snprintf(info->module, sizeof info->module, "%s", "Laney AOR 50"); return true; }
 static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id >= P_COUNT) return false; *out = P(p)->val[id]; return true; }
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {

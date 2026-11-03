@@ -69,10 +69,11 @@ struct Parts {   // Werte laut Plan 406-0045-C (Ω, F); Schätzungen markiert
 };
 // Regler 0…1 (Knopf 0…10); Schalter
 struct Setting { double vol = 0.5, treb = 0.5, himid = 0.5, lomid = 0.5, bass = 0.5, boost = 0.5, freq = 0.5, hima = 0.5, loma = 0.5;
-  bool pad = false, locut = false, contour = false, hiboost = false, boostOn = true, biamp = false; };
+  bool pad = false, locut = false, contour = false, hiboost = false, boostOn = true, biamp = false; int taper = 0; };   // taper: Kennlinie des VOLUME-Potis (50KA): 0 log 15 % in Mittelstellung, 1 log 10 %, 2 linear
 constexpr int NKNOB = 9;
 inline double &sfield(Setting &s, int i) { double *f[NKNOB] = {&s.vol, &s.treb, &s.himid, &s.lomid, &s.bass, &s.boost, &s.freq, &s.hima, &s.loma}; return *f[i]; }
-inline double logTaper(double x) { const double m = 0.15; if (x <= 0) return 0; if (x >= 1) return 1; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // VOLUME 50KA: 15 % in Mittelstellung
+inline double potTaper(double x, int mode) { if (x <= 0) return 0; if (x >= 1) return 1; if (mode == 2) return x; const double m = mode == 1 ? 0.10 : 0.15; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // log: m in Mittelstellung
+inline double logTaper(double x) { return potTaper(x, 0); }   // VOLUME 50KA: 15 % in Mittelstellung
 
 // Ausgänge der Netzliste
 enum { O_PA300 = 0, O_PA100, O_DIRECT, O_U1, O_U2A, O_U2B, O_U3A, O_U3B, O_JD, O_NO };
@@ -92,7 +93,7 @@ inline void buildInto(Built &B, const Parts &v, const Setting &s) {
   o.c("u1n", "lc1", v.c11); o.c("lc1", "lc2", v.c25); sw("lc1", "lc2", !s.locut); o.r("lc2", "0", v.r24);
   mark(); G = 1;
   // --- VOLUME (log), HI BOOST (10 n vom U1a-Ausgang über 5,6 k auf den Schleifer; aus: 470 k in Reihe) ---
-  pot("u1o", "w", "0", v.vol, logTaper(s.vol));
+  pot("u1o", "w", "0", v.vol, potTaper(s.vol, s.taper));
   o.c("u1o", "hb", v.c26); o.r("hb", "h", v.r29); sw("hb", "h", s.hiboost); o.r("h", "w", v.r28);
   o.c("w", "m", v.c21);
   // --- MID CONTOUR: Kerbfilter um U1b (Eingang über 12 k, zwei Pfade auf den invertierenden Eingang), Schalter S3 wählt m oder das Filter ---
@@ -190,9 +191,9 @@ struct Amp {
       xb.assign(64, 0); yb.assign(2 * L, 0); xi = yi = 0; }
     ready = true; }
   int latency() const { return os > 1 ? 31 : 0; }
-  static bool swEq(const Setting &a, const Setting &b) { return a.pad == b.pad && a.locut == b.locut && a.contour == b.contour && a.hiboost == b.hiboost && a.boostOn == b.boostOn && a.biamp == b.biamp; }
+  static bool swEq(const Setting &a, const Setting &b) { return a.pad == b.pad && a.locut == b.locut && a.contour == b.contour && a.hiboost == b.hiboost && a.boostOn == b.boostOn && a.biamp == b.biamp && a.taper == b.taper; }
   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
-  void setTarget(const Setting &s) { bool rebuild = !swEq(s, c.cur); tgt = s; if (rebuild) { Setting n = c.cur; n.pad = s.pad; n.locut = s.locut; n.contour = s.contour; n.hiboost = s.hiboost; n.boostOn = s.boostOn; n.biamp = s.biamp; c.apply(n); } }
+  void setTarget(const Setting &s) { bool rebuild = !swEq(s, c.cur); tgt = s; if (rebuild) { Setting n = c.cur; n.pad = s.pad; n.locut = s.locut; n.contour = s.contour; n.hiboost = s.hiboost; n.boostOn = s.boostOn; n.biamp = s.biamp; n.taper = s.taper; c.apply(n); } }
   void snap() { c.apply(tgt); spkMix = spk ? 1 : 0; dirMix = direct ? 1 : 0; cnt = 0; }
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < NKNOB; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }

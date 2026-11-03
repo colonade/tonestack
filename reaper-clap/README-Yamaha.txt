@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.15
+Version 1.16
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -41,8 +41,10 @@ What it is
 Parameters
   Input jack (HIGH / LOW, LOW = -12 dB like the real jacks), Volume, Treble,
   Middle, Bass (0-10), EQ 60/150/320/640/1250 Hz (-5 ... +5, 0 = flat, about
-  +10 / -9.5 dB at the ends), Power amp, Instrument level, Speaker, Output level.
-  Defaults: HIGH, all controls 5, EQ flat, power amp off, speaker off.
+  +10 / -9.5 dB at the ends), Pot taper (volume and tone pots, all A = log on
+  the amp: log 15 % = original, log 10 %, linear), Power amp, Instrument
+  level, Speaker, Output level.
+  Defaults: HIGH, all controls 5, EQ flat, log 15 %, power amp off, speaker off.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -93,6 +95,12 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+1.16
+  - POT TAPER toggle back in the model strip (removed in 1.11): taper of
+    Volume, Treble, Middle and Bass (A25K / A1K): LOG 15 % (as on the amp,
+    unchanged default), LOG 10 % or LINEAR. The parameter kept its number,
+    old projects load unchanged. Same selector on the web page.
 
 1.15
   - INPUT and OUTPUT drawn like in the Laney and the AmpFett: round knob
