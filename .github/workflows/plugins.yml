@@ -78,7 +78,7 @@ jobs:
             for NAME in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do
               CL="$(find build-mac -maxdepth 3 -name "$NAME.clap" -type d | head -1)"; BIN="$CL/Contents/MacOS/$NAME"; lipo -info "$BIN"
               for A in arm64 x86_64; do
-                echo "== $NAME $A rtcheck"; arch -$A /tmp/rtcheck "$BIN" 8 128
+                echo "== $NAME $A rtcheck"; SPIKELOG=12 arch -$A /tmp/rtcheck "$BIN" 8 128
                 echo "== $NAME $A guicheck"; arch -$A /tmp/guicheck "$BIN" 4
               done
             done

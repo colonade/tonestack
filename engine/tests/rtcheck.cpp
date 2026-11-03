@@ -31,6 +31,7 @@ static bool reg_timer(const clap_host_t *, uint32_t, clap_id *id) { *id = 7; ret
 static const clap_host_timer_support_t HT = {reg_timer, unreg_timer};
 static const void *host_ext(const clap_host_t *, const char *id) { if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &HP; if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &HT; return nullptr; }
 static void host_nop(const clap_host_t *) {}
+static std::atomic<bool> cbReq{false}; static void host_cb(const clap_host_t *) { cbReq = true; }   // request_callback: nach dem Block on_main_thread (wie ein Host im Hauptfaden)
 
 static std::vector<clap_event_param_value_t> Q;
 static uint32_t q_size(const clap_input_events_t *) { return (uint32_t)Q.size(); }
@@ -43,12 +44,14 @@ struct IStream { std::string s; size_t p = 0; clap_istream_t is; IStream(std::st
 
 struct Stat { std::vector<double> r; int nan = 0; double worstMs = 0; std::string worstWhy;
   void add(double ratio, double ms, const std::string &why) { r.push_back(ratio); if (ms > worstMs) { worstMs = ms; worstWhy = "Block " + std::to_string(r.size() - 1) + ": " + why; } } };
+// SPIKELOG=<Faktor>: Blöcke über diesem Vielfachen der Echtzeit mit Parametern und den Änderungen davor ausgeben (1 → 3-fach)
+static double spikeLim() { const char *e = std::getenv("SPIKELOG"); double v = e ? std::atof(e) : 0; return v > 1 ? v : 3; }
 static unsigned rs = 20261103;
 static double urand() { rs = rs * 1664525u + 1013904223u; return (rs >> 8) / 16777216.0; }
 
 struct Host {
   void *lib = nullptr; const clap_plugin_entry_t *entry = nullptr; const clap_plugin_t *p = nullptr; const clap_plugin_params_t *par = nullptr; const clap_plugin_state_t *st = nullptr;
-  clap_host_t host = {CLAP_VERSION_INIT, nullptr, "rtcheck", "tonestack", "", "1", host_ext, host_nop, host_nop, host_nop};
+  clap_host_t host = {CLAP_VERSION_INIT, nullptr, "rtcheck", "tonestack", "", "1", host_ext, host_nop, host_nop, host_cb};
   double fs = 48000; int B = 128; std::vector<clap_param_info_t> info; std::string name;
   std::vector<float> L, R, OL, OR; long pos = 0; bool asleep = false;
   bool open(const char *path) {
@@ -63,6 +66,7 @@ struct Host {
   void activate(double rate) { fs = rate; auto t0 = Clock::now(); p->activate(p, fs, 32, 4096); char w[48]; std::snprintf(w, sizeof w, "activate@%.0f", fs); report(w, secsSince(t0)); p->start_processing(p);
     L.assign(4096, 0); R.assign(4096, 0); OL.assign(4096, 0); OR.assign(4096, 0); }
   void deactivate() { p->stop_processing(p); auto t0 = Clock::now(); p->deactivate(p); report("deactivate", secsSince(t0)); }
+  void dumpParams() { std::string t; for (auto &pi : info) { double v; par->get_value(p, pi.id, &v); char b[300]; std::snprintf(b, sizeof b, "%u=%g ", pi.id, v); t += b; } std::printf("  params: %s\n", t.c_str()); }
   // ein Block; Signal: f(Zeit) für links, rechts = links (same) oder phasenverschoben
   template <class F> clap_process_status block(int n, F sig, bool same, Stat &S, int ch = 2) {
     for (int i = 0; i < n; i++) { double t = (pos + i) / fs; double a, b; sig(t, a, b); L[i] = (float)a; R[i] = same ? (float)a : (float)b; }
@@ -73,8 +77,9 @@ struct Host {
     std::string why; for (auto &e : Q) { char b[300]; std::snprintf(b, sizeof b, "%s=%g ", info[e.param_id].name, e.value); why += b; }
     auto t0 = Clock::now(); clap_process_status r = p->process(p, &pr); double dt = secsSince(t0);
     S.add(dt / (n / fs), dt * 1000, why.empty() ? (asleep ? "(schlief)" : "-") : why); asleep = r == CLAP_PROCESS_SLEEP;
+    if (std::getenv("SPIKELOG") && dt / (n / fs) > spikeLim()) { std::printf("SPIKE2 pos=%.3fs ratio=%.0f%% ms=%.2f status=%d\n", pos / fs, dt / (n / fs) * 100, dt * 1000, (int)r); dumpParams(); }
     for (int c = 0; c < ch; c++) for (int i = 0; i < n; i++) if (!std::isfinite((c ? OR : OL)[i])) { S.nan++; break; }
-    Q.clear(); pos += n; return r; }
+    Q.clear(); pos += n; if (cbReq.exchange(false)) p->on_main_thread(p); return r; }
 };
 static double bass(double t) { double env = 0.5 * std::exp(-2.5 * std::fmod(t, 0.8)); return env * (std::sin(2 * M_PI * 55 * t) + 0.3 * std::sin(2 * M_PI * 110 * t + 0.4)); }
 static Stat worstAll; static std::string worstPhase; static double worstMax = 0;
@@ -104,6 +109,8 @@ int main(int argc, char **argv) {
       H.block(H.B, [&](double t, double &a, double &b) { a = pause ? 0 : bass(t); b = pause ? 0 : bass(t + 0.0007); }, (k / nBlocks(7)) % 2 == 0, S);
       for (auto &e : sent) recent.push_back({k, e});
       while (!recent.empty() && recent.front().first < k - (long)(0.2 * H.fs / H.B)) recent.erase(recent.begin());
+      if (std::getenv("SPIKELOG") && S.r.back() > spikeLim()) { std::string t; for (auto &r : recent) { char b[340]; std::snprintf(b, sizeof b, "[-%ld] %s=%g; ", k - r.first, H.info[r.second.param_id].name, r.second.value); t += b; }
+        std::printf("SPIKE block=%ld ratio=%.0f%% ms=%.2f pause=%d after: %s\n", k, S.r.back() * 100, S.r.back() * H.B / H.fs * 1000, (int)pause, t.c_str()); }
       if (S.r.back() > 1.0) { for (auto &r : recent) { char b[300]; std::snprintf(b, sizeof b, "%s", H.info[r.second.param_id].name); spikeBy[b]++; } if (recent.empty()) spikeBy["(keine Änderung in 200 ms)"]++; } }
     summary("zufall_automation", S, H.fs);
     std::vector<std::pair<int, std::string>> top; for (auto &x : spikeBy) top.push_back({x.second, x.first}); std::sort(top.rbegin(), top.rend());
@@ -111,6 +118,7 @@ int main(int argc, char **argv) {
     std::printf("RESULT kind=spikes blocks_over100_preceded_by=\"%s\"\n", t.c_str()); }
   // Transportlücken: 1,5 s spielen, 0,35 s keine Aufrufe (Wanduhr), weiter; wie Logic bei Stopp/Start oder REAPER-Spur ohne Wiedergabe
   { Stat S, F; for (int r = 0; r < std::max(4, (int)(secs / 2)); r++) { for (long k = 0; k < nBlocks(1.5); k++) { Stat &T = k == 0 && r > 0 ? F : S; H.block(H.B, sigBass, true, T); }
+      if (std::getenv("SPIKELOG")) { std::printf("GAP at %.3fs\n", H.pos / H.fs); std::fflush(stdout); }
       std::this_thread::sleep_for(std::chrono::milliseconds(350)); }
     summary("transport_laufend", S, H.fs); summary("transport_erster_block_nach_luecke", F, H.fs); }
   // Ein/Aus wie REAPER-FX-Schalter: stop/start_processing (Haupt-Thread-Seite hier im selben Thread, wie bei den meisten Hosts zwischen Blöcken)

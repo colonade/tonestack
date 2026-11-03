@@ -205,9 +205,11 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
 static void pl_main(const clap_plugin_t *p) { Plugin *pl = P(p); pl->cbAsked = false; std::lock_guard<std::mutex> lk(pl->wm); if (!pl->active) return; int want = pl->osWant();
   if (want == pl->osAct || pl->building) return; if (pl->worker.joinable()) pl->worker.join();
   pl->building = true; double fs = pl->fs;
+  try {
   pl->worker = std::thread([pl, fs, want]() { DenormGuard dg; Pend *q = nullptr;
     try { Amp *a = newAmp(fs, want, &pl->cancelJobs); if (!a) { pl->building = false; return; } q = new Pend{a, nullptr}; q->proto = new Amp(*q->a); } catch (...) { if (q) { delete q->a; delete q; } q = nullptr; pl->building = false; return; }
-    if (Pend *old = pl->pending.exchange(q)) { delete old->a; delete old->proto; delete old; } }); }
+    if (Pend *old = pl->pending.exchange(q)) { delete old->a; delete old->proto; delete old; } });
+  } catch (...) { pl->building = false; } }
 #ifndef TS_NO_GUI
 static void gui_tick(Plugin *pl);
 static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;

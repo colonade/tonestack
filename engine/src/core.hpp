@@ -728,7 +728,7 @@ struct NlCore : CoreBase {
   bool ecoOf() const override { return eco; } bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
 
-// Moduswechsel (linear/Röhre, Überabtastung, Buchse, Kanal): neue Schaltung rechnet die letzten 150 ms nach und wird über 30 ms eingeblendet
+// Moduswechsel (linear/Röhre, Überabtastung, Buchse, Kanal): neue Schaltung rechnet die letzten 150 ms (und was seither kam) der Reihe nach nach und wird dann über 30 ms eingeblendet
 struct Engine {
   double fs; CoreBase *a = nullptr, *b = nullptr; double xf = 0; std::vector<float> hist; int hpos = 0, hfill = 0; int qpos = 0, qlen = 0, qdone = 0; bool replay = false; Target last; bool hasLast = false;
   Speaker spk; bool spkOn = false; double spkMix = 0;   // spkMix: Anteil des Lautsprecherpfads, gleitet in 20 ms zu spkOn (kein Knacken beim Schalten)
@@ -759,18 +759,24 @@ struct Engine {
   }
   void block(float *buf, int n) {
     if (!a) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
-    if (b && replay) { int todo = std::min(std::max(n, 64), qlen - qdone);   // höchstens ein Block (mindestens 64) je Aufruf: Umschaltlast bleibt auch bei kleinen Puffern begrenzt
-      for (int i = 0; i < todo; i++) { b->tick(); b->delayed(b->step(hist[qpos])); qpos = (qpos + 1) % (int)hist.size(); qdone++; } if (qdone >= qlen) replay = false; }
+    // Nachrechnen (ab 3.33): die neue Schaltung holt den Verlauf der Reihe nach auf – die letzten 150 ms vor dem Umschalten und alles, was seither
+    // kam –, höchstens zwei Blöcke je Aufruf; erst wenn sie gleichauf ist, rechnet sie mit dem laufenden Signal mit und wird eingeblendet.
+    // Bis 3.32 bekam sie Verlauf und laufendes Signal blockweise abwechselnd (Sprünge an ihrem Eingang, etwa fünffache Last während des Nachrechnens).
+    // qlen: noch nachzurechnende Abtastwerte ab qpos (höchstens die Länge des Verlaufs).
+    const int H = (int)hist.size();
+    if (b && replay && qlen + n > H) { int drop = qlen + n - H; qpos = (qpos + drop) % H; qlen -= drop; }   // Platz für diesen Block (älteste verwerfen)
     for (int i = 0; i < n; i++) {
-      double x = buf[i]; if (!std::isfinite(x)) x = 0; hist[hpos] = (float)x; hpos = (hpos + 1) % (int)hist.size(); if (hfill < (int)hist.size()) hfill++;
+      double x = buf[i]; if (!std::isfinite(x)) x = 0; hist[hpos] = (float)x; hpos = (hpos + 1) % H; if (hfill < H) hfill++; if (b && replay) qlen++;
       a->tick(); double y = a->delayed(a->step(x));
-      if (b) { b->tick(); double yb = b->delayed(b->step(x));
-        if (!replay) { xf += 1.0 / (0.03 * fs); if (xf >= 1) { delete a; a = b; b = nullptr; y = yb; } else y = y * (1 - xf) + yb * xf; } }
+      if (b && !replay) { b->tick(); double yb = b->delayed(b->step(x));
+        xf += 1.0 / (0.03 * fs); if (xf >= 1) { delete a; a = b; b = nullptr; y = yb; } else y = y * (1 - xf) + yb * xf; }
       { double ys = spk.step(y), tg = spkOn ? 1.0 : 0.0; if (spkMix != tg) { double st = 1.0 / (0.02 * fs); spkMix = spkOn ? std::min(1.0, spkMix + st) : std::max(0.0, spkMix - st); }
         y = spkMix >= 1 ? ys : spkMix <= 0 ? y : y + spkMix * (ys - y); }   // Lautsprecherfilter läuft immer mit (billig), Umschalten über 20 ms
       if (!std::isfinite(y)) { recover(); for (; i < n; i++) buf[i] = 0; return; }   // Löser entgleist (z. B. nach unsinnigen Bauteilwerten): Schaltung neu aufsetzen, Rest des Blocks still
       buf[i] = (float)-y;   // Polarität wie am Eingang: der Vorverstärker (5 invertierende Stufen) dreht das Signal, für Aufnahme und Vergleich wird das hier aufgehoben
     }
+    if (b && replay) { int todo = std::min(qlen, std::max(2 * n, 128));
+      for (int i = 0; i < todo; i++) { b->tick(); b->delayed(b->step(hist[qpos])); qpos = (qpos + 1) % H; qlen--; qdone++; } if (qlen <= 0) { qlen = 0; replay = false; } }
   }
 };
 // Spitzenwerte der Gitter-Kathoden-Aussteuerung (relativ, 1 = Übersteuerungseinsatz): linear p·vin/Bezug, Röhre p/|Vgk0|

@@ -45,6 +45,8 @@ int main(int argc, char **argv) { @autoreleasepool {
   if (argc < 2) { std::printf("guicheck <binary> [Sekunden]\n"); return 2; }
   double secs = argc > 2 ? atof(argv[2]) : 8;
   [NSApplication sharedApplication]; [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory]; [NSApp finishLaunching];
+  // App Nap und Zeitgeber-Bündelung aus (sonst misst der 10-ms-Taktgeber die Drosselung des Systems statt Blockaden des Plugins)
+  id activity = [[NSProcessInfo processInfo] beginActivityWithOptions:(NSActivityUserInitiated | NSActivityLatencyCritical) reason:@"guicheck"]; (void)activity;
   void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL); if (!lib) { std::printf("RESULT kind=gui_error what=dlopen msg=\"%s\"\n", dlerror()); return 1; }
   auto *entry = (const clap_plugin_entry_t*)dlsym(lib, "clap_entry"); entry->init(argv[1]);
   auto *fac = (const clap_plugin_factory_t*)entry->get_factory(CLAP_PLUGIN_FACTORY_ID); const clap_plugin_descriptor_t *d = fac->get_plugin_descriptor(fac, 0);
@@ -64,7 +66,7 @@ int main(int argc, char **argv) { @autoreleasepool {
       clap_process_t pr{}; pr.frames_count = B; pr.steady_time = pos; pr.audio_inputs = &ib; pr.audio_outputs = &ob; pr.audio_inputs_count = 1; pr.audio_outputs_count = 1; pr.in_events = &ie; pr.out_events = &oe;
       auto t0 = Clock::now(); p->process(p, &pr); double r = since(t0) / (B / fs); if (r > audioMax) audioMax = r; Q.clear(); pos += B;
       next += std::chrono::microseconds((long)(1e6 * B / fs)); std::this_thread::sleep_until(next); } });
-  Stall *st = [Stall new]; NSTimer *tm = [NSTimer timerWithTimeInterval:0.01 target:st selector:@selector(tick:) userInfo:nil repeats:YES]; [[NSRunLoop currentRunLoop] addTimer:tm forMode:NSRunLoopCommonModes];
+  Stall *st = [Stall new]; NSTimer *tm = [NSTimer timerWithTimeInterval:0.01 target:st selector:@selector(tick:) userInfo:nil repeats:YES]; [tm setTolerance:0]; [[NSRunLoop currentRunLoop] addTimer:tm forMode:NSRunLoopCommonModes];
   uint32_t W = 1200, H = 0; NSWindow *win = nil;
   auto openGui = [&](uint32_t w) { if (!gui->create(p, CLAP_WINDOW_API_COCOA, false)) { std::printf("RESULT kind=gui_error what=create\n"); return false; }
     uint32_t ww = w, hh = 0; gui->adjust_size(p, &ww, &hh); gui->set_size(p, ww, hh); gui->get_size(p, &ww, &hh); W = ww; H = hh;
