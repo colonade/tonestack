@@ -30,7 +30,7 @@ What it is
   manual (preamp schematic revision C of 1991, power amp schematic, test
   procedure of 8/19/91). The whole preamp is solved sample by sample as one
   circuit (nodal DK method, like the other tonestack amps):
-    - input stage U1a (non-inverting, 33k / 3.3k) with the -10 dB pad
+    - input stage U1a (non-inverting, 33k with 560 pF / 3.3k) with the -10 dB pad
       (4.7k in parallel) and LO CUT (0.22 uF in series) as switches,
       VOLUME (50k log taper) with HI BOOST (10 nF via 5.6k on the wiper)
     - MID CONTOUR: the notch filter around U1b (about 500 Hz), switched
@@ -43,7 +43,7 @@ What it is
       control with the boost switch (footswitch; off = the fixed tap below
       the pot) and the J113 JFET stage that gives the boost its sound
     - the bi-amp crossover (state-variable filter U6/U7, FREQ. tandem pot,
-      about 90 Hz - 1 kHz) and the HI MASTER / LO MASTER levels, or full
+      crossover about 80 Hz - 1 kHz) and the HI MASTER / LO MASTER levels, or full
       range with both amps in parallel when BI-AMP is off
   Op-amps are modelled as voltage-controlled sources with finite gain,
   output resistance and the +-13.5 V supply clamps, so hard clipping of a
@@ -70,7 +70,7 @@ Parameters
   (speaker outputs / direct out).
   Knob 10 = clockwise end. The mid bands only cut (0 dB at 10, about -6 dB
   at 5, -15 dB at 0), as on the amp. BASS ranges from about +6 to -23 dB,
-  TREBLE about +-20 dB at high frequencies.
+  TREBLE about +21 / -11 dB at 8 kHz.
   Defaults: all knobs 5, pad / Lo Cut / Contour / Hi Boost out, Boost
   switch on, full range, power amps clipping, speaker off, 100 mV, 2x,
   0 dB, speaker outputs.

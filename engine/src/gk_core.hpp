@@ -2,7 +2,7 @@
 // Vorstufe als Schaltung im Zeitbereich (DK-Löser, dk.hpp) vom Eingang bis zu den Eingängen der beiden Endstufen:
 // Eingangsstufe U1a mit −10 dB und LO CUT, VOLUME mit HI BOOST, MID CONTOUR (Kerbfilter um U1b), U2a, die drei Bänder HI-MID/LO-MID/BASS
 // (Brücken-T um U2b/U3a/U3b) mit TREBLE um U3b, Effektweg, Zenerdioden, BOOST-Regler mit Schalter, J113-Stufe, Frequenzweiche
-// (Zustandsvariablenfilter U6/U7, FREQ. 88 Hz … 1 kHz), HI/LO MASTER, Eingangsnetzwerke der Endstufen. Operationsverstärker (LF353)
+// (Zustandsvariablenfilter U6/U7, FREQ.: Kreuzung 78 Hz … 1 kHz), HI/LO MASTER, Eingangsnetzwerke der Endstufen. Operationsverstärker (LF353)
 // als gesteuerte Quellen mit Begrenzung (±13,5 V), Zenerdioden 1N759 und der JFET als nichtlineare Tore.
 // Endstufen (300 W an 4 Ω, 100 W an 8 Ω): Verstärkung aus der Gegenkopplung (56 k / 1 k + 10 µ), weiche Begrenzung an der Aussteuerungsgrenze.
 // Geschätzt (nicht im Plan): J113-Kennwerte (Idss, Up), Aussteuerungsgrenzen der OPVs und Endstufen, Lautsprecher.
@@ -50,7 +50,7 @@ inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
 // ---------- Bauteile und Einstellungen ----------
 struct Parts {   // Werte laut Plan 406-0045-C (Ω, F); Schätzungen markiert
   double rsrc = 1e3;   // Innenwiderstand der Quelle (geschätzt)
-  double r1 = 12e3, c2 = 0.1e-6, c6 = 100e-12, r4 = 1e6, r5 = 33e3, r3 = 4.7e3, c11 = 10e-6, c25 = 0.22e-6, r24 = 3.3e3;   // Eingang, U1a, −10 dB, LO CUT
+  double r1 = 12e3, c2 = 0.1e-6, c6 = 100e-12, r4 = 1e6, r5 = 33e3, c7 = 560e-12, r3 = 4.7e3, c11 = 10e-6, c25 = 0.22e-6, r24 = 3.3e3;   // Eingang, U1a (C7 560 p parallel zu R5: Ecke 8,6 kHz), −10 dB, LO CUT
   double vol = 50e3, c26 = 0.01e-6, r29 = 470e3, r28 = 5.6e3, c21 = 3.3e-6;   // VOLUME (50KA), HI BOOST
   double r12 = 12e3, c14 = 4.7e-9, r13 = 120e3, c15 = 4.7e-9, r16 = 33e3, c20 = 560e-12, r19 = 220e3, c23 = 0.22e-6, r22 = 220e3, r27 = 33e3;   // MID CONTOUR um U1b
   double r30 = 4.7e3, r32 = 22e3, c31 = 100e-12;   // U2a
@@ -88,7 +88,7 @@ inline void buildInto(Built &B, const Parts &v, const Setting &s) {
   // --- Eingang, U1a (nicht invertierend, 33 k / 3,3 k; −10 dB: 4,7 k parallel zu 33 k; LO CUT: 0,22 µ in Reihe mit 3,3 k) ---
   o.src("in", v.rsrc, 0); o.r("in", "c2a", v.r1); o.c("c2a", "n1", v.c2); { int p = o.port("n1", "0"); dev.push_back({K_ZEN, p, 1, nullptr}); }
   o.c("n1", "0", v.c6); o.r("n1", "0", v.r4);
-  opamp("n1", "u1n", "u1o", true); o.r("u1o", "u1n", v.r5); o.r("u1o", "u1n", s.pad ? v.r3 : 1e9);
+  opamp("n1", "u1n", "u1o", true); o.r("u1o", "u1n", v.r5); o.c("u1o", "u1n", v.c7); o.r("u1o", "u1n", s.pad ? v.r3 : 1e9);
   o.c("u1n", "lc1", v.c11); o.c("lc1", "lc2", v.c25); sw("lc1", "lc2", !s.locut); o.r("lc2", "0", v.r24);
   mark(); G = 1;
   // --- VOLUME (log), HI BOOST (10 n vom U1a-Ausgang über 5,6 k auf den Schleifer; aus: 470 k in Reihe) ---
