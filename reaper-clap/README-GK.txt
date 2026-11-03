@@ -57,7 +57,9 @@ What it is
   stage, the -10 dB pad and BOOST 0 ratios of the test procedure within
   0.5 dB, the crossover range 100 Hz - 1 kHz, and the shapes of the 16
   scope photos (200 Hz square wave) at the measuring points.
-  Estimated (not in the manual): J113 parameters (Idss 12 mA, Vp -2 V),
+  Estimated (not in the manual): J113 parameters (Vp -1.75 V, middle of the
+  data sheet range; Idss 22 mA fitted so that the boost stage amplifies
+  93 mV -> 1.1 V as the schematic says),
   the exact log taper of VOLUME, the clip levels and knee of the power
   amps, the speaker. The absolute sensitivity may be off by a few dB.
 

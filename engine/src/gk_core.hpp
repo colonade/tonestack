@@ -5,7 +5,7 @@
 // (Zustandsvariablenfilter U6/U7, FREQ.: Kreuzung 78 Hz … 1 kHz), HI/LO MASTER, Eingangsnetzwerke der Endstufen. Operationsverstärker (LF353)
 // als gesteuerte Quellen mit Begrenzung (±13,5 V), Zenerdioden 1N759 und der JFET als nichtlineare Tore.
 // Endstufen (300 W an 4 Ω, 100 W an 8 Ω): Verstärkung aus der Gegenkopplung (56 k / 1 k + 10 µ), weiche Begrenzung an der Aussteuerungsgrenze.
-// Geschätzt (nicht im Plan): J113-Kennwerte (Idss, Up), Aussteuerungsgrenzen der OPVs und Endstufen, Lautsprecher.
+// Geschätzt (nicht im Plan): J113-Kennwerte (Up; Idss an die Pegelangabe 93 mV → 1,1 V angepasst), Aussteuerungsgrenzen der OPVs und Endstufen, Lautsprecher.
 // Prüfwerte: Bedienungsanleitung (Treble 4 kHz, Hi-Mid 1 kHz, Lo-Mid 250 Hz, Bass 60 Hz, Contour-Kerbe ≈ 500 Hz, Boost 15 dB),
 // Prüfanleitung 8/19/91 (−10 dB: 28 → 6 V, Boost 10 → 0: 28 → 3,1 V, Begrenzung 36 bzw. 28 V rms) und Oszillogramme (engine/tests/gktest.cpp).
 #pragma once
@@ -65,7 +65,7 @@ struct Parts {   // Werte laut Plan 406-0045-C (Ω, F); Schätzungen markiert
   double pa_rf = 56e3, pa_rb = 12e3, pa_rg = 1e3, pa_cg = 10e-6;   // Gegenkopplung beider Endstufen: 56 k vom Ausgang auf den nicht invertierenden Eingang, 12 k ∥ (1 k + 10 µ) gegen Masse
   double pa300_lim = 49, pa300_knee = 44, pa100_lim = 40, pa100_knee = 36;   // Aussteuerungsgrenzen (V Spitze; 36 bzw. 28 V rms laut Prüfanleitung), geschätztes Knie
   double op_a = 1e4, op_rout = 100, op_vs = 13.5;   // LF353: Leerlaufverstärkung (vereinfacht), Ausgangswiderstand, Aussteuerungsgrenze an ±15 V (geschätzt)
-  double j_idss = 12e-3, j_vp = -2.0, j_lam = 0.02, vcc = 15;   // J113 (Datenblatt: Up −0,5 … −3 V, Idss ≥ 2 mA): Mittelwerte geschätzt
+  double j_idss = 22e-3, j_vp = -1.75, j_lam = 0.02, vcc = 15;   // J113 (Datenblatt: Up −0,5 … −3 V, Idss ≥ 2 mA): Up Mitte des Bereichs, Idss so, dass die Stufe wie im Plan 93 mV → 1,1 V verstärkt (11,8-fach bei 2 mV/200 Hz, alles 10)
 };
 // Regler 0…1 (Knopf 0…10); Schalter
 struct Setting { double vol = 0.5, treb = 0.5, himid = 0.5, lomid = 0.5, bass = 0.5, boost = 0.5, freq = 0.5, hima = 0.5, loma = 0.5;
