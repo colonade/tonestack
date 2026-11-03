@@ -5,6 +5,7 @@
 // Lautsprecher-Daten; Röhrenmodelle an Datenblätter angepasst (engine/tools/b15_tubes.py).
 #pragma once
 #include "dk.hpp"
+#include <atomic>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -235,7 +236,7 @@ struct Core {
   // Abtastwert: x = Eingangsspannung (V); y[O_NO] Ausgänge
   void step(double x, double *y) { double u[2] = {x, std::sqrt(2.0) * v.mains_v * std::sin(t)}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }
   void setMains(double hz) { v.mains_hz = hz; w = 2 * PI * hz / fs; }
-  void settle(double seconds) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) step(0, y); }
+  void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); } }   // cancel: Abbruch (Hintergrund-Faden)
   // Kleinsignal-Frequenzgang Eingang → Lautsprecherklemme im aktuellen Arbeitspunkt
   std::complex<double> response(double f) { std::vector<std::vector<double>> J; std::vector<std::pair<int,int>> dp;
     for (auto &d : run.dev) { std::vector<double> b((size_t)d.np * d.np); for (int a = 0; a < d.np; a++) for (int c = 0; c < d.np; c++) b[a * d.np + c] = run.Jd[(size_t)(d.p0 + a) * 16 + c]; J.push_back(b); dp.push_back({d.p0, d.np}); }
@@ -258,8 +259,8 @@ struct Amp {
   double nrm = 1; Biquad cone; double vgk0[5] = {-1, -1, -1, -1, -1}, peak[5] = {0, 0, 0, 0, 0}, outPk = 0;
   int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
   Core c0; int bad = 0;   // c0: eingeschwungener Zustand nach init (Rückfall bei entgleister Rechnung); bad: Abtastwerte bis zum nächsten erlaubten Rückfall
-  void init(double fs, int os_, const Parts &pv, const Setting &s) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
-    c.init(fsB * os, v, s); c.settle(1.5); c0 = c; for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]];
+  void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
+    c.init(fsB * os, v, s); c.settle(1.5, cancel); c0 = c; for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]];
     nrm = accNorm(v); c.spkNorm = nrm; cone.lp(3000, 0.7, fsB * os); spkMix = spk ? 1 : 0; pwr = power ? 1 : 0;
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));

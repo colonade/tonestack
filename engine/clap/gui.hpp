@@ -61,7 +61,7 @@ struct Gui {
   double meter[5] = {0,0,0,0,0};
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;   // Kurven in dB (bezogen auf 1 kHz): aktuell, Original/alle 5
   std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0; bool curveStale = false;
-  ~Gui() { if (img) cairo_surface_destroy(img); }   // Frontplattenbild gehört der Oberfläche (sonst bei jedem Öffnen/Schließen 1,5 MB verloren)
+  ~Gui() { if (img) cairo_surface_destroy(img); if (base) cairo_surface_destroy(base); }   // Frontplattenbild gehört der Oberfläche (sonst bei jedem Öffnen/Schließen 1,5 MB verloren)
   // snprintf-Anhängen mit Begrenzung (n bleibt innerhalb des Puffers, auch wenn ein Wert unerwartet lang wird)
   template <class... A> static void sapp(char *b, size_t cap, int &n, const char *f, A... a) { if (n < 0 || (size_t)n >= cap - 1) return; int k = std::snprintf(b + n, cap - n, f, a...); if (k > 0) n = (int)std::min((size_t)(n + k), cap - 1); }
   int drag = -1; double dragY0 = 0, dragV0 = 0; int hover = -1; bool showTip = false; double lastClick = 0; int lastClickId = -2;
@@ -80,7 +80,7 @@ struct Gui {
   void show() { tsmac::show(win); }
   void hide() { tsmac::hide(win); }
   void resize(int w, int h) { W = w; H = h; tsmac::setSize(win, w, h); }
-  void destroy() { if (win) { tsmac::destroy(win); win = nullptr; } }
+  void destroy() { if (win) { tsmac::destroy(win); win = nullptr; } if (base) { cairo_surface_destroy(base); base = nullptr; } }
   void draw() { tsmac::redraw(win); }
   void drawCG(void *cg, double, double) override { cairo_t *c = cairo_cg_create((CGContextRef)cg); drawTo(c); cairo_destroy(c); }
   bool mouse(int kind, double x, double y, int button, double t) override { return onMouse(kind, x, y, button, t); }
@@ -137,7 +137,8 @@ struct Gui {
     cairo_set_source_surface(c, base, 0, 0); cairo_rectangle(c, 0, 0, FW * s, FH * s); cairo_fill(c);
     cairo_save(c); cairo_scale(c, s, s);
 #else
-    cairo_save(c); cairo_scale(c, s, s); drawBase(c);
+    cairo_cg_cached(c, base, FW * s, FH * s, [&](cairo_t *b) { cairo_scale(b, s, s); drawBase(b); });   // ab 3.33 wie unter Linux vorgezeichnet (Gerätepixel)
+    cairo_save(c); cairo_scale(c, s, s);
 #endif
     // Zugschalter-Hintergründe und Beschriftungen
     for (auto &l : LG) { int pp = -1; if (!std::strcmp(l.t, "PULL ON")) pp = P_CH; else if (!std::strcmp(l.t, "PULL BOOST")) pp = !std::strcmp(l.k, "t") ? P_TOP : !std::strcmp(l.k, "m") ? P_MID : P_BASS;

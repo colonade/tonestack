@@ -7,30 +7,43 @@ set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
 eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"   # Versionen wie im Release
-W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/scripts" "$W/res"
-cat > "$W/scripts/postinstall" <<'S'
+W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/res"
+# Nachlauf je Plugin (ab 2026-11-03): fasst nur die Dateien des gewählten Plugins an. Vorher lief für jedes Teilpaket dasselbe Skript und
+# verschob von Hand installierte Fassungen aller drei Plugins in den Papierkorb, auch wenn nur eines gewählt war.
+post() {   # post <id> <Name> [weitere Namen]
+  local id="$1"; shift; mkdir -p "$W/scripts-$id"; local names="$*"
+  { cat <<'S'
 #!/bin/bash
-# Läuft als root nach jedem Teilpaket. Fasst nur feste Pfade dieser Plugins an.
-# Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF: alte Fassung entfernen, sonst stünden beide in Logic
-rm -rf "/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component" "/Library/Audio/Plug-Ins/VST3/Ampeg_B15NF.vst3"
-# Früher von Hand (ZIP) im Benutzerordner installierte Fassungen derselben Plugins: dieselbe Audio-Unit-Kennung zweimal, und Logic
-# nimmt womöglich die alte. In den Papierkorb des angemeldeten Benutzers verschieben (wiederherstellbar), nicht löschen.
+# Läuft als root nach dem Audio-Unit-Teilpaket dieses Plugins. Fasst nur feste Pfade dieses Plugins an.
+S
+    echo "NAMES=\"$names\""
+    cat <<'S'
+OLD=""; for n in $NAMES; do [ "$n" = Ampeg_B15NF ] && OLD=1; done
+# Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF: alte systemweite Fassung entfernen, sonst stünden beide in Logic
+if [ -n "$OLD" ]; then rm -rf "/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component" "/Library/Audio/Plug-Ins/VST3/Ampeg_B15NF.vst3"; fi
+# Früher von Hand (ZIP) im Benutzerordner installierte Fassungen: dieselbe Audio-Unit-Kennung zweimal, und Logic nimmt womöglich die alte.
+# In den Papierkorb des angemeldeten Benutzers verschieben (wiederherstellbar), nicht löschen; geht das nicht (Papierkorb gesperrt),
+# in ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen (dort sucht kein Host).
 U="$(stat -f%Su /dev/console 2>/dev/null || true)"
 if [ -n "$U" ] && [ "$U" != root ]; then
   H="$(dscl . -read "/Users/$U" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
   if [ -n "$H" ] && [ -d "$H" ]; then
-    for f in Components/Laney_AOR50.component Components/Yamaha_B100II.component Components/AmpFett_B15NF.component Components/Ampeg_B15NF.component \
-             VST3/Laney_AOR50.vst3 VST3/Yamaha_B100II.vst3 VST3/AmpFett_B15NF.vst3 VST3/Ampeg_B15NF.vst3; do
-      p="$H/Library/Audio/Plug-Ins/$f"
-      if [ -e "$p" ]; then mkdir -p "$H/.Trash"; mv "$p" "$H/.Trash/$(basename "$p")-alt-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true; fi
-    done
+    T="$(date +%Y%m%d-%H%M%S)"
+    for n in $NAMES; do for f in "Components/$n.component" "VST3/$n.vst3"; do
+      p="$H/Library/Audio/Plug-Ins/$f"; [ -e "$p" ] || continue
+      if [ ! -d "$H/.Trash" ]; then mkdir -p "$H/.Trash" && chown "$U" "$H/.Trash" && chmod 700 "$H/.Trash"; fi
+      if ! mv "$p" "$H/.Trash/$(basename "$p")-alt-$T" 2>/dev/null; then
+        A="$H/Library/Audio/Plug-Ins/tonestack-alte-Fassungen"; mkdir -p "$A" && chown "$U" "$A"; mv "$p" "$A/$(basename "$p")-alt-$T" 2>/dev/null || true
+      fi
+    done; done
   fi
 fi
 # Audio-Unit-Verzeichnis neu einlesen lassen (startet bei Bedarf von selbst neu), damit Logic die neue Fassung sofort findet
 killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
-chmod +x "$W/scripts/postinstall"
+  } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
+post laney Laney_AOR50; post yamaha Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -38,7 +51,7 @@ one() {   # one <Name> <id> <Version> <component|vst3>
   pkgbuild --analyze --root "$R" "$W/$ID-$KIND.plist" >/dev/null
   local n; n=$(plutil -extract . raw -o - "$W/$ID-$KIND.plist" 2>/dev/null || echo 1)
   for ((i = 0; i < n; i++)); do plutil -replace "$i.BundleIsRelocatable" -bool NO "$W/$ID-$KIND.plist"; done   # immer an den festen Ort
-  local SC=(); [ "$KIND" = component ] && SC=(--scripts "$W/scripts")
+  local SC=(); [ "$KIND" = component ] && SC=(--scripts "$W/scripts-$ID")
   pkgbuild --root "$R" --component-plist "$W/$ID-$KIND.plist" --identifier "de.tonestack.$ID.$KIND" --version "$V" --install-location / ${SC[@]+"${SC[@]}"} "$W/pkgs/$ID-$KIND.pkg"
 }
 one Laney_AOR50 laney "$LV" component; one Laney_AOR50 laney "$LV" vst3

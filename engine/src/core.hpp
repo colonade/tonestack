@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <complex>
 #ifndef __wasm__
+#include <atomic>
 #include <mutex>
 #endif
 #include "parts_gen.h"
@@ -233,11 +234,31 @@ struct PaDk {
   static std::string keyOf(double fs, lpa::Vals v) { v.pres = 0.5; return std::string(reinterpret_cast<const char*>(&v), sizeof v) + std::to_string(fs); }
   // Ab 3.27 rechnet der Audio-Thread (compute = false) nie ein: fehlt auch der Eintrag ohne Streuung, startet die Endstufe aus den Planspannungen
   // (kurzes Einschwingen hörbar statt Sekunden Rechenzeit im Audio-Thread; der Hintergrund-Thread des Plugins füllt alle Raten vorab). Gerechnet wird ohne Sperre.
-  static lpa::Core settled(double fs, const lpa::Vals &v, bool compute = true) {
-    { Lock lk; auto &c = cache(); auto it = c.find(keyOf(fs, v)); if (it != c.end()) return it->second;
-      if (!compute) { lpa::Vals z = v; z.mis = 0; auto i0 = c.find(keyOf(fs, z)); if (i0 != c.end()) return i0->second; } }
+  // cancel (Hintergrund-Threads, ab 3.33): Abbruch auf Wunsch (deactivate/destroy warten sonst bis zu Sekunden im Hauptfaden); abgebrochen wird nichts
+  // gespeichert. Rechnet ein anderer Thread denselben Eintrag schon (mehrere Instanzen beim Laden eines Projekts), rechnet ein Hintergrund-Thread ihn nicht doppelt.
+  // Das Einschwingen ist Schritt für Schritt dasselbe wie lpa::Core::settle(0.6) (gleiche Ergebnisse wie bisher).
+  static std::map<std::string, int> &busy() { static std::map<std::string, int> b; return b; }
+  static lpa::Core settled(double fs, const lpa::Vals &v, bool compute = true, const std::atomic<bool> *cancel = nullptr) {
+    const std::string key = keyOf(fs, v);
+    { Lock lk; auto &c = cache(); auto it = c.find(key); if (it != c.end()) return it->second;
+      if (!compute) { lpa::Vals z = v; z.mis = 0; auto i0 = c.find(keyOf(fs, z)); if (i0 != c.end()) return i0->second; }
+      else if (cancel) { if (busy()[key]++ > 0) { busy()[key]--; lpa::Vals s = v; s.pres = 0.5; lpa::Core k; k.init(fs, s); return k; } } }
     lpa::Vals s = v; s.pres = 0.5; lpa::Core k; k.init(fs, s); if (!compute) return k;
-    k.settle(0.6); { Lock lk; auto &c = cache(); if (c.size() >= 16) c.clear(); c[keyOf(fs, v)] = k; } return k; }
+    long n = (long)(0.6 * fs); bool stopped = false;
+    for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) { stopped = true; break; } k.step(0); } k.peak = 0;
+    { Lock lk; if (cancel) { auto b = busy().find(key); if (b != busy().end() && --b->second <= 0) busy().erase(b); }
+      if (!stopped) put(key, k); }
+    return k; }
+  // Zwischenspeicher begrenzt; voll: zuerst die Einträge mit Streuung verwerfen (die ohne sind die Rückfallebene des Audio-Threads), erst dann alles
+  // (bis 3.32: bei 16 Einträgen alles – danach fand der Audio-Thread keinen Ruhezustand mehr und startete aus den Planspannungen)
+  static void put(const std::string &key, const lpa::Core &k) { auto &c = cache();
+#ifdef __wasm__
+    const size_t lim = 16;   // Web: wie bisher (fester Speicher; dort wechseln die Bauteile, also die Schlüssel, ständig)
+#else
+    const size_t lim = 64;
+#endif
+    if (c.size() >= lim) { for (auto it = c.begin(); it != c.end();) { if (it->second.cur.mis != 0) it = c.erase(it); else ++it; } if (c.size() >= lim) c.clear(); }
+    c[key] = k; }
   static bool has(double fs, const lpa::Vals &v) { Lock lk; return cache().count(keyOf(fs, v)) > 0; }
   void mark() { for (int i = 0; i < 3; i++) { vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; rail0[i] = c.rail[i]; } }
   double railDev(int k) const { return c.rail[k] - rail0[k]; }   // Änderung der Vorstufenschiene k (240/252/260 V) gegen die Ruhe

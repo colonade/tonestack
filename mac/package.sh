@@ -3,7 +3,7 @@
 # Architektur prüfen, Audio Units mit auval prüfen, je Plugin ein ZIP mit Anleitung.   mac/package.sh <build-Ordner> <Ausgabe-Ordner>
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
-mkdir -p "$OUT"
+mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"   # absoluter Pfad (auch wenn ein absoluter oder relativer übergeben wird)
 ver() { grep -o '#define TS_VERSION "[^"]*"' "$ROOT/engine/clap/$1" | cut -d'"' -f2; }
 for spec in "Laney_AOR50 plugin.cpp Lany" "Yamaha_B100II yplugin.cpp B100" "AmpFett_B15NF b15plugin.cpp AFB1"; do
   set -- $spec; NAME="$1"; V="$(ver "$2")"; SUB="$3"
@@ -17,6 +17,6 @@ for spec in "Laney_AOR50 plugin.cpp Lany" "Yamaha_B100II yplugin.cpp B100" "AmpF
   auval -v aufx "$SUB" Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval für $NAME"; exit 1; }
   T="$(mktemp -d)"; mkdir -p "$T/$NAME"; cp -R "$AU" "$VST" "$T/$NAME/"; cp "$HERE/LIESMICH-Mac.txt" "$T/$NAME/LIESMICH.txt"
   cp "$ROOT/reaper-clap/THIRD-PARTY-LICENSES.txt" "$T/$NAME/"
-  (cd "$T" && ditto -c -k --sequesterRsrc --keepParent "$NAME" "$OLDPWD/$OUT/${NAME}_Mac-$V.zip")
+  (cd "$T" && ditto -c -k --sequesterRsrc --keepParent "$NAME" "$OUT/${NAME}_Mac-$V.zip")
   echo "fertig: $OUT/${NAME}_Mac-$V.zip"
 done

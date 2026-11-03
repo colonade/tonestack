@@ -2,10 +2,15 @@
 // Bauen: clang++ -std=c++17 -fobjc-arc -DTS_GUI_HDR='"gui.hpp"' -DTS_NS=aorgui -DTS_FW=FW ... (siehe mac/test/run.sh)
 #import <Foundation/Foundation.h>
 #import <ImageIO/ImageIO.h>
+#include <chrono>
+#include <cmath>
 #include <cstdio>
 #include "yamaha_core.hpp"   // Rechenkerne (die Oberflächen nutzen Röhrenliste und Konstanten)
 #include TS_GUI_HDR
 using namespace TS_NS;
+// Anzeigen setzen: Laney/AmpFett haben fünf, Yamaha eine
+template <class G> static auto setM(G &g, double v, int) -> decltype(g.meter[0], void()) { for (auto &m : g.meter) m = v; }
+template <class G> static void setM(G &g, double v, long) { g.meter = v; }
 int main(int argc, char **argv) {
   const char *out = argc > 1 ? argv[1] : "render.png"; double vals[64]; for (double &v : vals) v = 5;
   for (int i = 2; i < argc; i++) { int id; double v; if (std::sscanf(argv[i], "%d=%lf", &id, &v) == 2 && id >= 0 && id < 64) vals[id] = v; }
@@ -18,7 +23,13 @@ int main(int argc, char **argv) {
   int sc = 2; CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
   CGContextRef cg = CGBitmapContextCreate(nullptr, W * sc, H * sc, 8, 0, cs, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
   CGContextTranslateCTM(cg, 0, H * sc); CGContextScaleCTM(cg, sc, -sc);   // wie eine gespiegelte NSView auf einem Retina-Bildschirm
-  g.drawCG(cg, W, H);
+  auto t0 = std::chrono::steady_clock::now(); g.drawCG(cg, W, H); double first = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  // Zeichenzeit je Bild (Hauptfaden): erstes Bild (Vorzeichnen) und danach je Bild bei wechselnden Anzeigen (wie bei laufender Wiedergabe, 30/s)
+  { const int N = 60; auto t1 = std::chrono::steady_clock::now(); for (int k = 0; k < N; k++) { setM(g, 0.5 + 0.5 * std::sin(k * 0.3), 0); g.drawCG(cg, W, H); }
+    double per = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count() / N;
+    std::printf("RESULT kind=draw file=%s width=%d scale=%d first_ms=%.1f frame_ms=%.2f cpu_at_30fps=%.1f%%\n", out, W, sc, first * 1000, per * 1000, per * 30 * 100); }
+  // danach das Prüfbild noch einmal sauber (gleiche Anzeigen wie bisher)
+  setM(g, 0, 0); CGContextClearRect(cg, CGRectMake(0, 0, W, H)); g.drawCG(cg, W, H);
   CGImageRef im = CGBitmapContextCreateImage(cg);
   CFURLRef url = CFURLCreateFromFileSystemRepresentation(nullptr, (const UInt8 *)out, std::strlen(out), false);
   CGImageDestinationRef d = CGImageDestinationCreateWithURL(url, CFSTR("public.png"), 1, nullptr); CGImageDestinationAddImage(d, im, nullptr);

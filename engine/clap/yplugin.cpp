@@ -102,7 +102,10 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 // ---- Plugin ----
 static void newEngines(Plugin *pl) { delete pl->eng; delete pl->eng2; pl->eng = new YCore(pl->fs); pl->eng2 = new YCore(pl->fs); pl->dirty = true; pl->eng2Has = false; }
 static bool pl_init(const clap_plugin_t *) { return true; }
-static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); 
+static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+  { auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; } }   // Host ohne gui.destroy: Takt nicht auf ein gelöschtes Plugin laufen lassen
+#endif
 #ifndef TS_NO_GUI
   { TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
 #ifndef __APPLE__
@@ -115,12 +118,14 @@ static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t ma
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
-static void pl_reset(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->eng) newEngines(pl); }
+// ab 1.14 nur Neubeginn beim nächsten process (vorher neue Kerne; clap-wrapper ruft reset bei VST3 aus setProcessing, evtl. nicht im Audio-Thread)
+static void pl_reset(const clap_plugin_t *p) { P(p)->fresh = true; }
 static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->audio_outputs_count; k++) { clap_audio_buffer_t &o = pr->audio_outputs[k]; for (uint32_t c = 0; c < o.channel_count; c++) { if (o.data32) std::memset(o.data32[c], 0, pr->frames_count * sizeof(float)); else if (o.data64) std::memset(o.data64[c], 0, pr->frames_count * sizeof(double)); } } }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
   if (!pl->eng) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
   uint32_t n = pr->frames_count; if (pr->audio_inputs_count < 1 || pr->audio_outputs_count < 1) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
+  if (n == 0) return CLAP_PROCESS_CONTINUE;   // nur Ereignisse (sonst Last = 0/0)
   const clap_audio_buffer_t &in = pr->audio_inputs[0]; clap_audio_buffer_t &out = pr->audio_outputs[0];
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;

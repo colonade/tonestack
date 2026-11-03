@@ -8,6 +8,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string>
+#include <utility>
 #include <vector>
 
 typedef enum { CAIRO_FONT_SLANT_NORMAL } cairo_font_slant_t;
@@ -82,7 +85,9 @@ inline void cairo_surface_flush(cairo_surface_t *) {}
 inline void cairo_surface_destroy(cairo_surface_t *s) { if (!s) return; if (s->img) CGImageRelease(s->img); std::free(s->data); delete s; }
 inline CGImageRef cairo_cg_image(cairo_surface_t *s) {
   if (s->img && !s->dirty) return s->img; if (s->img) { CGImageRelease(s->img); s->img = nullptr; }
-  CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB(); CGDataProviderRef dp = CGDataProviderCreateWithData(nullptr, s->data, (size_t)s->stride * s->h, nullptr);
+  // eigene Kopie der Bildpunkte (ab Laney 3.33 / Yamaha 1.14 / AmpFett 1.14): das CGImage bleibt gültig, auch wenn CoreGraphics es länger hält als die Fläche lebt
+  CFDataRef bytes = CFDataCreate(nullptr, s->data, (CFIndex)((size_t)s->stride * s->h)); if (!bytes) return nullptr;
+  CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB(); CGDataProviderRef dp = CGDataProviderCreateWithCFData(bytes); CFRelease(bytes);
   s->img = CGImageCreate(s->w, s->h, 8, 32, s->stride, cs, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little, dp, nullptr, true, kCGRenderingIntentDefault);
   CGDataProviderRelease(dp); CGColorSpaceRelease(cs); s->dirty = false; return s->img; }
 inline void cairo_set_source_surface(cairo_t *c, cairo_surface_t *s, double x, double y) { CairoCgSource src; src.kind = 2; src.surf = s; src.sx = x; src.sy = y; cairo_cg_setsrc(c, src); }
@@ -115,18 +120,43 @@ inline void cairo_paint(cairo_t *c) { CairoCgSource &s = cairo_cg_top(c).src; if
 // Text: Systemschrift (San Francisco), fett oder normal
 inline void cairo_select_font_face(cairo_t *c, const char *, cairo_font_slant_t, cairo_font_weight_t w) { cairo_cg_top(c).bold = w == CAIRO_FONT_WEIGHT_BOLD; }
 inline void cairo_set_font_size(cairo_t *c, double px) { cairo_cg_top(c).fontSize = px; }
-inline CTLineRef cairo_cg_line(cairo_t *c, const char *t) {
-  CTFontRef f = CTFontCreateUIFontForLanguage(cairo_cg_top(c).bold ? kCTFontUIFontEmphasizedSystem : kCTFontUIFontSystem, cairo_cg_top(c).fontSize, nullptr);
-  CFStringRef str = CFStringCreateWithCString(nullptr, t, kCFStringEncodingUTF8); if (!str) str = CFStringCreateWithCString(nullptr, "", kCFStringEncodingUTF8);
+// Schriften und Textzeilen zwischengespeichert (ab 3.33): vorher entstanden je Bild etwa 500 CTFont/CTLine-Objekte neu (Hauptfaden).
+// Die Zeile trägt keine Farbe (Farbe aus dem Kontext), ist also für jede Farbe gültig. Nur im Hauptfaden benutzt (Zeichnen).
+inline CTFontRef cairo_cg_font(bool bold, double size) { static std::map<std::pair<bool, double>, CTFontRef> fonts; auto k = std::make_pair(bold, size);
+  auto it = fonts.find(k); if (it != fonts.end()) return it->second;
+  if (fonts.size() >= 256) { for (auto &f : fonts) CFRelease(f.second); fonts.clear(); }
+  CTFontRef f = CTFontCreateUIFontForLanguage(bold ? kCTFontUIFontEmphasizedSystem : kCTFontUIFontSystem, size, nullptr); fonts[k] = f; return f; }
+struct CairoCgLine { CTLineRef line; CGRect glyph; double adv; };
+inline const CairoCgLine &cairo_cg_line(cairo_t *c, const char *t) {
+  struct Key { bool bold; double size; std::string text; bool operator<(const Key &o) const { return bold != o.bold ? bold < o.bold : size != o.size ? size < o.size : text < o.text; } };
+  static std::map<Key, CairoCgLine> lines; Key k{cairo_cg_top(c).bold, cairo_cg_top(c).fontSize, t ? t : ""};
+  auto it = lines.find(k); if (it != lines.end()) return it->second;
+  if (lines.size() >= 1024) { for (auto &l : lines) CFRelease(l.second.line); lines.clear(); }   // begrenzt (wechselnde Texte wie die CPU-Anzeige)
+  CTFontRef f = cairo_cg_font(k.bold, k.size);
+  CFStringRef str = CFStringCreateWithCString(nullptr, k.text.c_str(), kCFStringEncodingUTF8); if (!str) str = CFStringCreateWithCString(nullptr, "", kCFStringEncodingUTF8);
   const void *keys[2] = {kCTFontAttributeName, kCTForegroundColorFromContextAttributeName}; const void *vals[2] = {f, kCFBooleanTrue};
   CFDictionaryRef at = CFDictionaryCreate(nullptr, keys, vals, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
   CFAttributedStringRef as = CFAttributedStringCreate(nullptr, str, at); CTLineRef line = CTLineCreateWithAttributedString(as);
-  CFRelease(as); CFRelease(at); CFRelease(str); CFRelease(f); return line; }
-inline void cairo_text_extents(cairo_t *c, const char *t, cairo_text_extents_t *e) { CTLineRef line = cairo_cg_line(c, t);
-  CGRect r = CTLineGetBoundsWithOptions(line, kCTLineBoundsUseGlyphPathBounds); double adv = CTLineGetTypographicBounds(line, nullptr, nullptr, nullptr);
-  e->x_bearing = r.origin.x; e->width = r.size.width; e->height = r.size.height; e->y_bearing = -(r.origin.y + r.size.height); e->x_advance = adv; e->y_advance = 0; CFRelease(line); }
+  CFRelease(as); CFRelease(at); CFRelease(str);
+  CairoCgLine L{line, CTLineGetBoundsWithOptions(line, kCTLineBoundsUseGlyphPathBounds), CTLineGetTypographicBounds(line, nullptr, nullptr, nullptr)};
+  return lines.emplace(std::move(k), L).first->second; }
+inline void cairo_text_extents(cairo_t *c, const char *t, cairo_text_extents_t *e) { const CairoCgLine &L = cairo_cg_line(c, t); CGRect r = L.glyph;
+  e->x_bearing = r.origin.x; e->width = r.size.width; e->height = r.size.height; e->y_bearing = -(r.origin.y + r.size.height); e->x_advance = L.adv; e->y_advance = 0; }
 inline void cairo_show_text(cairo_t *c, const char *t) { CGContextRef g = c->cg; CGPoint p = CGContextIsPathEmpty(g) ? CGPointZero : CGContextGetPathCurrentPoint(g);
-  CTLineRef line = cairo_cg_line(c, t); CGContextSaveGState(g); CGContextSetTextMatrix(g, CGAffineTransformMakeScale(1, -1)); CGContextSetTextPosition(g, p.x, p.y);
+  const CairoCgLine &L = cairo_cg_line(c, t); CGContextSaveGState(g); CGContextSetTextMatrix(g, CGAffineTransformMakeScale(1, -1)); CGContextSetTextPosition(g, p.x, p.y);
   CairoCgSource &s = cairo_cg_top(c).src; if (s.kind == 0) CGContextSetRGBFillColor(g, s.rgba[0], s.rgba[1], s.rgba[2], s.rgba[3]);
-  CTLineDraw(line, g); CGContextRestoreGState(g); double adv = CTLineGetTypographicBounds(line, nullptr, nullptr, nullptr); CFRelease(line);
-  CGContextBeginPath(g); CGContextMoveToPoint(g, p.x + adv, p.y); }
+  CTLineDraw(L.line, g); CGContextRestoreGState(g);
+  CGContextBeginPath(g); CGContextMoveToPoint(g, p.x + L.adv, p.y); }
+// Hintergrund (Foto mit Aufdruck) einmal je Größe in Gerätepixeln vorzeichnen und danach nur noch 1:1 kopieren (ab 3.33; wie base unter Linux).
+// w, h: Größe im aktuellen Benutzerraum; draw(cairo_t*) zeichnet in diesen Raum. Gerätepixel aus der aktuellen Transformation (Retina: 2 je Punkt).
+template <class F> inline void cairo_cg_cached(cairo_t *c, cairo_surface_t *&cache, double w, double h, F draw) {
+  CGAffineTransform m = CGContextGetCTM(c->cg); double ds = std::sqrt(m.a * m.a + m.b * m.b); if (!(ds > 0.01 && ds < 64)) ds = 1;
+  int pw = (int)std::ceil(w * ds - 1e-6), ph = (int)std::ceil(h * ds - 1e-6); if (pw < 1 || ph < 1) return;
+  if (!cache || cache->w != pw || cache->h != ph) { if (cache) cairo_surface_destroy(cache); cache = cairo_image_surface_create(CAIRO_FORMAT_RGB24, pw, ph);
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGContextRef b = CGBitmapContextCreate(cache->data, pw, ph, 8, cache->stride, cs, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little); CGColorSpaceRelease(cs);
+    if (b) { CGContextTranslateCTM(b, 0, ph); CGContextScaleCTM(b, ds, -ds); cairo_t *bc = cairo_cg_create(b); draw(bc); cairo_destroy(bc); CGContextRelease(b); }
+    cache->dirty = true; }
+  CGImageRef im = cairo_cg_image(cache); if (!im) return; CGContextRef g = c->cg; double uw = pw / ds, uh = ph / ds;
+  CGContextSaveGState(g); CGContextSetInterpolationQuality(g, kCGInterpolationNone); CGContextTranslateCTM(g, 0, uh); CGContextScaleCTM(g, 1, -1);
+  CGContextDrawImage(g, CGRectMake(0, 0, uw, uh), im); CGContextRestoreGState(g); }

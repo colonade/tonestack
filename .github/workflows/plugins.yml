@@ -57,6 +57,7 @@ jobs:
         run: |
           set -o pipefail
           bash mac/test/run.sh 2>&1 | tee render.log || { python3 mac/annot.py Pruefbild render.log; exit 1; }
+          python3 mac/rtnotice.py Zeichenzeit render.log
       - name: Konfigurieren
         run: |
           set -o pipefail
@@ -65,6 +66,37 @@ jobs:
         run: |
           set -o pipefail
           cmake --build build-mac 2>&1 | tee build.log || { python3 mac/annot.py Bauen build.log 40 'error|Error|FAILED'; exit 1; }
+      - name: Echtzeit- und Oberflächenprüfung der CLAP-Fassung (nativ und Rosetta)
+        # Rechenzeit je Block (Grundstellung, Zufalls-Automation, Transportlücken, Denormals, Zustand laden, Abtastraten), Dauer von activate/deactivate,
+        # Oberfläche im echten Fenster (Rechenzeit des Hauptfadens, längste Blockade, Zufallsklicks, Öffnen/Schließen). Ergebnisse als Hinweise.
+        run: |
+          set -o pipefail
+          { set -e
+            clang++ -O2 -std=c++17 -arch arm64 -arch x86_64 -Iengine/third_party engine/tests/rtcheck.cpp -o /tmp/rtcheck
+            clang++ -O2 -std=c++17 -fobjc-arc -arch arm64 -arch x86_64 -Iengine/third_party mac/test/guicheck.mm -framework Cocoa -o /tmp/guicheck
+            echo "== $(sysctl -n machdep.cpu.brand_string) · $(sysctl -n hw.ncpu) Kerne · Rosetta: $(arch -x86_64 /usr/bin/true 2>/dev/null && echo ja || echo nein)"
+            for NAME in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do
+              CL="$(find build-mac -maxdepth 3 -name "$NAME.clap" -type d | head -1)"; BIN="$CL/Contents/MacOS/$NAME"; lipo -info "$BIN"
+              for A in arm64 x86_64; do
+                echo "== $NAME $A rtcheck"; arch -$A /tmp/rtcheck "$BIN" 8 128
+                echo "== $NAME $A guicheck"; arch -$A /tmp/guicheck "$BIN" 4
+              done
+            done
+          } 2>&1 | tee rt.log || r=1; python3 mac/rtnotice.py Echtzeit rt.log || r=1; exit ${r:-0}
+      - name: Speicherprüfung (AddressSanitizer, UBSan; arm64)
+        run: |
+          set -o pipefail
+          { set -e
+            SAN="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
+            clang++ $SAN -std=c++17 -Iengine/third_party engine/tests/rtcheck.cpp -o /tmp/rtcheck_asan
+            clang++ $SAN -std=c++17 -fobjc-arc -Iengine/third_party mac/test/guicheck.mm -framework Cocoa -o /tmp/guicheck_asan
+            for spec in "plugin.cpp laney" "yplugin.cpp yamaha" "b15plugin.cpp b15"; do set -- $spec
+              clang++ $SAN -std=c++17 -fobjc-arc -fvisibility=hidden -DTS_VIEW_CLASS=TSView_$2 -Iengine/clap -c engine/clap/macview.mm -o /tmp/macview_$2.o
+              clang++ $SAN -std=c++17 -fvisibility=hidden -shared -fPIC -Iengine/src -Iengine/gen -Iengine/third_party engine/clap/$1 /tmp/macview_$2.o -framework Cocoa -framework CoreGraphics -framework CoreText -o /tmp/$2_asan.dylib
+              echo "== $2 asan rtcheck"; UBSAN_OPTIONS=print_stacktrace=1 /tmp/rtcheck_asan /tmp/$2_asan.dylib 3 128
+              echo "== $2 asan guicheck"; UBSAN_OPTIONS=print_stacktrace=1 /tmp/guicheck_asan /tmp/$2_asan.dylib 2
+            done
+          } 2>&1 | tee asan.log || r=1; python3 mac/rtnotice.py Speicherpruefung asan.log || r=1; exit ${r:-0}
       - name: Prüfen, signieren (ad hoc), packen
         run: |
           set -o pipefail
@@ -82,6 +114,23 @@ jobs:
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
             for sub in Lany B100 AFB1; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; echo "::notice title=auval $sub Kanäle::$(auval -v aufx $sub Tnst | grep -i -A2 "channel capabilities" | tr '\n' ' ')"; done
           } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
+      - name: Audio-Unit-Prüfung wie in Logic (nativ und Rosetta)
+        run: |
+          set -o pipefail
+          { set -e
+            clang++ -O2 -std=c++17 -arch arm64 -arch x86_64 mac/test/aucheck.cpp -framework AudioToolbox -framework CoreFoundation -o /tmp/aucheck
+            for sub in Lany B100 AFB1; do for A in arm64 x86_64; do echo "== $sub $A aucheck"; arch -$A /tmp/aucheck $sub 8 128; done; done
+          } 2>&1 | tee au.log || r=1; python3 mac/rtnotice.py AudioUnit au.log || r=1; exit ${r:-0}
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
+        if: always()
+        with:
+          name: tonestack-mac-pruefung
+          path: |
+            rt.log
+            asan.log
+            au.log
+            render.log
+          if-no-files-found: ignore
       - name: Prüfsummen
         run: |
           cp mac/test/out/*.png out/

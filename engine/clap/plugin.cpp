@@ -51,7 +51,7 @@ struct Plugin {
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
-  long quiet = 0; std::atomic<bool> sleeping{false}; std::thread warm, curveJob; std::atomic<bool> curveBusy{false}, curveRedo{false};   // curveJob: Ruhezustand der Endstufe für das Diagramm im Hintergrund   // warm: füllt den Ruhezustand der Endstufe für alle Raten vorab
+  long quiet = 0; std::atomic<bool> sleeping{false}; std::thread warm, curveJob; std::atomic<bool> curveBusy{false}, curveRedo{false}, stopJobs{false};   // stopJobs (ab 3.33): Hintergrund-Rechnungen abbrechen (deactivate/destroy warten nicht)   // curveJob: Ruhezustand der Endstufe für das Diagramm im Hintergrund   // warm: füllt den Ruhezustand der Endstufe für alle Raten vorab
   std::atomic<bool> fresh{false}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus der Ruhe neu beginnen   // Stille am Eingang und abgeklungener Ausgang: Host darf die Verarbeitung aussetzen
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt, diagMode; int diagCnt = 0;
@@ -70,12 +70,17 @@ static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
 // Wird beim Neubeginn angewandt (start_processing, Pause des Hosts über 0,2 s); nach dem Schlaf geht es ab 3.27 mit dem eingefrorenen Zustand weiter.
 static void settleRunner(LinRunner &r) { std::fill(r.Ih.begin(), r.Ih.end(), 0.0); std::fill(r.vc.begin(), r.vc.end(), 0.0); r.hasPrev = false; r.blend = 1; }
 static void settle(Engine *E) {
-  if (!E || !E->a || E->b) return; CoreBase *c = E->a;
+  if (!E || !E->a) return;
+  if (E->b) { delete E->a; E->a = E->b; E->b = nullptr; E->replay = false; E->xf = 0; }   // Neubeginn mitten im Umschalten: die neue Schaltung gilt (bis 3.32: Neubeginn übergangen)
+  CoreBase *c = E->a;
   if (c->isNl()) { NlCore *n = (NlCore*)c;
     std::string key = NlCore::cacheKey(n->v, n->fs, n->os, n->cur.tube); NlCore::CacheLock lk;
     auto &ca = NlCore::cache(); auto it = ca.find(key); if (it != ca.end()) n->amp.initFrom(n->v, n->cur, it->second); else n->amp.init(n->v, n->cur);
     n->amp.blending = false; std::fill(n->amp.xb.begin(), n->amp.xb.end(), 0.0); std::fill(n->amp.yb.begin(), n->amp.yb.end(), 0.0); n->paC.settle(); }
   else { LinCore *l = (LinCore*)c; settleRunner(l->r); l->paC.settle(); }
+  // ab 3.33 auch Laufzeitausgleich, Lautsprecherfilter und Verlauf leeren (vorher kamen nach einem Neubeginn 31 alte Abtastwerte und ein Rest im Lautsprecherfilter)
+  std::fill(c->dl.begin(), c->dl.end(), 0.0); c->dpos = 0; E->spk.lo.reset(); E->spk.le.reset(); E->spk.cone.reset(); E->spkMix = E->spkOn ? 1 : 0;
+  std::fill(E->hist.begin(), E->hist.end(), 0.f); E->hpos = 0; E->hfill = 0;
 }
 
 // ---- Parameter ----
@@ -131,7 +136,11 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----
 static bool pl_init(const clap_plugin_t *) { warmTubes(); return true; }   // Röhrentabellen jetzt (Haupt-Thread), nicht erst im Audio-Thread
-static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm.joinable()) pl->warm.join(); if (pl->curveJob.joinable()) pl->curveJob.join();
+static void stopJobs(Plugin *pl) { pl->stopJobs = true; if (pl->warm.joinable()) pl->warm.join(); if (pl->curveJob.joinable()) pl->curveJob.join(); pl->curveBusy = false; pl->stopJobs = false; }
+static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); stopJobs(pl);
+#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+  { auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; } }   // Host ohne gui.destroy: Takt nicht auf ein gelöschtes Plugin laufen lassen
+#endif
 #ifndef TS_NO_GUI
   { TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; } 
 #ifndef __APPLE__
@@ -140,23 +149,26 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm
   }
 #endif
   delete pl->eng; delete pl->eng2; delete pl; }
-static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr;
+static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; stopJobs(pl);   // laufende Vorab-Rechnung (frühere Aktivierung) abbrechen
   // eingeschwungene Endstufe vorab (Haupt-Thread), nicht erst im Audio-Thread
   { int o = (int)std::lround(pl->val[P_OS]), os = o <= 0 ? 1 : o == 1 ? 2 : 4;   // Grundrate (1x, linear) und Rate der gewählten Überabtastung
     for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true, pl->val[P_ECO] > 0.5)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m));
     // die übrigen Raten (Umschalten der Überabtastung im Betrieb) im Hintergrund; bis dahin startet eine neue Endstufe aus den Planspannungen (3.26: Sekunden im Audio-Thread)
-    if (pl->warm.joinable()) pl->warm.join();
-    double mis = pl->val[P_MIS] / 100; pl->warm = std::thread([sr, mis]() { for (double m : {0.0, mis}) for (double r : {sr, 2 * sr, 4 * sr}) { lpa::Vals v = PaDk::valsOf(Parts::orig(), 0.5, m); if (!PaDk::has(r, v)) PaDk::settled(r, v); } }); }
+    // Endstufe rechnet höchstens mit der doppelten Grundrate (2x, 4x mit Zweiergruppe; bis 3.32 wurde zusätzlich die vierfache gerechnet, die nichts mehr nutzt)
+    double mis = pl->val[P_MIS] / 100; std::atomic<bool> *stop = &pl->stopJobs;
+    try { pl->warm = std::thread([sr, mis, stop]() { DenormGuard dg; for (double m : {0.0, mis}) for (double r : {sr, 2 * sr}) { if (*stop) return; lpa::Vals v = PaDk::valsOf(Parts::orig(), 0.5, m); if (!PaDk::has(r, v)) PaDk::settled(r, v, true, stop); } }); } catch (...) {} }
   delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
-static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->warm.joinable()) pl->warm.join(); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
+static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); stopJobs(pl); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
-static void pl_reset(const clap_plugin_t *p) { Plugin *pl = P(p); if (pl->eng) { delete pl->eng; delete pl->eng2; pl->eng = new Engine(pl->fs); pl->eng2 = new Engine(pl->fs); pl->eng->pad = pl->eng2->pad = LATENCY; pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; } }
+// ab 3.33 wie AmpFett: nur Neubeginn beim nächsten process (vorher neue Engines; clap-wrapper ruft reset bei VST3 aus setProcessing, evtl. nicht im Audio-Thread)
+static void pl_reset(const clap_plugin_t *p) { P(p)->fresh = true; }
 static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->audio_outputs_count; k++) { clap_audio_buffer_t &o = pr->audio_outputs[k]; for (uint32_t c = 0; c < o.channel_count; c++) { if (o.data32) std::memset(o.data32[c], 0, pr->frames_count * sizeof(float)); else if (o.data64) std::memset(o.data64[c], 0, pr->frames_count * sizeof(double)); } } }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
   if (!pl->eng) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
   uint32_t n = pr->frames_count; if (pr->audio_inputs_count < 1 || pr->audio_outputs_count < 1) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
+  if (n == 0) return CLAP_PROCESS_CONTINUE;   // nur Ereignisse (sonst Last = 0/0)
   const clap_audio_buffer_t &in = pr->audio_inputs[0]; clap_audio_buffer_t &out = pr->audio_outputs[0];
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
@@ -210,7 +222,7 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
 // ---- Oberfläche (Linux: X11, macOS: NSView; eingebettet) ----
 static void gui_tick(Plugin *pl);
 static void startCurveJob(Plugin *pl, double fs, lpa::Vals pv) { if (pl->curveBusy.exchange(true)) return; if (pl->curveJob.joinable()) pl->curveJob.join();
-  pl->curveJob = std::thread([pl, fs, pv]() { PaDk::settled(fs, pv); pl->curveRedo = true; pl->curveBusy = false; }); }
+  try { pl->curveJob = std::thread([pl, fs, pv]() { DenormGuard dg; PaDk::settled(fs, pv, true, &pl->stopJobs); pl->curveRedo = true; pl->curveBusy = false; }); } catch (...) { pl->curveBusy = false; } }
 static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
   { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }   // Geste, damit der Host (VST3: performEdit, Automation „Touch“) die Änderung zuordnet
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
