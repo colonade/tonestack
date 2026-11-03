@@ -39,7 +39,8 @@ static const double TOTALH = YFH + (STRIPU + PLOTU) * YFW / tsw::UW;   // Gesamt
 constexpr double SW_Y = 88;     // Mittelpunkt der Kippschalter und kleinen Regler
 static const double SW_X[2] = {64, 186};      // POWER AMP, SPEAKER (POT TAPER ab 1.11 entfallen: Potis wie im Original, A = logarithmisch)
 static const int SW_P[2] = {P_PWR, P_SPK};
-static const double KN_X[2] = {830, 1046};        // INPUT, OUTPUT
+static const double KN_X[2] = {960, 1100};        // INPUT, OUTPUT (ab 1.15 wie Laney/AmpFett: runder Regler, Beschriftung darunter)
+constexpr double KN_Y = 72;
 constexpr int NF = 120;         // Stützstellen des Diagramms (20 Hz … 20 kHz, logarithmisch)
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
 constexpr double V_LIM_GUI = 42.0;
@@ -153,7 +154,7 @@ struct Gui {
       setrgb(c, 0x6a6e76); const char *sc[5] = {"-40", "-30", "-20", "-10", "0 dB"}; for (int k = 0; k < 5; k++) tsw::text(c, sc[k], mx + mw * k / 4, my + mh + 40, 11, false, k == 0 ? 0 : k == 4 ? 2 : 1); }
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
-      tsw::smallKnob(c, KN_X[i], SW_Y, uu, i == 0 ? "INPUT" : "OUTPUT", i == 0 && !pwr ? "(used with power amp)" : vt[i], drag == 9 + i || hover == 9 + i, i == 0 && !pwr); }
+      tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : "OUTPUT", i == 0 && !pwr ? "(used with power amp)" : vt[i], drag == 9 + i || hover == 9 + i, i == 0 && !pwr); }
     // Frequenzgang (Kleinsignal, bezogen auf 1 kHz): Kurven bei Bedarf neu rechnen (höchstens alle 100 ms)
     { char kb[256]; int kn = 0; const int ks[] = {P_INP, P_VOL, P_T, P_M, P_B, P_E0, P_E1, P_E2, P_E3, P_E4, P_SPK};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -167,12 +168,12 @@ struct Gui {
     // Wertanzeige in Bildschirmpixeln
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[96]; double ax, ay;
       if (i < 9) { const YKnobGeo &g = YKG[i]; ax = g.x * s; ay = (g.y - g.r * 1.12) * s; knobText(i, v[KPARAM[i]], buf, 96); }
-      else { ax = KN_X[i - 9] * u; ay = YFH * s + (SW_Y - 30) * u; std::snprintf(buf, 96, "%s", vt[i - 9]); }
+      else { ax = KN_X[i - 9] * u; ay = YFH * s + (KN_Y - 30) * u; std::snprintf(buf, 96, "%s", vt[i - 9]); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }
   // ---- Treffer ----
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < 9; i++) { double dx = x - YKG[i].x, dy = y - YKG[i].y; if (dx*dx + dy*dy <= YKG[i].r * YKG[i].r * 1.69) return i; }
-    double lx, ly; toLower(px, py, lx, ly); /* Fensterpixel, nicht Foto-Einheiten */ for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - SW_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
+    double lx, ly; toLower(px, py, lx, ly); /* Fensterpixel, nicht Foto-Einheiten */ for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J[2] = {YJACK_HIGH, YJACK_LOW}; for (int i = 0; i < 2; i++) { double dx = x - J[i][0], dy = y - J[i][1]; if (dx*dx + dy*dy <= (J[i][2] + 14) * (J[i][2] + 14)) return i; } return -1; }
   // Kippschalter: liefert Parameter und half (0 obere, 1 untere Hälfte)
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 2; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }

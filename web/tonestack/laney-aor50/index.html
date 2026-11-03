@@ -1582,4 +1582,48 @@ function updOs() { const sel = $('aos'); for (const o of sel.options) if (+o.val
     requestAnimationFrame(step); };
   if (document.readyState === 'complete') setTimeout(go, 350); else addEventListener('load', () => setTimeout(go, 350), { once: true }); })();
 </script>
+<style id="rknob-css">
+/* Runde Potis statt Schieber (ab 2026-11-03, wie INPUT/OUTPUT/TUBE MISMATCH im Plugin): der Schieber bleibt als Wertträger im Dokument, unsichtbar */
+.rkh{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;margin:0!important}
+.rk{flex:none;width:46px;height:46px;cursor:ns-resize;touch-action:none;border-radius:50%;outline-offset:3px}
+.rk:focus-visible{outline:2px solid #ffd98a}
+.rk svg{display:block;width:46px;height:46px}
+.rk.drag .rkr,.rk:hover .rkr{stroke:#ffd34d}
+</style>
+<script id="rknob-js">
+// Rundes Poti für einen Schieber: ziehen (senkrecht, Umschalt = fein), Mausrad, Pfeil-/Bildtasten, Pos1/Ende, Doppelklick = Grundwert.
+// Der Schieber behält Wert, min/max/step und die Ereignisse (input, change); Programmzuweisungen an .value drehen den Knopf mit.
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  window.rknob = id => { const inp = document.getElementById(id); if (!inp || inp.dataset.rk) return; inp.dataset.rk = '1';
+    const lo = +inp.min, hi = +inp.max, st = +inp.step || (hi - lo) / 100, def = +inp.defaultValue;
+    const k = document.createElement('span'); k.className = 'rk'; k.tabIndex = 0; k.setAttribute('role', 'slider');
+    const lab = inp.labels && inp.labels[0]; if (lab) { k.setAttribute('aria-label', lab.textContent.trim()); lab.addEventListener('click', e => { e.preventDefault(); k.focus(); }); }
+    k.setAttribute('aria-valuemin', lo); k.setAttribute('aria-valuemax', hi);
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '-23 -23 46 46');
+    const ring = document.createElementNS(NS, 'circle'); ring.setAttribute('r', 21); ring.setAttribute('fill', '#0f0f10'); ring.setAttribute('class', 'rkr'); ring.setAttribute('stroke', '#3a3d44'); ring.setAttribute('stroke-width', 2);
+    const ptr = document.createElementNS(NS, 'line'); ptr.setAttribute('x1', 0); ptr.setAttribute('y1', -6); ptr.setAttribute('x2', 0); ptr.setAttribute('y2', -19); ptr.setAttribute('stroke', '#f2f2f2'); ptr.setAttribute('stroke-width', 3.5); ptr.setAttribute('stroke-linecap', 'round');
+    svg.append(ring, ptr); k.append(svg); inp.classList.add('rkh'); inp.tabIndex = -1; inp.setAttribute('aria-hidden', 'true'); inp.before(k);
+    const out = inp.parentNode.querySelector('output[for="' + id + '"]');
+    const draw = () => { const v = +inp.value, f = hi > lo ? (v - lo) / (hi - lo) : 0; ptr.setAttribute('transform', 'rotate(' + (-150 + 300 * f) + ')');
+      k.setAttribute('aria-valuenow', v); if (out) k.setAttribute('aria-valuetext', out.textContent); };
+    const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(inp, 'value', { get() { return d.get.call(this); }, set(x) { d.set.call(this, x); draw(); } });
+    const set = v => { const q = Math.round((Math.min(hi, Math.max(lo, v)) - lo) / st) * st + lo, old = inp.value; inp.value = +q.toFixed(6);
+      if (inp.value !== old) inp.dispatchEvent(new Event('input', { bubbles: true })); draw(); };
+    let y0 = 0, v0 = 0, drag = false;
+    k.addEventListener('pointerdown', e => { if (e.button !== 0) return; drag = true; y0 = e.clientY; v0 = +inp.value; k.setPointerCapture(e.pointerId); k.classList.add('drag'); k.focus(); e.preventDefault(); });
+    k.addEventListener('pointermove', e => { if (!drag) return; set(v0 + (y0 - e.clientY) * (hi - lo) / (e.shiftKey ? 800 : 160)); });
+    const end = () => { if (!drag) return; drag = false; k.classList.remove('drag'); inp.dispatchEvent(new Event('change', { bubbles: true })); };
+    k.addEventListener('pointerup', end); k.addEventListener('pointercancel', end);
+    k.addEventListener('dblclick', () => { set(def); inp.dispatchEvent(new Event('change', { bubbles: true })); });
+    k.addEventListener('wheel', e => { e.preventDefault(); set(+inp.value + (e.deltaY < 0 ? 1 : -1) * st * (e.shiftKey ? 1 : Math.max(1, Math.round((hi - lo) / st / 40)))); inp.dispatchEvent(new Event('change', { bubbles: true })); }, { passive: false });
+    k.addEventListener('keydown', e => { const big = (hi - lo) / 10, m = { ArrowUp: st, ArrowRight: st, ArrowDown: -st, ArrowLeft: -st, PageUp: big, PageDown: -big }[e.key];
+      if (m !== undefined) set(+inp.value + m); else if (e.key === 'Home') set(lo); else if (e.key === 'End') set(hi); else return;
+      e.preventDefault(); inp.dispatchEvent(new Event('change', { bubbles: true })); });
+    inp.addEventListener('input', draw); new MutationObserver(draw).observe(out || inp, { childList: true, characterData: true, subtree: true }); draw(); };
+  const go = () => ['avin', 'amis', 'avol'].forEach(window.rknob);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
+</script>
 </body></html>
