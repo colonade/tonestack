@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.13
+Version 1.14
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -108,6 +108,30 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.14
+  - STANDBY with a strong input signal: in some states, single blocks took up
+    to 20 times real time (the solver's fallback swung back and forth at the
+    kinks of the output transformer's hysteresis and gave up on dozens of
+    samples in a row). The fallback now halves its steps while the error
+    grows; in the case found, 42 failed samples per block -> none. The
+    output is otherwise sample-identical.
+  - Frequency plot: the settled amp for the plot is computed in a background
+    thread. Before, opening the window the first time at 2x or 4x (or after a
+    sample-rate change) froze the host's interface for 0.4 to 2 seconds.
+  - Background work (oversampling switch, plot) stops at once when the plugin
+    is deactivated or removed, instead of being waited for.
+  - A host pause while the plugin sleeps (silent input) no longer starts it
+    over (as in the Laney).
+  - Removed without closing the window first: the window timer is now
+    unregistered (Linux).
+  - Mac (Audio Unit, VST3): the window draws the photo and printing once per
+    size in screen pixels and keeps its text layouts; measured on an M1 about
+    5 ms per frame and 3 to 7 % of one core with the window open while
+    playing (Rosetta about twice that). The window's class name is now unique
+    per loaded file: before, the VST3 and the Audio Unit (or an old and a new
+    copy) used the same name, and when a host loaded both, the window could
+    run code from the other file and crash once that file was unloaded.
 
 1.13
   - X11 error handling only during the plugin's own window calls. Before,

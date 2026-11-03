@@ -23,8 +23,10 @@ Was das Paket tut: Es legt nur die Plugins ab, für alle Benutzer in
   /Library/Audio/Plug-Ins/Components   (Audio Units)
   /Library/Audio/Plug-Ins/VST3         (VST3; der Ordner wird angelegt, falls er fehlt)
 und lässt macOS die Audio-Unit-Liste neu einlesen. Früher von Hand in den
-Benutzerordner (~/Library/Audio/Plug-Ins) kopierte Fassungen derselben
-Plugins verschiebt es in den Papierkorb, damit Logic nicht die alte nimmt.
+Benutzerordner (~/Library/Audio/Plug-Ins) kopierte Fassungen der gewählten
+Plugins verschiebt es in den Papierkorb, damit Logic nicht die alte nimmt
+(nur die der gewählten; geht der Papierkorb nicht, nach
+~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen, dort sucht kein Programm).
 Sonst ändert es nichts am System: keine Programme, keine Hintergrunddienste,
 keine Einstellungen. Ist kein Logic installiert, liegen die Plugins einfach
 bereit und stören nicht. Die Plugins selbst schreiben keine Dateien und
@@ -157,7 +159,8 @@ Logic beenden, dann im Terminal:
     sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF}.vst3
     for p in laney yamaha b15nf; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
 
-Danach ist nichts mehr davon auf dem Mac.
+Falls vorhanden, auch den Ordner ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen
+löschen. Danach ist nichts mehr davon auf dem Mac.
 
 
 Lizenzen der mitgelieferten Fremdbibliotheken: THIRD-PARTY-LICENSES.txt

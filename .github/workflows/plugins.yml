@@ -32,6 +32,7 @@ jobs:
           for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
           ./engine/build/b15test | tail -3
           ./engine/build/switchtest | tail -1
+          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
       - name: Packen
         run: |
           set -euo pipefail

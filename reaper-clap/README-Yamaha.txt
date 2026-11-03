@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.13
+Version 1.14
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -93,6 +93,19 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+1.14
+  - Reset (VST3 hosts call it when processing stops) only marks a restart and
+    no longer rebuilds the engines.
+  - Removed without closing the window first: the window timer is now
+    unregistered (Linux).
+  - Mac (Audio Unit, VST3): the window draws the photo and printing once per
+    size in screen pixels and keeps its text layouts; measured on an M1 about
+    5 ms per frame and 3 to 7 % of one core with the window open while
+    playing (Rosetta about twice that). The window's class name is now unique
+    per loaded file: before, the VST3 and the Audio Unit (or an old and a new
+    copy) used the same name, and when a host loaded both, the window could
+    run code from the other file and crash once that file was unloaded.
 
 1.13
   - X11 error handling only during the plugin's own window calls. Before,

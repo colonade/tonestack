@@ -189,13 +189,13 @@ static inline void axpy(int n, double a, const double *__restrict x, double *__r
 // gemeinsam erfüllt sind. Das Ergebnis ist dasselbe wie mit einem Newton über alle Tore; die Gruppen sind nur schwach gekoppelt
 // (z. B. Vorstufe, Endstufe, Netzteil), daher genügen meist ein bis zwei Durchgänge, und die Gleichungssysteme bleiben klein.
 struct Runner {
-  Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 4, gsPass = 6; double tol = 1e-5, stepLim = 30; int lastIt = 0, lastPass = 0, fails = 0;   // tol bis Laney 3.25 / AmpFett 1.10: 1e-6 V (jetzt 15–20 % weniger Newton-Schritte, Abweichung leise unter −100 dB)
+  Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1, v0; bool damp = false; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 4, gsPass = 6; double tol = 1e-5, stepLim = 30; int lastIt = 0, lastPass = 0, fails = 0;   // tol bis Laney 3.25 / AmpFett 1.10: 1e-6 V (jetzt 15–20 % weniger Newton-Schritte, Abweichung leise unter −100 dB)
   std::vector<std::vector<int>> grpDev, grpPort; std::vector<int> devGrp; std::vector<int> capOut; Vec capI;   // capOut: Kondensatoren, deren Strom (a→b) mit ausgegeben wird   // devGrp: Gruppe je Gerät (vom Aufrufer gesetzt, sonst alle in einer)
   Vec z, kq;   // z = [h, u, i] für die dünnen Produkte; kq = K·i
   // A = I − K_GG·J_GG je Gruppe: je Spalte (Gerät, Tor b) die beteiligten K-Spalten und Jd-Plätze, vorab bestimmt
   struct ACol { int self, nq, kcol[4], jd[4]; }; std::vector<std::vector<ACol>> acol;
   void set(const Sys &ns) { bool first = h.empty() || (int)h.size() != ns.nh; s = ns; if (first) { h.assign(s.nh, 0.0); } if ((int)vp.size() != s.m) { vp.assign(s.m, 0.0); ip.assign(s.m, 0.0); }
-    vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); if (Jd.size() != (size_t)s.m * 16) Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
+    vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); if (Jd.size() != (size_t)s.m * 16) Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); v0.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
     int ng = 0; for (size_t k = 0; k < dev.size(); k++) ng = std::max(ng, k < devGrp.size() ? devGrp[k] + 1 : 1);
     grpDev.assign(ng + 1, {}); grpPort.assign(ng + 1, {});   // letzte Gruppe: alle Geräte zusammen (Rückfall, wenn die Gruppen einander nicht schnell genug einig werden)
     for (size_t k = 0; k < dev.size(); k++) { int G = k < devGrp.size() ? devGrp[k] : 0; for (int GG : {G, ng}) { grpDev[GG].push_back((int)k); for (int q = 0; q < dev[k].np; q++) grpPort[GG].push_back(dev[k].p0 + q); } }
@@ -226,8 +226,13 @@ struct Runner {
           for (int ci = 0; ci < n; ci++) { const ACol &c = ac[ci]; double a = (pr == c.self) ? 1 : 0; for (int q = 0; q < c.nq; q++) a -= kr[c.kcol[q]] * JD[c.jd[q]]; ar[ci] = a; }
           x[ri] = -g[ri]; } }
       if (!solveAny(n, A.data(), x.data())) { fails++; break; }
-      { double mx = 0; for (int i = 0; i < n; i++) mx = std::max(mx, std::fabs(x[i])); double sc = mx > stepLim ? stepLim / mx : 1; for (int i = 0; i < n; i++) vp[P[i]] += sc * x[i]; }
-      evalGroup(G);
+      { double mx = 0; for (int i = 0; i < n; i++) mx = std::max(mx, std::fabs(x[i])); double sc = mx > stepLim ? stepLim / mx : 1;
+        if (!damp) { for (int i = 0; i < n; i++) vp[P[i]] += sc * x[i]; evalGroup(G); }
+        else {   // nur im Rückfall (ab Laney 3.33 / AmpFett 1.14): Schritt halbieren, solange der Fehler wächst. Knicke in den Kennlinien (Hysterese des
+                 // Ausgangsübertragers) ließen Newton sonst zwischen zwei Abschnitten pendeln (AmpFett STANDBY bei kräftigem Eingang: bis 20-fache Echtzeit je Block)
+          for (int i = 0; i < n; i++) v0[i] = vp[P[i]]; double a = 1;
+          for (int ls = 0; ls < 6; ls++, a *= 0.5) { for (int i = 0; i < n; i++) vp[P[i]] = v0[i] + a * sc * x[i]; evalGroup(G);
+            double e = 0; for (int i = 0; i < n; i++) e = std::max(e, std::fabs(resid(P[i]))); if (e < err) break; } } }
       lastIt++;
     }
     return first; }
@@ -245,7 +250,7 @@ struct Runner {
     if (!ok) {   // Rückfall: vom Wert des letzten Abtastwerts aus, kleinere Schritte, mehr Iterationen
       for (int k = 0; k < m; k++) vp[k] = vp1[k]; for (size_t k = 0; k < dev.size(); k++) evalDev((int)k);
       s.cK.apply(ip.data(), kq.data()); for (int k = 0; k < m; k++) q[k] = p[k] + kq[k];
-      int mi = maxIt; double sl = stepLim; maxIt = 60; stepLim = 10; for (int k = 0; k < 4 && !ok; k++, pass++) if (solveGroup(ng) < tol) ok = true; maxIt = mi; stepLim = sl; }
+      int mi = maxIt; double sl = stepLim; maxIt = 60; stepLim = 10; damp = true; for (int k = 0; k < 4 && !ok; k++, pass++) if (solveGroup(ng) < tol) ok = true; damp = false; maxIt = mi; stepLim = sl; }
     lastPass = pass; if (!ok) fails++;
     for (int k : memDev) { Dev &d = dev[k]; double v = vp[d.p0], dphi = d.ht * (d.vl + v);
       for (int j = 0; j < d.nhs; j++) d.hs[j] = std::max(-d.hr[j], std::min(d.hr[j], d.hs[j] + dphi));

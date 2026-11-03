@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.32
+Version 3.33
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -125,6 +125,39 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.33
+  - Switching modes (DISTORTION, oversampling/eco, tubes, input jack,
+    channel) costs about half as much while the new circuit catches up. It
+    now replays the last 150 ms (and everything since) in order; before, it
+    got the history and the live signal alternately, block by block, which
+    made its solver work about five times as hard. Measured: switching a
+    tube 5.2 -> 2.7 times the normal block time, for about 0.15 s.
+  - Power amp warm-up after activation (background): no longer computes a
+    rate nothing uses since 3.28 (four times the sample rate), stops at once
+    when the plugin is deactivated or removed (closing a project or changing
+    the sample rate used to wait for it, up to a few seconds), and several
+    instances loading together no longer compute the same thing twice.
+    Denormals are off in the background threads too.
+  - Store of settled power amp states: when full, only entries with tube
+    mismatch are dropped. Before, all were dropped at 16 entries, and every
+    later restart started the power amp from the schematic voltages.
+  - Restart (playback after a pause, FX switched back on) now also clears the
+    latency pad, the speaker filter and the history; before, 31 old samples
+    could come out. Reset (VST3 hosts call it when processing stops) only
+    marks a restart and no longer rebuilds the engines.
+  - Removed without closing the window first: the window timer is now
+    unregistered (Linux).
+  - Circuit solver: the rarely needed fallback halves its steps while the
+    error grows. This only affects samples where the normal solve does not
+    converge; otherwise the output is sample-identical.
+  - Mac (Audio Unit, VST3): the window draws the photo and printing once per
+    size in screen pixels and keeps its text layouts; measured on an M1 about
+    5 ms per frame and 3 to 7 % of one core with the window open while
+    playing (Rosetta about twice that). The window's class name is now unique
+    per loaded file: before, the VST3 and the Audio Unit (or an old and a new
+    copy) used the same name, and when a host loaded both, the window could
+    run code from the other file and crash once that file was unloaded.
 
 3.32
   - X11 error handling only during the plugin's own window calls. Before,

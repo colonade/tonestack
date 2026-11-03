@@ -19,9 +19,12 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <time.h>
 #include <vector>
 using Clock = std::chrono::steady_clock;
 static double secsSince(Clock::time_point t) { return std::chrono::duration<double>(Clock::now() - t).count(); }
+// Rechenzeit des eigenen Threads (ohne Zeiten, in denen das System den Thread verdrängt hat): trennt Plugin-Arbeit von Aussetzern der (virtuellen) Maschine
+static double threadCpu() { timespec ts; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts); return ts.tv_sec + ts.tv_nsec * 1e-9; }
 
 static std::atomic<int> flushReq{0};
 static void req_rescan(const clap_host_t *, clap_param_rescan_flags) {} static void req_clear(const clap_host_t *, clap_id, clap_param_clear_flags) {}
@@ -42,7 +45,7 @@ static clap_event_param_value_t ev(uint32_t id, double v, uint32_t t = 0) { clap
 struct OStream { std::string s; clap_ostream_t os; OStream() { os.ctx = this; os.write = [](const clap_ostream_t *o, const void *b, uint64_t n) -> int64_t { ((OStream*)o->ctx)->s.append((const char*)b, n); return (int64_t)n; }; } };
 struct IStream { std::string s; size_t p = 0; clap_istream_t is; IStream(std::string x) : s(std::move(x)) { is.ctx = this; is.read = [](const clap_istream_t *i, void *b, uint64_t n) -> int64_t { IStream *t = (IStream*)i->ctx; size_t k = std::min<size_t>(n, t->s.size() - t->p); std::memcpy(b, t->s.data() + t->p, k); t->p += k; return (int64_t)k; }; } };
 
-struct Stat { std::vector<double> r; int nan = 0; double worstMs = 0; std::string worstWhy;
+struct Stat { std::vector<double> r, rc; int nan = 0; double worstMs = 0, worstCpuMs = 0; std::string worstWhy;
   void add(double ratio, double ms, const std::string &why) { r.push_back(ratio); if (ms > worstMs) { worstMs = ms; worstWhy = "Block " + std::to_string(r.size() - 1) + ": " + why; } } };
 // SPIKELOG=<Faktor>: Blöcke über diesem Vielfachen der Echtzeit mit Parametern und den Änderungen davor ausgeben (1 → 3-fach)
 static double spikeLim() { const char *e = std::getenv("SPIKELOG"); double v = e ? std::atof(e) : 0; return v > 1 ? v : 3; }
@@ -75,9 +78,10 @@ struct Host {
     clap_input_events_t ie = {nullptr, q_size, q_get}; clap_output_events_t oe = {nullptr, out_push};
     clap_process_t pr{}; pr.frames_count = n; pr.steady_time = pos; pr.audio_inputs = &ib; pr.audio_outputs = &ob; pr.audio_inputs_count = 1; pr.audio_outputs_count = 1; pr.in_events = &ie; pr.out_events = &oe;
     std::string why; for (auto &e : Q) { char b[300]; std::snprintf(b, sizeof b, "%s=%g ", info[e.param_id].name, e.value); why += b; }
-    auto t0 = Clock::now(); clap_process_status r = p->process(p, &pr); double dt = secsSince(t0);
+    auto t0 = Clock::now(); double c0 = threadCpu(); clap_process_status r = p->process(p, &pr); double dt = secsSince(t0), dc = threadCpu() - c0;
+    S.rc.push_back(dc / (n / fs)); S.worstCpuMs = std::max(S.worstCpuMs, dc * 1000);
     S.add(dt / (n / fs), dt * 1000, why.empty() ? (asleep ? "(schlief)" : "-") : why); asleep = r == CLAP_PROCESS_SLEEP;
-    if (std::getenv("SPIKELOG") && dt / (n / fs) > spikeLim()) { std::printf("SPIKE2 pos=%.3fs ratio=%.0f%% ms=%.2f status=%d\n", pos / fs, dt / (n / fs) * 100, dt * 1000, (int)r); dumpParams(); }
+    if (std::getenv("SPIKELOG") && dt / (n / fs) > spikeLim()) { std::printf("SPIKE2 pos=%.3fs ratio=%.0f%% ms=%.2f cpu_ms=%.2f status=%d\n", pos / fs, dt / (n / fs) * 100, dt * 1000, dc * 1000, (int)r); dumpParams(); }
     for (int c = 0; c < ch; c++) for (int i = 0; i < n; i++) if (!std::isfinite((c ? OR : OL)[i])) { S.nan++; break; }
     Q.clear(); pos += n; if (cbReq.exchange(false)) p->on_main_thread(p); return r; }
 };
@@ -86,7 +90,9 @@ static Stat worstAll; static std::string worstPhase; static double worstMax = 0;
 static void summary(const char *phase, Stat &S, double fs) {
   if (S.r.empty()) return; std::vector<double> v = S.r; std::sort(v.begin(), v.end()); double mean = 0; for (double x : v) mean += x; mean /= v.size();
   double p999 = v[std::min(v.size() - 1, (size_t)(v.size() * 0.999))]; int over = 0; for (double x : v) if (x > 1) over++;
-  std::printf("RESULT kind=rt phase=%s fs=%.0f blocks=%zu mean=%.1f p999=%.1f max=%.1f over100=%d nan=%d worst_ms=%.2f worst_at=\"%s\"\n", phase, fs, v.size(), mean * 100, p999 * 100, v.back() * 100, over, S.nan, S.worstMs, S.worstWhy.c_str());
+  std::vector<double> vc = S.rc; std::sort(vc.begin(), vc.end()); int overc = 0; for (double x : vc) if (x > 1) overc++;
+  std::printf("RESULT kind=rt phase=%s fs=%.0f blocks=%zu mean=%.1f p999=%.1f max=%.1f over100=%d cpu_max=%.1f cpu_over100=%d nan=%d worst_ms=%.2f worst_cpu_ms=%.2f worst_at=\"%s\"\n", phase, fs, v.size(), mean * 100, p999 * 100, v.back() * 100, over,
+    vc.empty() ? 0 : vc.back() * 100, overc, S.nan, S.worstMs, S.worstCpuMs, S.worstWhy.c_str());
   std::fflush(stdout); if (v.back() > worstMax) { worstMax = v.back(); worstPhase = phase; worstAll = S; } }
 
 int main(int argc, char **argv) {

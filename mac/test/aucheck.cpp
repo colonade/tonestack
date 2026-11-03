@@ -14,20 +14,22 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <time.h>
 #include <vector>
 using Clock = std::chrono::steady_clock;
 static double since(Clock::time_point t) { return std::chrono::duration<double>(Clock::now() - t).count(); }
+static double threadCpu() { timespec ts; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts); return ts.tv_sec + ts.tv_nsec * 1e-9; }   // ohne Verdrängung durch das System
 static unsigned rs = 20261103; static double urand() { rs = rs * 1664525u + 1013904223u; return (rs >> 8) / 16777216.0; }
 static double fs = 48000; static long pos = 0; static std::atomic<int> sigMode{0};   // 0 Bass, 1 Stille
 static double bass(double t) { double env = 0.5 * std::exp(-2.5 * std::fmod(t, 0.8)); return env * (std::sin(2 * M_PI * 55 * t) + 0.3 * std::sin(2 * M_PI * 110 * t + 0.4)); }
 static OSStatus input(void *, AudioUnitRenderActionFlags *, const AudioTimeStamp *ts, UInt32, UInt32 n, AudioBufferList *io) {
   for (UInt32 b = 0; b < io->mNumberBuffers; b++) { float *d = (float*)io->mBuffers[b].mData; for (UInt32 i = 0; i < n; i++) { double t = (ts->mSampleTime + i) / fs; d[i] = sigMode ? 0.f : (float)bass(t + b * 0.0007); } }
   return noErr; }
-struct Stat { std::vector<double> r; int nan = 0; int err = 0; double worstMs = 0; long worstAt = -1; };
+struct Stat { std::vector<double> r; int nan = 0; int err = 0; double worstMs = 0, cpuMax = 0; long worstAt = -1; };
 static void summary(const char *ph, Stat &S) {
   if (S.r.empty()) return; std::vector<double> v = S.r; std::sort(v.begin(), v.end()); double m = 0; for (double x : v) m += x; m /= v.size(); int over = 0; for (double x : v) if (x > 1) over++;
-  std::printf("RESULT kind=au phase=%s fs=%.0f blocks=%zu mean=%.1f p999=%.1f max=%.1f over100=%d nan=%d err=%d worst_ms=%.2f worst_block=%ld\n", ph, fs, v.size(), m * 100,
-    v[std::min(v.size() - 1, (size_t)(v.size() * 0.999))] * 100, v.back() * 100, over, S.nan, S.err, S.worstMs, S.worstAt); std::fflush(stdout); }
+  std::printf("RESULT kind=au phase=%s fs=%.0f blocks=%zu mean=%.1f p999=%.1f max=%.1f over100=%d cpu_max=%.1f nan=%d err=%d worst_ms=%.2f worst_block=%ld\n", ph, fs, v.size(), m * 100,
+    v[std::min(v.size() - 1, (size_t)(v.size() * 0.999))] * 100, v.back() * 100, over, S.cpuMax * 100, S.nan, S.err, S.worstMs, S.worstAt); std::fflush(stdout); }
 int main(int argc, char **argv) {
   if (argc < 2) { std::printf("aucheck <Subtyp> [Sekunden] [Block]\n"); return 2; }
   OSType sub = ((OSType)argv[1][0] << 24) | ((OSType)argv[1][1] << 16) | ((OSType)argv[1][2] << 8) | (OSType)argv[1][3];
@@ -53,7 +55,7 @@ int main(int argc, char **argv) {
   auto uninit = [&]() { auto t1 = Clock::now(); AudioUnitUninitialize(au); std::printf("RESULT kind=au_main what=uninitialize ms=%.1f\n", since(t1) * 1000); };
   auto render = [&](Stat &S, UInt32 n) { abl.l.mNumberBuffers = 2; abl.l.mBuffers[0] = {1, n * 4, L.data()}; abl.extra = {1, n * 4, R.data()};
     AudioUnitRenderActionFlags fl = 0; AudioTimeStamp ts = {}; ts.mSampleTime = pos; ts.mFlags = kAudioTimeStampSampleTimeValid;
-    auto t1 = Clock::now(); OSStatus r = AudioUnitRender(au, &fl, &ts, 0, n, &abl.l); double dt = since(t1); pos += n;
+    auto t1 = Clock::now(); double c1 = threadCpu(); OSStatus r = AudioUnitRender(au, &fl, &ts, 0, n, &abl.l); double dt = since(t1), dc = threadCpu() - c1; pos += n; S.cpuMax = std::max(S.cpuMax, dc / (n / fs));
     S.r.push_back(dt / (n / fs)); if (dt * 1000 > S.worstMs) { S.worstMs = dt * 1000; S.worstAt = (long)S.r.size() - 1; } if (r) S.err++;
     for (int c = 0; c < 2; c++) { float *p = c ? R.data() : L.data(); for (UInt32 i = 0; i < n; i++) if (!std::isfinite(p[i])) { S.nan++; break; } } };
   auto nb = [&](double s) { return (long)(s * fs / B); };
