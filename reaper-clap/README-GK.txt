@@ -1,0 +1,126 @@
+GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.0
+
+Two formats, one engine
+  GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
+  identical. Use whichever your DAW prefers. CLAP is the native format, the
+  VST3 is built from it with clap-wrapper (free-audio, MIT) and the VST3 SDK
+  3.8 (Steinberg, MIT). A project saved with one format does not load its
+  settings into the other.
+  Third-party licenses: THIRD-PARTY-LICENSES.txt.
+
+Updating
+  Close REAPER first. Copying a new .clap over the file a running REAPER has
+  loaded makes REAPER crash (at once or a while later). scripts/update-
+  tonestack.sh refuses to run while REAPER is open and never overwrites a
+  plugin file in place.
+
+Installation (CLAP)
+  mkdir -p ~/.clap && cp GK_800RB.clap ~/.clap/
+  In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
+  path if it is not there and press "Re-scan". The plugin then appears in
+  the FX browser under CLAP as "GK 800RB Bass Amp".
+
+Installation (VST3)
+  mkdir -p ~/.vst3 && cp -r GK_800RB.vst3 ~/.vst3/
+  (GK_800RB.vst3 is a folder - copy it as a whole.) Then "Re-scan".
+
+What it is
+  A rebuild of the Gallien-Krueger 800RB bass amplifier after the service
+  manual (preamp schematic revision C of 1991, power amp schematic, test
+  procedure of 8/19/91). The whole preamp is solved sample by sample as one
+  circuit (nodal DK method, like the other tonestack amps):
+    - input stage U1a (non-inverting, 33k / 3.3k) with the -10 dB pad
+      (4.7k in parallel) and LO CUT (0.22 uF in series) as switches,
+      VOLUME (50k log taper) with HI BOOST (10 nF via 5.6k on the wiper)
+    - MID CONTOUR: the notch filter around U1b (about 500 Hz), switched
+      in or bypassed
+    - U2a and the four bands: HI MID around U2b, LO MID around U3a (both
+      bridged-T, 1 kHz / 250 Hz), BASS and TREBLE around U3b (60 Hz /
+      4 kHz), with every capacitor and resistor of the board; effects loop
+      bridged (SEND to RETURN)
+    - the two 1N759 zener diodes on the signal, DIRECT OUT, the BOOST
+      control with the boost switch (footswitch; off = the fixed tap below
+      the pot) and the J113 JFET stage that gives the boost its sound
+    - the bi-amp crossover (state-variable filter U6/U7, FREQ. tandem pot,
+      about 90 Hz - 1 kHz) and the HI MASTER / LO MASTER levels, or full
+      range with both amps in parallel when BI-AMP is off
+  Op-amps are modelled as voltage-controlled sources with finite gain,
+  output resistance and the +-13.5 V supply clamps, so hard clipping of a
+  stage sounds like the real thing. The two power amps (300 W low /
+  100 W high) are linear blocks with the feedback network of the schematic
+  (gain 61.7) and a soft clip at their rail limits (about 49 V and 40 V
+  peak into the load). Same engine as the web simulator
+  (https://borg.fluxstatus.de/tonestack/gk-800rb/).
+  Checked against the manual: the test levels printed on the schematic
+  (2 mV at 200 Hz, all knobs at 10) are met within about 1 dB at each
+  stage, the -10 dB pad and BOOST 0 ratios of the test procedure within
+  0.5 dB, the crossover range 100 Hz - 1 kHz, and the shapes of the 16
+  scope photos (200 Hz square wave) at the measuring points.
+  Estimated (not in the manual): J113 parameters (Idss 12 mA, Vp -2 V),
+  the exact log taper of VOLUME, the clip levels and knee of the power
+  amps, the speaker. The absolute sensitivity may be off by a few dB.
+
+Parameters
+  -10 dB input pad, Volume, Lo Cut, Mid Contour, Hi Boost, Treble, Hi Mid,
+  Lo Mid, Bass, Boost, Boost switch (footswitch: on / off = preset level),
+  Bi-Amp (full range / bi-amp), Bi-Amp frequency, Hi Master (100 W amp),
+  Lo Master (300 W amp), Power amps (linear / clipping), Speaker,
+  Instrument level, Oversampling (1x, 2x, 4x), Output level, Output
+  (speaker outputs / direct out).
+  Knob 10 = clockwise end. The mid bands only cut (0 dB at 10, about -6 dB
+  at 5, -15 dB at 0), as on the amp. BASS ranges from about +6 to -23 dB,
+  TREBLE about +-20 dB at high frequencies.
+  Defaults: all knobs 5, pad / Lo Cut / Contour / Hi Boost out, Boost
+  switch on, full range, power amps clipping, speaker off, 100 mV, 2x,
+  0 dB, speaker outputs.
+
+User interface
+  Front panel drawn after the layout of the amp (no photo, no logo): knobs
+  to turn (drag vertically, mouse wheel, double-click = 5), the push
+  buttons of the amp as switches to click (-10 dB, LO CUT, CONTOUR,
+  HI BOOST, BOOST on/off, BI-AMP), BOOST and POWER LEDs. Below the panel
+  the model strip (not on the amp): SPEAKER, OVERSAMPLING, OUTPUT
+  (SPEAKER / DIRECT), POWER AMPS (CLIP / LINEAR), the DRIVE meters (swing
+  of the input stage, the hardest driven EQ stage and the J113 relative to
+  their limits, 100 % = clipping; output power of the 300 W and 100 W amp
+  into 4 / 8 ohm, mark = rated power), INPUT (instrument level) and
+  OUTPUT. Below that the small-signal frequency response at the operating
+  point (relative to 1 kHz; dashed: all knobs at 5, switches off). Window
+  resizable. Needs libcairo2 and libX11.
+
+Levels
+  INPUT sets what peak voltage at the jack corresponds to 0 dBFS of the
+  track (default 100 mV; passive bass about 100-300 mV, active up to 1 V).
+  The output is the sum of the two power amp voltages at the speaker
+  terminals (or the sound pressure with SPEAKER on, equal at 1 kHz),
+  60 V peak = 0 dBFS (300 W into 4 ohm is 49 V peak). DIRECT out is the
+  signal after the EQ (before the boost stage), 2 V peak = 0 dBFS.
+
+Speaker
+  SPEAKER adds a 15" bass speaker in a vented box (estimated Thiele-Small
+  data of an Eminence CB158, as in the Laney), plus a cone roll-off.
+
+Oversampling and latency
+  1x is enough for clean and moderately driven playing; 2x (default) or 4x
+  reduce aliasing when the J113 or the op-amps clip hard and cost two or
+  four times the CPU. Changing it prepares a new engine in the background
+  (the amp settles first) and switches over after a moment ("switching ..."
+  on the toggle). The reported latency is always 31 samples (the
+  oversampling filters; at 1x the plugin delays by the same amount), so it
+  does not change with the setting.
+
+CPU
+  About 8 % of one core at 48 kHz and 1x on a typical desktop, about 18 %
+  at 2x and 35 % at 4x (the whole preamp is solved every sample); stereo
+  with different left and right signals doubles that. With the same signal
+  on both channels it is computed once. After 2 s of silence at the input
+  the plugin goes idle.
+
+1.0
+  - First release.
+
+Notes
+  Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
+  Gallien-Krueger and 800RB are trademarks of their owners; this is an
+  independent circuit simulation, not affiliated with or endorsed by them.

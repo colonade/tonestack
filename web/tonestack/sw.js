@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-03-3";
+const VERSION = "2026-11-03-4";
 const FILES = [
   "./",
   "index.html",
@@ -25,7 +25,14 @@ const FILES = [
   "ampfett-b15nf/b15nf-worklet.js",
   "ampfett-b15nf/b15nf-render.js",
   "assets/icons/ampfett-b15nf-192.png",
-  "assets/icons/ampfett-b15nf-512.png"
+  "assets/icons/ampfett-b15nf-512.png",
+  "gk-800rb/",
+  "gk-800rb/index.html",
+  "gk-800rb/manifest.webmanifest",
+  "gk-800rb/gk-worklet.js",
+  "gk-800rb/gk-render.js",
+  "assets/icons/gk-800rb-192.png",
+  "assets/icons/gk-800rb-512.png"
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
