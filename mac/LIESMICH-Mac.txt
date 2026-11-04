@@ -142,7 +142,8 @@ Puffer 128, ein Kanal): Laney in der Grundstellung etwa 40 % eines Kerns,
 unter Rosetta etwa 60 %; AmpFett etwa 28 % mit vollem Netzteil, ab 1.15 mit dem
 einfachen (Grundstellung) etwa ein Fünftel weniger; Yamaha etwa 5 %; GK 800RB
 (gemessen unter Linux) etwa 8 % bei 1x, 18 % bei 2x (Grundstellung); Yamaha G100-212II
-(gemessen unter Linux) etwa 10 % bei 1x, 25 % bei 2x. Beim Umschalten
+(gemessen unter Linux) etwa 10 % bei 1x, 25 % bei 2x, ab 1.1 mit Hall knapp
+das Doppelte. Beim Umschalten
 von DISTORTION, Überabtastung, Röhren oder Kanal rechnet der Laney für etwa
 0,2 s die neue Schaltung mit, das kostet in dieser Zeit rund das Dreifache
 (bis 3.32 bis zum Fünffachen). Das offene Plugin-Fenster kostet 1 bis 7 %

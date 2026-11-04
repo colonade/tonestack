@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < N; i++) { c.step(0.05 * std::sin(ph), y); ph += 2 * PI * 110 / fs; its += c.run.lastIt; pas += c.run.lastPass; }
     printf("Newton-Schritte im Mittel %.2f, Durchgänge %.2f, %.2f µs je Abtastwert (50 mV Sinus), Fehlschläge %d\n", its / (double)N, pas / (double)N, std::chrono::duration<double>(std::chrono::steady_clock::now() - ta).count() / N * 1e6, c.run.fails); }
   printf("Einschwingen + 1 s: %.2f s\n", std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
-  { std::vector<double> u = {0, p.vcc}; auto V = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip); auto n = [&](const char *k) { return V[c.net.idx.at(k)]; };
+  { std::vector<double> u = {0, p.vcc, 0}; auto V = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip); auto n = [&](const char *k) { return V[c.net.idx.at(k)]; };
     printf("TR101: Gate %.3f V, Source %.3f V, Drain %.3f V, Siebung %.3f V (Ruhestrom %.2f mA, Rechnung %.2f mA)\n", n("X"), n("S"), n("D"), n("vdd"), (p.vcc - n("vdd")) / p.r_dd * 1e3, c.idQ() * 1e3); }
   // Kleinsignal: Verstärkung Eingang → Lautsprecher (Vorstufe bis Gate · Endstufe), dB gegen 0,775 V bei −70 dB (245 µV) Eingang
   auto g = [&](const Setting &st, double f) { c.apply(st); return std::abs(c.response(f, O_G)) * std::abs(paResponse(f, p)); };
@@ -47,6 +47,17 @@ int main(int argc, char **argv) {
   // Fig. 1-2: Frequenzgang Kanal A bei Tabelle-1-Stellung, gegen 1 kHz
   { printf("Fig. 1-2 (A ch, gegen 1 kHz; Zeichnung: 40 Hz +0,5, 100 Hz −3, 300 Hz −10, 2 kHz +4, 4 kHz +7, 10 kHz +4, 20 kHz 0):\n  "); double r = g(a, 1000);
     for (double f : {20.0, 40.0, 70.0, 100.0, 200.0, 300.0, 400.0, 700.0, 1000.0, 2000.0, 4000.0, 7000.0, 10000.0, 20000.0}) printf("%.0f:%+.1f ", f, dB(g(a, f) / r)); printf("\n"); }
+  // Hall: Treiberverstärkung (Kleinsignal A1 → IC3-Ausgang), Federmodell (Echo-Laufzeit, Nachhallzeit), Hallanteil bei REVERB 10 (1 kHz, Regler 5)
+  { Setting b; c.apply(b); auto gd = [&](double f) { return std::abs(c.response(f, O_RDRV)) / std::abs(c.response(f, O_EQ)); };   // IC4-Ausgang ≈ A1 (Pegel gleich bei LEVEL Mitte)
+    printf("Halltreiber IC3 gegen Summenpunkt: 200 Hz %.2f, 1 kHz %.2f, 5 kHz %.2f, 10 kHz %.2f (Rechnung aus 100 k / (2,2 k + 2,2 n): 1,02 / 1,70 / 7,0 / 13,9)\n", gd(200), gd(1000), gd(5000), gd(10000));
+    springrev::Tank tk; tk.design(fs, p.spring); int n = (int)(4 * fs); std::vector<double> h(n); for (int i = 0; i < n; i++) h[i] = tk.step(i == 0 ? 1 : 0);
+    double e = 0; for (double x : h) e += x * x; double cum = 0; int i1 = -1, i50 = -1; for (int i = 0; i < n; i++) { cum += h[i] * h[i]; if (i1 < 0 && cum > 1e-4 * e) i1 = i; if (i50 < 0 && cum > 0.5 * e) i50 = i; }
+    auto ewin = [&](double t0, double t1) { double q = 0; for (int i = (int)(t0 * fs); i < (int)(t1 * fs); i++) q += h[i] * h[i]; return q; };
+    double t60 = 60 * 1.0 / (10 * std::log10(ewin(0.5, 1.0) / ewin(1.5, 2.0)));   // Abklingen aus dem Energieverhältnis zweier Fenster im Abstand 1 s
+    printf("Federmodell (Impuls): erste Energie nach %.1f ms, halbe Energie nach %.2f s, Nachhallzeit aus dem Abklingen %.2f s (Vorgabe: Laufzeiten %.0f/%.0f ms, T60 %.2f s)\n", i1 * 1e3 / fs, i50 / fs, t60, p.spring.td[0] * 1e3, p.spring.td[1] * 1e3, p.spring.t60);
+    auto out = [&](double rv) { Setting w; w.reverb = rv; Amp A; A.vin = 1; A.init(fs, 1, p, w); A.setTarget(w); A.snap(); int N = (int)(3 * fs); std::vector<float> buf(N); for (int i = 0; i < N; i++) { double q = 0; for (double f : {523.3, 659.3, 784.0, 987.8, 1174.7, 1568.0, 1975.5}) q += std::sin(2 * PI * f * i / fs + f); buf[i] = (float)(0.01 * q); } A.process(buf.data(), N); return buf; };   // Akkord 500 Hz … 2 kHz statt eines Tons (Kammfilter des Halls)
+    std::vector<float> w0 = out(0), w1 = out(1); double r0 = 0, rw = 0; int N = (int)w0.size(); for (int i = N / 2; i < N; i++) { r0 += (double)w0[i] * w0[i]; rw += ((double)w1[i] - w0[i]) * ((double)w1[i] - w0[i]); }
+    printf("Akkord 500 Hz … 2 kHz, Regler 5: Hallanteil bei REVERB 10 gegen das Direktsignal %+.1f dB (Modell-Vorgabe etwa 0 dB)\n", dB(std::sqrt(rw / r0))); }
   // Begrenzung: Eingang erhöhen (Amp mit Endstufenmodell), Tabelle-1-Stellung, 1 kHz
   for (int ch = 0; ch < 2; ch++) { Setting b = a; b.chanB = ch; Amp A; A.vin = 1; A.init(fs, 1, p, b); A.setTarget(b); A.snap(); std::vector<float> buf;
     printf("Begrenzung Kanal %c (1 kHz, Tabelle-1-Stellung):\n", ch ? 'B' : 'A');

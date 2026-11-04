@@ -43,9 +43,22 @@ Fender-Anordnung, um den Faktor 10 niederohmiger:
 Relais FRL644D12/2AS (Kontakte A und B), Treiber TR103–TR106 (2SC2240, 2SC1509), LED-A/LED-B, Tastschalter A/B auf der Frontplatte und Fußschalterbuchse (parallel).
 Für die Rechnung: Kontakt A bzw. B geschlossen, der andere offen; TR102 stumm bei Kanal A.
 
-## Nach dem Relais, Hall-Abzweig
-- Knoten A1: 100 kΩ gegen Masse; Abzweig zum Halltreiber: A1 → 2,2 kΩ → 1 µF BP → IC3 Pin 3 (100 kΩ gegen Masse, 68 pF). Der Hall selbst (IC3, Federhall, IC7) wird vorerst nicht gerechnet; seine Eingangslast ist enthalten.
-- Hallrückweg: IC7 1/2 → 4,7 µF BP → REVERB (B25K) → Schleifer → 2,2 kΩ → RFS (Fußschalterbuchse) → 47 kΩ → Ausgangsknoten O. Mit REVERB auf 0 oder Fußschalter aus liegen so 49,2 kΩ von O gegen Masse.
+## Nach dem Relais, Hall (ab 1.1 gerechnet)
+- Knoten A1: 100 kΩ gegen Masse; Abzweig zum Halltreiber: A1 → 2,2 kΩ → 1 µF BP → IC3 Pin 3 (100 kΩ gegen Masse, 68 pF).
+- Halltreiber IC3 (TA7220P, Leistungs-IC an ±20 V): 100 pF zwischen Pin 3 und Pin 4, Gegenkopplung 100 kΩ von Pin 8 (Ausgang) auf Pin 4, Pin 4 → 2,2 nF → 2,2 kΩ → Masse.
+  Verstärkung 1 bei tiefen Frequenzen, ab 723 Hz mit +6 dB/Oktave steigend bis 46 (100 kΩ / 2,2 kΩ + 1): der Treiber liefert bei hohen Frequenzen mehr Spannung, damit durch die induktive Treiberspule ein über die Frequenz etwa gleicher Strom fließt (Stromtreiber).
+  Pin 8 → 10 µF BP → 56 Ω → Tankeingang D (100 pF D–E, E = Masse). Gerechnet wie die OPVs (spannungsgesteuerte Quelle, Leerlaufverstärkung 10⁴, 100 Ω, Grenze ±17 V geschätzt).
+- Federtank: der Plan nennt nur „Reverb Unit“ (Accutronics-Bauart, Impedanzcodes nicht angegeben). Angenommen: Eingang 28 Ω + 24 mH (Code B: 150 Ω bei 1 kHz – passt zum 56-Ω-/723-Hz-Treiber), Ausgang 200 Ω + 0,357 H (Code B: 2,25 kΩ bei 1 kHz), zwei Federn.
+  Die Treiberspule liegt im Netz (Strom = Eingang des Federmodells), die Abnehmerspule als Spannungsquelle (Ausgang des Federmodells, ein Abtastwert verzögert) hinter 200 Ω + 0,357 H.
+- Rückholverstärker IC7 1/2: Tankausgang P → 1 nF gegen Masse → Pin 3 (100 kΩ gegen Masse), 220 pF zwischen den Eingängen, Gegenkopplung 100 kΩ gegen 1 kΩ + 1 µF: 101-fach ab 160 Hz. Die Abnehmerinduktivität bildet mit dem 1 nF eine Resonanz bei etwa 8 kHz (Güte durch die 100 kΩ begrenzt; die Feder liefert dort schon wenig).
+- Hallrückweg: IC7 1/2 → 4,7 µF BP → REVERB (B25K, linear) → Schleifer → 2,2 kΩ → RFS (Fußschalterbuchse) → 47 kΩ → Ausgangsknoten O. Mit REVERB auf 0 liegen so 49,2 kΩ von O gegen Masse. Der Fußschalter ist nicht nachgebildet (immer ein).
+
+## Federmodell (engine/src/spring.hpp)
+Physikalisches Modell der Feder statt einer gemessenen Impulsantwort, nach Abel/Berners/Costello/Smith (AES 2006) und Välimäki/Parker/Abel (JAES 2010):
+- Unterhalb der Übergangsfrequenz fC laufen Torsionswellen dispersiv – tiefe Frequenzen kommen zuerst an, hohe später –, jedes Echo ist ein aufwärts gleitender Chirp, der mit jedem Umlauf länger wird. Nachgebildet mit einer Kette von 100 gestreckten Allpässen erster Ordnung (Streckung K = fs / 2 fC, Koeffizient 0,6) in einer Rückkopplungsschleife mit der Laufzeit der Feder.
+- Je Feder: Laufzeit 33 bzw. 37 ms, Nachhallzeit 2,75 s bei tiefen Frequenzen, Tiefpass 6 kHz und Hochpass 40 Hz in der Schleife; oberhalb fC = 4,2 kHz ein zweiter, kaum dispersiver Weg mit 1,2 s Nachhall und einem Viertel des Pegels. Eingangshochpass 120 Hz (Wandler). Ausgang je Feder nach einem Durchlauf (das erste Echo kommt nach der Laufzeit, kein Direktanteil).
+- Übertragung Spulenstrom → Leerlaufspannung der Abnehmerspule 16 V/A als Effektivwert im Mittel über die Frequenz (die Schleife wirkt als Kammfilter; die Zähne sind herausgerechnet).
+- Alle Werte geschätzt (kein Tank ausgemessen): Laufzeiten und Nachhall wie bei einem kurzen Zweifedertank (Typ 8), fC nach der Literatur (2 bis 5 kHz), Pegel so, dass REVERB 10 bei einem Akkord etwa Hall = Direktsignal ergibt (engine/tests/g100test.cpp: Treiberverstärkung, erstes Echo 32,6 ms, T60 2,3 s aus Fensterenergien, Hall/Direkt +0,1 dB).
 
 ## Parametrischer Entzerrer (PA1-Platine)
 - A1 → 10 kΩ → IC4 1/2 Pin 6 (−), Pin 5 an Masse, 10 kΩ Gegenkopplung (invertierend ×1) → V1. V1 → 10 kΩ → IC4 2/2 Pin 2 (−), 10 kΩ Gegenkopplung → V2 (invertierend ×1; insgesamt nicht invertierend).
@@ -81,12 +94,13 @@ Tabelle 1 (Stellung für alle Messungen): VOLUME, GAIN, MASTER, TREBLE, MIDDLE, 
 - Tabelle 7 (Regler Maximum → Minimum): TREBLE 16 dB bei 7 kHz, MIDDLE 6 dB bei 400 Hz, BASS 11 dB bei 70 Hz, je ± 3 dB.
 - Tabelle 8: FAT 9 ± 3 dB bei 400 Hz. Tabelle 9: BRIGHT 11 ± 3 dB bei 7 kHz (VOLUME/GAIN auf 5).
 - Tabelle 10 (VOLUME 5, LEVEL Maximum/Minimum): Q min & F min, 650 Hz: ± 7 ± 2 dB; Q min & F max, 650 Hz: ± 7 ± 2 dB; Q max & F min/max, 650 Hz: höchstens ± 1 dB; Q max & F min, 90 Hz: ± 15 ± 2 dB; Q max & F max, 5 kHz: ± 15 ± 2 dB.
-- Tabelle 11 (Rauschen) und Hall-Prüfung: nicht nachgebildet.
+- Tabelle 11 (Rauschen): nicht nachgebildet. Die Hall-Prüfung des Manuals (Pegel am Tankausgang) hat keinen Sollwert für diesen Tank; der Treiber wird gegen die gerechnete Verstärkung 1 / 1,7 / 6,9 / 13 bei 200 Hz / 1 / 5 / 10 kHz geprüft.
 Ergebnis des Prüfstands: alle 29 Werte innerhalb der Toleranzen (MIDDLE 4,2 dB bei Soll 6 ± 3 am Rand).
 
 ## Geschätzt oder angepasst (nicht im Plan)
 - 2SK30A (TR101): Up −2 V, Idss 4 mA (Datenblatt GR: Idss 2,6 … 6,5 mA): so liegt Kanal B 13 dB über Kanal A (Tabelle 3); Ruhestrom 1 mA, Drain 8,5 V.
 - 1S1555: Is 2,5 nA, n·Ut 45 mV (0,58 V bei 1 mA). TR102 im leitenden Zustand 500 Ω.
-- NJM4558: Leerlaufverstärkung 10⁴, Ausgangswiderstand 100 Ω, Aussteuerungsgrenze ±13,5 V (IC1 ±11 V wegen der Vorwiderstände in der Versorgung).
+- NJM4558: Leerlaufverstärkung 10⁴, Ausgangswiderstand 100 Ω, Aussteuerungsgrenze ±13,5 V (IC1 ±11 V wegen der Vorwiderstände in der Versorgung); TA7220P (IC3) an ±20 V: ±17 V.
+- Federtank: Typ unbekannt, Impedanzcodes B/B angenommen, zwei Federn 33/37 ms, Nachhall 2,75 s, fC 4,2 kHz, 16 V/A (siehe Federmodell).
 - Endstufe: Pegel 105-fach (siehe oben), Knie/Grenze 26/31 V. Innenwiderstand der Quelle 1 kΩ.
-- Nicht gerechnet: Hall (IC3, Federhall, IC7, REVERB-Regler), Lautsprecher, Rauschen, Einschaltstummschaltung, Umschaltknacken des Relais.
+- Nicht gerechnet: Lautsprecher, Rauschen, Einschaltstummschaltung, Umschaltknacken des Relais, Hall-Fußschalter (immer ein).

@@ -1,6 +1,6 @@
 // GUI-Test (Yamaha G100-212II): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   g100guitest Yamaha_G100.clap bild.png
-// Prüft: PULL FAT A, Treble A ziehen, A/B-Taste, Buchse LOW, PULL BRIGHT B, Überabtastung 4x (Kernwechsel im Hilfsfaden), POWER AMP linear, Mausrad auf LEVEL, INPUT-Knopf.
+// Prüft: PULL FAT A, Treble A ziehen, A/B-Taste, Buchse LOW, PULL BRIGHT B, Überabtastung 4x (Kernwechsel im Hilfsfaden), POWER AMP linear, Mausrad auf LEVEL, REVERB ziehen (ab 1.1), INPUT-Knopf.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
   click(ux(290), uy(100)); printf("Poti-Kennlinie: %g (erwartet 1)\n", pv(22));
   send(ButtonPress, ux(1020), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1020), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1020), uy(32), 1); tick(); printf("Instrument: %g (erwartet > 100)\n", pv(19));
   send(ButtonPress, kx(1294), kx(136), 4); tick(); send(ButtonPress, kx(1294), kx(136), 4); tick(); printf("Level: %g (erwartet 0.4)\n", pv(14));
+  send(ButtonPress, kx(1612), kx(136), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(1612), kx(136) - i * 8, 0); tick(); } send(ButtonRelease, kx(1612), kx(56), 1); tick(); printf("Reverb: %g (erwartet > 2)\n", pv(23));
   click(kx(540), kx(100)); printf("Kanal: %g (erwartet 0 = A)\n", pv(6));
   send(MotionNotify, kx(328), kx(136), 0); tick(); usleep(200000); for (int i = 0; i < 6; i++) tick();
   printf("Ausgang Spitze: %.3f\n", outPk);
