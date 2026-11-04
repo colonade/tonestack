@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.34
+Version 3.35
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -49,12 +49,15 @@ Parameters
   Tube distortion, Instrument level, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
-  3.20), Middle/Presence pot taper (log 15 % = original 22KA, log 10 %,
-  linear; POT TAPER toggle in the model strip).
+  3.20), Middle/Presence/Reverb pot taper (log 15 % = original 22KA, log
+  10 %, linear; POT TAPER toggle in the model strip), Reverb (0 ... 10,
+  active with "FX loop + power amp", 3.35), Reverb tank (Physical /
+  Linear, 3.35).
   Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
   other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
   2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
-  on, Late and speaker off, tube mismatch 8 %.
+  on, Late and speaker off, tube mismatch 8 %, reverb 0, reverb tank
+  physical.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -126,6 +129,33 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.35
+  - Spring reverb after the schematic DRG 1054 (the AOR 50/12 circuit has
+    it; until 3.34 the REVERB knob was only part of the photo). In the FX
+    loop between preamp and power amp: driver IC202B (non-inverting,
+    R208 150 k || 270 p over R206 1 k + R207 39 k || 22 n: x4.75 below
+    185 Hz, rising above) with the follower IC203A, both through 100 ohm
+    onto the tank input, feedback taken at the tank; recovery amp IC201
+    (R217 220 k || 270 p, R216 3k3 + 220 n: x68 above 219 Hz); C208, 1 k,
+    REVERB VR201 22 kA, R214 220 k into the summing amp IC202A (dry path
+    R211 39 k). Op-amps (LF351/LF353) with limits at about +-10.5 V
+    (+-12 V rails). The tank type is not in the schematic (Laney part
+    5564): assumed input B (150 ohm, as for the G100: two LF353 in parallel
+    can drive that, not an 8-ohm coil) and output B, the same spring model
+    as the Yamaha G100 1.2 including the nonlinear tank (switch REVERB
+    TANK: PHYSICAL / LINEAR, button in the TUBES row). Tank transfer 1 V/A
+    (typical 6.5 mV out at the B input's rated 6.5 mA, sound-au.com), so
+    IC201 stays below its limit at the nominal FX level of about 500 mV.
+    With REVERB at 10 and noise from 300 Hz to 3 kHz the reverb is about
+    14 dB below the dry signal at the power amp input; bass notes below
+    about 120 Hz hardly reach the tank. All tank values are estimates.
+  - Reverb only with "FX loop + power amp" (it sits in the loop's summing
+    amp). REVERB at 0 (default) computes nothing extra and is bit-identical
+    to 3.34; old projects load with reverb 0. With reverb on, the power-amp
+    rate runs the reverb circuit too: about a third more CPU.
+  - New parameters Reverb and Reverb tank appended (numbers 28, 29); the pot
+    taper parameter now also sets the taper of VR201.
 
 3.34
   - POT TAPER toggle back in the model strip (removed in 3.27): taper of

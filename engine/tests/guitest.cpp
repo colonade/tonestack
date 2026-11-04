@@ -42,9 +42,14 @@ int main(int argc, char **argv) {
   { auto drag = [&](int x, int y) { send(ButtonPress, x, y, 1); tim->on_timer(p, 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, x, y - i * 4, 0); tim->on_timer(p, 1); } send(ButtonRelease, x, y - 40, 1); tim->on_timer(p, 1); };
     drag(ux(935), uy(72)); drag(ux(1035), uy(72)); drag(ux(1135), uy(72)); }   // INPUT, OUTPUT, MISMATCH (ab 3.20)
   // Röhren: V101 zweimal weiter (12AU7), V103 einmal (12AT7); Kippschalter: Verzerrung aus, Lautsprecher an, Kennlinie eine Stufe nach unten (LOG 10 %)
-  send(ButtonPress, ux(159), uy(173), 1); send(ButtonRelease, ux(159), uy(173), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(159), uy(173), 1); send(ButtonRelease, ux(159), uy(173), 1); tim->on_timer(p, 1);
-  send(ButtonPress, ux(479), uy(173), 1); send(ButtonRelease, ux(479), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(148), uy(173), 1); send(ButtonRelease, ux(148), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(148), uy(173), 1); send(ButtonRelease, ux(148), uy(173), 1); tim->on_timer(p, 1);
+  send(ButtonPress, ux(420), uy(173), 1); send(ButtonRelease, ux(420), uy(173), 1); tim->on_timer(p, 1);   // Tasten ab 3.35 schmaler (Platz für REVERB TANK)
+  // REVERB (ab 3.35): Knopf nach oben ziehen; REVERB TANK zweimal umschalten
+  send(ButtonPress, kx(1839.8), kx(168.3), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(1839.8), kx(168.3) - i * 10, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(1839.8), kx(68), 1); tim->on_timer(p, 1);
+  { double v; params->get_value(p, 28, &v); printf("Reverb: %g (erwartet > 2)\n", v); }
+  send(ButtonPress, ux(669), uy(173), 1); send(ButtonRelease, ux(669), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1); { double v; params->get_value(p, 29, &v); printf("Federtank: %g (erwartet 0 = linear)\n", v); }
+  send(ButtonPress, ux(669), uy(173), 1); send(ButtonRelease, ux(669), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1); { double v; params->get_value(p, 29, &v); printf("Federtank: %g (erwartet 1 = physikalisch)\n", v); }
   // Umbauideen: SOFT und LATE an
   send(ButtonPress, ux(726), uy(88), 1); send(ButtonRelease, ux(726), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(838), uy(88), 1); send(ButtonRelease, ux(838), uy(88), 1); tim->on_timer(p, 1);
@@ -53,7 +58,7 @@ int main(int argc, char **argv) {
   send(ButtonPress, ux(548), uy(62), 1); send(ButtonRelease, ux(548), uy(62), 1); tim->on_timer(p, 1); usleep(200000); tim->on_timer(p, 1);   // Beschriftung „eco“ am Wahlschalter
   { cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argc > 3 ? argv[3] : "gui_tubes.png"); cairo_surface_destroy(xs); }
   char t[64]; const int ids[] = {3, 1, 0, 18, 27, 16, 23, 17, 15, 24, 25, 20, 21, 22}; for (int id : ids) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
-  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(632), uy(173), 1); send(ButtonRelease, ux(632), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
+  XSync(d, False); tim->on_timer(p, 1); send(ButtonPress, ux(558), uy(173), 1); send(ButtonRelease, ux(558), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1);
   for (int id : {20, 21, 22}) { double v; params->get_value(p, id, &v); params->value_to_text(p, id, v, t, 64); printf("  nach RESET: Tube %d = %s\n", id - 19, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
   gui->hide(p); gui->destroy(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d); return 0;
