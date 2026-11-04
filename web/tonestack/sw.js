@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-03-6";
+const VERSION = "2026-11-04-1";
 const FILES = [
   "./",
   "index.html",
@@ -32,7 +32,14 @@ const FILES = [
   "gk-800rb/gk-worklet.js",
   "gk-800rb/gk-render.js",
   "assets/icons/gk-800rb-192.png",
-  "assets/icons/gk-800rb-512.png"
+  "assets/icons/gk-800rb-512.png",
+  "yamaha-g100/",
+  "yamaha-g100/index.html",
+  "yamaha-g100/manifest.webmanifest",
+  "yamaha-g100/g100-worklet.js",
+  "yamaha-g100/g100-render.js",
+  "assets/icons/yamaha-g100-192.png",
+  "assets/icons/yamaha-g100-512.png"
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
