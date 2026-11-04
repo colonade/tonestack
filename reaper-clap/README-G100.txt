@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.3
+Version 1.4
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -113,8 +113,8 @@ Parameters
   B: Gain, Master Volume, Treble, Middle, Bass, Pull Fat, Pull Bright;
   EQ: Level (-5 ... +5, 0 = flat), Q (0 = broad ... 10 = narrow),
   Frequency (0 ... 10 after the panel scale: 100 Hz, 200 at 2.8, 500 at 5,
-  1 kHz at 7.2, 5 kHz at 10); Reverb (0 ... 10, linear pot, 1.1); Reverb tank (Physical /
-  Linear as in 1.1, 1.2); Input
+  1 kHz at 7.2, 5 kHz at 10); Reverb (0 ... 10, linear pot, 1.1); Reverb tank nonlinearity
+  (0 ... 10, 0 = linear as 1.1, 5 = as 1.3; 1.4, was a switch in 1.2/1.3); Input
   jack (High / Low); Power amp
   (clipping / linear); Instrument level; Oversampling (1x, 2x, 4x);
   Output level; Pot taper (log 15 % / log 10 % / linear; the A pots:
@@ -122,7 +122,7 @@ Parameters
   Knob 10 = clockwise end. Channel B with everything up is very hot: the
   diodes clip from a few millivolts at the jack - that is the amp.
   Defaults: all knobs 5, Level 0, Reverb 0, pull switches in, channel A,
-  High jack, power amp clipping, 100 mV, 2x, 0 dB, reverb tank physical.
+  High jack, power amp clipping, 100 mV, 2x, 0 dB, reverb tank 5.
 
 User interface
   Front panel drawn after the drawing in the service manual (no photo, no
@@ -132,7 +132,7 @@ User interface
   indicator (A green, B red), the HIGH and LOW jacks (click to plug in),
   REVERB. Below the panel the model strip (not on the
   amp): OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, REVERB TANK
-  (PHYSICAL / LINEAR 1.1), the DRIVE meters
+  (small knob 0 ... 10 since 1.4), the DRIVE meters
   (input stage, channel A stages, channel B diodes, channel B FET and EQ
   stages relative to their limits, 100 % = clipping; output power into
   4 ohm, mark = 100 W; the meters of the channel not selected are dimmed),
@@ -163,6 +163,19 @@ CPU
   signals doubles that. With the same
   signal on both channels it is computed once. After 2 s of silence at the
   input the plugin goes idle.
+
+1.4
+  - REVERB TANK is a knob 0 ... 10 instead of a switch (user: "large
+    range"): 0 = linear (bit-identical to 1.1), 5 = as 1.3 (bit-identical),
+    below 5 all scales grow (bead coupling and spring scale up to 300 mA,
+    core saturation up to 320 mA: almost linear), above 5 the spring gets
+    much more sensitive (scale down to 1.2 mA) with stronger stiffening
+    (up to 12 % shorter delay) and damping (up to 30 %); bead coupling and
+    limit only half as fast. Measured in the plugin (defaults, REVERB 10,
+    plucked notes): difference to linear relative to the reverb -77 dB at
+    1, -36 dB at 5, -8 dB at 7.5, +2.5 dB at 10 (reverb 1.8 dB quieter).
+    Projects saved with 1.2/1.3 (switch values 0/1) load as 0 (linear) or
+    1 (very mild).
 
 1.3
   - Nonlinear tank audible at normal levels: scale of bead displacement

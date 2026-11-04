@@ -673,7 +673,7 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   double lo = (w*w*w*w*Ts*Ts*Tb*Tb) / std::hypot(dr, di), le = 1 / std::hypot(1.0, w * m.Le / m.Re), w0 = 2 * PI * m.fc, cone = w0*w0 / std::hypot(w0*w0 - w*w, w0*w/m.Qc);
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
-struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; AOR_RV(double rev = 0; bool tankLin = false;) };   // rev: REVERB-Schleifer 0…1 (mit Kennlinie, ab 3.35), tankLin: Federtank linear   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
+struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; AOR_RV(double rev = 0; bool tankLin = false; double tankAmt = 5;) };   // rev: REVERB-Schleifer 0…1 (mit Kennlinie, ab 3.35), tankLin: Federtank linear   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
 
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
   std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; virtual bool ecoOf() const { return false; } double peaks[5] = {0,0,0,0,0};
@@ -693,7 +693,7 @@ struct LinCore : CoreBase {
       rebuild(!had);
       if (had && oldG.size() == (size_t)r.sys.nc) { r.hasPrev = false; r.blend = 1; r.prevNorm = r.norm; for (size_t j = 0; j < oldG.size(); j++) r.Ih[j] += (r.sys.G2[j] - oldG[j]) / 2 * r.vc[j]; }
     }
-    pa = t.pa; if (pa) { paC.setTarget(t.v, t.s.pres, t.mis); AOR_RV(if (!rvInit) { rv.init(fs, t.rev, t.tankLin); rvInit = true; } else rv.setTarget(t.rev, t.tankLin);) }
+    pa = t.pa; if (pa) { paC.setTarget(t.v, t.s.pres, t.mis); AOR_RV(if (!rvInit) { rv.init(fs, t.rev, t.tankLin, t.tankAmt); rvInit = true; } else rv.setTarget(t.rev, t.tankLin, t.tankAmt);) }
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < NSFIELD; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
@@ -723,7 +723,7 @@ struct NlCore : CoreBase {
       auto &c = cache(); auto it = c.find(key);
       if (it == c.end()) { amp.init(v, cur); if (c.size() >= 32) c.clear(); c[key] = amp.snapshot(); } else amp.initFrom(v, cur, it->second);   // begrenzter Zwischenspeicher
     } else tgt = s;
-    if (pa) { paC.setTarget(t.v, t.s.pres, t.mis); AOR_RV(if (!rvInit) { rv.init(paC.fs, t.rev, t.tankLin); rvInit = true; } else rv.setTarget(t.rev, t.tankLin);) }   // Hall im Takt der Endstufe
+    if (pa) { paC.setTarget(t.v, t.s.pres, t.mis); AOR_RV(if (!rvInit) { rv.init(paC.fs, t.rev, t.tankLin, t.tankAmt); rvInit = true; } else rv.setTarget(t.rev, t.tankLin, t.tankAmt);) }   // Hall im Takt der Endstufe
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < NSFIELD; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }

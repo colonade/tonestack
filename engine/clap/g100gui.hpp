@@ -43,10 +43,10 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-constexpr int NSW = 4;
-static const double SW_X[NSW] = {60, 172, 290, 412};   // OVERSAMPLING, POWER AMP (Begrenzung / linear), POT TAPER, REVERB TANK (ab 1.2)
-static const int SW_P[NSW] = {P_OS, P_PWR, P_TAPER, P_TANK};
-static const double KN_X[2] = {1020, 1130}; // INPUT, OUTPUT, Beschriftung unter dem Knopf
+constexpr int NSW = 3;
+static const double SW_X[NSW] = {60, 172, 290};   // OVERSAMPLING, POWER AMP (Begrenzung / linear), POT TAPER (REVERB TANK ab 1.4 als kleiner Regler)
+static const int SW_P[NSW] = {P_OS, P_PWR, P_TAPER};
+static const double KN_X[3] = {1020, 1130, 420}; // INPUT, OUTPUT, REVERB TANK (ab 1.4: Stärke der Nichtlinearität, 0 = linear), Beschriftung unter dem Knopf
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
@@ -155,7 +155,7 @@ struct Gui {
     cairo_restore(c);
     // ---- Modellstreifen ----
     const double u = uscale(); int os = std::max(0, std::min(2, (int)std::lround(v[P_OS])));
-    char vt[2][40]; std::snprintf(vt[0], 40, "%.0f mV at 0 dBFS", v[P_VIN]); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]);
+    char vt[3][40]; std::snprintf(vt[0], 40, "%.0f mV at 0 dBFS", v[P_VIN]); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]); if (v[P_TANK] <= 0) std::snprintf(vt[2], 40, "linear (as 1.1)"); else std::snprintf(vt[2], 40, "%.1f nonlinear", v[P_TANK]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
@@ -164,7 +164,7 @@ struct Gui {
       tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
       tsw::toggle(c, SW_X[1], SW_Y, 2, v[P_PWR] > 0.5 ? 0 : 1, "POWER AMP", op, v[P_PWR] > 0.5 ? "100 W into 4 ohm" : "no limit");
       const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[2], SW_Y, 3, tp, "POT TAPER", tl, "A pots (vol, tone, Q)");
-      const char *tk[2] = {"PHYSICAL", "LINEAR 1.1"}; tsw::toggle(c, SW_X[3], SW_Y, 2, v[P_TANK] > 0.5 ? 0 : 1, "REVERB TANK", tk, v[P_TANK] > 0.5 ? "spring nonlinear" : "as in version 1.1"); }
+    }
     // Aussteuerung: Stufen relativ zur Begrenzung (Strich = 100 %), Endstufe als Leistung (Strich = 100 W)
     { const char *tn[NM] = {"input stage (IC1)", "channel A stages", "ch. B diodes", "ch. B 2SK30A", "EQ stages", "power amp"};
       double lx = 540, bx = 660, bw = 160, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
@@ -176,8 +176,8 @@ struct Gui {
         if (meterOn && !dim) { setrgb(c, over ? 0xff3b2a : f > mark * 0.7 ? 0xe8b23c : 0x3ec25a); cairo_rectangle(c, bx + 1, by + 1, (bw - 2) * f, bh - 2); cairo_fill(c); }
         setrgb(c, 0xffffff, 0.45); cairo_rectangle(c, bx + 1 + (bw - 2) * mark - 0.5, by, 1, bh); cairo_fill(c);
         setrgb(c, dim ? 0x5e626a : over && meterOn ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, meterOn && !dim ? t : "-", bx + bw + 8, by + 11, 11.5, false); } }
-    for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
-      tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 50 + i || hover == 50 + i, false); }
+    for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_TANK] / 10;
+      tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "REVERB TANK", vt[i], drag == 50 + i || hover == 50 + i, false); }
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
     { char kb[400]; int kn = 0; for (int id = 0; id < P_COUNT; id++) if (id != P_VIN && id != P_OS && id != P_OUT && id != P_PWR) sapp(kb, sizeof kb, kn, "%.4g|", v[id]);
       std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -199,7 +199,7 @@ struct Gui {
   }
   // ---- Treffer ----
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < NK; i++) { if (KPARAM[i] < 0) continue; double dx = x - G100KNOB[i][0], dy = y - G100KNOB[i][1]; if (dx*dx + dy*dy <= G100KNOB[i][2] * G100KNOB[i][2] * 1.69) return i; }
-    double lx, ly; toLower(px, py, lx, ly); for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 50 + i; } return -1; }
+    double lx, ly; toLower(px, py, lx, ly); for (int i = 0; i < 3; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 50 + i; } return -1; }
   int hitPanel(double px, double py) const { double s = scale(), x = px / s, y = py / s;   // Zugschalter, A/B-Taste, Buchsen
     for (int i = 0; i < NK; i++) if (KPULL[i] >= 0 && std::fabs(x - G100KNOB[i][0]) <= 40 && y >= G100PULLY - 8 && y <= G100PULLY + 16) return 20 + i;
     if (std::fabs(x - G100BTN[0]) <= G100BTN[2] + 8 && y >= G100LED[1] - 12 && y <= G100BTN[1] + G100BTN[2] + 8) return 40;
@@ -209,9 +209,9 @@ struct Gui {
     if (p == P_OS || p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }
     else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // oben = CLIP
   void clickPanel(int h) { if (h >= 20 && h < 20 + NK) { int p = KPULL[h - 20]; if (p >= 0) setP(p, getP(p) > 0.5 ? 0 : 1); } else if (h == 40) setP(P_CHAN, getP(P_CHAN) > 0.5 ? 0 : 1); else if (h == 41) setP(P_LOW, 0); else if (h == 42) setP(P_LOW, 1); }
-  int knobParam(int i) const { return i < NK ? KPARAM[i] : i == 50 ? P_VIN : P_OUT; }
-  double knobVal(int i) const { if (i < NK) return knobPos(i); return i == 50 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
-  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < NK) { int p = KPARAM[i]; if (p < 0) return; double r = std::round(u * 10) / 10; setP(p, p == P_LEVEL ? r - 5 : r); } else if (i == 50) setP(P_VIN, std::round(std::pow(1000, u / 10))); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
+  int knobParam(int i) const { return i < NK ? KPARAM[i] : i == 50 ? P_VIN : i == 52 ? P_TANK : P_OUT; }
+  double knobVal(int i) const { if (i < NK) return knobPos(i); return i == 50 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 52 ? getP(P_TANK) : (getP(P_OUT) + 36) / 60 * 10; }
+  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < NK) { int p = KPARAM[i]; if (p < 0) return; double r = std::round(u * 10) / 10; setP(p, p == P_LEVEL ? r - 5 : r); } else if (i == 50) setP(P_VIN, std::round(std::pow(1000, u / 10))); else if (i == 52) setP(P_TANK, std::round(u * 10) / 10); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
 #ifndef __APPLE__
   bool handle(XEvent &ev) {
     switch (ev.type) {
@@ -229,7 +229,7 @@ struct Gui {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, button == 4 ? -1 : 1); } return true; }
         if (button != 1) return false;
         int k = hitKnob(x, y);
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 50 ? std::log(100.0) / std::log(1000.0) * 10 : k == 51 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 50 ? std::log(100.0) / std::log(1000.0) * 10 : k == 51 ? 6 : 5); /* REVERB TANK (52): Doppelklick = 5 */ } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int ps = hitPanel(x, y); if (ps >= 0) { clickPanel(ps); return true; }
         { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }

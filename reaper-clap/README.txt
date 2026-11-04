@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.36
+Version 3.37
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -51,13 +51,13 @@ Parameters
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
   3.20), Middle/Presence/Reverb pot taper (log 15 % = original 22KA, log
   10 %, linear; POT TAPER toggle in the model strip), Reverb (0 ... 10,
-  active with "FX loop + power amp", 3.35), Reverb tank (Physical /
-  Linear, 3.35).
+  active with "FX loop + power amp", 3.35), Reverb tank nonlinearity
+  (0 ... 10, 0 = linear, 5 = as 3.36; field in the TUBES row: drag,
+  wheel, double-click = 5; 3.37).
   Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
   other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
   2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
-  on, Late and speaker off, tube mismatch 8 %, reverb 0, reverb tank
-  physical.
+  on, Late and speaker off, tube mismatch 8 %, reverb 0, reverb tank 5.
 
 User interface
   Photo of the front panel with turnable knobs: drag vertically (mouse wheel
@@ -129,6 +129,17 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.37
+  - REVERB TANK is a control 0 ... 10 instead of a button (same model as
+    Yamaha G100 1.4): 0 = linear, 5 = as 3.36, 10 = very strong. Measured
+    in the plugin (defaults, REVERB 10): difference to linear relative to
+    the reverb -23 dB at 1, -10 dB at 2.5, +1.4 dB at 5; the reverb gets
+    quieter with higher settings (-0.3 / -1.1 / -4.1 / -8.7 / -12.4 dB at
+    1 / 2.5 / 5 / 7.5 / 10). Note: the Laney reverb is quiet against the dry
+    signal (about -16 dB at REVERB 10 with the estimated tank), so changes
+    in the tank are less obvious than on the G100.
+    Projects saved with 3.35/3.36 (button values 0/1) load as 0 or 1.
 
 3.36
   - Nonlinear reverb tank stronger (same change as Yamaha G100 1.3): the

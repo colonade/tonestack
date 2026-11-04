@@ -36,7 +36,7 @@ struct Parts {   // Werte laut Plan (Ω, F); Schätzungen markiert
 enum { O_W = 0, O_TKI = 1, O_DR = 2, O_REC = 3, O_NO = 4 };   // Schleifer REVERB, Spannung am Spulenwiderstand, Tankeingang, IC201-Ausgang
 // Hall-Block: Eingang = Spannung am Schleifer von PREAMP 1 LEVEL (W3, wie der Eingang des Endstufennetzes), Ausgang = Beitrag am selben Eingang
 struct Rev {
-  Parts v; double fs = 48000, x = 0, xt = 0; bool lin = false, on = false; int cnt = 0;
+  Parts v; double fs = 48000, x = 0, xt = 0, amt = 5; bool lin = false, on = false; int cnt = 0;   // amt (ab 3.37): Stärke der Nichtlinearität 0 … 10
   dk::Net net; dk::Runner run; std::vector<dk::Dev> dev; Clamp cl{10.5}; springrev::Tank tank; double vrev = 0, kOut = 0;
   void build() { dk::Net o; dev.clear(); cl.vs = v.op_vs;
     auto opamp = [&](const char *p, const char *n, const char *out) { o.vccs("0", out, p, n, v.op_a / v.op_rout); o.r(out, "0", v.op_rout); int q = o.port(out, "0"); dev.push_back({0, q, 1, &cl}); };
@@ -52,13 +52,14 @@ struct Rev {
     o.out("W"); o.out("DR", "Lt"); o.out("DR"); o.out("O1");
     net = o; run.dev = dev; run.fn = devFn; run.set(dk::compile(net, fs)); run.stepLim = 8; for (auto &d : run.dev) d.model = &cl; }   // Zustände bleiben (Runner::set)
   // x: Schleifer 0…1 (mit Kennlinie), lin: Federtank linear
-  void init(double fs_, double x_, bool lin_) { fs = fs_; x = xt = x_; lin = lin_; run = dk::Runner(); build(); tank.design(fs, v.spring); tank.nl = !lin; vrev = 0;
+  void init(double fs_, double x_, bool lin_, double amt_ = 5) { fs = fs_; x = xt = x_; lin = lin_; amt = amt_; run = dk::Runner(); build(); tank.design(fs, v.spring); tank.nl = !lin; if (!lin) tank.setStrength(amt); vrev = 0;
     kOut = -(v.r212 / v.r214) / ((v.r202 / v.r201) * (v.r212 / v.r211)) * (1 + v.r203 / (1 / (1 / v.r211 + 1 / (v.r204 + v.r205))));   // Hall in Einheiten des Trockenwegs am Endstufeneingang
     on = x > 0; }
-  void setTarget(double x_, bool lin_) { xt = std::min(1.0, std::max(0.0, x_)); if (lin_ != lin) { lin = lin_; tank.nl = !lin; build(); } }
+  void setTarget(double x_, bool lin_, double amt_ = 5) { xt = std::min(1.0, std::max(0.0, x_)); bool sw = lin_ != lin, ch = amt_ != amt; amt = amt_;
+    if (sw) { lin = lin_; tank.nl = !lin; build(); } if (!lin && (sw || ch)) tank.setStrength(amt); }
   void reset() { std::fill(run.h.begin(), run.h.end(), 0.0); run.vp.assign(run.vp.size(), 0.0); run.vp1 = run.vp; tank.reset(); vrev = 0; }
   Rev() {} Rev(const Rev &o) { *this = o; }
-  Rev &operator=(const Rev &o) { if (this == &o) return *this; v = o.v; fs = o.fs; x = o.x; xt = o.xt; lin = o.lin; on = o.on; cnt = o.cnt; net = o.net; run = o.run; dev = o.dev; cl = o.cl; tank = o.tank; vrev = o.vrev; kOut = o.kOut;
+  Rev &operator=(const Rev &o) { if (this == &o) return *this; v = o.v; fs = o.fs; x = o.x; xt = o.xt; lin = o.lin; amt = o.amt; on = o.on; cnt = o.cnt; net = o.net; run = o.run; dev = o.dev; cl = o.cl; tank = o.tank; vrev = o.vrev; kOut = o.kOut;
     for (auto &d : run.dev) d.model = &cl; return *this; }
   // u: Spannung am Schleifer von PREAMP 1 LEVEL; Rückgabe: Hallbeitrag am Endstufeneingang (0, solange REVERB auf 0 steht – dann wird nicht gerechnet)
   double step(double u) {

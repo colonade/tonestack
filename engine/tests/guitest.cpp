@@ -48,8 +48,9 @@ int main(int argc, char **argv) {
   // REVERB (ab 3.35): Knopf nach oben ziehen; REVERB TANK zweimal umschalten
   send(ButtonPress, kx(1839.8), kx(168.3), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(1839.8), kx(168.3) - i * 10, 0); tim->on_timer(p, 1); } send(ButtonRelease, kx(1839.8), kx(68), 1); tim->on_timer(p, 1);
   { double v; params->get_value(p, 28, &v); printf("Reverb: %g (erwartet > 2)\n", v); }
-  send(ButtonPress, ux(669), uy(173), 1); send(ButtonRelease, ux(669), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1); { double v; params->get_value(p, 29, &v); printf("Federtank: %g (erwartet 0 = linear)\n", v); }
-  send(ButtonPress, ux(669), uy(173), 1); send(ButtonRelease, ux(669), uy(173), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1); { double v; params->get_value(p, 29, &v); printf("Federtank: %g (erwartet 1 = physikalisch)\n", v); }
+  // REVERB TANK (ab 3.37 Regler im Feld der Zeile TUBES): nach unten ziehen → 0, nach oben → größer
+  send(ButtonPress, ux(669), uy(173), 1); for (int i = 1; i <= 12; i++) { send(MotionNotify, ux(669), uy(173) + i * 10, 0); tim->on_timer(p, 1); } send(ButtonRelease, ux(669), uy(293), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1); { double v; params->get_value(p, 29, &v); printf("Federtank: %g (erwartet 0 = linear)\n", v); }
+  send(ButtonPress, ux(669), uy(173), 1); for (int i = 1; i <= 8; i++) { send(MotionNotify, ux(669), uy(173) - i * 10, 0); tim->on_timer(p, 1); } send(ButtonRelease, ux(669), uy(93), 1); XSync(d, False); usleep(50000); tim->on_timer(p, 1); usleep(50000); tim->on_timer(p, 1); { double v; params->get_value(p, 29, &v); printf("Federtank: %g (erwartet 5: zweiter Druck gilt im Test als Doppelklick = Grundstellung)\n", v); }
   // Umbauideen: SOFT und LATE an
   send(ButtonPress, ux(726), uy(88), 1); send(ButtonRelease, ux(726), uy(88), 1); tim->on_timer(p, 1);
   send(ButtonPress, ux(838), uy(88), 1); send(ButtonRelease, ux(838), uy(88), 1); tim->on_timer(p, 1);

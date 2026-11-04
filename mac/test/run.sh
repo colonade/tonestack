@@ -9,18 +9,18 @@ clang++ "${FL[@]}" -DTS_GUI_HDR='"b15gui.hpp"' -DTS_NS=bgui -DTS_FW=FW mac/test/
 clang++ "${FL[@]}" -DTS_GUI_HDR='"gkgui.hpp"' -DTS_NS=gkgui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_gk
 clang++ "${FL[@]}" -DTS_GUI_HDR='"g100gui.hpp"' -DTS_NS=g100gui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_g100
 clang++ "${FL[@]}" -DTS_GUI_HDR='"b3gui.hpp"' -DTS_NS=b3gui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_b3
-/tmp/render_laney "$O/laney.png" 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=1
+/tmp/render_laney "$O/laney.png" 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5
 /tmp/render_yamaha "$O/yamaha.png" 0=0 5=0 6=2 7=-1 8=0 9=1 10=0 11=1 12=100 13=1 14=0
 /tmp/render_b15nf "$O/b15nf.png" 0=1 1=7 2=3.5 3=6 4=5 5=5 6=5 7=0 8=1 9=1 10=100 11=1 12=0
 /tmp/render_gk "$O/gk.png" 0=0 1=5 2=0 3=1 4=0 5=6 6=5 7=4 8=7 9=5 10=1 11=0 12=5 13=5 14=5 15=1 16=1 17=100 18=1 19=0 20=0
-/tmp/render_g100 "$O/g100.png" 0=6 1=7 2=4 3=5 4=1 5=0 6=1 7=6 8=4 9=5 10=5 11=5 12=0 13=1 14=2 15=5 16=5 17=0 18=1 19=100 20=1 21=0 22=0 23=4 24=1
+/tmp/render_g100 "$O/g100.png" 0=6 1=7 2=4 3=5 4=1 5=0 6=1 7=6 8=4 9=5 10=5 11=5 12=0 13=1 14=2 15=5 16=5 17=0 18=1 19=100 20=1 21=0 22=0 23=4 24=5
 /tmp/render_b3 "$O/b3.png" 0=7 1=2 2=-1 3=3 4=4 5=6 6=3 7=1 8=1 9=-2 10=5 11=7 12=0 13=0 14=1 15=100 16=0 17=0 18=0
 # Zeichenzeit unter Rosetta (x86_64-Teil derselben Programme), Bilder nur zum Vergleich
 if arch -x86_64 /usr/bin/true 2>/dev/null; then
-  arch -x86_64 /tmp/render_laney /tmp/rosetta_laney.png 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=1 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
+  arch -x86_64 /tmp/render_laney /tmp/rosetta_laney.png 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_yamaha /tmp/rosetta_yamaha.png 0=0 5=0 6=2 7=-1 8=0 9=1 10=0 11=1 12=100 13=1 14=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_b15nf /tmp/rosetta_b15nf.png 0=1 1=7 2=3.5 3=6 4=5 5=5 6=5 7=0 8=1 9=1 10=100 11=1 12=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_gk /tmp/rosetta_gk.png 0=0 1=5 2=0 3=1 4=0 5=6 6=5 7=4 8=7 9=5 10=1 11=0 12=5 13=5 14=5 15=1 16=1 17=100 18=1 19=0 20=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
-  arch -x86_64 /tmp/render_g100 /tmp/rosetta_g100.png 0=6 1=7 2=4 3=5 4=1 5=0 6=1 7=6 8=4 9=5 10=5 11=5 12=0 13=1 14=2 15=5 16=5 17=0 18=1 19=100 20=1 21=0 22=0 23=4 24=1 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
+  arch -x86_64 /tmp/render_g100 /tmp/rosetta_g100.png 0=6 1=7 2=4 3=5 4=1 5=0 6=1 7=6 8=4 9=5 10=5 11=5 12=0 13=1 14=2 15=5 16=5 17=0 18=1 19=100 20=1 21=0 22=0 23=4 24=5 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_b3 /tmp/rosetta_b3.png 0=7 1=2 2=-1 3=3 4=4 5=6 6=3 7=1 8=1 9=-2 10=5 11=7 12=0 13=0 14=1 15=100 16=0 17=0 18=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
 else echo "RESULT kind=draw arch=x86_64 rosetta=missing"; fi

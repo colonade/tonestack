@@ -78,7 +78,8 @@ Kanal B 10/10 mit 100 mV 53 mA. Prüfstand (g100test, ab 1.3): leiser Akkord Hal
 (1-kHz-Burst 0,5 ms, Kanal A VOLUME 10): bei 0,05 V Wechselwirkung −22 / −21 dB (1.2: −45 / −43; linear −128 / −132 dB), bei 0,3 V −4 / −6 dB (1.2: −19 / −18; linear −68 / −117 dB;
 bei harten Anschlägen begrenzen auch IC3 und IC7, dann wirkt schon das lineare Modell nicht mehr rein überlagernd); Dauerlast Kanal B 10/10 mit REVERB 10:
 kein NaN, keine Newton-Fehlschläge, Abklingen nach dem Ende −35 / −59 dB nach 1–2 / 2–3 s. Rechenzeit praktisch unverändert.
-Unterschied physikalisch/linear im Plugin (gezupfte Töne, REVERB 10, gegen den Hall): Kanal A VOLUME 5 / 100 mV −24 dB, B GAIN 10 MASTER 5 −10 dB, A VOLUME 10 −2 dB (1.2: −48 / −32 / −16 dB).
+Ab 1.4 Regler REVERB TANK 0–10 (`Tank::setStrength`): 0 linear, 5 wie 1.3 (bitgleich), unter 5 alle Maßstäbe größer (m0·16^−f bis 300 mA, isat bis 320 mA), über 5 Federaussteuerung empfindlicher (mq = m0·16^−f bis 1,2 mA), Laufzeit bis 12 %, Dämpfung bis 30 %, Kopplung/Grenze m0·2^−f. Plugin-Grundstellung (50-mV-Töne), REVERB 10: Unterschied gegen den Hall −77 / −62 / −36 / −8 / +2,5 dB bei 1 / 2,5 / 5 / 7,5 / 10, Hall −1,8 dB bei 10.
+Unterschied physikalisch/linear im Plugin bei 5 (gezupfte Töne, REVERB 10, gegen den Hall): Kanal A VOLUME 5 / 100 mV −24 dB, B GAIN 10 MASTER 5 −10 dB, A VOLUME 10 −2 dB (1.2: −48 / −32 / −16 dB).
 
 ## Parametrischer Entzerrer (PA1-Platine)
 - A1 → 10 kΩ → IC4 1/2 Pin 6 (−), Pin 5 an Masse, 10 kΩ Gegenkopplung (invertierend ×1) → V1. V1 → 10 kΩ → IC4 2/2 Pin 2 (−), 10 kΩ Gegenkopplung → V2 (invertierend ×1; insgesamt nicht invertierend).
