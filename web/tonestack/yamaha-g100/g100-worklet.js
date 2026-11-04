@@ -6,11 +6,11 @@
   class G100Wasm {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.os = 0; this.ready = false; }
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
-    // p = { s: {vola, treba, mida, bassa, gainb, masterb, trebb, midb, bassb, level, q, freq, reverb} 0…1, sw: {fata, brighta, fatb, brightb, chanb, low}, vin (V Spitze bei 0 dBFS), power, os, taper (0 log 15 %, 1 log 10 %, 2 linear) }
+    // p = { s: {vola, treba, mida, bassa, gainb, masterb, trebb, midb, bassb, level, q, freq, reverb} 0…1, sw: {fata, brighta, fatb, brightb, chanb, low}, vin (V Spitze bei 0 dBFS), power, tank (Federtank nichtlinear, ab 1.2; false = linear wie 1.1), os, taper (0 log 15 %, 1 log 10 %, 2 linear) }
     setTarget(p) { if (!p) return; const s = p.s || {}, w = p.sw || {}, t = this.f64(this.x.g100_target_buffer(), 24), num = (v, d) => Number.isFinite(+v) ? +v : d;
       [s.vola, s.treba, s.mida, s.bassa, s.gainb, s.masterb, s.trebb, s.midb, s.bassb, s.level, s.q, s.freq].forEach((v, i) => t[i] = Math.min(1, Math.max(0, num(v, 0.5))));
       t[12] = w.fata ? 1 : 0; t[13] = w.brighta ? 1 : 0; t[14] = w.fatb ? 1 : 0; t[15] = w.brightb ? 1 : 0; t[16] = w.chanb ? 1 : 0; t[17] = w.low ? 1 : 0;
-      t[18] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[19] = p.power === false ? 0 : 1; t[20] = [1, 2].includes(p.taper) ? p.taper : 0; t[21] = Math.min(1, Math.max(0, num(s.reverb, 0)));   // 21: REVERB (ab 1.1)
+      t[18] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[19] = p.power === false ? 0 : 1; t[20] = [1, 2].includes(p.taper) ? p.taper : 0; t[21] = Math.min(1, Math.max(0, num(s.reverb, 0))); t[22] = p.tank === false ? 1 : 0;   // 21: REVERB (ab 1.1), 22: Federtank linear (ab 1.2)
       const os = [1, 2, 4].includes(p.os) ? p.os : 1;
       if (!this.ready || os !== this.os) { this.x.g100_init(this.fs, os); this.os = os; }   // Neuaufbau mit Einschwingen (etwa 0,1 s Rechenzeit)
       this.x.g100_set_target(); this.ready = true; }

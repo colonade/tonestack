@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -72,6 +72,24 @@ What it is
   says "Reverb Unit", these fit the 56 ohm / 723 Hz driver). The tank's
   values are estimates (no tank was measured); REVERB 10 gives about as
   much reverb as direct signal on a chord. The footswitch is always on.
+  Nonlinear tank (1.2, switch REVERB TANK, default PHYSICAL): the state of
+  the already vibrating spring changes how the next note acts - a rimshot
+  sets the springs ringing, and a second hit 50-200 ms later lands on a
+  moving spring and sounds different from the same hit alone. Three
+  mechanisms, all with estimated values (no tank was measured):
+    - transducers: soft core saturation of the drive coil (80 mA peak) and
+      a coupling of each magnet bead that drops with its momentary
+      displacement, at both ends of the springs
+    - springs: stiffer (up to 3 % faster), more damped (loop gain up to
+      10 % lower) and softly limited at large twist, following the envelope
+      of the spring motion (1 ms attack, 20 ms release)
+    - back-EMF: the moving beads at the drive end induce a voltage in series
+      with the drive coil (only the deviation from the nominal coupling;
+      the linear part is already in the calibrated tank)
+  Quiet playing sounds as in 1.1 (below about 5 mA coil current - channel
+  A, volume 5, 100 mV - the reverb differs by less than 0.05 dB); hard
+  hits interact clearly. LINEAR 1.1 computes the tank exactly as in 1.1
+  (bit-identical output).
   No speaker.
   Checked against the manual: tables 3 (gain A HIGH / A LOW / B HIGH),
   6 (frequency response), 7 (TREBLE / MIDDLE / BASS range), 8 (FAT),
@@ -84,14 +102,16 @@ What it is
   chosen so that B is 13 dB above A as in table 3); the 1S1555 diode model;
   the on-resistance of the mute FET; the op-amp limits; the knee of the power
   amp; the log taper of the A pots; the source impedance (1 kohm); the
-  reverb tank as a whole and the +-17 V limit of the driver IC.
+  reverb tank as a whole (1.2: also its nonlinearity) and the +-17 V limit of
+  the driver IC.
 
 Parameters
   A: Volume, Treble, Middle, Bass, Pull Fat, Pull Bright; Channel (A/B);
   B: Gain, Master Volume, Treble, Middle, Bass, Pull Fat, Pull Bright;
   EQ: Level (-5 ... +5, 0 = flat), Q (0 = broad ... 10 = narrow),
   Frequency (0 ... 10 after the panel scale: 100 Hz, 200 at 2.8, 500 at 5,
-  1 kHz at 7.2, 5 kHz at 10); Reverb (0 ... 10, linear pot, 1.1); Input
+  1 kHz at 7.2, 5 kHz at 10); Reverb (0 ... 10, linear pot, 1.1); Reverb tank (Physical /
+  Linear as in 1.1, 1.2); Input
   jack (High / Low); Power amp
   (clipping / linear); Instrument level; Oversampling (1x, 2x, 4x);
   Output level; Pot taper (log 15 % / log 10 % / linear; the A pots:
@@ -99,7 +119,7 @@ Parameters
   Knob 10 = clockwise end. Channel B with everything up is very hot: the
   diodes clip from a few millivolts at the jack - that is the amp.
   Defaults: all knobs 5, Level 0, Reverb 0, pull switches in, channel A,
-  High jack, power amp clipping, 100 mV, 2x, 0 dB.
+  High jack, power amp clipping, 100 mV, 2x, 0 dB, reverb tank physical.
 
 User interface
   Front panel drawn after the drawing in the service manual (no photo, no
@@ -108,7 +128,8 @@ User interface
   knob (pulled = light collar around the knob), the A/B button with its
   indicator (A green, B red), the HIGH and LOW jacks (click to plug in),
   REVERB. Below the panel the model strip (not on the
-  amp): OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, the DRIVE meters
+  amp): OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, REVERB TANK
+  (PHYSICAL / LINEAR 1.1), the DRIVE meters
   (input stage, channel A stages, channel B diodes, channel B FET and EQ
   stages relative to their limits, 100 % = clipping; output power into
   4 ohm, mark = 100 W; the meters of the channel not selected are dimmed),
@@ -139,6 +160,13 @@ CPU
   signals doubles that. With the same
   signal on both channels it is computed once. After 2 s of silence at the
   input the plugin goes idle.
+
+1.2
+  - Spring tank nonlinear (transducers, springs, back-EMF), see "Nonlinear
+    tank" above; new parameter Reverb tank (added at the end, default
+    Physical - projects saved with 1.1 load with the physical tank; switch
+    to "Linear (as in 1.1)" for the old sound, which is bit-identical).
+  - CPU about the same as 1.1.
 
 1.1
   - Spring reverb: driver, tank and return amplifier as part of the

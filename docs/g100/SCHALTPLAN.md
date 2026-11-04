@@ -60,6 +60,25 @@ Physikalisches Modell der Feder statt einer gemessenen Impulsantwort, nach Abel/
 - Übertragung Spulenstrom → Leerlaufspannung der Abnehmerspule 16 V/A als Effektivwert im Mittel über die Frequenz (die Schleife wirkt als Kammfilter; die Zähne sind herausgerechnet).
 - Alle Werte geschätzt (kein Tank ausgemessen): Laufzeiten und Nachhall wie bei einem kurzen Zweifedertank (Typ 8), fC nach der Literatur (2 bis 5 kHz), Pegel so, dass REVERB 10 bei einem Akkord etwa Hall = Direktsignal ergibt (engine/tests/g100test.cpp: Treiberverstärkung, erstes Echo 32,6 ms, T60 2,3 s aus Fensterenergien, Hall/Direkt +0,1 dB).
 
+### Nichtlinearer Federtank (ab 1.2, Schalter REVERB TANK; „LINEAR 1.1“ rechnet Bit für Bit wie 1.1)
+Anlass (Nutzer): ein Rimklick setzt die Feder in Schwingung, der nächste Anschlag trifft auf eine schon schwingende Feder, und je nach Pause und Nachschwingen
+ändert sich das Verhalten. Im linearen Modell überlagern sich zwei Anschläge nur. Drei Ursachen eingebaut, alle mit geschätzten Kennwerten (`springrev::Params`):
+1. **Wandler**: Kernsättigung der Treiberspule, Antrieb = isat · tanh(i / isat), isat = 80 mA Spitze; Kopplung jeder Magnetperle 1 / (1 + (m/m₀)²) nach ihrer
+   momentanen Auslenkung m (Treiberseite: eingespeiste plus zurückgelaufene Welle; Abnehmerseite: ankommende Welle), m₀ = 80 mA-Äquivalent.
+   Anhalt: Typ-B-Eingang (150 Ω) Nennstrom etwa 6,5 mA eff. / 19 mA Spitze; beim 8-Ω-Typ setzte die Sättigung bei etwa dem Zehnfachen des Nennstroms ein
+   (sound-au.com, „Reverb Tanks“), auf 150 Ω umgerechnet etwa 58 mA eff. ≈ 80 mA Spitze.
+2. **Feder**: Hüllkurve der ankommenden Welle (Anstieg 1 ms, Abfall 20 ms), Aussteuerung q = min(1, (Hüllkurve/m₀)²): Schleifenlaufzeit (1 − 0,03·q) – steifer,
+   schneller, linear interpoliert gelesen –, Schleifenverstärkung g·(1 − 0,10·q) – stärker gedämpft –, weiche Grenze der Verdrillung 160 mA-Äquivalent (tanh).
+3. **Rückwirkung**: Spannung rMot · Σ m·(B(m) − 1) in Reihe mit der Treiberspule (Quelle u[3], Knoten Lb zwischen Spule und Masse; rMot = 2 Ω).
+   Nur die Abweichung von der Nenn-Kopplung, weil die lineare Rückwirkung schon in den Kennwerten des linearen Tanks steckt (Nachhall, Impedanz).
+   Gemessen im Kern: als volle Rückwirkung gerechnet dämpfte rMot = 2 Ω den Nachhall bei 150–600 Hz nach 1–2 s um 3–4 dB (mit dem anderen Vorzeichen
+   entsprechend mehr Nachhall – mit 10 Ω liefe das um 30 dB auf, deshalb klein gehalten und nur als Abweichung).
+Spulenströme im Modell (96 kHz, 0,5 s): Kanal A VOLUME 5 mit 100 mV-Sinus 5,6 mA Spitze, mit 500 mV 28 mA; VOLUME 10 mit 100 mV 39 mA, Anschlag 1 V 129 mA;
+Kanal B 10/10 mit 100 mV 53 mA. Prüfstand (g100test): leiser Akkord Hallanteil linear +0,10 / physikalisch +0,11 dB; zweiter Anschlag 50/200 ms nach dem ersten
+(1-kHz-Burst 0,5 ms, Kanal A VOLUME 10): bei 0,05 V Wechselwirkung −45 / −43 dB (linear −128 / −132 dB), bei 0,3 V −19 / −18 dB (linear −68 / −117 dB;
+bei harten Anschlägen begrenzen auch IC3 und IC7, dann wirkt schon das lineare Modell nicht mehr rein überlagernd); Dauerlast Kanal B 10/10 mit REVERB 10:
+kein NaN, keine Newton-Fehlschläge, Abklingen nach dem Ende −31 / −59 dB nach 1–2 / 2–3 s. Rechenzeit praktisch unverändert.
+
 ## Parametrischer Entzerrer (PA1-Platine)
 - A1 → 10 kΩ → IC4 1/2 Pin 6 (−), Pin 5 an Masse, 10 kΩ Gegenkopplung (invertierend ×1) → V1. V1 → 10 kΩ → IC4 2/2 Pin 2 (−), 10 kΩ Gegenkopplung → V2 (invertierend ×1; insgesamt nicht invertierend).
 - LEVEL (G50K, Mittelrastung) zwischen den beiden Summenpunkten (Pin 6 von IC4 1/2 und Pin 2 von IC4 2/2); Schleifer → 680 Ω → Ausgang des Puffers IC5 2/2.
@@ -114,5 +133,6 @@ Bewusst nicht gerechnet: Einschaltstummschaltung TR205/TR206/TR207 (DC-Platine, 
 - 1S1555: Is 2,5 nA, n·Ut 45 mV (0,58 V bei 1 mA). TR102 im leitenden Zustand 500 Ω.
 - NJM4558: Leerlaufverstärkung 10⁴, Ausgangswiderstand 100 Ω, Aussteuerungsgrenze ±13,5 V (IC1 ±11 V wegen der Vorwiderstände in der Versorgung); TA7220P (IC3) an ±20 V: ±17 V.
 - Federtank: Typ unbekannt, Impedanzcodes B/B angenommen, zwei Federn 33/37 ms, Nachhall 2,75 s, fC 4,2 kHz, 16 V/A (siehe Federmodell).
+- Ab 1.2: Nichtlinearität des Tanks (isat, m₀, Steifigkeit 3 %, Dämpfung 10 %, Grenze, Hüllkurve, rMot) – siehe „Nichtlinearer Federtank“.
 - Endstufe: Pegel 105-fach (siehe oben), Knie/Grenze 26/31 V. Innenwiderstand der Quelle 1 kΩ.
 - Nicht gerechnet: Lautsprecher, Rauschen, Einschaltstummschaltung, Umschaltknacken des Relais, Hall-Fußschalter (immer ein).
