@@ -17,3 +17,4 @@ pack Yamaha_B100II "$YAMAHA" README-Yamaha.txt
 pack AmpFett_B15NF "$B15" README-B15NF.txt
 pack GK_800RB "$GK" README-GK.txt
 pack Yamaha_G100 "$G100" README-G100.txt
+pack Yamaha_B100III "$B100III" README-B100III.txt
