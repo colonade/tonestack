@@ -1,6 +1,6 @@
 // Yamaha G100-212II (Service Manual YAMU-02234: Vorverstärker als Schaltung, Endstufe nach Tabelle 3 geeicht; ohne Lautsprecher und Hall) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "g100_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"

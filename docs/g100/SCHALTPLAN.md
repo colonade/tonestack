@@ -64,20 +64,21 @@ Physikalisches Modell der Feder statt einer gemessenen Impulsantwort, nach Abel/
 Anlass (Nutzer): ein Rimklick setzt die Feder in Schwingung, der nächste Anschlag trifft auf eine schon schwingende Feder, und je nach Pause und Nachschwingen
 ändert sich das Verhalten. Im linearen Modell überlagern sich zwei Anschläge nur. Drei Ursachen eingebaut, alle mit geschätzten Kennwerten (`springrev::Params`):
 1. **Wandler**: Kernsättigung der Treiberspule, Antrieb = isat · tanh(i / isat), isat = 80 mA Spitze; Kopplung jeder Magnetperle 1 / (1 + (m/m₀)²) nach ihrer
-   momentanen Auslenkung m (Treiberseite: eingespeiste plus zurückgelaufene Welle; Abnehmerseite: ankommende Welle), m₀ = 80 mA-Äquivalent.
+   momentanen Auslenkung m (Treiberseite: eingespeiste plus zurückgelaufene Welle; Abnehmerseite: ankommende Welle), m₀ = 19 mA-Äquivalent (ab 1.3: Spitzen-Nennstrom des B-Eingangs; 1.2: 80 mA – damit war der Unterschied bei normalem Spiel unhörbar, Nutzer: „ich höre keinen Unterschied“).
    Anhalt: Typ-B-Eingang (150 Ω) Nennstrom etwa 6,5 mA eff. / 19 mA Spitze; beim 8-Ω-Typ setzte die Sättigung bei etwa dem Zehnfachen des Nennstroms ein
    (sound-au.com, „Reverb Tanks“), auf 150 Ω umgerechnet etwa 58 mA eff. ≈ 80 mA Spitze.
 2. **Feder**: Hüllkurve der ankommenden Welle (Anstieg 1 ms, Abfall 20 ms), Aussteuerung q = min(1, (Hüllkurve/m₀)²): Schleifenlaufzeit (1 − 0,03·q) – steifer,
-   schneller, linear interpoliert gelesen –, Schleifenverstärkung g·(1 − 0,10·q) – stärker gedämpft –, weiche Grenze der Verdrillung 160 mA-Äquivalent (tanh).
+   schneller, linear interpoliert gelesen –, Schleifenverstärkung g·(1 − 0,10·q) – stärker gedämpft –, weiche Grenze der Verdrillung 2·m₀ = 38 mA-Äquivalent (tanh; 1.2: 160 mA).
 3. **Rückwirkung**: Spannung rMot · Σ m·(B(m) − 1) in Reihe mit der Treiberspule (Quelle u[3], Knoten Lb zwischen Spule und Masse; rMot = 2 Ω).
    Nur die Abweichung von der Nenn-Kopplung, weil die lineare Rückwirkung schon in den Kennwerten des linearen Tanks steckt (Nachhall, Impedanz).
    Gemessen im Kern: als volle Rückwirkung gerechnet dämpfte rMot = 2 Ω den Nachhall bei 150–600 Hz nach 1–2 s um 3–4 dB (mit dem anderen Vorzeichen
    entsprechend mehr Nachhall – mit 10 Ω liefe das um 30 dB auf, deshalb klein gehalten und nur als Abweichung).
 Spulenströme im Modell (96 kHz, 0,5 s): Kanal A VOLUME 5 mit 100 mV-Sinus 5,6 mA Spitze, mit 500 mV 28 mA; VOLUME 10 mit 100 mV 39 mA, Anschlag 1 V 129 mA;
-Kanal B 10/10 mit 100 mV 53 mA. Prüfstand (g100test): leiser Akkord Hallanteil linear +0,10 / physikalisch +0,11 dB; zweiter Anschlag 50/200 ms nach dem ersten
-(1-kHz-Burst 0,5 ms, Kanal A VOLUME 10): bei 0,05 V Wechselwirkung −45 / −43 dB (linear −128 / −132 dB), bei 0,3 V −19 / −18 dB (linear −68 / −117 dB;
+Kanal B 10/10 mit 100 mV 53 mA. Prüfstand (g100test, ab 1.3): leiser Akkord Hallanteil linear +0,10 / physikalisch +0,45 dB (1.2: +0,11); zweiter Anschlag 50/200 ms nach dem ersten
+(1-kHz-Burst 0,5 ms, Kanal A VOLUME 10): bei 0,05 V Wechselwirkung −22 / −21 dB (1.2: −45 / −43; linear −128 / −132 dB), bei 0,3 V −4 / −6 dB (1.2: −19 / −18; linear −68 / −117 dB;
 bei harten Anschlägen begrenzen auch IC3 und IC7, dann wirkt schon das lineare Modell nicht mehr rein überlagernd); Dauerlast Kanal B 10/10 mit REVERB 10:
-kein NaN, keine Newton-Fehlschläge, Abklingen nach dem Ende −31 / −59 dB nach 1–2 / 2–3 s. Rechenzeit praktisch unverändert.
+kein NaN, keine Newton-Fehlschläge, Abklingen nach dem Ende −35 / −59 dB nach 1–2 / 2–3 s. Rechenzeit praktisch unverändert.
+Unterschied physikalisch/linear im Plugin (gezupfte Töne, REVERB 10, gegen den Hall): Kanal A VOLUME 5 / 100 mV −24 dB, B GAIN 10 MASTER 5 −10 dB, A VOLUME 10 −2 dB (1.2: −48 / −32 / −16 dB).
 
 ## Parametrischer Entzerrer (PA1-Platine)
 - A1 → 10 kΩ → IC4 1/2 Pin 6 (−), Pin 5 an Masse, 10 kΩ Gegenkopplung (invertierend ×1) → V1. V1 → 10 kΩ → IC4 2/2 Pin 2 (−), 10 kΩ Gegenkopplung → V2 (invertierend ×1; insgesamt nicht invertierend).

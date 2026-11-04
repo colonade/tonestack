@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -86,9 +86,12 @@ What it is
     - back-EMF: the moving beads at the drive end induce a voltage in series
       with the drive coil (only the deviation from the nominal coupling;
       the linear part is already in the calibrated tank)
-  Quiet playing sounds as in 1.1 (below about 5 mA coil current - channel
-  A, volume 5, 100 mV - the reverb differs by less than 0.05 dB); hard
-  hits interact clearly. LINEAR 1.1 computes the tank exactly as in 1.1
+  Since 1.3 the scale of the bead displacement and the spring twist is the
+  rated peak current of the tank (19 mA; 1.2: 80 mA, which made the
+  difference inaudible at normal levels). Difference to the linear tank,
+  plucked notes, REVERB 10, relative to the reverb itself: channel A,
+  volume 5, 100 mV -24 dB; channel B, gain 10, master 5 -10 dB; channel
+  A, volume 10 -2 dB. LINEAR 1.1 computes the tank exactly as in 1.1
   (bit-identical output).
   No speaker.
   Checked against the manual: tables 3 (gain A HIGH / A LOW / B HIGH),
@@ -160,6 +163,11 @@ CPU
   signals doubles that. With the same
   signal on both channels it is computed once. After 2 s of silence at the
   input the plugin goes idle.
+
+1.3
+  - Nonlinear tank audible at normal levels: scale of bead displacement
+    and spring twist lowered to the rated peak current (19 mA instead of
+    80 mA). LINEAR 1.1 unchanged (bit-identical to 1.1).
 
 1.2
   - Spring tank nonlinear (transducers, springs, back-EMF), see "Nonlinear

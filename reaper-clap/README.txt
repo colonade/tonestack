@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.35
+Version 3.36
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -129,6 +129,14 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.36
+  - Nonlinear reverb tank stronger (same change as Yamaha G100 1.3): the
+    scale of bead displacement and spring twist is now the tank's rated
+    peak current (19 mA instead of 80 mA). With the defaults and REVERB 10
+    the physical tank now differs from the linear one about as much as the
+    reverb itself (3.35: about 9 dB less) and is about 4 dB quieter (the
+    springs compress at large twist). Linear tank unchanged.
 
 3.35
   - Spring reverb after the schematic DRG 1054 (the AOR 50/12 circuit has
