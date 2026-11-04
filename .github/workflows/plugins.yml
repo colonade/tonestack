@@ -1,6 +1,6 @@
 # Plugins bauen und veröffentlichen: Linux (CLAP, VST3; Ubuntu 24.04) und Mac (Audio Unit für Logic, VST3; macOS 15).
 # Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
-# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_yamaha-<V>_b15nf-<V>_gk800rb-<V>_g100-<V> (ältere werden gelöscht).
+# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_yamaha-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V> (ältere werden gelöscht).
 # Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
 # Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
 name: Plugins
@@ -29,12 +29,13 @@ jobs:
       - name: Prüfen
         run: |
           set -euo pipefail
-          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
           ./engine/build/b15test | tail -3
           ./engine/build/gktest | head -8
           ./engine/build/g100test | grep -E "Abweichung|ABWEICHUNG|Knoten"
+          ./engine/build/b3test | grep -E "Abweichung|ABWEICHUNG|BEKANNT|Knoten"
           ./engine/build/switchtest | tail -1
-          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
+          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
       - name: Packen
         run: |
           set -euo pipefail
@@ -78,7 +79,7 @@ jobs:
             clang++ -O2 -std=c++17 -arch arm64 -arch x86_64 -Iengine/third_party engine/tests/rtcheck.cpp -o /tmp/rtcheck
             clang++ -O2 -std=c++17 -fobjc-arc -arch arm64 -arch x86_64 -Iengine/third_party mac/test/guicheck.mm -framework Cocoa -o /tmp/guicheck
             echo "== $(sysctl -n machdep.cpu.brand_string) · $(sysctl -n hw.ncpu) Kerne · Rosetta: $(arch -x86_64 /usr/bin/true 2>/dev/null && echo ja || echo nein)"
-            for NAME in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100; do
+            for NAME in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III; do
               CL="$(find build-mac -maxdepth 3 -name "$NAME.clap" -type d | head -1)"; BIN="$CL/Contents/MacOS/$NAME"; lipo -info "$BIN"
               for A in arm64 x86_64; do
                 echo "== $NAME $A rtcheck"; SPIKELOG=12 arch -$A /tmp/rtcheck "$BIN" 8 128
@@ -93,7 +94,7 @@ jobs:
             SAN="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
             clang++ $SAN -std=c++17 -Iengine/third_party engine/tests/rtcheck.cpp -o /tmp/rtcheck_asan
             clang++ $SAN -std=c++17 -fobjc-arc -Iengine/third_party mac/test/guicheck.mm -framework Cocoa -o /tmp/guicheck_asan
-            for spec in "plugin.cpp laney" "yplugin.cpp yamaha" "b15plugin.cpp b15" "gkplugin.cpp gk" "g100plugin.cpp g100"; do set -- $spec
+            for spec in "plugin.cpp laney" "yplugin.cpp yamaha" "b15plugin.cpp b15" "gkplugin.cpp gk" "g100plugin.cpp g100" "b3plugin.cpp b3"; do set -- $spec
               clang++ $SAN -std=c++17 -fobjc-arc -fvisibility=hidden -DTS_VIEW_CLASS=TSView_$2 -Iengine/clap -c engine/clap/macview.mm -o /tmp/macview_$2.o
               clang++ $SAN -std=c++17 -fvisibility=hidden -shared -fPIC -Iengine/src -Iengine/gen -Iengine/third_party engine/clap/$1 /tmp/macview_$2.o -framework Cocoa -framework CoreGraphics -framework CoreText -o /tmp/$2_asan.dylib
               echo "== $2 asan rtcheck"; UBSAN_OPTIONS=print_stacktrace=1 /tmp/rtcheck_asan /tmp/$2_asan.dylib 3 128
@@ -108,21 +109,21 @@ jobs:
         run: |
           set -o pipefail
           { set -e; bash mac/make_pkg.sh build-mac out
-            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/AmpFett_B15NF.component ~/Library/Audio/Plug-Ins/Components/GK_800RB.component ~/Library/Audio/Plug-Ins/Components/Yamaha_G100.component
+            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/AmpFett_B15NF.component ~/Library/Audio/Plug-Ins/Components/GK_800RB.component ~/Library/Audio/Plug-Ins/Components/Yamaha_G100.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100III.component
             mkdir -p ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3   # Attrappe einer alten Handinstallation: soll im Papierkorb landen
             echo "::notice title=Konsolenbenutzer::$(stat -f%Su /dev/console) / $(whoami)"
             sudo installer -pkg out/*.pkg -target /
             if [ -e ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3 ]; then echo "::notice title=Altfassung::nicht verschoben (kein angemeldeter Benutzer?)"; rm -rf ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3; else echo "::notice title=Altfassung::in den Papierkorb verschoben: $(ls ~/.Trash | tr '\n' ' ')"; fi
             ls -la /Library/Audio/Plug-Ins/Components /Library/Audio/Plug-Ins/VST3
             killall -9 AudioComponentRegistrar 2>/dev/null || true; sleep 3
-            for sub in Lany B100 AFB1 GK8R YG10; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; echo "::notice title=auval $sub Kanäle::$(auval -v aufx $sub Tnst | grep -i -A2 "channel capabilities" | tr '\n' ' ')"; done
+            for sub in Lany B100 AFB1 GK8R YG10 YB3A; do auval -v aufx $sub Tnst | tail -5; auval -v aufx $sub Tnst | grep -q "AU VALIDATION SUCCEEDED" || { echo "FEHLER: auval $sub nach Installation"; exit 1; }; echo "::notice title=auval $sub Kanäle::$(auval -v aufx $sub Tnst | grep -i -A2 "channel capabilities" | tr '\n' ' ')"; done
           } 2>&1 | tee pkg.log || { python3 mac/annot.py Installerpaket pkg.log; exit 1; }
       - name: Audio-Unit-Prüfung wie in Logic (nativ und Rosetta)
         run: |
           set -o pipefail
           { set -e
             clang++ -O2 -std=c++17 -arch arm64 -arch x86_64 mac/test/aucheck.cpp -framework AudioToolbox -framework CoreFoundation -o /tmp/aucheck
-            for sub in Lany B100 AFB1 GK8R YG10; do for A in arm64 x86_64; do echo "== $sub $A aucheck"; arch -$A /tmp/aucheck $sub 8 128; done; done
+            for sub in Lany B100 AFB1 GK8R YG10 YB3A; do for A in arm64 x86_64; do echo "== $sub $A aucheck"; arch -$A /tmp/aucheck $sub 8 128; done; done
           } 2>&1 | tee au.log || r=1; python3 mac/rtnotice.py AudioUnit au.log || r=1; exit ${r:-0}
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         if: always()
@@ -175,6 +176,6 @@ jobs:
           set -euo pipefail
           (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt)
           n=$(ls mac-art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
-          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/yamaha.png rel/mac-yamaha.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png
+          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/yamaha.png rel/mac-yamaha.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png; cp mac-art/b3.png rel/mac-b100iii.png
           (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)
           bash scripts/release.sh rel

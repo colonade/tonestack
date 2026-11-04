@@ -84,7 +84,8 @@ paar Sekunden). Dann in einer Audiospur:
                                              (bzw. Yamaha B100-II Bass Amp,
                                               AmpFett B-15NF Bass Amp,
                                               GK 800RB Bass Amp,
-                                              Yamaha G100-212II Guitar Amp)
+                                              Yamaha G100-212II Guitar Amp,
+                                              Yamaha B100-III Bass Amp)
 
 Die Plugins laufen auf Mono- und Stereospuren (ab Laney 3.22 / Yamaha 1.10 /
 AmpFett 1.7; vorher nur Stereo, auf Mono-Spuren erschienen sie nicht). Auf
@@ -100,6 +101,7 @@ Kontrolle im Terminal (sollte mit „AU VALIDATION SUCCEEDED“ enden):
     auval -v aufx AFB1 Tnst      (AmpFett)
     auval -v aufx GK8R Tnst      (GK 800RB)
     auval -v aufx YG10 Tnst      (Yamaha G100-212II)
+    auval -v aufx YB3A Tnst      (Yamaha B100-III)
 
 
 4. Über Waves StudioRack (VST3)
@@ -143,7 +145,8 @@ unter Rosetta etwa 60 %; AmpFett etwa 28 % mit vollem Netzteil, ab 1.15 mit dem
 einfachen (Grundstellung) etwa ein Fünftel weniger; Yamaha etwa 5 %; GK 800RB
 (gemessen unter Linux) etwa 8 % bei 1x, 18 % bei 2x (Grundstellung); Yamaha G100-212II
 (gemessen unter Linux) etwa 10 % bei 1x, 25 % bei 2x, ab 1.1 mit Hall knapp
-das Doppelte. Beim Umschalten
+das Doppelte; Yamaha B100-III (gemessen unter Linux) etwa ein Drittel bis
+die Hälfte bei 2x (Grundstellung; 1x gibt es dort nicht). Beim Umschalten
 von DISTORTION, Überabtastung, Röhren oder Kanal rechnet der Laney für etwa
 0,2 s die neue Schaltung mit, das kostet in dieser Zeit rund das Dreifache
 (bis 3.32 bis zum Fünffachen). Das offene Plugin-Fenster kostet 1 bis 7 %
@@ -169,9 +172,9 @@ Wenn Logic überlastet meldet oder es knackt:
 
 Logic beenden, dann im Terminal:
 
-    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF,GK_800RB,Yamaha_G100}.component
-    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF,GK_800RB,Yamaha_G100}.vst3
-    for p in laney yamaha b15nf gk800rb g100; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
+    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF,GK_800RB,Yamaha_G100,Yamaha_B100III}.component
+    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF,GK_800RB,Yamaha_G100,Yamaha_B100III}.vst3
+    for p in laney yamaha b15nf gk800rb g100 b100iii; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
 
 Falls vorhanden, auch den Ordner ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen
 löschen. Danach ist nichts mehr davon auf dem Mac.

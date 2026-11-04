@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II</title>
-<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB und Yamaha G100-212II, berechnet aus den Schaltplänen.">
+<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III</title>
+<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II und Yamaha B100-III, berechnet aus den Schaltplänen.">
 <meta name="theme-color" content="#EEF1EC">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/yamaha-b100ii-192.png">
 <link rel="preload" href="assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -62,6 +62,10 @@ footer a{color:inherit}
     <img src="assets/icons/yamaha-g100-192.png" alt="" width="72" height="72">
     <span><b>Yamaha G100-212II</b><span>Der Transistor-Gitarrenverstärker nach dem Service Manual (1979): Kanal A sauber, Kanal B mit Begrenzerdioden und FET-Stufe, Zugschalter FAT und BRIGHT, parametrischer EQ, Federhall (Schaltung und Feder als physikalisches Modell), Endstufe mit Begrenzung; ohne Lautsprecher. Geprüft gegen die Prüftabellen des Manuals.</span></span>
   </a>
+  <a class="card" href="yamaha-b100iii/">
+    <img src="assets/icons/yamaha-b100iii-192.png" alt="" width="72" height="72">
+    <span><b>Yamaha B100-III</b><span>Der Transistor-Bassverstärker nach dem Service Manual (1984): Eingangsstufe, aktive Klangregelung mit Transistor-Gyratoren, zwei vollparametrische Entzerrer mit PRESET LEVEL (ein- und ausschaltbar wie mit dem Fußschalter), 100-W-Endstufe mit Begrenzung; ohne Lautsprecher. Geprüft gegen die Spezifikation des Manuals.</span></span>
+  </a>
   <h2>Für die DAW</h2>
   <div class="card dl">
     <span><b>Laney AOR 50 Preamp als DAW-Plugin</b><span>Derselbe Rechenkern wie der Simulator für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl, Lautsprecher, Umbauideen „Sanft" und „Später".</span>
@@ -89,11 +93,16 @@ footer a{color:inherit}
       <small>Version 1.1 · Installation wie beim Laney (<code>Yamaha_G100.clap</code> bzw. Ordner <code>Yamaha_G100.vst3</code>). Gleiche Systemvoraussetzungen. Braucht etwa ein Fünftel eines Prozessorkerns bei 48 kHz und 1x, bei 2x (Grundstellung) knapp die Hälfte (seit 1.1 mit Hall).</small></span>
   </div>
   <div class="card dl">
-    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF, GK 800RB und Yamaha G100-212II als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
-      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.34_Yamaha-1.16_B15NF-1.16_GK800RB-1.1_G100-1.1.pkg" download>Mac-Installer herunterladen</a></span>
-      <small>Laney 3.34 · Yamaha 1.16 · AmpFett B-15NF 1.16 · GK 800RB 1.1 · Yamaha G100-212II 1.1 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+    <span><b>Yamaha B100-III Bass Amp als DAW-Plugin</b><span>Der Transistor-Bassverstärker nach dem Service Manual wie auf der Web-Seite: Eingangsstufe, aktive Klangregelung, zwei parametrische Entzerrer mit PRESET LEVEL und Ein/Aus wie mit dem Fußschalter, Endstufe mit Begrenzung; Frontplatte zum Drehen, Aussteuerungsanzeige, Frequenzgang, Stereo, 2- oder 4-fache Überabtastung. Ohne Lautsprecher.</span>
+      <span class="dls"><a class="dlb" href="download/Yamaha_B100III_CLAP-1.0.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Yamaha_B100III_VST3-1.0.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.0 · Installation wie beim Laney (<code>Yamaha_B100III.clap</code> bzw. Ordner <code>Yamaha_B100III.vst3</code>). Gleiche Systemvoraussetzungen. Braucht bei 48 kHz und 2x (Grundstellung) etwa ein Drittel bis die Hälfte eines Prozessorkerns.</small></span>
   </div>
-  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett), Transistor-, Dioden- und FET-Verzerrung (GK, Yamaha G100) bzw. Endstufenbegrenzung (Yamaha, GK); Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
+  <div class="card dl">
+    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF, GK 800RB, Yamaha G100-212II und Yamaha B100-III als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
+      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.34_Yamaha-1.16_B15NF-1.16_GK800RB-1.1_G100-1.1_B100III-1.0.pkg" download>Mac-Installer herunterladen</a></span>
+      <small>Laney 3.34 · Yamaha 1.16 · AmpFett B-15NF 1.16 · GK 800RB 1.1 · Yamaha G100-212II 1.1 · Yamaha B100-III 1.0 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+  </div>
+  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett), Transistor-, Dioden- und FET-Verzerrung (GK, Yamaha G100) bzw. Endstufenbegrenzung (Yamaha, GK, Yamaha B100-III); Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
 </main>
 </body>
 </html>

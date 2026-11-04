@@ -6,7 +6,7 @@
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"   # Versionen wie im Release
+eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"   # Versionen wie im Release
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/res"
 # Nachlauf je Plugin (ab 2026-11-03): fasst nur die Dateien des gewählten Plugins an. Vorher lief für jedes Teilpaket dasselbe Skript und
 # verschob von Hand installierte Fassungen aller drei Plugins in den Papierkorb, auch wenn nur eines gewählt war.
@@ -43,7 +43,7 @@ killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
   } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
-post laney Laney_AOR50; post yamaha Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Yamaha_G100
+post laney Laney_AOR50; post yamaha Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Yamaha_G100; post b100iii Yamaha_B100III
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -59,7 +59,8 @@ one Yamaha_B100II yamaha "$YV" component; one Yamaha_B100II yamaha "$YV" vst3
 one AmpFett_B15NF b15nf "$BV" component; one AmpFett_B15NF b15nf "$BV" vst3
 one GK_800RB gk800rb "$GV" component; one GK_800RB gk800rb "$GV" vst3
 one Yamaha_G100 g100 "$G1V" component; one Yamaha_G100 g100 "$G1V" vst3
-sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+one Yamaha_B100III b100iii "$B3V" component; one Yamaha_B100III b100iii "$B3V" vst3
+sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
@@ -88,6 +89,7 @@ cat > "$W/dist.xml" <<X
     <line choice="b15nf"/>
     <line choice="gk800rb"/>
     <line choice="g100"/>
+    <line choice="b100iii"/>
   </choices-outline>
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
@@ -101,8 +103,11 @@ cat > "$W/dist.xml" <<X
   <choice id="gk800rb" title="GK 800RB Bass Amp $GV" description="Transistor-Bassverstärker nach dem Service-Manual 1991: Vorstufe als Schaltung (4-Band-EQ, Filter, Boost mit J113), Bi-Amp-Weiche, zwei Endstufen, Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.gk800rb.component"/><pkg-ref id="de.tonestack.gk800rb.vst3"/>
   </choice>
-  <choice id="g100" title="Yamaha G100-212II Guitar Amp $G1V" description="Transistor-Gitarrenverstärker nach dem Service Manual 1979: zwei Kanäle (A sauber, B mit Diodenbegrenzer und FET-Stufe), Zugschalter FAT/BRIGHT, parametrischer EQ, 100-W-Endstufe; ohne Lautsprecher und Hall. Audio Unit und VST3.">
+  <choice id="g100" title="Yamaha G100-212II Guitar Amp $G1V" description="Transistor-Gitarrenverstärker nach dem Service Manual 1979: zwei Kanäle (A sauber, B mit Diodenbegrenzer und FET-Stufe), Zugschalter FAT/BRIGHT, parametrischer EQ, Federhall, 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.g100.component"/><pkg-ref id="de.tonestack.g100.vst3"/>
+  </choice>
+  <choice id="b100iii" title="Yamaha B100-III Bass Amp $B3V" description="Transistor-Bassverstärker nach dem Service Manual 1984: aktive Klangregelung, zwei parametrische Entzerrer mit PRESET LEVEL (ein/aus wie mit dem Fußschalter), 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.b100iii.component"/><pkg-ref id="de.tonestack.b100iii.vst3"/>
   </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.laney.vst3" version="$LV">laney-vst3.pkg</pkg-ref>
@@ -114,6 +119,8 @@ cat > "$W/dist.xml" <<X
   <pkg-ref id="de.tonestack.gk800rb.vst3" version="$GV">gk800rb-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.g100.component" version="$G1V">g100-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.g100.vst3" version="$G1V">g100-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.b100iii.component" version="$B3V">b100iii-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.b100iii.vst3" version="$B3V">b100iii-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
 P="$OUT/$PKG"

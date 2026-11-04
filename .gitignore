@@ -26,4 +26,6 @@ docs/b15nf/*
 !docs/b15nf/SCHALTPLAN.md
 docs/g100/*
 !docs/g100/SCHALTPLAN.md
+docs/b100iii/*
+!docs/b100iii/SCHALTPLAN.md
 *.PDF
