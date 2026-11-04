@@ -30,8 +30,9 @@ struct Params {
   // Nichtlinear (ab 1.2, alles geschätzt): Typ-B-Eingang (150 Ω) Nennstrom etwa 6,5 mA eff. / 19 mA Spitze; Sättigung beim 8-Ω-Typ bei etwa dem Zehnfachen
   // des Nennstroms gemessen (sound-au.com, „Reverb Tanks“), auf 150 Ω umgerechnet etwa 80 mA Spitze
   double isat = 0.080;      // Kernsättigung der Treiberspule (A Spitze): Antrieb = isat·tanh(i/isat)
-  double m0 = 0.080;        // Auslenkungsmaßstab der Magnetperlen (A-Äquivalent): Kopplung 1/(1 + (m/m0)²), bei Nennstrom −0,2 dB
-  double kHard = 0.03, kDamp = 0.10, mLim = 0.16;   // Feder: Laufzeit bis 3 % kürzer und Schleifenverstärkung bis 10 % kleiner bei Hüllkurve ≥ m0; weiche Grenze der Verdrillung
+  double m0 = 0.019;        // Auslenkungsmaßstab der Magnetperlen und der Feder (A-Äquivalent): Kopplung 1/(1 + (m/m0)²); ab G100 1.3 / Laney 3.36 die Nennstrom-Spitze
+                            // des B-Eingangs (19 mA), vorher 80 mA (Sättigungsbereich) – damit war der Unterschied zum linearen Tank bei normalem Spiel unhörbar
+  double kHard = 0.03, kDamp = 0.10, mLim = 0.038;   // Feder: Laufzeit bis 3 % kürzer und Schleifenverstärkung bis 10 % kleiner bei Hüllkurve ≥ m0; weiche Grenze der Verdrillung (2·m0)
   double envAtt = 0.001, envRel = 0.020;   // Hüllkurve der Federbewegung: Anstieg 1 ms, Abfall 20 ms
   double rMot = 2;          // Rückwirkung auf die Treiberspule (Ω je A-Äquivalent, geschätzt): als volle Rückwirkung gerechnet verkürzte sie den Nachhall um 150–600 Hz
                             // um 3–4 dB nach 1–2 s (Prüfung im Kern); als Abweichung verlängert sie ihn höchstens um so viel (Perlen ganz ausgelenkt)
