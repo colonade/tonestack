@@ -91,7 +91,7 @@ cat > "$W/dist.xml" <<X
     <line choice="g100"/>
     <line choice="b100iii"/>
   </choices-outline>
-  <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
+  <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Federhall, Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
   </choice>
   <choice id="yamaha" title="Yamaha B100-II Bass Amp $YV" description="Transistor-Bassverstärker mit 5-Band-EQ, Endstufe und Lautsprecher. Audio Unit und VST3.">

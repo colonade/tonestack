@@ -7,6 +7,12 @@
 #include <map>
 #include <array>
 #include <algorithm>
+#ifdef AOR_REVERB
+#include "laney_rev.hpp"   // Federhall im Effektweg (ab 3.35); nur im Laney-Bau (AOR_REVERB), damit andere Plugins, die diesen Kopf für Lautsprecher und Filter einbinden, Byte für Byte gleich bleiben
+#define AOR_RV(...) __VA_ARGS__
+#else
+#define AOR_RV(...)
+#endif
 #include <complex>
 #ifndef __wasm__
 #include <atomic>
@@ -461,11 +467,12 @@ struct Amp {
   // Die Vorstufe rechnet mit den Schienenspannungen ub (Ruhe UB plus Änderung aus dem Netzteil der Endstufe) und meldet ihre Stromänderungen zurück.
   static int paGroup(int os, bool on, bool eco = false) { return on && (os > 2 || (eco && os == 2)) ? 2 : 1; }   // Teilschritte je Endstufen-Schritt; ECO (ab 3.26): bei 2x rechnet die Endstufe mit der Grundrate
   bool eco = false;
+  AOR_RV(lrev::Rev *rv = nullptr;)   // Federhall im Effektweg (ab 3.35; nur mit Endstufe, von NlCore je Aufruf gesetzt)
   PaDk *pa = nullptr; double ub[4] = {UB[0], UB[1], UB[2], UB[3]}, i0[3] = {0, 0, 0}, paAcc = 0, paHold = 0; int paCnt = 0;
   void railI(double *o) const { o[0] = sec[1].I[0]; o[1] = sec[2].I[0] + sec[3].I[0]; o[2] = sec[4].I[0] + sec[4].I[1] + sec[4].I[3]; }   // Anodenströme je Schiene 240/252/260 V
   void markIdle() { railI(i0); for (int k = 0; k < 4; k++) ub[k] = UB[k]; paAcc = paHold = 0; paCnt = 0; }
   double paSub(double y, int m) { paAcc += y; if (++paCnt < m) return paHold; double di[3]; railI(di); for (int k = 0; k < 3; k++) di[k] -= i0[k];
-    paHold = pa->step(paAcc / m, di); paAcc = 0; paCnt = 0;
+    double uu = paAcc / m; AOR_RV(if (rv) uu += rv->step(uu);) paHold = pa->step(uu, di); paAcc = 0; paCnt = 0;
     ub[0] = UB[0] + pa->railDev(0); ub[1] = UB[1] + pa->railDev(1); ub[2] = UB[2] + pa->railDev(1); ub[3] = UB[3] + pa->railDev(2); return paHold; }
   void noPa() { if (ub[0] != UB[0] || ub[3] != UB[3]) for (int k = 0; k < 4; k++) ub[k] = UB[k]; }
   struct Blend { std::vector<double> Mp, Mc, dV; }; std::vector<Blend> bFrom, bTo; bool blending = false; int bpos = 0;
@@ -666,14 +673,14 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   double lo = (w*w*w*w*Ts*Ts*Tb*Tb) / std::hypot(dr, di), le = 1 / std::hypot(1.0, w * m.Le / m.Re), w0 = 2 * PI * m.fc, cone = w0*w0 / std::hypot(w0*w0 - w*w, w0*w/m.Qc);
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
-struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; };   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
+struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; AOR_RV(double rev = 0; bool tankLin = false;) };   // rev: REVERB-Schleifer 0…1 (mit Kennlinie, ab 3.35), tankLin: Federtank linear   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
 
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
   std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; virtual bool ecoOf() const { return false; } double peaks[5] = {0,0,0,0,0};
   virtual CoreBase *clone() const = 0; };   // vollständige Kopie samt Zustand (Plugin: rechter Kanal übernimmt den linken)
 
 struct LinCore : CoreBase {
-  double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaLin paC; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false;
+  double fs; LinRunner r; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; bool pa = false; PaLin paC; double vin = 0.1; std::vector<TriSS> ss; bool useSS = false; AOR_RV(lrev::Rev rv; bool rvInit = false;)
   explicit LinCore(double fs_) : fs(fs_), paC(fs_) {}
   void updSS() { useSS = !stockTubes(cur); if (useSS) ss = smallSignal(v, cur, fs); }
   void rebuild(bool keep) { r.set(buildLin(v, cur, fs, useSS ? &ss : nullptr), 1, keep); }
@@ -686,18 +693,18 @@ struct LinCore : CoreBase {
       rebuild(!had);
       if (had && oldG.size() == (size_t)r.sys.nc) { r.hasPrev = false; r.blend = 1; r.prevNorm = r.norm; for (size_t j = 0; j < oldG.size(); j++) r.Ih[j] += (r.sys.G2[j] - oldG[j]) / 2 * r.vc[j]; }
     }
-    pa = t.pa; if (pa) paC.setTarget(t.v, t.s.pres, t.mis);
+    pa = t.pa; if (pa) { paC.setTarget(t.v, t.s.pres, t.mis); AOR_RV(if (!rvInit) { rv.init(fs, t.rev, t.tankLin); rvInit = true; } else rv.setTarget(t.rev, t.tankLin);) }
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < NSFIELD; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (moved) rebuild(true); }
-  double step(double u) override { double y = r.step(u, peaks) * vin / 20; if (pa) { paC.tick(); y = paC.step(y * 20); } return y; }   // absolut wie der Röhrenkern (Vorverstärkerspannung / 20 V): kein Pegelsprung beim Umschalten linear ↔ Röhre
+  double step(double u) override { double y = r.step(u, peaks) * vin / 20; if (pa) { paC.tick(); double w = y * 20; AOR_RV(w += rv.step(w);) y = paC.step(w); } return y; }   // absolut wie der Röhrenkern (Vorverstärkerspannung / 20 V): kein Pegelsprung beim Umschalten linear ↔ Röhre
   CoreBase *clone() const override { return new LinCore(*this); }
   bool isNl() const override { return false; } int osOf() const override { return 1; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
 };
 
 struct NlCore : CoreBase {
-  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaDk paC;
+  double fs; int os; Amp amp; Setting cur, tgt; Parts v; bool hasV = false; int cnt = 0; double vin = 0.1; bool pa = false; PaDk paC; AOR_RV(lrev::Rev rv; bool rvInit = false;)
   static std::map<std::string, Snapshot> &cache() { static std::map<std::string, Snapshot> c; return c; }
   static std::string cacheKey(const Parts &v, double fs, int os, const int tube[3]) { std::string key(reinterpret_cast<const char*>(&v), sizeof v); return key + std::to_string(fs) + "|" + std::to_string(os) + "|" + std::to_string(tube[0]) + std::to_string(tube[1]) + std::to_string(tube[2]); }
 #ifdef __wasm__
@@ -716,13 +723,13 @@ struct NlCore : CoreBase {
       auto &c = cache(); auto it = c.find(key);
       if (it == c.end()) { amp.init(v, cur); if (c.size() >= 32) c.clear(); c[key] = amp.snapshot(); } else amp.initFrom(v, cur, it->second);   // begrenzter Zwischenspeicher
     } else tgt = s;
-    if (pa) paC.setTarget(t.v, t.s.pres, t.mis);
+    if (pa) { paC.setTarget(t.v, t.s.pres, t.mis); AOR_RV(if (!rvInit) { rv.init(paC.fs, t.rev, t.tankLin); rvInit = true; } else rv.setTarget(t.rev, t.tankLin);) }   // Hall im Takt der Endstufe
   }
   void tick() override { if (++cnt < 256) return; cnt = 0; double a = 1 - std::exp(-256 / (0.015 * fs)); bool moved = false;
     for (int i = 0; i < NSFIELD; i++) { double &c = sfield(cur, i), d = sfield(tgt, i) - c; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-5) c += d * a; else c = sfield(tgt, i); }
     if (tgt.ch1 != cur.ch1) { cur.ch1 = tgt.ch1; moved = true; }
     if (moved) amp.retarget(v, cur); }
-  double step(double u) override { amp.pa = pa ? &paC : nullptr; if (pa) paC.tick(); double y = amp.step(u * vin); if (!pa) y /= 20; amp.pa = nullptr;
+  double step(double u) override { amp.pa = pa ? &paC : nullptr; AOR_RV(amp.rv = pa ? &rv : nullptr;) if (pa) paC.tick(); double y = amp.step(u * vin); if (!pa) y /= 20; amp.pa = nullptr; AOR_RV(amp.rv = nullptr;)
     for (int i = 0; i < 5; i++) peaks[i] = amp.peak[i]; return y; }   // mit Endstufe: deren Ausgang (im Takt der Überabtastung gerechnet), sonst Vorverstärkerspannung / 20 V
   CoreBase *clone() const override { return new NlCore(*this); }
   bool ecoOf() const override { return eco; } bool isNl() const override { return true; } int osOf() const override { return os; } bool lowOf() const override { return cur.low > 0.5; } int chOf() const override { return cur.ch1 > 0.5 ? 1 : 2; }
