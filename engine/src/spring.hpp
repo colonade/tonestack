@@ -53,7 +53,7 @@ struct Delay { std::vector<double> b; int n = 1, w = 0;
   void reset() { std::fill(b.begin(), b.end(), 0.0); w = 0; } };
 struct Spring {
   std::vector<SAP> ap, aph; Delay dl, dlh; OnePole lp, lpIn; Hp1 hpLoop, hpIn, hpHf; double g = 0, gh = 0, hfLevel = 0;
-  double env = 0, ea = 0, er = 0, back = 0, mDev = 0, m0 = 1, kHard = 0, kDamp = 0, mLim = 1; int dlN = 1;   // mDev: Abweichung der Rückwirkung (m·(B(m) − 1))   // nichtlinear: Hüllkurve, ihre Koeffizienten, zurücklaufende Welle an der Treiberseite
+  double env = 0, ea = 0, er = 0, back = 0, mDev = 0, m0 = 1, mq = 1, kHard = 0, kDamp = 0, mLim = 1; int dlN = 1;   // m0: Maßstab der Perlenkopplung, mq: der Federaussteuerung   // mDev: Abweichung der Rückwirkung (m·(B(m) − 1))   // nichtlinear: Hüllkurve, ihre Koeffizienten, zurücklaufende Welle an der Treiberseite
   void design(double fs, const Params &p, int k) {
     int K = std::max(1, (int)std::lround(fs / (2 * p.fC)));
     ap.assign(p.M, SAP()); for (auto &s : ap) s.init(K, p.a1);
@@ -63,7 +63,7 @@ struct Spring {
     dl.init(std::max(8, (int)std::lround(td * fs - tau0))); dlh.init(std::max(8, (int)std::lround(td * fs - p.hfM * (1 - p.hfA) / (1 + p.hfA))));
     g = std::pow(10.0, -3 * td / p.t60); gh = std::pow(10.0, -3 * td / p.hfT60); hfLevel = p.hfLevel;
     lp.lp(p.fLoopLp, fs); lpIn.lp(p.fC, fs); hpLoop.set(p.fLoopHp, fs); hpIn.set(p.fInHp, fs); hpHf.set(p.fC, fs);
-    dlN = dl.n; ea = std::exp(-1 / (p.envAtt * fs)); er = std::exp(-1 / (p.envRel * fs)); m0 = p.m0; kHard = p.kHard; kDamp = p.kDamp; mLim = p.mLim; env = 0; back = 0; mDev = 0; }
+    dlN = dl.n; ea = std::exp(-1 / (p.envAtt * fs)); er = std::exp(-1 / (p.envRel * fs)); m0 = p.m0; mq = p.m0; kHard = p.kHard; kDamp = p.kDamp; mLim = p.mLim; env = 0; back = 0; mDev = 0; }
   // Abnehmer am anderen Ende der Feder: Ausgang ist das Signal nach einem Durchlauf (Allpass-Kette + Verzögerung), davon ein Teil zurück zum Anfang
   inline double step(double u) {
     double x = hpIn.step(u);
@@ -73,7 +73,7 @@ struct Spring {
   static inline double coup(double m, double m0) { double r = m / m0; return 1 / (1 + r * r); }   // Kopplung einer Magnetperle bei Auslenkung m
   // nichtlinear: u = Antrieb nach der Kernsättigung (A); Kopplung an beiden Enden nach der Auslenkung der Perle, Steifigkeit/Dämpfung/Grenze nach der Hüllkurve
   inline double stepNl(double u) {
-    double q = std::min(1.0, (env / m0) * (env / m0));   // Aussteuerung der Feder 0 … 1
+    double q = std::min(1.0, (env / mq) * (env / mq));   // Aussteuerung der Feder 0 … 1
     double d = dl.readFrac(dlN * (1 - kHard * q));   // steifer → schneller → kürzere Laufzeit
     double mIn = lpIn.z + back;   // Bewegung an der Treiberseite im letzten Abtastwert (eingespeist + zurückgelaufen)
     double cIn = coup(mIn, m0); mDev = mIn * (cIn - 1); double x = hpIn.step(u) * cIn;
@@ -84,12 +84,20 @@ struct Spring {
     return d * coup(d, m0) + hfLevel * dh; }
   void reset() { for (auto &a : ap) a.reset(); for (auto &a : aph) a.reset(); dl.reset(); dlh.reset(); lp.reset(); lpIn.reset(); hpLoop.reset(); hpIn.reset(); hpHf.reset(); env = 0; back = 0; mDev = 0; }
 };
-struct Tank { std::vector<Spring> sp; double scale = 1; Params p; bool nl = false; double vb = 0;   // nl: nichtlinear (ab 1.2); vb: Rückwirkungsspannung in die Treiberspule (V)
+struct Tank { std::vector<Spring> sp; double scale = 1; Params p; bool nl = false; double vb = 0, isat = 0.08;   // isat: wirksame Kernsättigung (setStrength)   // nl: nichtlinear (ab 1.2); vb: Rückwirkungsspannung in die Treiberspule (V)
   // scale: Übertragung im Mittel über die Frequenz = p.gain; eine Schleife mit Verstärkung g hat den Effektivwert-Faktor 1/√(1−g²) (Kammfilter, über die Zähne gemittelt)
-  void design(double fs, const Params &pp) { p = pp; sp.assign(std::max(1, std::min(3, pp.nSprings)), Spring()); double sum = 0;
+  void design(double fs, const Params &pp) { p = pp; isat = pp.isat; sp.assign(std::max(1, std::min(3, pp.nSprings)), Spring()); double sum = 0;
     for (size_t k = 0; k < sp.size(); k++) { sp[k].design(fs, pp, (int)k); sum += 1 / std::sqrt(1 - sp[k].g * sp[k].g); } scale = pp.gain / sum; }
   inline double step(double i) { if (nl) return stepNl(i); double y = 0; for (auto &s : sp) y += s.step(i); return scale * y; }
-  inline double stepNl(double i) { double u = p.isat * std::tanh(i / p.isat), y = 0, b = 0; for (auto &s : sp) { y += s.stepNl(u); b += s.mDev; } vb = p.rMot * b; return scale * y; }
+  inline double stepNl(double i) { double u = isat * std::tanh(i / isat), y = 0, b = 0; for (auto &s : sp) { y += s.stepNl(u); b += s.mDev; } vb = p.rMot * b; return scale * y; }
   void reset() { for (auto &s : sp) s.reset(); vb = 0; }
+  // Stärke der Nichtlinearität (ab G100 1.4 / Laney 3.37, Regler TANK): x 0 … 10, 0 = linear (nl aus), 5 = Grundwerte aus Params (wie G100 1.3 / Laney 3.36).
+  // f = (x − 5)/5. Unter 5 werden alle Maßstäbe größer (m0·16^−f: bis 300 mA, Kernsättigung bis 320 mA, Wirkungen kleiner: Laufzeit kHard·2^f, Dämpfung kDamp·2^f), über 5 wird die
+  // Federaussteuerung viel empfindlicher (mq = m0·16^−f bis 1,2 mA) und ihre Wirkung größer (Laufzeit bis 12 %, Dämpfung bis 30 %), die Perlenkopplung
+  // und die Grenze nur halb so stark (m0·2^−f, mLim = 2 m0·2^−f), damit der Hall bei großen x nicht nur leiser wird.
+  void setStrength(double x) { x = std::min(10.0, std::max(0.0, x)); nl = x > 0; if (!nl) return; double f = (x - 5) / 5;
+    double mc = p.m0 * std::pow(f < 0 ? 16.0 : 2.0, -f), mq = p.m0 * std::pow(16.0, -f), kh = p.kHard * std::pow(f < 0 ? 2.0 : 4.0, f),
+           kd = std::min(0.5, p.kDamp * std::pow(f < 0 ? 2.0 : 3.0, f)), ml = p.mLim * std::pow(f < 0 ? 16.0 : 2.0, -f); isat = p.isat * (f < 0 ? std::pow(4.0, -f) : 1.0);   // Kernsättigung unter 5 ebenfalls schwächer
+    for (auto &s : sp) { s.m0 = mc; s.mq = mq; s.kHard = kh; s.kDamp = kd; s.mLim = ml; } }
 };
 } // namespace springrev

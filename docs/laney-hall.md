@@ -21,7 +21,7 @@ Code: `engine/src/laney_rev.hpp` (Namensraum `lrev`), eingebunden in `engine/src
 - **Übertragung 1 V/A**: Typ-4-Tank mit Ausgang B gibt typisch 6,5 mV bei Nennantrieb des B-Eingangs (6,5 mA eff.; sound-au.com, „Reverb Tanks“, Tabellen 1 und 3).
   Mit den 16 V/A des G100 begrenzte IC201 (×68) schon beim Nennpegel des Effektwegs (≈ 500 mV); mit 1 V/A bleibt er darunter
   (Prüfprogramm: 1 kHz, W3 1,3 V → Spulenstrom 22 mA, IC201 0,99 V; bei 4 V 67 mA, 1,2 V).
-- **Federmodell**: dasselbe wie G100 (ab 3.36 wie G100 1.3: Maßstab m₀ = 19 mA statt 80 mA; Plugin-Grundstellung, REVERB 10: Unterschied physikalisch/linear +1,4 dB gegen den Hall, 3.35: −8,8 dB; physikalischer Hall etwa 4 dB leiser), nichtlinear mit Schalter REVERB TANK (Plugin: Taste in der Zeile TUBES; Web: Kippschalter), linear rechnet es wie G100 1.1.
+- **Federmodell**: dasselbe wie G100; ab 3.37 Regler REVERB TANK 0–10 (Plugin: Feld in der Zeile TUBES; 0 linear, 5 wie 3.36; Plugin-Grundstellung, REVERB 10: Hallpegel −0,3 / −1,1 / −4,1 / −8,7 / −12,4 dB bei 1 / 2,5 / 5 / 7,5 / 10, Unterschied −23 / −10 / +1,4 / +1,2 / −0,2 dB gegen den Hall). Davor (ab 3.36 wie G100 1.3: Maßstab m₀ = 19 mA statt 80 mA; Plugin-Grundstellung, REVERB 10: Unterschied physikalisch/linear +1,4 dB gegen den Hall, 3.35: −8,8 dB; physikalischer Hall etwa 4 dB leiser), nichtlinear mit Schalter REVERB TANK (Plugin: Taste in der Zeile TUBES; Web: Kippschalter), linear rechnet es wie G100 1.1.
 
 ## Prüfung
 - REVERB 0 (Grundstellung): der Hallblock rechnet nicht; Ausgabe Bit für Bit gleich 3.34 in allen Betriebsarten (linear, Röhre 1x/2x/4x, eco, ohne Endstufe; Prüfprogramm gegen den Kern aus Git).
