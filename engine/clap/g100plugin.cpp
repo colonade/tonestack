@@ -1,6 +1,6 @@
 // Yamaha G100-212II (Service Manual YAMU-02234: Vorverstärker als Schaltung, Endstufe nach Tabelle 3 geeicht; ohne Lautsprecher und Hall) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "g100_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -28,7 +28,7 @@ namespace g100gui { struct Gui; }
 #endif
 using namespace g100;
 
-enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_COUNT };
+enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_COUNT };   // P_REVERB ab 1.1 (angehängt: gespeicherte Projekte aus 1.0 laden ohne Verschiebung)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_PULL[] = {"Pushed in", "Pulled"}; static const char *N_CHAN[] = {"A", "B"}; static const char *N_JACK[] = {"High (1 Mohm)", "Low (60 kohm, -12 dB)"};
 static const char *N_PWR[] = {"Linear (no clipping)", "On (clipping at 100 W into 4 ohm)"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"};
@@ -38,7 +38,7 @@ static const PDef PD[P_COUNT] = {
   {"B: Gain", 0, 10, 5, 0, 0}, {"B: Master Volume", 0, 10, 5, 0, 0}, {"B: Treble", 0, 10, 5, 0, 0}, {"B: Middle", 0, 10, 5, 0, 0}, {"B: Bass", 0, 10, 5, 0, 0}, {"B: Pull Fat (gain)", 0, 1, 0, N_PULL, 2}, {"B: Pull Bright (treble)", 0, 1, 0, N_PULL, 2},
   {"EQ: Level", -5, 5, 0, 0, 0}, {"EQ: Q", 0, 10, 5, 0, 0}, {"EQ: Frequency", 0, 10, 5, 0, 0},
   {"Input jack", 0, 1, 0, N_JACK, 2}, {"Power amp", 0, 1, 1, N_PWR, 2},
-  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3} };
+  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Reverb", 0, 10, 0, 0, 0} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -71,7 +71,7 @@ struct Plugin {
   Setting target() const { Setting s; s.vola = val[P_VOLA] / 10; s.treba = val[P_TREBA] / 10; s.mida = val[P_MIDA] / 10; s.bassa = val[P_BASSA] / 10; s.gainb = val[P_GAINB] / 10; s.masterb = val[P_MASTERB] / 10;
     s.trebb = val[P_TREBB] / 10; s.midb = val[P_MIDB] / 10; s.bassb = val[P_BASSB] / 10; s.level = (val[P_LEVEL] + 5) / 10; s.q = val[P_Q] / 10; s.freq = val[P_FREQ] / 10;
     s.fata = val[P_FATA] > 0.5; s.brighta = val[P_BRIGHTA] > 0.5; s.fatb = val[P_FATB] > 0.5; s.brightb = val[P_BRIGHTB] > 0.5; s.chanB = val[P_CHAN] > 0.5; s.low = val[P_LOW] > 0.5;
-    s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); return s; }   // taper: Kennlinie der A-Potis
+    s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); s.reverb = val[P_REVERB] / 10; return s; }   // taper: Kennlinie der A-Potis
   Setting refSetting() const { Setting s; s.low = val[P_LOW] > 0.5; s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); return s; }   // Bezug des Diagramms: alle Regler 5, LEVEL 0, Zugschalter aus, Kanal A, gleiche Buchse und Kennlinie
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->power = val[P_PWR] > 0.5; a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } }
@@ -305,7 +305,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.yamaha-g100", "Yamaha G100-212II Guitar Amp", "tonestack", "", "", "", TS_VERSION, "Solid-state guitar amp after the 1979 service manual: two channels (clean A, B with diode clipper and FET stage), pull Fat/Bright, parametric EQ, 100 W power amp; no speaker, no reverb", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.yamaha-g100", "Yamaha G100-212II Guitar Amp", "tonestack", "", "", "", TS_VERSION, "Solid-state guitar amp after the 1979 service manual: two channels (clean A, B with diode clipper and FET stage), pull Fat/Bright, parametric EQ, spring reverb (circuit and spring tank as a physical model), 100 W power amp; no speaker", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

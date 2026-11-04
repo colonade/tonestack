@@ -32,9 +32,9 @@
 namespace g100gui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_COUNT };
-constexpr int NK = 13;   // Knöpfe der Frontplatte (Reihenfolge G100KNOB); REVERB ohne Parameter (noch nicht nachgebildet)
-static const int KPARAM[NK] = {P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_LEVEL, P_Q, P_FREQ, -1};
+enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_COUNT };
+constexpr int NK = 13;   // Knöpfe der Frontplatte (Reihenfolge G100KNOB)
+static const int KPARAM[NK] = {P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_LEVEL, P_Q, P_FREQ, P_REVERB};
 static const int KPULL[NK] = {P_FATA, P_BRIGHTA, -1, -1, P_FATB, -1, P_BRIGHTB, -1, -1, -1, -1, -1, -1};   // Zugschalter des Knopfs
 static const char *KNAME[NK] = {"VOLUME (A)", "TREBLE (A)", "MIDDLE (A)", "BASS (A)", "GAIN (B)", "MASTER VOL (B)", "TREBLE (B)", "MIDDLE (B)", "BASS (B)", "LEVEL", "Q", "FREQUENCY", "REVERB"};
 static const char *PULLNAME[NK] = {"PULL FAT (A)", "PULL BRIGHT (A)", "", "", "PULL FAT (B)", "", "PULL BRIGHT (B)", "", "", "", "", "", ""};
@@ -108,11 +108,12 @@ struct Gui {
   static double ang(double v) { return (-150 + 30 * v) * PI / 180; }   // Knopfstellung 0 … 10
   // Knopfstellung 0 … 10 aus dem Parameter (LEVEL −5 … +5 → 0 … 10)
   double knobPos(int i) const { int p = KPARAM[i]; if (p < 0) return 0; double v = getP(p); return p == P_LEVEL ? v + 5 : v; }
-  void knobText(int i, char *buf, size_t n) const { int p = KPARAM[i]; if (p < 0) { std::snprintf(buf, n, "REVERB  (not simulated yet)"); return; } double v = getP(p);
+  void knobText(int i, char *buf, size_t n) const { int p = KPARAM[i]; if (p < 0) { std::snprintf(buf, n, "%s  (not simulated)", KNAME[i]); return; } double v = getP(p);
     int tp = std::max(0, std::min(2, (int)std::lround(getP(P_TAPER)))); const char *tn = tp == 2 ? "linear" : tp == 1 ? "log 10 %" : "log 15 %";
     if (p == P_LEVEL) std::snprintf(buf, n, "%s  %+.1f  (center = flat)", KNAME[i], v);
     else if (p == P_FREQ) std::snprintf(buf, n, "%s  %.1f  (about %.0f Hz)", KNAME[i], v, freqOfKnob(v / 10));
     else if (p == P_Q) std::snprintf(buf, n, "%s  %.1f  (%s; left = broad, right = narrow)", KNAME[i], v, tn);
+    else if (p == P_REVERB) std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, linear; spring tank)", KNAME[i], v, v * 10);
     else { int pp = KPULL[i]; bool pulled = pp >= 0 && getP(pp) > 0.5; std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, %s)%s", KNAME[i], v, potTaper(v / 10, tp) * 100, tn, pulled ? (pp == P_FATA || pp == P_FATB ? " - FAT" : " - BRIGHT") : ""); } }
 #ifndef __APPLE__
   void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
@@ -143,7 +144,7 @@ struct Gui {
       cairo_pattern_t *g = cairo_pattern_create_radial(lx, ly, 3, lx, ly, 16); cairo_pattern_add_color_stop_rgba(g, 0, chanB ? 1 : 0.3, chanB ? 0.3 : 0.9, 0.2, 0.45); cairo_pattern_add_color_stop_rgba(g, 1, 1, 0.3, 0.2, 0); cairo_new_path(c); cairo_arc(c, lx, ly, 16, 0, 2 * PI); cairo_set_source(c, g); cairo_fill(c); cairo_pattern_destroy(g);
       setrgb(c, 0x101010); tsw::text(c, chanB ? "B" : "A", lx, ly + 4, 10, true, 1);
       if (hover == 40) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_rectangle(c, x - h - 5, y - h - 5, 2 * h + 10, 2 * h + 10); cairo_stroke(c); } }
-    // Knöpfe: Zeiger (weißer Strich), gezogene Knöpfe mit hellem Kragen, REVERB abgeblendet
+    // Knöpfe: Zeiger (weißer Strich), gezogene Knöpfe mit hellem Kragen
     for (int i = 0; i < NK; i++) { const double *g = G100KNOB[i]; int pp = KPULL[i]; bool pulled = pp >= 0 && v[pp] > 0.5;
       if (KPARAM[i] < 0) { setrgb(c, 0x0a0a0a, 0.55); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] + 2, 0, 2 * PI); cairo_fill(c); }
       if (pulled) { setrgb(c, 0xe8e2cf); cairo_set_line_width(c, 5); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] - 2, 0, 2 * PI); cairo_stroke(c);
