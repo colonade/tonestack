@@ -46,6 +46,7 @@ g++ -O2 -std=c++17 -Ithird_party tests/b15guitest.cpp -ldl $(pkg-config --cflags
 g++ -O2 -std=c++17 -Ithird_party tests/gkguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/gkguitest
 g++ -O3 -std=c++17 -Isrc -Igen tests/b15test.cpp -o build/b15test; g++ -O3 -std=c++17 -Isrc -Igen tests/b15amp.cpp -o build/b15amp
 g++ -O3 -std=c++17 -Isrc -Igen tests/gktest.cpp -o build/gktest
+g++ -O3 -std=c++17 -Isrc -Igen tests/g100test.cpp -o build/g100test
 g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
 g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/b15test, build/b15amp, build/gktest, build/clapstress, build/switchtest"
+echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/b15test, build/b15amp, build/gktest, build/g100test, build/clapstress, build/switchtest"
