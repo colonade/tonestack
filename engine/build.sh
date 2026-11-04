@@ -17,10 +17,12 @@ g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libs
     -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/AmpFett_B15NF.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/gkplugin.cpp -o build/GK_800RB.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap"
+g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
+    -Isrc -Igen -Ithird_party clap/g100plugin.cpp -o build/Yamaha_G100.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap, build/Yamaha_G100.clap"
 if [ "${VST3:-0}" = 1 ]; then
   cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
-  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3"
+  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3, build/vst3/Yamaha_G100.vst3"
 fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
@@ -32,7 +34,9 @@ if [ -x "$WASI/bin/clang++" ]; then
      -Wl,--export=bf_latency -Wl,--export=bf_set_target -Wl,--export=bf_process -Wl,--export=bf_take_peaks -Wl,--export=bf_plot_init -Wl,--export=bf_plot -Wl,--initial-memory=16777216 wasm/b15_wasm.cpp -o build/b15nf-core.wasm
   $W -Wl,--export=gk_buffer -Wl,--export=gk_target_buffer -Wl,--export=gk_peaks_buffer -Wl,--export=gk_freq_buffer -Wl,--export=gk_resp_buffer -Wl,--export=gk_init \
      -Wl,--export=gk_latency -Wl,--export=gk_set_target -Wl,--export=gk_process -Wl,--export=gk_take_peaks -Wl,--export=gk_plot_init -Wl,--export=gk_plot -Wl,--initial-memory=16777216 wasm/gk_wasm.cpp -o build/gk800rb-core.wasm
-  echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm, build/b15nf-core.wasm, build/gk800rb-core.wasm"
+  $W -Wl,--export=g100_buffer -Wl,--export=g100_target_buffer -Wl,--export=g100_peaks_buffer -Wl,--export=g100_freq_buffer -Wl,--export=g100_resp_buffer -Wl,--export=g100_init \
+     -Wl,--export=g100_latency -Wl,--export=g100_set_target -Wl,--export=g100_process -Wl,--export=g100_take_peaks -Wl,--export=g100_plot_init -Wl,--export=g100_plot -Wl,--initial-memory=16777216 wasm/g100_wasm.cpp -o build/g100-core.wasm
+  echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm, build/b15nf-core.wasm, build/gk800rb-core.wasm, build/g100-core.wasm"
 else echo "wasi-sdk nicht gefunden ($WASI): WebAssembly übersprungen"; fi
 g++ -O3 -std=c++17 -Isrc -Igen tests/harness.cpp -o build/harness
 g++ -O2 -std=c++17 -Ithird_party tests/hosttest.cpp -ldl -o build/hosttest
@@ -44,9 +48,10 @@ g++ -O2 -std=c++17 -Ithird_party tests/guitest.cpp -ldl $(pkg-config --cflags --
 g++ -O2 -std=c++17 -Ithird_party tests/yguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/yguitest
 g++ -O2 -std=c++17 -Ithird_party tests/b15guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/b15guitest
 g++ -O2 -std=c++17 -Ithird_party tests/gkguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/gkguitest
+g++ -O2 -std=c++17 -Ithird_party tests/g100guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/g100guitest
 g++ -O3 -std=c++17 -Isrc -Igen tests/b15test.cpp -o build/b15test; g++ -O3 -std=c++17 -Isrc -Igen tests/b15amp.cpp -o build/b15amp
 g++ -O3 -std=c++17 -Isrc -Igen tests/gktest.cpp -o build/gktest
 g++ -O3 -std=c++17 -Isrc -Igen tests/g100test.cpp -o build/g100test
 g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
 g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/b15test, build/b15amp, build/gktest, build/g100test, build/clapstress, build/switchtest"
+echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/g100guitest, build/b15test, build/b15amp, build/gktest, build/g100test, build/clapstress, build/switchtest"

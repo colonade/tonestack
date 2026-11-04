@@ -5,13 +5,13 @@ python3 - "$R" <<'PY'
 import base64, re, sys, os
 R = sys.argv[1]; B = os.path.join(R, 'engine', 'build')
 def emb(f): return base64.b64decode(re.search(r'<script id="wasmcore" type="text/plain">([^<]*)</script>', open(os.path.join(R, f), encoding='utf-8').read()).group(1).strip())
-for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100ii-core.wasm', 'web/tonestack/yamaha-b100ii/index.html'), ('b15nf-core.wasm', 'web/tonestack/ampfett-b15nf/index.html'), ('gk800rb-core.wasm', 'web/tonestack/gk-800rb/index.html')]:
+for w, f in [('laney-core.wasm', 'web/tonestack/laney-aor50/index.html'), ('b100ii-core.wasm', 'web/tonestack/yamaha-b100ii/index.html'), ('b15nf-core.wasm', 'web/tonestack/ampfett-b15nf/index.html'), ('gk800rb-core.wasm', 'web/tonestack/gk-800rb/index.html'), ('g100-core.wasm', 'web/tonestack/yamaha-g100/index.html')]:
     p = os.path.join(B, w)
     if not os.path.exists(p): continue
     if open(p, 'rb').read() == emb(f): print(f'{w}: identisch mit der Seite'); continue
     print(f'{w}: Bytes weichen von der Seite ab', end='')
     import subprocess, tempfile; tf = tempfile.NamedTemporaryFile(suffix='.wasm', delete=False); tf.write(emb(f)); tf.close()   # Klang vergleichen
-    if w in ('b15nf-core.wasm', 'gk800rb-core.wasm'): print(' (kein Klangvergleich für diesen Kern)'); os.unlink(tf.name); continue
+    if w in ('b15nf-core.wasm', 'gk800rb-core.wasm', 'g100-core.wasm'): print(' (kein Klangvergleich für diesen Kern)'); os.unlink(tf.name); continue
     cmp = 'engine/tests/wasmcompare.js' if w == 'laney-core.wasm' else 'engine/tests/ywasmcompare.js'
     print(', Klangvergleich:'); print(subprocess.run(['node', os.path.join(R, cmp), p, tf.name], capture_output=True, text=True).stdout); os.unlink(tf.name)
 import zipfile, glob   # Plugin-Pakete (dist/, aus scripts/pack-plugins.sh oder aus dem GitHub-Release) gegen den frischen Bau
