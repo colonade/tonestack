@@ -60,7 +60,7 @@ struct Parts {   // Werte laut Plan (Ω, F); Schätzungen markiert
 };
 // Regler 0…1 (Knopf 0…10; LEVEL: 0 = −5, 1 = +5; FREQUENCY: Skala 100 Hz … 5 kHz); Schalter
 struct Setting { double vola = 0.5, treba = 0.5, mida = 0.5, bassa = 0.5, gainb = 0.5, masterb = 0.5, trebb = 0.5, midb = 0.5, bassb = 0.5, level = 0.5, q = 0.5, freq = 0.5, reverb = 0;
-  bool fata = false, brighta = false, fatb = false, brightb = false, chanB = false, low = false; int taper = 0; };   // chanB: Kanal B gewählt; low: LOW-Buchse; taper: Kennlinie der A-Potis (0 log 15 %, 1 log 10 %, 2 linear)
+  bool fata = false, brighta = false, fatb = false, brightb = false, chanB = false, low = false; int taper = 0; bool tankLin = false; };   // chanB: Kanal B gewählt; low: LOW-Buchse; taper: Kennlinie der A-Potis (0 log 15 %, 1 log 10 %, 2 linear); tankLin: Federtank linear wie bis 1.1 (sonst nichtlinear, siehe spring.hpp)
 constexpr int NKNOB = 13;
 inline double &sfield(Setting &s, int i) { double *f[NKNOB] = {&s.vola, &s.treba, &s.mida, &s.bassa, &s.gainb, &s.masterb, &s.trebb, &s.midb, &s.bassb, &s.level, &s.q, &s.freq, &s.reverb}; return *f[i]; }
 // FREQUENCY-Skala der Frontplatte: 100 (Anschlag links), 200, 500 (Mitte), 1K, 5K (Anschlag rechts); dazwischen logarithmisch.
@@ -129,7 +129,9 @@ inline void buildInto(Built &B, const Parts &v, const Setting &s) {
   // --- Hall: Treiber IC3 (+ Eingang rv2; 100 p zwischen den Eingängen; Gegenkopplung 100 k gegen 2,2 k + 2,2 n), 10 µ, 56 Ω auf die Treiberspule (28 Ω + 24 mH) mit 100 p;
   //     Abnehmerspule als Quelle u[2] (Federmodell) hinter 200 Ω + 0,357 H, 1 n gegen Masse, IC7 1/2 (100 k, 220 p; 100 k / 1 k + 1 µ), 4,7 µ, REVERB (B25K), 2,2 k, 47 k auf O ---
   mark(); G = 4; opamp("rv2", "i3nr", "ar", &B.clamp3); o.c("rv2", "i3nr", v.c_r34); o.r("ar", "i3nr", v.r_rf); o.c("i3nr", "rgc", v.c_rg); o.r("rgc", "0", v.r_rg);
-  o.c("ar", "rdc", v.c_ro); o.r("rdc", "Dt", v.r_rd); o.c("Dt", "0", v.c_rd); o.r("Dt", "Lt", v.tk_rin); { dk::Mat L(1, 1); L(0, 0) = v.tk_lin; o.coupled({{"Lt", "0"}}, L); }
+  o.c("ar", "rdc", v.c_ro); o.r("rdc", "Dt", v.r_rd); o.c("Dt", "0", v.c_rd); o.r("Dt", "Lt", v.tk_rin);
+  if (s.tankLin) { dk::Mat L(1, 1); L(0, 0) = v.tk_lin; o.coupled({{"Lt", "0"}}, L); }
+  else { dk::Mat L(1, 1); L(0, 0) = v.tk_lin; o.coupled({{"Lt", "Lb"}}, L); o.src("Lb", 1e-3, 3); }   // ab 1.2: Rückwirkung der Feder als Spannung u[3] in Reihe mit der Treiberspule
   o.src("Po", v.tk_rout, 2); { dk::Mat L(1, 1); L(0, 0) = v.tk_lout; o.coupled({{"Po", "Pt"}}, L); } o.c("Pt", "0", v.c_pg); o.r("Pt", "0", v.r7g); o.c("Pt", "i7n", v.c7d);
   opamp("Pt", "i7n", "a7", &B.clamp); o.r("a7", "i7n", v.r7f); o.r("i7n", "g7", v.r7g2); o.c("g7", "0", v.c7g);
   o.c("a7", "rvt", v.c7o); pot("rvt", "rvw", "0", v.p_rev, std::min(1.0, std::max(0.0, s.reverb))); o.r("rvw", "RFS", v.r_rfs); o.r("RFS", "O", v.r_rmix);
@@ -155,7 +157,7 @@ inline std::complex<double> paResponse(double f, const Parts &v) { std::complex<
 // ---------- Laufzeit ----------
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double dDC = 0; springrev::Tank tank; double vrev = 0;   // tank: Federmodell zwischen Treiberspule und Abnehmerspule (ein Abtastwert Verzug)
-  void apply(const Setting &s) { cur = s; bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); run.stepLim = 8; fixDev(); }
+  void apply(const Setting &s) { cur = s; tank.nl = !s.tankLin; bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); run.stepLim = 8; fixDev(); }
   void fixDev() { for (auto &d : run.dev) d.model = d.kind == K_CLAMP ? (const void *)&bl.clamp : d.kind == K_CLAMP1 ? (const void *)&bl.clamp1 : d.kind == K_CLAMP3 ? (const void *)&bl.clamp3 : d.kind == K_JFET ? (const void *)&bl.jf : (const void *)&bl.dp; }   // Zeiger auf die eigenen Modelle (nach Kopie)
   Core() {} Core(const Core &o) { *this = o; }
   Core &operator=(const Core &o) { if (this == &o) return *this; fs = o.fs; v = o.v; cur = o.cur; net = o.net; run = o.run; bl = o.bl; dDC = o.dDC; tank = o.tank; vrev = o.vrev; fixDev(); return *this; }
@@ -168,7 +170,7 @@ struct Core {
     for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V[net.C[k].a] - V[net.C[k].b]);
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; dDC = vd; }
-  void step(double x, double *y) { double u[3] = {x, v.vcc, vrev}; run.step(u, y); vrev = tank.step(y[O_TKI] / v.tk_rin); }   // Spulenstrom aus der Spannung am Tank-Eingangswiderstand → Federmodell → Quelle im nächsten Abtastwert
+  void step(double x, double *y) { double u[4] = {x, v.vcc, vrev, tank.vb}; run.step(u, y); vrev = tank.step(y[O_TKI] / v.tk_rin); }   // tank.vb: Rückwirkung (nur nichtlinear, sonst 0 und im Netz nicht verwendet)   // Spulenstrom aus der Spannung am Tank-Eingangswiderstand → Federmodell → Quelle im nächsten Abtastwert
   void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); }
     step(0, y); dDC = y[O_D]; }
   // Kleinsignal-Frequenzgang Eingang → Ausgang o im aktuellen Arbeitspunkt
@@ -194,9 +196,9 @@ struct Amp {
       xb.assign(64, 0); yb.assign(2 * L, 0); xi = yi = 0; }
     ready = true; }
   int latency() const { return os > 1 ? 31 : 0; }
-  static bool swEq(const Setting &a, const Setting &b) { return a.fata == b.fata && a.brighta == b.brighta && a.fatb == b.fatb && a.brightb == b.brightb && a.chanB == b.chanB && a.low == b.low && a.taper == b.taper; }
+  static bool swEq(const Setting &a, const Setting &b) { return a.fata == b.fata && a.brighta == b.brighta && a.fatb == b.fatb && a.brightb == b.brightb && a.chanB == b.chanB && a.low == b.low && a.taper == b.taper && a.tankLin == b.tankLin; }
   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
-  void setTarget(const Setting &s) { bool rebuild = !swEq(s, c.cur); tgt = s; if (rebuild) { Setting n = c.cur; n.fata = s.fata; n.brighta = s.brighta; n.fatb = s.fatb; n.brightb = s.brightb; n.chanB = s.chanB; n.low = s.low; n.taper = s.taper; c.apply(n); } }
+  void setTarget(const Setting &s) { bool rebuild = !swEq(s, c.cur); tgt = s; if (rebuild) { Setting n = c.cur; n.fata = s.fata; n.brighta = s.brighta; n.fatb = s.fatb; n.brightb = s.brightb; n.chanB = s.chanB; n.low = s.low; n.taper = s.taper; n.tankLin = s.tankLin; c.apply(n); } }
   void snap() { c.apply(tgt); cnt = 0; }
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < NKNOB; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }

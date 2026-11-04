@@ -58,6 +58,25 @@ int main(int argc, char **argv) {
     auto out = [&](double rv) { Setting w; w.reverb = rv; Amp A; A.vin = 1; A.init(fs, 1, p, w); A.setTarget(w); A.snap(); int N = (int)(3 * fs); std::vector<float> buf(N); for (int i = 0; i < N; i++) { double q = 0; for (double f : {523.3, 659.3, 784.0, 987.8, 1174.7, 1568.0, 1975.5}) q += std::sin(2 * PI * f * i / fs + f); buf[i] = (float)(0.01 * q); } A.process(buf.data(), N); return buf; };   // Akkord 500 Hz … 2 kHz statt eines Tons (Kammfilter des Halls)
     std::vector<float> w0 = out(0), w1 = out(1); double r0 = 0, rw = 0; int N = (int)w0.size(); for (int i = N / 2; i < N; i++) { r0 += (double)w0[i] * w0[i]; rw += ((double)w1[i] - w0[i]) * ((double)w1[i] - w0[i]); }
     printf("Akkord 500 Hz … 2 kHz, Regler 5: Hallanteil bei REVERB 10 gegen das Direktsignal %+.1f dB (Modell-Vorgabe etwa 0 dB)\n", dB(std::sqrt(rw / r0))); }
+  // Federtank nichtlinear (ab 1.2): leise wie linear; zweiter Anschlag auf schwingender Feder (Wechselwirkung = Antwort(A+B) − Antwort(A) − Antwort(B) am Rückholverstärker);
+  // linear (Schalter, wie 1.1) bei kleinen Anschlägen Überlagerung; Dauerlast ohne NaN, Abklingen nach dem Ende
+  { auto ret = [&](bool lin, double amp, std::vector<double> at, int N) { Setting s; s.vola = 1; s.reverb = 0.5; s.tankLin = lin; Core k; k.init(fs, p, s); k.settle(0.3); double y[O_NO]; std::vector<double> r(N);
+      for (int i = 0; i < N; i++) { double x = 0; for (double t : at) { int j = i - (int)(t * fs); if (j >= 0 && j < (int)(0.0005 * fs)) x += amp * std::sin(2 * PI * 1000 * j / fs); } k.step(x, y); r[i] = y[O_RRET]; } return r; };
+    auto inter = [&](bool lin, double amp, double dt) { int N = (int)(fs * 0.8); auto ab = ret(lin, amp, {0.05, 0.05 + dt}, N), a1 = ret(lin, amp, {0.05}, N), b1 = ret(lin, amp, {0.05 + dt}, N);
+      int i0 = (int)((0.05 + dt) * fs), i1 = std::min(N, i0 + (int)(0.5 * fs)); double rr = 0, rb = 0; for (int i = i0; i < i1; i++) { double d = ab[i] - a1[i] - b1[i]; rr += d * d; rb += b1[i] * b1[i]; } return 10 * std::log10(rr / rb + 1e-30); };
+    printf("Federtank: zweiter Anschlag (1 kHz, 0,5 ms) auf schwingender Feder, Kanal A VOLUME 10, Wechselwirkung gegen den Anschlag allein:\n");
+    for (double amp : {0.05, 0.3}) for (double dt : {0.05, 0.2}) { double wl = inter(true, amp, dt), wp = inter(false, amp, dt);
+      bool ok = wl < -60 && (amp < 0.1 ? wp < -30 : wp > -25); if (!ok) bad++;
+      printf("  %.2f V, Abstand %3.0f ms: linear (1.1) %+6.1f dB, physikalisch %+6.1f dB  (Soll linear < −60; physikalisch %s) %s\n", amp, dt * 1e3, wl, wp, amp < 0.1 ? "< −30 (leise)" : "> −25", ok ? "ok" : "ABWEICHUNG"); }
+    for (int lin = 1; lin >= 0; lin--) { Setting t; t.chanB = true; t.gainb = 1; t.masterb = 1; t.reverb = 1; t.tankLin = lin; Core k; k.init(fs, p, t); k.settle(0.3); double y[O_NO]; int nan = 0; double e[3] = {0, 0, 0};
+      for (int i = 0; i < (int)(fs * 6); i++) { double x = i < fs * 3 ? 0.5 * std::sin(2 * PI * 82.4 * i / fs) + 0.3 * std::sin(2 * PI * 110 * i / fs) : 0; k.step(x, y); double v = y[O_RRET]; if (!std::isfinite(v)) nan++;
+        double tt = i / fs; if (tt >= 2 && tt < 3) e[0] += v * v; if (tt >= 4 && tt < 5) e[1] += v * v; if (tt >= 5 && tt < 6) e[2] += v * v; }
+      double d1 = 10 * std::log10(e[1] / e[0]), d2 = 10 * std::log10(e[2] / e[0]); bool ok = !nan && k.run.fails == 0 && d1 < -20 && d2 < d1 - 15; if (!ok) bad++;
+      printf("  Dauerlast Kanal B 10/10, REVERB 10, %s: NaN %d, Fehlschläge %d, Abklingen 1–2 s / 2–3 s nach dem Ende %.1f / %.1f dB  %s\n", lin ? "linear" : "physikalisch", nan, k.run.fails, d1, d2, ok ? "ok" : "ABWEICHUNG"); }
+    auto chord = [&](bool lin) { auto out = [&](double rv) { Setting w; w.reverb = rv; w.tankLin = lin; Amp A; A.vin = 1; A.init(fs, 1, p, w); A.setTarget(w); A.snap(); int N = (int)(3 * fs); std::vector<float> buf(N); for (int i = 0; i < N; i++) { double q = 0; for (double f : {523.3, 659.3, 784.0, 987.8, 1174.7, 1568.0, 1975.5}) q += std::sin(2 * PI * f * i / fs + f); buf[i] = (float)(0.01 * q); } A.process(buf.data(), N); return buf; };
+      std::vector<float> w0 = out(0), w1 = out(1); double r0 = 0, rw = 0; int N = (int)w0.size(); for (int i = N / 2; i < N; i++) { r0 += (double)w0[i] * w0[i]; rw += ((double)w1[i] - w0[i]) * ((double)w1[i] - w0[i]); } return dB(std::sqrt(rw / r0)); };
+    double cl = chord(true), cp = chord(false); bool ok = std::fabs(cp - cl) < 0.1; if (!ok) bad++;
+    printf("  leiser Akkord: Hallanteil linear %+.2f dB, physikalisch %+.2f dB (Soll gleich ± 0,1 dB) %s\n", cl, cp, ok ? "ok" : "ABWEICHUNG"); }
   // Begrenzung: Eingang erhöhen (Amp mit Endstufenmodell), Tabelle-1-Stellung, 1 kHz
   for (int ch = 0; ch < 2; ch++) { Setting b = a; b.chanB = ch; Amp A; A.vin = 1; A.init(fs, 1, p, b); A.setTarget(b); A.snap(); std::vector<float> buf;
     printf("Begrenzung Kanal %c (1 kHz, Tabelle-1-Stellung):\n", ch ? 'B' : 'A');
