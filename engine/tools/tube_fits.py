@@ -150,3 +150,21 @@ for g1, g2, B, Raa, v, ia, ig, po in PP6:
     a, s_, p_ = pushpull(F6, g1, g2, B, Raa, v); ak, sk, pk = pushpull(K6, g1, g2, B, Raa, v)
     print(f'  Gegentakt {B}/{g2}/{g1} V, {Raa} Ω, {v} Vss: Derk Ia {a:.0f} mA, Ig2 {s_:.1f}, {p_:.1f} W | Koren {ak:.0f}, {sk:.1f}, {pk:.1f} W | Datenblatt {ia}, {ig}, {po} W')
 print('  Kennlinien Ug2 250 V (mA) – Derk:\n' + table(F6) + '\n  Koren:\n' + table(K6))
+
+# 6550 (ab AmpFett SVT-CL 1.0): Derk ohne Sekundäremission, Knie-Form (ex, β, αs) wie 6L6GC (D6L6 in b15_core.hpp) fest, kvb 300;
+# an die Tung-Sol/GE-Datenblattwerte angepasst: 250/250/−14 V 140 mA, Ig2 12 mA, 11 mA/V, 15 kΩ; 400/225/−16,5 V 85–87 mA, Ig2 4–9 mA, etwa 11 mA/V (TAD 6550A);
+# mu schwach Richtung 8 gezogen. Ergebnis in svt_core.hpp (D6550). Prüfung: Ruhestrom 24 mA bei 660/345 V und etwa −40 V (SVT-CL: 0,24 V an 10 Ω, „approx. −45 V“).
+EX6, BE6 = 1.562959483, 0.06717976054
+Z55 = [(-14, 250, 250, 140, 12, 11.0, 15.0), (-16.5, 225, 400, 86, 6.5, 11.0, None)]
+def p55(q): return [q[0], EX6, q[1], q[2], 300, q[3], q[4], BE6, 10.0, 0, 0, 0, 0, 1, 1, 1]
+def res55(q):
+    F = lambda g1, g2, va: derk(p55(q), g1, g2, va); r = []
+    for g1, g2, va, ia, ig, g, R in Z55:
+        a, s_ = F(g1, g2, va); r += [2 * math.log(a / ia), 0.5 * math.log(s_ / ig), math.log(pgm(F, g1, g2, va) / g)]
+        if R: r += [0.7 * math.log(pri(F, g1, g2, va) / R)]
+    return r + [0.3 * math.log(q[0] / 8.0)]
+f55 = least_squares(res55, [8.28, 600, 36.8, 13000, 4.75e-4], bounds=([5, 100, 5, 1000, 1e-6], [12, 8000, 200, 1e5, 1e-2]))
+P55 = p55(f55.x); F55 = lambda g1, g2, va: derk(P55, g1, g2, va)
+print('\n6550 Derk (ab AmpFett SVT-CL 1.0): ' + ', '.join(f'{x:.10g}' for x in P55) + f'   rms-Fehler {np.sqrt(np.mean(np.square(f55.fun))):.3f}')
+for g1, g2, va, ia, ig, g, R in Z55: print(f'  {va}/{g2}/{g1} V: Ia {F55(g1, g2, va)[0]:.1f} mA, Ig2 {F55(g1, g2, va)[1]:.1f}, S {pgm(F55, g1, g2, va):.2f}, ri {pri(F55, g1, g2, va):.1f} k | Datenblatt {ia}, {ig}, {g}, {R}')
+print('  SVT-CL 660/345 V: 24 mA bei %.1f V' % brentq(lambda g1: F55(g1, 345, 660)[0] - 24, -120, -5))

@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-05-1";
+const VERSION = "2026-11-05-2";
 const FILES = [
   "./",
   "index.html",
@@ -46,7 +46,14 @@ const FILES = [
   "yamaha-b100iii/b3-worklet.js",
   "yamaha-b100iii/b3-render.js",
   "assets/icons/yamaha-b100iii-192.png",
-  "assets/icons/yamaha-b100iii-512.png"
+  "assets/icons/yamaha-b100iii-512.png",
+  "ampfett-svtcl/",
+  "ampfett-svtcl/index.html",
+  "ampfett-svtcl/manifest.webmanifest",
+  "ampfett-svtcl/svtcl-worklet.js",
+  "ampfett-svtcl/svtcl-render.js",
+  "assets/icons/ampfett-svtcl-192.png",
+  "assets/icons/ampfett-svtcl-512.png"
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
