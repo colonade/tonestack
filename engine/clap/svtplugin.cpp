@@ -1,6 +1,6 @@
 // AmpFett SVT-CL, Nachbau des Ampeg SVT-CL (Service Manual: Vorverstärker 07S519-12, Endstufe 07S419-12; alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "svt_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -31,14 +31,14 @@ using namespace svt;
 enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_FREQ[] = {"220 Hz", "450 Hz", "800 Hz", "1.6 kHz", "3 kHz"}; static const char *N_JACK[] = {"0 dB (passive)", "-15 dB (active)"};
-static const char *N_TAPO[] = {"4 ohm (load 4 ohm)", "2 ohm (load 2 ohm)"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x", "2x", "4x"};
+static const char *N_TAPO[] = {"4 ohm (load 4 ohm)", "2 ohm (load 2 ohm)"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x"};
 static const PDef PD[P_COUNT] = {
   {"Gain", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Midrange", 0, 10, 5, 0, 0}, {"Frequency", 0, 4, 2, N_FREQ, 5}, {"Treble", 0, 10, 5, 0, 0}, {"Master", 0, 10, 5, 0, 0},
   {"Ultra Hi", 0, 1, 0, N_ONOFF, 2}, {"Ultra Lo", 0, 1, 0, N_ONOFF, 2}, {"Input", 0, 1, 0, N_JACK, 2}, {"Output tap", 0, 1, 0, N_TAPO, 2},
   {"Standby", 0, 1, 0, N_ONOFF, 2}, {"Power", 0, 1, 1, N_ONOFF, 2},
-  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3} };
+  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (1x only since 1.1)", 0, 0, 0, N_OS, 1}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
-static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
+static int osFactor(int) { return 1; }   // ab 1.1 nur noch 1x: 2x/4x brauchten mehr als einen Rechenkern; Aliasing bei Bass-Grundtönen auch bei 1x unter −80 dB (docs/PROJEKTSTAND.md)
 
 // Eingeschwungener Verstärker je Abtastrate und Überabtastung (Netzteil und Arbeitspunkte brauchen 1,5 s Rechenzeit): einmal rechnen, dann kopieren
 static std::mutex g_protoM;
@@ -79,7 +79,7 @@ static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
 static uint32_t par_count(const clap_plugin_t *) { return P_COUNT; }
 static bool par_info(const clap_plugin_t *, uint32_t i, clap_param_info_t *info) {
   if (i >= P_COUNT) return false; const PDef &d = PD[i]; std::memset(info, 0, sizeof *info); info->id = i;
-  info->flags = CLAP_PARAM_IS_AUTOMATABLE | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
+  info->flags = (i == P_OS ? CLAP_PARAM_IS_HIDDEN : CLAP_PARAM_IS_AUTOMATABLE) | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);   // Oversampling ab 1.1 verborgen (Nummer bleibt)
   info->min_value = d.lo; info->max_value = d.hi; info->default_value = d.def; std::snprintf(info->name, sizeof info->name, "%s", d.name); std::snprintf(info->module, sizeof info->module, "%s", "AmpFett SVT-CL"); return true; }
 static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id >= P_COUNT) return false; *out = P(p)->val[id]; return true; }
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
@@ -261,7 +261,7 @@ static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if
   if (pl->dpy) { XSync(pl->dpy, False); }
 #endif
   }
-static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling · %.0f Hz%s", pl->load.load() * 100, pl->cfgAct.load(), pl->fs, pl->sleeping ? " · idle (silent input)" : ""); { const char *m = std::strstr(b, " · "); std::string mode = m ? m : "";   // CPU-Wert höchstens zweimal je Sekunde neu (jede Änderung zeichnet das Fenster neu), Modus sofort
+static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %.0f Hz%s", pl->load.load() * 100, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); { const char *m = std::strstr(b, " · "); std::string mode = m ? m : "";   // CPU-Wert höchstens zweimal je Sekunde neu (jede Änderung zeichnet das Fenster neu), Modus sofort
     if (++pl->diagCnt < 15 && mode == pl->diagMode && !pl->diagTxt.empty()) return; pl->diagCnt = 0; pl->diagMode = mode; pl->diagTxt = b; } }
 static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; if (pl->plotRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl);
   pl->gui->meterOn = pl->active && !pl->sleeping && pl->val[P_PWR].load() > 0.5 && pl->val[P_STBY].load() < 0.5; int oa = pl->cfgAct; pl->gui->osActive = oa == 1 ? 0 : oa == 2 ? 1 : 2;

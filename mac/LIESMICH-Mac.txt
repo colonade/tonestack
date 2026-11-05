@@ -150,7 +150,7 @@ einfachen (Grundstellung) etwa ein Fünftel weniger; Yamaha etwa 5 %; GK 800RB
 das Doppelte; Yamaha B100-III (gemessen unter Linux) etwa ein Drittel bis
 die Hälfte bei 2x (Grundstellung; 1x gibt es dort nicht); AmpFett SVT-CL
 etwa das 1,5-Fache des AmpFett B-15NF (unter Linux grob 40 bis 75 % eines
-Kerns bei 48 kHz und 1x, 2x und 4x entsprechend mehr). Beim Umschalten
+Kerns bei 48 kHz; ab 1.1 nur noch ohne Überabtastung). Beim Umschalten
 von DISTORTION, Überabtastung, Röhren oder Kanal rechnet der Laney für etwa
 0,2 s die neue Schaltung mit, das kostet in dieser Zeit rund das Dreifache
 (bis 3.32 bis zum Fünffachen). Das offene Plugin-Fenster kostet 1 bis 7 %
