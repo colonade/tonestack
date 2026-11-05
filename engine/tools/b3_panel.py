@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # Zeichnet die Frontplatte des Yamaha-B100-III-Simulators nach der Zeichnung auf Seite 2 des Service Manuals (B100-115III): INPUT; VOLUME,
 # TREBLE, MIDDLE, BASS; PARAMETRIC EQ 1 (Anzeige, LEVEL, Q, FREQUENCY, PRESET LEVEL); PARAMETRIC EQ 2; CROSSOVER (LPF LEVEL, FREQUENCY,
-# HPF LEVEL – im Simulator ohne Wirkung); PHONES, FOOT SW, POWER-Anzeige und -Taste. Helle Platte wie in der Zeichnung, kein Foto, kein Logo,
-# nur die Typbezeichnung in normaler Schrift. Schreibt
+# HPF LEVEL – im Simulator ohne Wirkung); PHONES, FOOT SW, POWER-Anzeige und -Taste. Ab Plugin 1.1 Farben wie am Gerät (nach einem Foto der
+# Frontplatte, das der Nutzer geschickt hat; das Foto selbst ist nicht im Repository): schwarze Platte mit heller Schrift, schwarze Riffelknöpfe mit farbiger
+# Kappe (grün: Volume/Klang, grau-violett: EQ 1, creme: EQ 2, rot: Frequenzweiche), rote Anzeigen. Kein Foto, kein Logo, nur die Typbezeichnung in
+# normaler Schrift. Schreibt
 #   engine/gen/b3panel.jpg   Bild 2000 × 240 (Knöpfe ohne Zeiger; Zeiger und Anzeigen zeichnen Seite und Plugin)
 #   engine/gen/b3geo.json    Lage von Knöpfen, Anzeigen und Buchsen in Bildpunkten
 #   engine/gen/b3panel_jpg.h, engine/gen/b3geo_gen.h   für das Plugin
@@ -15,7 +17,12 @@ GEN = os.path.join(R, 'engine', 'gen')
 W, H, S = 2000, 240, 2
 FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FN = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf'
-KY = 140; KR = 27
+KY = 140; KR = 27; KC = 19   # Knopf: Riffelrand KR, farbige Kappe KC
+CAP = {'vol': (98, 204, 140), 'treb': (98, 204, 140), 'mid': (98, 204, 140), 'bass': (98, 204, 140),
+       'lev1': (152, 150, 186), 'q1': (152, 150, 186), 'f1': (152, 150, 186), 'pre1': (152, 150, 186),
+       'lev2': (244, 212, 150), 'q2': (244, 212, 150), 'f2': (244, 212, 150), 'pre2': (244, 212, 150),
+       'lpf': (234, 104, 94), 'xf': (234, 104, 94), 'hpf': (234, 104, 94)}
+PANEL = (34, 34, 36); INK = (226, 226, 220); DIM = (138, 138, 136)
 # (Schlüssel, x, Beschriftung (Zeilen), Skala, aktiv): Skala 'n' = 0 … 10, 'lvl' = −5 … +5, 'q' = Symbole, 'f' = 50 Hz … 2.5K, 'xf' = 100 Hz … 5K
 KNOBS = [('vol', 214, ['VOLUME'], 'n', 1), ('treb', 306, ['TREBLE'], 'lvl', 1), ('mid', 404, ['MIDDLE'], 'lvl', 1), ('bass', 500, ['BASS'], 'lvl', 1),
          ('lev1', 606, ['LEVEL'], 'lvl', 1), ('q1', 696, ['Q'], 'q', 1), ('f1', 794, ['FREQUENCY'], 'f', 1), ('pre1', 886, ['PRESET', 'LEVEL'], 'lvl', 1),
@@ -28,14 +35,15 @@ POWER = {'lamp': (1790, 140, 7), 'switch': (1880, 132, 22)}
 def font(px, f=FB, S=S): return ImageFont.truetype(f, int(round(px * S)))
 def draw(S):   # Platte in S-facher Auflösung (Bildpunkte der Geometrie × S)
     im = Image.new('RGB', (W * S, H * S)); d = ImageDraw.Draw(im)
-    for y in range(H * S):   # helle Platte, feiner Strich
-        v = 222 + int(3 * math.sin(y * 0.9) * math.sin(y * 0.13)); d.line([(0, y), (W * S, y)], fill=(v, v, v - 2))
-    d.rectangle([0, 0, W * S - 1, H * S - 1], outline=(24, 24, 26), width=5 * S)
-    d.rectangle([0, (H - 18) * S, W * S, H * S], fill=(30, 30, 32)); d.rectangle([0, (H - 21) * S, W * S, (H - 18) * S], fill=(120, 120, 124))
-    ink = (22, 22, 24); dim = (150, 150, 154)
+    for y in range(H * S):   # schwarze Platte, feiner Strich
+        v = PANEL[0] + int(2 * math.sin(y * 0.9) * math.sin(y * 0.13)); d.line([(0, y), (W * S, y)], fill=(v, v, v + 2))
+    d.rectangle([0, 0, W * S - 1, H * S - 1], outline=(14, 14, 15), width=5 * S)
+    d.rectangle([0, (H - 18) * S, W * S, H * S], fill=(18, 18, 19)); d.rectangle([0, (H - 24) * S, W * S, (H - 17) * S], fill=(176, 172, 164))   # Zierleiste
+    d.line([(0, (H - 24) * S), (W * S, (H - 24) * S)], fill=(214, 212, 206), width=S)
+    ink = INK; dim = DIM
     def ctext(x, y, t, px=13, f=FB, col=ink):
         ff = font(px, f, S); w = d.textlength(t, font=ff); d.text((x * S - w / 2, y * S), t, font=ff, fill=col)
-    for x in SEPS: d.line([(x * S, 18 * S), (x * S, (H - 26) * S)], fill=(40, 40, 44), width=2 * S)
+    for x in SEPS: d.line([(x * S, 18 * S), (x * S, (H - 26) * S)], fill=(150, 150, 148), width=2 * S)
     # Klammern unter den Entzerrern und der Weiche
     for x0, x1, t, col in [(596, 806, 'PARAMETRIC EQ 1', ink), (980, 1188, 'PARAMETRIC EQ 2', ink), (1356, 1580, 'CROSSOVER', dim)]:
         y = H - 34; d.line([(x0 * S, (y - 8) * S), (x0 * S, y * S), ((x0 + x1) / 2 * S - 80 * S, y * S)], fill=col, width=2 * S)
@@ -46,11 +54,12 @@ def draw(S):   # Platte in S-facher Auflösung (Bildpunkte der Geometrie × S)
         if k == 'input': ctext(x, y - r - 30, 'INPUT', 12)
         elif k == 'phones': ctext(x, y - r - 22, 'PHONES', 11)
         else: ctext(x, y - r - 22, 'FOOT SW', 11)
-        for rr, c in [(r + 5, (40, 40, 44)), (r + 1, (200, 202, 208)), (r - 4, (120, 122, 128)), (r - 8, (12, 12, 13))]:
-            d.ellipse([(x - rr) * S, (y - rr) * S, (x + rr) * S, (y + rr) * S], fill=c)
+        ring = [(r + 5, (70, 68, 64)), (r + 1, (196, 192, 184)), (r - 4, (122, 120, 116)), (r - 8, (10, 10, 11))] if k == 'input' else \
+               [(r + 5, (20, 20, 21)), (r + 1, (44, 44, 46)), (r - 4, (26, 26, 28)), (r - 8, (8, 8, 9))]   # INPUT verchromt, PHONES/FOOT SW schwarze Muttern
+        for rr, c in ring: d.ellipse([(x - rr) * S, (y - rr) * S, (x + rr) * S, (y + rr) * S], fill=c)
     # Anzeigen der Entzerrer (Fassung; das Leuchten zeichnen Seite/Plugin)
     for k, x, y in LEDS:
-        d.ellipse([(x - 9) * S, (y - 9) * S, (x + 9) * S, (y + 9) * S], fill=(30, 30, 32)); d.ellipse([(x - 6) * S, (y - 6) * S, (x + 6) * S, (y + 6) * S], fill=(70, 20, 18))
+        d.ellipse([(x - 9) * S, (y - 9) * S, (x + 9) * S, (y + 9) * S], fill=(16, 16, 17)); d.ellipse([(x - 6) * S, (y - 6) * S, (x + 6) * S, (y + 6) * S], fill=(70, 20, 18))
     # Knöpfe
     for k, x, lab, scale, act in KNOBS:
         col = ink if act else dim
@@ -72,17 +81,25 @@ def draw(S):   # Platte in S-facher Auflösung (Bildpunkte der Geometrie × S)
             for j, pts in [(0, [(-9, 4), (-5, -3), (0, -4), (5, -3), (9, 4)]), (10, [(-7, 5), (0, -6), (7, 5)])]:
                 a = (-150 + 30 * j) * math.pi / 180; cx, cy = x + (KR + 19) * math.sin(a), KY - (KR + 19) * math.cos(a)
                 d.line([((cx + px_) * S, (cy + py_) * S) for px_, py_ in pts], fill=col, width=max(1, int(1.6 * S)), joint='curve')
-        sh = Image.new('L', (W * S, H * S), 0); ImageDraw.Draw(sh).ellipse([(x - KR + 3) * S, (KY - KR + 6) * S, (x + KR + 3) * S, (KY + KR + 6) * S], fill=120)
-        sh = sh.filter(ImageFilter.GaussianBlur(5 * S)); im.paste((120, 120, 118), mask=sh); d = ImageDraw.Draw(im)
-        d.ellipse([(x - KR) * S, (KY - KR) * S, (x + KR) * S, (KY + KR) * S], fill=(14, 14, 16))
-        d.arc([(x - KR) * S, (KY - KR) * S, (x + KR) * S, (KY + KR) * S], 190, 350, fill=(96, 96, 102), width=3 * S)
-        r2 = KR - 10; d.ellipse([(x - r2) * S, (KY - r2) * S, (x + r2) * S, (KY + r2) * S], fill=(28, 28, 31))
-        d.arc([(x - r2) * S, (KY - r2) * S, (x + r2) * S, (KY + r2) * S], 200, 300, fill=(76, 76, 82), width=2 * S)
+        sh = Image.new('L', (W * S, H * S), 0); ImageDraw.Draw(sh).ellipse([(x - KR + 3) * S, (KY - KR + 6) * S, (x + KR + 3) * S, (KY + KR + 6) * S], fill=200)
+        sh = sh.filter(ImageFilter.GaussianBlur(5 * S)); im.paste((8, 8, 9), mask=sh); d = ImageDraw.Draw(im)
+        d.ellipse([(x - KR) * S, (KY - KR) * S, (x + KR) * S, (KY + KR) * S], fill=(16, 16, 18))   # Riffelrand
+        for j in range(36):
+            a = j * math.pi / 18; c = 54 if math.sin(a - 2.4) > 0 else 34
+            d.line([((x + (KC + 1) * math.cos(a)) * S, (KY + (KC + 1) * math.sin(a)) * S), ((x + (KR - 1) * math.cos(a)) * S, (KY + (KR - 1) * math.sin(a)) * S)], fill=(c, c, c + 2), width=max(1, int(1.4 * S)))
+        d.arc([(x - KR) * S, (KY - KR) * S, (x + KR) * S, (KY + KR) * S], 190, 350, fill=(90, 90, 94), width=2 * S)
+        cap = CAP[k] if act else tuple(int(0.42 * a + 0.58 * b) for a, b in zip(CAP[k], PANEL))   # Frequenzweiche abgeblendet
+        d.ellipse([(x - KC - 1) * S, (KY - KC - 1) * S, (x + KC + 1) * S, (KY + KC + 1) * S], fill=(10, 10, 11))
+        for i in range(KC * S, 0, -1):   # Kappe mit leichtem Verlauf (Licht von oben links)
+            t = i / (KC * S); f = 0.86 + 0.14 * (1 - t) ** 0.5; ox, oy = -0.25 * (KC - i / S), -0.3 * (KC - i / S)
+            d.ellipse([(x + ox) * S - i, (KY + oy) * S - i, (x + ox) * S + i, (KY + oy) * S + i], fill=tuple(min(255, int(c * f)) for c in cap))
+        if not act:   # Zeiger der Frequenzweiche fest in Mittelstellung (ohne Wirkung)
+            d.line([(x * S, KY * S), (x * S, (KY - KC * 0.92) * S)], fill=(40, 40, 42), width=int(3 * S))
     # POWER: Anzeige, runde Taste, Typbezeichnung (normale Schrift)
-    x, y, r = POWER['lamp']; d.ellipse([(x - r - 4) * S, (y - r - 4) * S, (x + r + 4) * S, (y + r + 4) * S], fill=(30, 30, 32)); d.ellipse([(x - r) * S, (y - r) * S, (x + r) * S, (y + r) * S], fill=(225, 50, 36))
+    x, y, r = POWER['lamp']; d.ellipse([(x - r - 4) * S, (y - r - 4) * S, (x + r + 4) * S, (y + r + 4) * S], fill=(16, 16, 17)); d.ellipse([(x - r) * S, (y - r) * S, (x + r) * S, (y + r) * S], fill=(225, 50, 36))
     x, y, r = POWER['switch']; ctext(x, 30, 'POWER', 12); ctext(x, 46, 'ON / OFF', 10, FN)
-    for rr, c in [(r + 5, (30, 30, 32)), (r, (60, 60, 64)), (r - 6, (24, 24, 26))]: d.ellipse([(x - rr) * S, (y - rr) * S, (x + rr) * S, (y + rr) * S], fill=c)
-    ctext(1836, 182, 'B100-115 III', 18, FB)
+    for rr, c in [(r + 5, (14, 14, 15)), (r, (52, 52, 56)), (r - 6, (22, 22, 24))]: d.ellipse([(x - rr) * S, (y - rr) * S, (x + rr) * S, (y + rr) * S], fill=c)
+    ctext(1836, 182, 'B100 III', 20, FB)
     return im
 def main():
     im = draw(S).resize((W, H), Image.LANCZOS)
@@ -106,5 +123,5 @@ def main():
     S4 = 4; big = draw(S4); x0 = KNOBS[0][1] - 84; crop = big.crop((x0 * S4, 40 * S4, (x0 + 172) * S4, 212 * S4))
     ICO = os.path.join(R, 'web', 'tonestack', 'assets', 'icons'); os.makedirs(ICO, exist_ok=True)
     for n in (180, 192, 512): crop.resize((n, n), Image.LANCZOS).save(os.path.join(ICO, 'yamaha-b100iii-%d.png' % n), optimize=True)
-    m = Image.new('RGB', (512, 512), (222, 222, 220)); m.paste(crop.resize((410, 410), Image.LANCZOS), (51, 51)); m.save(os.path.join(ICO, 'yamaha-b100iii-maskable-512.png'), optimize=True)
+    m = Image.new('RGB', (512, 512), PANEL); m.paste(crop.resize((410, 410), Image.LANCZOS), (51, 51)); m.save(os.path.join(ICO, 'yamaha-b100iii-maskable-512.png'), optimize=True)
 if __name__ == '__main__': main()

@@ -1,5 +1,5 @@
 // Oberfläche des Yamaha-B100-III-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
-// Oben die nachgezeichnete Frontplatte (engine/tools/b3_panel.py, kein Foto, kein Logo) mit Zeigern und den Anzeigen PARAMETRIC EQ 1 / 2 (Klick schaltet
+// Oben die nachgezeichnete Frontplatte (engine/tools/b3_panel.py, kein Foto, kein Logo; ab 1.1 schwarz mit farbigen Knopfkappen wie am Gerät) mit Zeigern und den Anzeigen PARAMETRIC EQ 1 / 2 (Klick schaltet
 // den Entzerrer wie der Fußschalter), darunter der Modellstreifen (Überabtastung, Endstufe, Poti-Kennlinie, Aussteuerung, Instrument/Ausgangspegel)
 // und der Frequenzgang. Die Frequenzweiche ist gezeichnet, aber ohne Wirkung (abgeblendet).
 #pragma once
@@ -132,15 +132,14 @@ struct Gui {
     cairo_cg_cached(c, base, FW * s, FH * s, [&](cairo_t *b) { cairo_scale(b, s, s); cairo_set_source_surface(b, img, 0, 0); cairo_rectangle(b, 0, 0, FW, FH); cairo_fill(b); });
     cairo_save(c); cairo_scale(c, s, s);
 #endif
-    // Anzeigen PARAMETRIC EQ 1 / 2: grün = eingeschaltet (wie mit dem Fußschalter)
+    // Anzeigen PARAMETRIC EQ 1 / 2: rot leuchtend = eingeschaltet (wie mit dem Fußschalter; rote Leuchtdioden wie am Gerät)
     for (int j = 0; j < 2; j++) { const double *L = B3LED[j]; bool on = v[j ? P_EQ2 : P_EQ1] > 0.5;
-      setrgb(c, on ? 0x3ec25a : 0x3a1a18); cairo_new_path(c); cairo_arc(c, L[0], L[1], 6, 0, 2 * PI); cairo_fill(c);
-      if (on) { cairo_pattern_t *g = cairo_pattern_create_radial(L[0], L[1], 3, L[0], L[1], 18); cairo_pattern_add_color_stop_rgba(g, 0, 0.3, 0.9, 0.35, 0.5); cairo_pattern_add_color_stop_rgba(g, 1, 0.3, 0.9, 0.35, 0); cairo_new_path(c); cairo_arc(c, L[0], L[1], 18, 0, 2 * PI); cairo_set_source(c, g); cairo_fill(c); cairo_pattern_destroy(g); }
+      setrgb(c, on ? 0xff3a28 : 0x46161a); cairo_new_path(c); cairo_arc(c, L[0], L[1], 6, 0, 2 * PI); cairo_fill(c);
+      if (on) { cairo_pattern_t *g = cairo_pattern_create_radial(L[0], L[1], 3, L[0], L[1], 18); cairo_pattern_add_color_stop_rgba(g, 0, 1.0, 0.25, 0.15, 0.55); cairo_pattern_add_color_stop_rgba(g, 1, 1.0, 0.25, 0.15, 0); cairo_new_path(c); cairo_arc(c, L[0], L[1], 18, 0, 2 * PI); cairo_set_source(c, g); cairo_fill(c); cairo_pattern_destroy(g); }
       if (hover == 40 + j) { setrgb(c, 0xd09a10); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, L[0], L[1], 13, 0, 2 * PI); cairo_stroke(c); } }
-    // Knöpfe: Zeiger (weißer Strich); Frequenzweiche abgeblendet
-    for (int i = 0; i < NK; i++) { const double *g = B3KNOB[i];
-      if (KPARAM[i] < 0) { setrgb(c, 0xdedede, 0.55); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] + 2, 0, 2 * PI); cairo_fill(c); }
-      cairo_save(c); cairo_translate(c, g[0], g[1]); cairo_rotate(c, ang(knobPos(i))); setrgb(c, KPARAM[i] < 0 ? 0x8a8a8a : 0xf2f2f2); cairo_set_line_width(c, 4); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND); cairo_move_to(c, 0, -g[2] * 0.25); cairo_line_to(c, 0, -g[2] * 0.92); cairo_stroke(c); cairo_restore(c);
+    // Knöpfe: Zeiger (dunkler Strich auf der farbigen Kappe); die Frequenzweiche steht abgeblendet mit festem Zeiger im Bild
+    for (int i = 0; i < NK; i++) { const double *g = B3KNOB[i]; if (KPARAM[i] < 0) continue;
+      cairo_save(c); cairo_translate(c, g[0], g[1]); cairo_rotate(c, ang(knobPos(i))); setrgb(c, 0x1c1c1e); cairo_set_line_width(c, 3.5); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND); cairo_move_to(c, 0, -g[2] * 0.08); cairo_line_to(c, 0, -g[2] * 0.66); cairo_stroke(c); cairo_restore(c);
       if (i == drag || i == hover) { setrgb(c, 0xd09a10); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] * 1.1, 0, 2 * PI); cairo_stroke(c); } }
     cairo_restore(c);
     // ---- Modellstreifen ----
