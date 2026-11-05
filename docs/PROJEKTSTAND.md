@@ -28,6 +28,9 @@ Anlass: Ein Nutzer hörte bei einer Gitarrendatei „nur die Spitzen stark verze
 Gitterstopper vor V102B/V103B wurden am 2026-10-29 im Kern eingebaut, gemessen (wirkungslos: < 0,3 dB THD, weil 470 kΩ/1 MΩ schon vor den Gittern liegen; die Spitzen entstehen durch Sperren der Röhren) und auf Wunsch wieder entfernt (Commit f84a11a, Revert fbbbc0b). Wirksam gegen den harten Einsatz: C3 an V101B weglassen (Preamp 2: Spitze −16 → −31 dB THD, −2 dB Pegel), 5751/12AY7 in V101, LOW-Eingang. Vorschlag für den echten Umbau: SPST-Schalter in Reihe mit C3, 1 MΩ parallel zum Schalter gegen Knacken; optional Rpad 2,2 MΩ vor VR102 (−10 dB, verschiebt nur den Einsatz; Sanft + Später in Preamp 2 alles 5: Spitze −45 dB THD bei −10,7 dB Pegel).
 Mit der Datei des Nutzers (Strum, Crest 24 dB, Spitzen = gedämpfte Anschläge, 74 % der Zeit unter −20 dB): Preamp 2 alles 5 folgt der Hüllkurve fast exakt, nur die obersten 6 dB jedes Anschlags werden begrenzt; Preamp 1 Volume 2/2 komprimiert die Ausklingphase auf −20…−30 dB. Verhalten der Schaltung, kein Fehler.
 
+## Vorgemerkte Änderungen
+- Zeiger der Potis (Nutzer, 2026-11-05: „beim Drehen der Potis werden die Striche auf den Potis nicht schön gerechnet“): Zeigerstriche beim Drehen sauber zeichnen (Kantenglättung/Treppen, Dicke bei kleiner Darstellung, Drehmitte genau auf dem Knopf). Betrifft Web-Seiten (SVG-Linie mit rotate) und Plugins (Cairo); noch offen, wo genau der Nutzer es sieht.
+
 ## Ideen, die besprochen, aber nicht gebaut wurden
 - Pro Tools (AAX) wegen Avid-Signierung nicht sinnvoll. (Logic ist erledigt: Audio Unit über clap-wrapper, siehe Mac.)
 - Farben für die Röhrentasten im CLAP-Plugin (das Web hat sie: grau, grün, blau, orange, violett).
