@@ -1,6 +1,6 @@
 // Yamaha B100-112III / B100-115III (Service Manual 006594, 1984: Vorverstärker als Schaltung, Endstufe nach der Spezifikation geeicht; ohne Lautsprecher, Frequenzweiche, symmetrischen Ausgang) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b3_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"

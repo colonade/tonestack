@@ -1,5 +1,5 @@
 Yamaha B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   Yamaha_B100III.clap and Yamaha_B100III.vst3 contain the same code and
@@ -89,10 +89,11 @@ Parameters
   clipping, 100 mV, 2x, 0 dB.
 
 User interface
-  Front panel drawn after the drawing in the service manual (no photo, no
-  logo): knobs to turn (drag vertically, mouse wheel, double-click =
+  Front panel drawn after the drawing in the service manual, in the colours
+  of the real amp (black panel, black knobs with green, grey-violet, cream
+  and red caps, red EQ lamps; no photo, no logo): knobs to turn (drag vertically, mouse wheel, double-click =
   center), the indicator lamp of each PARAMETRIC EQ field as a click target
-  to switch that EQ on (green) or off - on the amp this is done with the
+  to switch that EQ on (red) or off - on the amp this is done with the
   footswitch. The three CROSSOVER knobs only feed the LPF/HPF OUTPUT jacks
   for external power amps and are dimmed. Below the panel the model strip
   (not on the amp): OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, the
@@ -124,6 +125,11 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input the
   plugin goes idle.
+
+1.1
+  - Front panel in the colours of the real amp (after a photo of the
+    panel): black panel with light print, coloured knob caps, red EQ
+    lamps. Sound unchanged (bit-identical to 1.0).
 
 1.0
   - First release. No speaker.
