@@ -12,7 +12,7 @@
       [s.gain, s.bass, s.mid, s.treb, s.master].forEach((v, i) => t[i] = Math.min(1, Math.max(0, num(v, 0.5))));
       t[5] = Math.max(0, Math.min(4, Math.round(num(p.freq, 2)))); t[6] = p.ulo ? 1 : 0; t[7] = p.uhi ? 1 : 0; t[8] = p.jack === 1 ? 1 : 0; t[9] = p.tap === 1 ? 1 : 0;
       t[10] = [1, 2].includes(p.taper) ? p.taper : 0; t[11] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[12] = p.power === false ? 0 : 1;
-      const os = [1, 2, 4].includes(p.os) ? p.os : 1;
+      const os = 1;   // ab 1.1 nur 1x
       if (!this.ready || os !== this.os) { this.x.sv_init(this.fs, os); this.os = os; }   // Neuaufbau mit Einschwingen der Schaltung (etwa 1–3 s Rechenzeit)
       this.x.sv_set_target(); this.ready = true; }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.sv_buffer(), n); b.set(buf.subarray(0, n)); this.x.sv_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.sv_buffer(), n)); }

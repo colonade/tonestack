@@ -1,6 +1,6 @@
 // GUI-Test (AmpFett SVT-CL): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   svtguitest AmpFett_SVTCL.clap bild.png
-// Prüft: Buchsen −15 dB / 0 dB, GAIN ziehen, FREQUENCY bis 3 kHz, ULTRA HI/LO, STANDBY und POWER (stumm), Ausgang 2 Ω, Überabtastung 2x (Kernwechsel im Hilfsfaden), Mausrad auf MASTER.
+// Prüft: Buchsen −15 dB / 0 dB, GAIN ziehen, FREQUENCY bis 3 kHz, ULTRA HI/LO, STANDBY und POWER (stumm), Ausgang 2 Ω, POT TAPER, Mausrad auf MASTER (Überabtastung ab 1.1 entfernt).
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -56,10 +56,13 @@ int main(int argc, char **argv) {
   click(kx(470), kx(140)); printf("Ultra Hi: %g (erwartet 1)\n", pv(6)); click(kx(560), kx(140)); printf("Ultra Lo: %g (erwartet 1)\n", pv(7));
   click(kx(1560), kx(140)); printf("Standby: %g (erwartet 1)\n", pv(10)); audio(40); printf("Ausgang nach 0,2 s Standby: %.3f (erwartet 0)\n", outPk); click(kx(1560), kx(140)); printf("Standby: %g (erwartet 0)\n", pv(10));
   click(kx(1680), kx(140)); printf("Power: %g (erwartet 0)\n", pv(11)); audio(40); printf("Ausgang nach 0,2 s aus: %.3f (erwartet 0)\n", outPk); click(kx(1680), kx(140)); printf("Power: %g (erwartet 1)\n", pv(11));
-  click(ux(186), uy(100)); printf("Ausgang: %g (erwartet 1 = 2 Ohm)\n", pv(9));
-  click(ux(64), uy(100)); printf("Überabtastung: %g (erwartet 1 = 2x)\n", pv(13));
+  click(ux(64), uy(100)); printf("Ausgang: %g (erwartet 1 = 2 Ohm)\n", pv(9));
+  click(ux(186), uy(100)); printf("Pot taper: %g (erwartet 1 = log 10 %%)\n", pv(15));
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
   send(ButtonPress, kx(1290), kx(138), 4); tick(); send(ButtonPress, kx(1290), kx(138), 4); tick(); printf("Master: %g (erwartet 5.4)\n", pv(5));
+  // Wertanzeige über allen Bedienelementen (1.0 stürzte beim Zeigen auf eine Buchse ab: falscher Zweig, Zugriff außerhalb der Schalterliste)
+  { const int pts[][2] = {{100, 150}, {196, 150}, {470, 140}, {560, 140}, {1560, 140}, {1680, 140}, {330, 138}, {990, 138}};
+    for (auto &q : pts) { send(MotionNotify, kx(q[0]), kx(q[1]), 0); tick(); tick(); } printf("Wertanzeigen über Buchsen, Schaltern, Knöpfen: ok\n"); }
   send(MotionNotify, kx(840), kx(138), 0); tick(); usleep(200000); for (int i = 0; i < 6; i++) tick();
   printf("Ausgang Spitze: %.3f\n", outPk);
   char t[64]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }

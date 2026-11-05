@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -80,12 +80,14 @@ Parameters
   1.6 kHz, 3 kHz); Treble, Master (0 ... 10); Ultra Hi (Off / On); Ultra
   Lo (Off / On); Input (0 dB / -15 dB jack); Output tap (4 ohm / 2 ohm);
   Standby (Off / On); Power (Off / On); Instrument level at 0 dBFS (mV
-  peak, 1 ... 1000); Oversampling (1x, 2x, 4x); Output level (-36 ...
+  peak, 1 ... 1000); Output level (-36 ...
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
   TREBLE).
   Knob 10 = clockwise end. Standby on or Power off mutes the output.
   Defaults: all knobs 5, Frequency 800 Hz, Ultra Hi and Ultra Lo off,
-  0 dB input, 4 ohm tap, standby off, power on, 100 mV, 1x, 0 dB, log 15 %.
+  0 dB input, 4 ohm tap, standby off, power on, 100 mV, 0 dB, log 15 %.
+  (The hidden parameter "Oversampling" is kept for old projects; since 1.1
+  it is always 1x.)
 
 User interface
   Front panel drawn after the layout in the owner's manual (no photo, no
@@ -95,8 +97,7 @@ User interface
   positions), TREBLE, MASTER, the STANDBY / POWER / FAULT lamp (green =
   playing, red = standby), toggle switches STANDBY and POWER (lever up =
   on). Knobs: drag vertically, mouse wheel, double-click = center. Below the
-  panel the model strip (not on the amp): OVERSAMPLING, OUTPUT TAP (4 / 2
-  ohm), POT TAPER, the DRIVE meters (grid swing of V1B input, V1A gain, V2B
+  panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, the DRIVE meters (grid swing of V1B input, V1A gain, V2B
   midrange, power amp input, 6550 grids, 100 % = grid reaches 0 V; output
   power into the selected load, mark = 300 W), INPUT (instrument level) and
   OUTPUT. Below that the small-signal frequency response at the operating
@@ -111,20 +112,26 @@ Levels
   49 V peak).
 
 Oversampling and latency
-  1x (default) is enough for clean and moderately driven playing; 2x or 4x
-  reduce aliasing in heavy distortion and cost two or four times the CPU.
-  Changing it prepares a new engine in the background (the amp settles
-  first, about 1-3 s of computing) and switches over after a moment. The
-  reported latency is always 31 samples (the oversampling filters; at 1x
-  the plugin delays by the same amount), so it does not change with the
-  setting.
+  Since 1.1 the amp runs at the host rate only (no oversampling): 2x and
+  4x needed more than one CPU core. Aliasing stays around -85 dB for bass
+  fundamentals even with heavy overdrive (measured at 83 and 220 Hz, gain
+  8, master 6); only notes above about 1 kHz driven hard fold back audibly.
+  The reported latency is 31 samples, as before (the plugin delays by that
+  amount so projects from 1.0 keep their timing).
 
 CPU
   About 1.5 times the AmpFett B-15NF: roughly 40-75 % of one core at
   48 kHz and 1x on a typical desktop (the whole amp with six output tubes
-  and the power supply is solved every sample); 2x and 4x correspondingly
-  more, stereo with different left and right signals doubles that. With
+  and the power supply is solved every sample; 1.1 solves the large power
+  amp system about 10 % faster); stereo with different left and right
+  signals doubles that. With
   the same signal on both channels it is computed once.
+
+1.1
+  - Oversampling removed (only 1x): 2x/4x were not usable in real time.
+    Solver for the power amp about 10 % faster. Sound at 1x unchanged.
+  - Fixed: REAPER crashed when the mouse pointer rested on an input jack
+    (tooltip read past the end of the switch list).
 
 1.0
   - First release. No speaker.

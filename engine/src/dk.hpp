@@ -39,6 +39,9 @@ inline bool solveAny(int n, double *A, double *x) {
     case 5: return solveN<5>(A, x); case 6: return solveN<6>(A, x); case 7: return solveN<7>(A, x); case 8: return solveN<8>(A, x);
     case 9: return solveN<9>(A, x); case 10: return solveN<10>(A, x); case 11: return solveN<11>(A, x); case 12: return solveN<12>(A, x);
     case 13: return solveN<13>(A, x); case 14: return solveN<14>(A, x); case 15: return solveN<15>(A, x); case 16: return solveN<16>(A, x);
+#ifdef DK_BIGN   // nur wo definiert (SVT-CL ab 1.1): entrollte Löser bis 32 Tore (gleiche Rechnung wie solve, etwa 10 % schneller); andere Plugins bleiben bitgleich
+    case 17: return solveN<17>(A, x); case 18: return solveN<18>(A, x); case 19: return solveN<19>(A, x); case 20: return solveN<20>(A, x); case 21: return solveN<21>(A, x); case 22: return solveN<22>(A, x); case 23: return solveN<23>(A, x); case 24: return solveN<24>(A, x); case 25: return solveN<25>(A, x); case 26: return solveN<26>(A, x); case 27: return solveN<27>(A, x); case 28: return solveN<28>(A, x); case 29: return solveN<29>(A, x); case 30: return solveN<30>(A, x); case 31: return solveN<31>(A, x); case 32: return solveN<32>(A, x);
+#endif
     default: return solve(n, A, x); } }
 inline bool solve(int n, double *A, double *x) {
   for (int k = 0; k < n; k++) { int p = k; double m = std::fabs(A[k * n + k]); for (int i = k + 1; i < n; i++) if (std::fabs(A[i * n + k]) > m) { m = std::fabs(A[i * n + k]); p = i; }

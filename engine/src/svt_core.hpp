@@ -6,6 +6,7 @@
 // Bauteilwerte und Knoten: docs/svtcl/SCHALTPLAN.md. Geschätzt (nicht im Plan): Übertrager-Induktivitäten und -Verluste, Spule L1 (Wicklungswiderstand,
 // Kopplung), Innenwiderstände des Netzteils, Gegenkopplungs-Abgriff; Röhrenmodelle: 12AX7/12AU7 wie im Laney, 6550 an Datenblattwerte angepasst (engine/tools/tube_fits.py).
 #pragma once
+#define DK_BIGN 1   // entrollte Löser für die große Endstufen-Gruppe (dk.hpp); muss vor dem ersten Einbinden von dk.hpp stehen
 #include "dk.hpp"
 #include "b15_core.hpp"
 #include <atomic>

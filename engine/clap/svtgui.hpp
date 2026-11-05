@@ -41,8 +41,9 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-static const double SW_X[3] = {64, 186, 310};   // OVERSAMPLING, OUTPUT TAP (4 / 2 Ω), POT TAPER
-static const int SW_P[3] = {P_OS, P_TAP, P_TAPER};
+constexpr int NSW = 2;
+static const double SW_X[NSW] = {64, 186};   // OUTPUT TAP (4 / 2 Ω), POT TAPER (Überabtastung ab 1.1 entfernt: nur 1x)
+static const int SW_P[NSW] = {P_TAP, P_TAPER};
 static const double KN_X[2] = {1010, 1120}; // INPUT, OUTPUT
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
@@ -152,10 +153,9 @@ struct Gui {
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const char *ol[3] = {"1x", "2x", "4x"}, *tt[2] = {"4 OHM", "2 OHM"};
-      tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
-      tsw::toggle(c, SW_X[1], SW_Y, 2, v[P_TAP] > 0.5 ? 1 : 0, "OUTPUT", tt, "tap = load");
-      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[2], SW_Y, 3, tp, "POT TAPER", tl, "gain, bass, treble"); }
+    { const char *tt[2] = {"4 OHM", "2 OHM"}; (void)os;
+      tsw::toggle(c, SW_X[0], SW_Y, 2, v[P_TAP] > 0.5 ? 1 : 0, "OUTPUT", tt, "tap = load");
+      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[1], SW_Y, 3, tp, "POT TAPER", tl, "gain, bass, treble"); }
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht 0 V, Strich), Leistung an 8 Ω (Strich = 30 W)
     { const char *tn[6] = {"V1B input", "V1A gain", "V2B mid", "amp in V1A", "6550 grid", "power"};
       double lx = 460, bx = 570, bw = 170, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
@@ -182,9 +182,9 @@ struct Gui {
     // Wertanzeige
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[112]; double ax, ay;
       if (i < 6) { const double *g = SVTKNOB[i]; ax = g[0] * s; ay = (g[1] - g[2] * 1.12) * s; knobText(i, v[KPARAM[i]], buf, sizeof buf); }
-      else if (i >= 20) { int k = i - 20; ax = SVTSW[k][0] * s; ay = (SVTSW[k][1] - 60) * s; const char *nm[4] = {"ULTRA HI", "ULTRA LO", "STANDBY", "POWER"};
-        std::snprintf(buf, sizeof buf, "%s: %s%s", nm[k], v[SWPARAM[k]] > 0.5 ? "ON" : "OFF", k == 2 && v[P_STBY] > 0.5 ? " (muted)" : k == 3 && v[P_PWR] < 0.5 ? " (muted)" : ""); }
       else if (i >= 30) { int k = i - 30; ax = SVTJACK[k][0] * s; ay = (SVTJACK[k][1] - 40) * s; std::snprintf(buf, sizeof buf, "%s INPUT%s", k ? "-15 dB (active basses)" : "0 dB (passive basses)", k == jack ? "" : " - click to plug in"); }
+      else if (i >= 20) {   /* 20 … 23 Frontplattenschalter (30/31 Buchsen oben) */ int k = i - 20; ax = SVTSW[k][0] * s; ay = (SVTSW[k][1] - 60) * s; const char *nm[4] = {"ULTRA HI", "ULTRA LO", "STANDBY", "POWER"};
+        std::snprintf(buf, sizeof buf, "%s: %s%s", nm[k], v[SWPARAM[k]] > 0.5 ? "ON" : "OFF", k == 2 && v[P_STBY] > 0.5 ? " (muted)" : k == 3 && v[P_PWR] < 0.5 ? " (muted)" : ""); }
       else { ax = KN_X[i - 9] * u; ay = FH * s + (KN_Y - 30) * u; std::snprintf(buf, sizeof buf, "%s", vt[i - 9]); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }
@@ -193,8 +193,8 @@ struct Gui {
     double lx, ly; toLower(px, py, lx, ly); for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 2; i++) { const double *J = SVTJACK[i]; double dx = x - J[0], dy = y - J[1]; if (dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14)) return i; } return -1; }
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < 4; k++) if (std::fabs(x - SVTSW[k][0]) <= 32 && std::fabs(y - SVTSW[k][1]) <= 52) return k; return -1; }
-  int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < 3; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
-  void moveSwitch(int p, int dir) { if (p == P_OS || p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); }   // OUTPUT: oben = 4 Ω
+  int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
+  void moveSwitch(int p, int dir) { if (p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); }   // OUTPUT: oben = 4 Ω
   void togglePanel(int k) { int p = SWPARAM[k]; setP(p, getP(p) > 0.5 ? 0 : 1); }
   int knobParam(int i) const { return i < 6 ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
   double knobVal(int i) const { if (i < 6) return KPARAM[i] == P_FREQ ? getP(P_FREQ) * 2.5 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }   // FREQUENCY: 0 … 4 auf 0 … 10 Ziehweg
@@ -219,7 +219,7 @@ struct Gui {
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_JACK, j); return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
       case 1: {
         if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }
