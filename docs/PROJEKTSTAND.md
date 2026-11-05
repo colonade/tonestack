@@ -29,7 +29,7 @@ Gitterstopper vor V102B/V103B wurden am 2026-10-29 im Kern eingebaut, gemessen (
 Mit der Datei des Nutzers (Strum, Crest 24 dB, Spitzen = gedämpfte Anschläge, 74 % der Zeit unter −20 dB): Preamp 2 alles 5 folgt der Hüllkurve fast exakt, nur die obersten 6 dB jedes Anschlags werden begrenzt; Preamp 1 Volume 2/2 komprimiert die Ausklingphase auf −20…−30 dB. Verhalten der Schaltung, kein Fehler.
 
 ## Vorgemerkte Änderungen
-- Zeiger der Potis (Nutzer, 2026-11-05: „beim Drehen der Potis werden die Striche auf den Potis nicht schön gerechnet“): Zeigerstriche beim Drehen sauber zeichnen (Kantenglättung/Treppen, Dicke bei kleiner Darstellung, Drehmitte genau auf dem Knopf). Betrifft Web-Seiten (SVG-Linie mit rotate) und Plugins (Cairo); noch offen, wo genau der Nutzer es sieht.
+- Zeiger der Potis (Nutzer, 2026-11-05: „beim Drehen der Potis werden die Striche auf den Potis nicht schön gerechnet“): Zeigerstriche beim Drehen sauber zeichnen (Kantenglättung/Treppen, Dicke bei kleiner Darstellung, Drehmitte genau auf dem Knopf). Nur die Web-Seiten (SVG-Linie mit rotate über dem JPEG); in den Plugins sieht es gut aus (der Nutzer).
 
 ## Ideen, die besprochen, aber nicht gebaut wurden
 - Pro Tools (AAX) wegen Avid-Signierung nicht sinnvoll. (Logic ist erledigt: Audio Unit über clap-wrapper, siehe Mac.)
