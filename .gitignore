@@ -28,4 +28,6 @@ docs/g100/*
 !docs/g100/SCHALTPLAN.md
 docs/b100iii/*
 !docs/b100iii/SCHALTPLAN.md
+docs/svtcl/*
+!docs/svtcl/SCHALTPLAN.md
 *.PDF
