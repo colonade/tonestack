@@ -592,7 +592,11 @@ function makeView(box, svgV, tipV, keys, jacks, sws, led) {
     const g = FRONT[k], grp = el('g', {class:'fk', 'data-k':k, tabindex:'0', role:'slider', 'aria-label':FNAME[k], 'aria-valuemin':'0', 'aria-valuemax':String(kmax(k))}, svgV);
     el('circle', {class:'fhit', cx:g.x, cy:g.y, r:g.r * 1.3, fill:'transparent'}, grp);
     el('circle', {class:'fring', cx:g.x, cy:g.y, r:g.r * 1.08}, grp);
-    const ln = el('line', {x1:g.x, y1:g.y - g.r * 0.08, x2:g.x, y2:g.y - g.r * 0.62, stroke:'#1c1c1e', 'stroke-width':3.5, 'stroke-linecap':'round'}, grp);   // dunkler Strich auf der Metallkappe
+    // Zeiger wie im Plugin: dunkler Strich auf der Metallkappe mit heller Kante, weiße Spitze auf dem Riffelrand; als Gruppe gedreht, geometrisch geglättet
+    const ln = el('g', {'shape-rendering':'geometricPrecision', 'pointer-events':'none'}, grp);
+    el('line', {x1:g.x, y1:g.y - g.r * 0.10, x2:g.x, y2:g.y - g.r * 0.64, stroke:'rgba(255,255,255,.55)', 'stroke-width':6.5, 'stroke-linecap':'round'}, ln);
+    el('line', {x1:g.x, y1:g.y - g.r * 0.10, x2:g.x, y2:g.y - g.r * 0.64, stroke:'#1c1c1e', 'stroke-width':4.5, 'stroke-linecap':'round'}, ln);
+    el('line', {x1:g.x, y1:g.y - g.r * 0.73, x2:g.x, y2:g.y - g.r * 0.95, stroke:'#f2f2f2', 'stroke-width':4.5, 'stroke-linecap':'round'}, ln);
     ln._g = grp; FPTR[k].push(ln);
     const step = k === 'freq' ? 1 : 0.1, big = k === 'freq' ? 1 : 1, wheel = k === 'freq' ? 1 : 0.2;
     let st = null;
