@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -156,13 +156,21 @@ Oversampling and latency
   it does not change with the setting.
 
 CPU
-  About 20 % of one core at 48 kHz and 1x on a typical desktop, about 45 %
-  at 2x (both channels, the EQ and the reverb circuit are solved every
+  About 13 % of one core at 48 kHz and 1x on a typical desktop, about 30 %
+  at 2x (1.5: about a third less than before) (both channels, the EQ and the reverb circuit are solved every
   sample, the spring model runs with them - also with REVERB at 0; 1.1
   needs almost twice the CPU of 1.0); stereo with different left and right
   signals doubles that. With the same
   signal on both channels it is computed once. After 2 s of silence at the
   input the plugin goes idle.
+
+1.5
+  - Faster solver (dense matrix products): about 35 % less CPU. Sound
+    unchanged apart from rounding (difference below -240 dB).
+  - Fixed: after inserting or enabling the plugin on a record-armed track
+    it stayed silent for live input (meters dead) until Play was pressed
+    once. The idle mode after silence is now internal only; the plugin no
+    longer asks the host to stop calling it.
 
 1.4
   - REVERB TANK is a knob 0 ... 10 instead of a switch (user: "large

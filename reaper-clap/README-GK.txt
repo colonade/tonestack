@@ -1,5 +1,5 @@
 GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -119,6 +119,15 @@ CPU
   with different left and right signals doubles that. With the same signal
   on both channels it is computed once. After 2 s of silence at the input
   the plugin goes idle.
+
+1.2
+  - Faster solver (dense matrix products): about 4-9 % less CPU. Sound
+    unchanged apart from rounding and solver tolerance (difference below
+    -105 dB).
+  - Fixed: after inserting or enabling the plugin on a record-armed track
+    it stayed silent for live input (meters dead) until Play was pressed
+    once. The idle mode after silence is now internal only; the plugin no
+    longer asks the host to stop calling it.
 
 1.1
   - New parameter "Volume pot taper" (POT TAPER toggle in the model strip):

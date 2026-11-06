@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.37
+Version 3.38
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -129,6 +129,15 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.38
+  - Faster solver code shared by all tonestack plugins (dense matrix
+    products); this preamp about 4 % less CPU. Sound unchanged apart from
+    rounding (difference below -150 dB).
+  - Fixed: after inserting or enabling the plugin on a record-armed track
+    it stayed silent for live input (meters dead) until Play was pressed
+    once. The idle mode after silence is now internal only; the plugin no
+    longer asks the host to stop calling it.
 
 3.37
   - REVERB TANK is a control 0 ... 10 instead of a button (same model as

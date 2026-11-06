@@ -34,6 +34,38 @@ template <int n> inline bool solveN(double *A, double *x) {
   for (int k = n - 1; k >= 0; k--) { double s = x[k]; for (int j = k + 1; j < n; j++) s -= A[k * n + j] * x[j]; x[k] = s / A[k * n + k]; }
   return true; }
 inline bool solve(int n, double *A, double *x);
+// LU-Zerlegung mit Zeilentausch, Faktoren bleiben in A (L unter, U auf und über der Diagonale), Tausch in pv; luSolve wendet sie auf x an.
+// Für Newton mit wiederverwendeter Jacobi-Matrix (Runner::reuseJ). luN: feste Größe (entrollt), luAny wählt.
+template <int n> inline bool luN(double *A, int *pv) {
+  for (int k = 0; k < n; k++) { int p = k; double m = std::fabs(A[k * n + k]); for (int i = k + 1; i < n; i++) if (std::fabs(A[i * n + k]) > m) { m = std::fabs(A[i * n + k]); p = i; }
+    if (m < 1e-300) return false;
+    pv[k] = p; if (p != k) for (int j = 0; j < n; j++) std::swap(A[k * n + j], A[p * n + j]);
+    double iv = 1 / A[k * n + k];
+    for (int i = k + 1; i < n; i++) { double f = A[i * n + k] * iv; A[i * n + k] = f; if (f == 0) continue; for (int j = k + 1; j < n; j++) A[i * n + j] -= f * A[k * n + j]; } }
+  return true; }
+template <int n> inline void lusN(const double *A, const int *pv, double *x) {
+  for (int k = 0; k < n; k++) if (pv[k] != k) std::swap(x[k], x[pv[k]]);
+  for (int k = 0; k < n; k++) { double xk = x[k]; for (int i = k + 1; i < n; i++) x[i] -= A[i * n + k] * xk; }
+  for (int k = n - 1; k >= 0; k--) { double s = x[k]; for (int j = k + 1; j < n; j++) s -= A[k * n + j] * x[j]; x[k] = s / A[k * n + k]; } }
+inline bool luG(int n, double *A, int *pv) {
+  for (int k = 0; k < n; k++) { int p = k; double m = std::fabs(A[k * n + k]); for (int i = k + 1; i < n; i++) if (std::fabs(A[i * n + k]) > m) { m = std::fabs(A[i * n + k]); p = i; }
+    if (m < 1e-300) return false;
+    pv[k] = p; if (p != k) for (int j = 0; j < n; j++) std::swap(A[k * n + j], A[p * n + j]);
+    double iv = 1 / A[k * n + k];
+    for (int i = k + 1; i < n; i++) { double f = A[i * n + k] * iv; A[i * n + k] = f; if (f == 0) continue; for (int j = k + 1; j < n; j++) A[i * n + j] -= f * A[k * n + j]; } }
+  return true; }
+inline void lusG(int n, const double *A, const int *pv, double *x) {
+  for (int k = 0; k < n; k++) if (pv[k] != k) std::swap(x[k], x[pv[k]]);
+  for (int k = 0; k < n; k++) { double xk = x[k]; for (int i = k + 1; i < n; i++) x[i] -= A[i * n + k] * xk; }
+  for (int k = n - 1; k >= 0; k--) { double s = x[k]; for (int j = k + 1; j < n; j++) s -= A[k * n + j] * x[j]; x[k] = s / A[k * n + k]; } }
+#define DK_LU(N) case N: return luN<N>(A, pv);
+#define DK_LS(N) case N: lusN<N>(A, pv, x); return;
+inline bool luAny(int n, double *A, int *pv) { switch (n) { DK_LU(1) DK_LU(2) DK_LU(3) DK_LU(4) DK_LU(5) DK_LU(6) DK_LU(7) DK_LU(8) DK_LU(9) DK_LU(10) DK_LU(11) DK_LU(12) DK_LU(13) DK_LU(14) DK_LU(15) DK_LU(16)
+  DK_LU(17) DK_LU(18) DK_LU(19) DK_LU(20) DK_LU(21) DK_LU(22) DK_LU(23) DK_LU(24) DK_LU(25) DK_LU(26) DK_LU(27) DK_LU(28) DK_LU(29) DK_LU(30) DK_LU(31) DK_LU(32) default: return luG(n, A, pv); } }
+inline void lusAny(int n, const double *A, const int *pv, double *x) { switch (n) { DK_LS(1) DK_LS(2) DK_LS(3) DK_LS(4) DK_LS(5) DK_LS(6) DK_LS(7) DK_LS(8) DK_LS(9) DK_LS(10) DK_LS(11) DK_LS(12) DK_LS(13) DK_LS(14) DK_LS(15) DK_LS(16)
+  DK_LS(17) DK_LS(18) DK_LS(19) DK_LS(20) DK_LS(21) DK_LS(22) DK_LS(23) DK_LS(24) DK_LS(25) DK_LS(26) DK_LS(27) DK_LS(28) DK_LS(29) DK_LS(30) DK_LS(31) DK_LS(32) default: lusG(n, A, pv, x); } }
+#undef DK_LU
+#undef DK_LS
 inline bool solveAny(int n, double *A, double *x) {
   switch (n) { case 1: return solveN<1>(A, x); case 2: return solveN<2>(A, x); case 3: return solveN<3>(A, x); case 4: return solveN<4>(A, x);
     case 5: return solveN<5>(A, x); case 6: return solveN<6>(A, x); case 7: return solveN<7>(A, x); case 8: return solveN<8>(A, x);
@@ -83,9 +115,20 @@ struct Sys {
   Mat tPbh, tPbu, tPbi, tPph, tPpu, tK;               // spaltenweise Kopien (Index [Spalte][Zeile]) für vektorisierbare Produkte
   // Dünn besetzte Zeilen (nur Einträge ≠ 0) der zusammengesetzten Produkte über z = [h, u, i] (ab Laney 3.26 / AmpFett 1.11; vorher viele kurze axpy):
   // cP: p = [Pph Ppu]·[h u], cK: K·i, cB: vb = [Pbh Pbu Pbi]·z, cO: y = [Ooh Oou Ooi]·z
-  struct Csr { std::vector<int> st, col; Vec val;
+  // Dicht besetzte Produkte (ab 2026-11-07, wenn mindestens 60 % der Einträge ≠ 0 sind): Zeilen zusammenhängend, Skalarprodukt mit zwei 2er-Vektoren
+  // (SSE2/NEON), ohne Indexzugriff; deutlich schneller als die dünne Form bei den meist fast vollen Matrizen cB, cO. Summationsreihenfolge anders →
+  // Ergebnis nicht bitgleich (Rundung, etwa 1e-16 relativ). dense = false erzwingt die dünne Form.
+  struct Csr { std::vector<int> st, col; Vec val; int nc = 0; bool dn = false; Vec D;
     void add(const Mat &a, int off, int row) { for (int j = 0; j < a.c; j++) { double v = a(row, j); if (v != 0) { col.push_back(off + j); val.push_back(v); } } }
-    void apply(const double *__restrict z, double *__restrict y) const { const int nr = (int)st.size() - 1; const int *__restrict S = st.data(), *__restrict C = col.data(); const double *__restrict V = val.data();
+    void fin(int ncols, bool dense) { nc = ncols; const int nr = (int)st.size() - 1; dn = dense && nr > 0 && nc >= 8 && val.size() * 10 >= (size_t)nr * nc * 6; D.clear();
+      if (dn) { D.assign((size_t)nr * nc, 0.0); for (int r = 0; r < nr; r++) for (int k = st[r]; k < st[r + 1]; k++) D[(size_t)r * nc + col[k]] = val[k]; } }
+    void apply(const double *__restrict z, double *__restrict y) const { const int nr = (int)st.size() - 1;
+      if (dn) { typedef double v2 __attribute__((vector_size(16))); const double *__restrict M = D.data(); const int n4 = nc & ~3;
+        for (int r = 0; r < nr; r++, M += nc) { v2 s0 = {0, 0}, s1 = {0, 0}; int j = 0;
+          for (; j < n4; j += 4) { v2 a0, a1, z0, z1; std::memcpy(&a0, M + j, 16); std::memcpy(&a1, M + j + 2, 16); std::memcpy(&z0, z + j, 16); std::memcpy(&z1, z + j + 2, 16); s0 += a0 * z0; s1 += a1 * z1; }
+          double t = (s0[0] + s1[0]) + (s0[1] + s1[1]); for (; j < nc; j++) t += M[j] * z[j]; y[r] = t; }
+        return; }
+      const int *__restrict S = st.data(), *__restrict C = col.data(); const double *__restrict V = val.data();
       for (int r = 0; r < nr; r++) { double a0 = 0, a1 = 0; int k = S[r]; const int e = S[r + 1];
         for (; k + 1 < e; k += 2) { a0 += V[k] * z[C[k]]; a1 += V[k + 1] * z[C[k + 1]]; } if (k < e) a0 += V[k] * z[C[k]]; y[r] = a0 + a1; } } };
   Csr cP, cK, cB, cO;
@@ -96,7 +139,9 @@ struct Sys {
     for (int r = 0; r < m; r++) { cP.st.push_back((int)cP.col.size()); cP.add(Pph, 0, r); cP.add(Ppu, nh, r); } cP.st.push_back((int)cP.col.size());
     for (int r = 0; r < m; r++) { cK.st.push_back((int)cK.col.size()); cK.add(K, 0, r); } cK.st.push_back((int)cK.col.size());
     for (int r = 0; r < nh; r++) { cB.st.push_back((int)cB.col.size()); cB.add(Pbh, 0, r); cB.add(Pbu, nh, r); cB.add(Pbi, nh + nu, r); } cB.st.push_back((int)cB.col.size());
-    for (int r = 0; r < no; r++) { cO.st.push_back((int)cO.col.size()); cO.add(Ooh, 0, r); cO.add(Oou, nh, r); cO.add(Ooi, nh + nu, r); } cO.st.push_back((int)cO.col.size()); }
+    for (int r = 0; r < no; r++) { cO.st.push_back((int)cO.col.size()); cO.add(Ooh, 0, r); cO.add(Oou, nh, r); cO.add(Ooi, nh + nu, r); } cO.st.push_back((int)cO.col.size());
+    cP.fin(nh + nu, false); cK.fin(m, false); cB.fin(nh + nu + m, false); cO.fin(nh + nu + m, false); }
+  void setDense(bool d) { cP.fin(cP.nc, d); cK.fin(cK.nc, d); cB.fin(cB.nc, d); cO.fin(cO.nc, d); }
 };
 inline Sys compile(const Net &net, double fs) {
   Sys s; s.T = 1 / fs; s.nn = net.nn; s.m = (int)net.P.size(); s.no = (int)net.O.size(); s.ncap = (int)net.C.size();
@@ -192,18 +237,25 @@ static inline void axpy(int n, double a, const double *__restrict x, double *__r
 // gemeinsam erfüllt sind. Das Ergebnis ist dasselbe wie mit einem Newton über alle Tore; die Gruppen sind nur schwach gekoppelt
 // (z. B. Vorstufe, Endstufe, Netzteil), daher genügen meist ein bis zwei Durchgänge, und die Gleichungssysteme bleiben klein.
 struct Runner {
-  Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1, v0; bool damp = false; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 4, gsPass = 6; double tol = 1e-5, stepLim = 30; int lastIt = 0, lastPass = 0, fails = 0;   // tol bis Laney 3.25 / AmpFett 1.10: 1e-6 V (jetzt 15–20 % weniger Newton-Schritte, Abweichung leise unter −100 dB)
+  Sys s; Vec h, vp, ip, vb, p, Jd, A, x, g, q, di, vp1, v0; bool damp = false; std::vector<Dev> dev; DevFn fn = nullptr; int maxIt = 12, maxPass = 4, gsPass = 6; double tol = 1e-5, stepLim = 30; int lastIt = 0, lastPass = 0, fails = 0;
+  // reuseJ (ab 2026-11-07, je Plugin zuschaltbar): vereinfachtes Newton je Gruppe – die zerlegte Matrix A = I − K·J wird über Iterationen und Abtastwerte
+  // weiterverwendet und erst neu aufgebaut, wenn der Fehler je Schritt nicht mindestens auf reuseRho fällt (oder nach Netzänderung, Fehlschlag, Rückfall).
+  // Gleiches Ziel (Fehler < tol), anderer Weg: Abweichung in der Größenordnung von tol. Aus = bitgleich zur bisherigen Rechnung.
+  bool dense = true;    // dichte Produkte (Sys::Csr), siehe dort; ab 2026-11-07 für alle Plugins (Unterschied nur Rundung)
+  bool dampFull = false;   // gemeinsamer Solve gleich mit Schrittweitensteuerung (wie im Rückfall), statt erst nach maxPass Fehlversuchen
+  bool reuseJ = false; double reuseRho = 0.25; std::vector<Vec> luA; std::vector<std::vector<int>> luP; std::vector<char> luOK; long luFact = 0, luReuse = 0;   // tol bis Laney 3.25 / AmpFett 1.10: 1e-6 V (jetzt 15–20 % weniger Newton-Schritte, Abweichung leise unter −100 dB)
   std::vector<std::vector<int>> grpDev, grpPort; std::vector<int> devGrp; std::vector<int> capOut; Vec capI;   // capOut: Kondensatoren, deren Strom (a→b) mit ausgegeben wird   // devGrp: Gruppe je Gerät (vom Aufrufer gesetzt, sonst alle in einer)
   Vec z, kq;   // z = [h, u, i] für die dünnen Produkte; kq = K·i
   // A = I − K_GG·J_GG je Gruppe: je Spalte (Gerät, Tor b) die beteiligten K-Spalten und Jd-Plätze, vorab bestimmt
   struct ACol { int self, nq, kcol[4], jd[4]; }; std::vector<std::vector<ACol>> acol;
-  void set(const Sys &ns) { bool first = h.empty() || (int)h.size() != ns.nh; s = ns; if (first) { h.assign(s.nh, 0.0); } if ((int)vp.size() != s.m) { vp.assign(s.m, 0.0); ip.assign(s.m, 0.0); }
+  void set(const Sys &ns) { bool first = h.empty() || (int)h.size() != ns.nh; s = ns; if (dense) s.setDense(true); if (first) { h.assign(s.nh, 0.0); } if ((int)vp.size() != s.m) { vp.assign(s.m, 0.0); ip.assign(s.m, 0.0); }
     vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); if (Jd.size() != (size_t)s.m * 16) Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); v0.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
     int ng = 0; for (size_t k = 0; k < dev.size(); k++) ng = std::max(ng, k < devGrp.size() ? devGrp[k] + 1 : 1);
     grpDev.assign(ng + 1, {}); grpPort.assign(ng + 1, {});   // letzte Gruppe: alle Geräte zusammen (Rückfall, wenn die Gruppen einander nicht schnell genug einig werden)
     for (size_t k = 0; k < dev.size(); k++) { int G = k < devGrp.size() ? devGrp[k] : 0; for (int GG : {G, ng}) { grpDev[GG].push_back((int)k); for (int q = 0; q < dev[k].np; q++) grpPort[GG].push_back(dev[k].p0 + q); } }
     memDev.clear(); for (size_t k = 0; k < dev.size(); k++) if (dev[k].mem) { dev[k].ht = s.T / 2; memDev.push_back((int)k); }
     z.assign((size_t)s.nh + s.nu + s.m, 0.0); kq.assign(s.m, 0.0);
+    luA.assign(ng + 1, {}); luP.assign(ng + 1, {}); luOK.assign(ng + 1, 0); for (int G = 0; G <= ng; G++) { luA[G].assign(grpPort[G].size() * grpPort[G].size(), 0.0); luP[G].assign(grpPort[G].size(), 0); }
     acol.assign(ng + 1, {}); for (int G = 0; G <= ng; G++) for (int dk_ : grpDev[G]) { const Dev &d = dev[dk_]; for (int b = 0; b < d.np; b++) { ACol c; c.self = d.p0 + b; c.nq = d.np;
         for (int q = 0; q < d.np; q++) { c.kcol[q] = d.p0 + q; c.jd[q] = (d.p0 + q) * 16 + b; } acol[G].push_back(c); } } }
   std::vector<int> memDev;   // Geräte mit Gedächtnis (Fluss), nach jedem Abtastwert fortgeschrieben
@@ -215,8 +267,32 @@ struct Runner {
   double resid(int r) { return vp[r] - q[r]; }
   void evalGroup(int G) { const std::vector<int> &P = grpPort[G]; for (int c : P) di[c] = ip[c]; for (int k : grpDev[G]) evalDev(k);
     for (int c : P) { double d = ip[c] - di[c]; if (d != 0) axpy(s.m, d, &s.tK.d[(size_t)c * s.m], q.data()); } }
+  // wie solveGroup, aber mit weiterverwendeter Zerlegung (reuseJ); ohne Dämpfung (der gedämpfte Rückfall rechnet immer frisch)
+  double solveGroupR(int G) {
+    const std::vector<int> &P = grpPort[G]; const int n = (int)P.size(); double first = 0, prev = 0; bool lastFresh = false; double *LU = luA[G].data(); int *PV = luP[G].data();
+    for (int it = 0; it < maxIt; it++) {
+      double err = 0; for (int i = 0; i < n; i++) { g[i] = resid(P[i]); err = std::max(err, std::fabs(g[i])); }
+      if (it == 0) first = err;
+      if (!(err < 1e30)) { fails++; luOK[G] = 0; return err; }
+      if (err < tol) break;
+      if (it > 0 && !lastFresh && !(err <= reuseRho * prev)) luOK[G] = 0;   // alte Matrix zieht nicht mehr genug: neu aufbauen
+      lastFresh = false;
+      if (!luOK[G]) {
+        const double *JD = Jd.data(); const ACol *ac = acol[G].data();
+        for (int ri = 0; ri < n; ri++) { const int pr = P[ri]; const double *kr = &s.K.d[(size_t)pr * s.m]; double *ar = LU + (size_t)ri * n;
+          for (int ci = 0; ci < n; ci++) { const ACol &c = ac[ci]; double a = (pr == c.self) ? 1 : 0; for (int q = 0; q < c.nq; q++) a -= kr[c.kcol[q]] * JD[c.jd[q]]; ar[ci] = a; } }
+        if (!luAny(n, LU, PV)) { fails++; break; }
+        luOK[G] = 1; lastFresh = true; luFact++; } else luReuse++;
+      for (int i = 0; i < n; i++) x[i] = -g[i];
+      lusAny(n, LU, PV, x.data());
+      { double mx = 0; for (int i = 0; i < n; i++) mx = std::max(mx, std::fabs(x[i])); double sc = mx > stepLim ? stepLim / mx : 1;
+        for (int i = 0; i < n; i++) vp[P[i]] += sc * x[i]; evalGroup(G); }
+      prev = err; lastIt++;
+    }
+    return first; }
   // Newton für Gruppe G bei festen Strömen der übrigen Gruppen; Rückgabe: größter Anfangsfehler
   double solveGroup(int G) {
+    if (reuseJ && !damp) return solveGroupR(G);
     const std::vector<int> &P = grpPort[G]; const int n = (int)P.size(); double first = 0;
     for (int it = 0; it < maxIt; it++) {
       double err = 0; for (int i = 0; i < n; i++) { g[i] = resid(P[i]); err = std::max(err, std::fabs(g[i])); }
@@ -249,7 +325,7 @@ struct Runner {
     lastIt = 0; int pass = 0; const int ng = (int)grpPort.size() - 1; bool ok = false;
     // Gruppen nacheinander (Block-Gauß-Seidel); nach gsPass Durchgängen ohne Einigung Newton über alle Tore gemeinsam
     for (; pass < gsPass; pass++) { double e = 0; for (int G = 0; G < ng; G++) { double r = solveGroup(G); if (!(r <= e)) e = r; } if (e < tol) { ok = true; break; } }   // NaN bleibt NaN
-    if (!ok) for (int k = 0; k < maxPass; k++, pass++) if (solveGroup(ng) < tol) { ok = true; break; }
+    if (!ok) { damp = dampFull; for (int k = 0; k < maxPass; k++, pass++) if (solveGroup(ng) < tol) { ok = true; break; } damp = false; }
     if (!ok) {   // Rückfall: vom Wert des letzten Abtastwerts aus, kleinere Schritte, mehr Iterationen
       for (int k = 0; k < m; k++) vp[k] = vp1[k]; for (size_t k = 0; k < dev.size(); k++) evalDev((int)k);
       s.cK.apply(ip.data(), kq.data()); for (int k = 0; k < m; k++) q[k] = p[k] + kq[k];

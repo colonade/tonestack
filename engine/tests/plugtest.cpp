@@ -3,6 +3,7 @@
 //                                                                     HONOR=1: bei SLEEP stille Blöcke nicht aufrufen (wie ein sparsamer Host)
 //   plugtest PLUGIN perf "id=wert,..." [fs] [block]                    Rechenlast: 10 s Bass-Signal, Mittel und längster Block; danach jeder Parameter
 //                                                                     während der Wiedergabe umgeschaltet: längster Block je Parameter
+//                                                                     DUMP=datei: Dauer jedes Blocks (Position, ms) dorthin schreiben
 //   plugtest PLUGIN params                                            Parameterliste
 // Ausgaben auf stdout; Rückgabe 0 = gelaufen (Bewertung macht das Auswerteskript).
 #include "clap-1.2.2/include/clap/clap.h"
@@ -84,7 +85,9 @@ int main(int argc, char **argv) {
     H.activate(fs, (uint32_t)B); addParams(spec); std::vector<float> x = bassSignal(fs, 10), y(B);
     // Einschwingen 1 s, dann 9 s messen
     double tsum = 0, tmax = 0; std::vector<double> ts; long pos = 0;
-    for (; pos + B <= (long)x.size(); pos += B) { double dt; H.run(&x[pos], y.data(), B, dt); if (pos > fs) { tsum += dt; tmax = std::max(tmax, dt); ts.push_back(dt); } }
+    FILE *dump = getenv("DUMP") ? fopen(getenv("DUMP"), "w") : nullptr;
+    for (; pos + B <= (long)x.size(); pos += B) { double dt; H.run(&x[pos], y.data(), B, dt); if (dump) fprintf(dump, "%ld %.6f\n", pos, dt * 1e3); if (pos > fs) { tsum += dt; tmax = std::max(tmax, dt); ts.push_back(dt); } }
+    if (dump) fclose(dump);
     std::sort(ts.begin(), ts.end()); double blk = B / fs;
     printf("last_mittel=%.1f%% p99=%.1f%% max=%.1f%% (Block %d bei %.0f Hz = %.2f ms)\n", 100 * tsum / (ts.size() * blk), 100 * ts[ts.size() * 99 / 100] / blk, 100 * tmax / blk, B, fs, blk * 1e3);
     if (getenv("NOSWEEP")) { H.close(); return 0; }

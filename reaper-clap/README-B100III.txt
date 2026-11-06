@@ -1,5 +1,5 @@
 Yamaha B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Yamaha_B100III.clap and Yamaha_B100III.vst3 contain the same code and
@@ -120,11 +120,21 @@ Oversampling and latency
   oversampling filters).
 
 CPU
-  About a third to half of one core at 48 kHz and 2x on a typical desktop
+  About a fifth to a third of one core at 48 kHz and 2x on a typical desktop
+  (1.2: about 38 % less than before)
   (the whole preamp with both EQs is solved every sample); stereo with
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input the
   plugin goes idle.
+
+1.2
+  - Faster solver (dense matrix products): about 38 % less CPU, helps
+    against dropouts (crackles on every note) with small audio buffers.
+    Sound unchanged apart from rounding (difference below -175 dB).
+  - Fixed: after inserting or enabling the plugin on a record-armed track
+    it stayed silent for live input (meters dead) until Play was pressed
+    once. The idle mode after silence is now internal only; the plugin no
+    longer asks the host to stop calling it.
 
 1.1
   - Front panel in the colours of the real amp (after a photo of the

@@ -1,6 +1,6 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.16"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.17"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -179,7 +179,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   float inPk = 0; for (uint32_t i = 0; i < n; i++) inPk = std::max(inPk, std::max(std::fabs(m[i]), std::fabs(m2[i])));
   if (pl->sleeping && inPk >= 1e-6f) { pl->sleeping = false; pl->quiet = 0; }   // Aufwachen: Kern rechnet vom angehaltenen Ruhezustand weiter
   if (pl->sleeping) { for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
-    return CLAP_PROCESS_SLEEP; }
+    return CLAP_PROCESS_CONTINUE; }
   pl->eng->process(m, (int)n); if (pl->eng->os == 1) for (uint32_t i = 0; i < n; i++) m[i] = pl->d1.step(m[i]);
   if (dual) { pl->eng2->process(m2, (int)n); if (pl->eng2->os == 1) for (uint32_t i = 0; i < n; i++) m2[i] = pl->d2.step(m2[i]);
     if (same) { bool eq = true; for (uint32_t i = 0; i < n; i++) if (std::fabs(m[i] - m2[i]) > 1e-7f) { eq = false; break; } if (eq) { pl->monoOK = true; pl->eng2Stale = true; } } }
@@ -193,8 +193,10 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
     if (dual) { pl->eng2->takePeaks(q2); o = std::max(o, pl->eng2->takeOut()); for (int i = 0; i < 5; i++) q[i] = std::max(q[i], q2[i]); }
     pl->pk[0] = q[0]; pl->pk[1] = q[1]; pl->pk[2] = q[2]; pl->pk[3] = std::max(q[3], q[4]); pl->pk[4] = o * o / 2 / 8; }
   // Schlafen: Eingang still (< −120 dBFS) und Ausgang nur noch Brumm (< −70 dBFS) für 2 s; der Kern wird dann angehalten
+  // Ab Laney 3.38 / Yamaha 1.17 / AmpFett 1.17 / GK 1.2 / G100 1.5 / B100-III 1.2 / SVT-CL 1.2 nur noch intern: Rückgabe CONTINUE statt SLEEP. REAPER rief das Plugin nach SLEEP
+  // bei Live-Eingang (Spur scharf, Transport steht) erst nach einem Druck auf Play wieder auf; der Schlaf kostet so nur die Prüfung des Eingangs.
   if (inPk < 1e-6f && outPk < 3e-4 && !pl->building) pl->quiet += n; else pl->quiet = 0;
-  if (pl->quiet >= (long)(2 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; for (auto &x : pl->pk) x = 0; } return CLAP_PROCESS_SLEEP; }
+  if (pl->quiet >= (long)(2 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; for (auto &x : pl->pk) x = 0; } return CLAP_PROCESS_CONTINUE; }
   return CLAP_PROCESS_CONTINUE;
 }
 static clap_process_status pl_process(const clap_plugin_t *p, const clap_process_t *pr) {
