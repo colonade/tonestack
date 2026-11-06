@@ -1102,7 +1102,9 @@ body.kompakt .readout.open .ro .v{font-size:1.05rem}
 body.kompakt .readout:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* Player */
 body.kompakt #listen>.ph{display:none}
-body.kompakt .deck{margin-top:0;border:0;border-radius:0;background:transparent;overflow:visible}
+/* Player als eigene Karte (wie die Tafeln), auch im Breitbild, wo er außerhalb der Tafel „Anhören“ steht; die Tafel selbst ist nur noch Hülle */
+body.kompakt #listen.panel{background:transparent;border:0;padding:0;box-shadow:none}
+body.kompakt .deck{margin-top:0;border:1px solid var(--line);border-radius:12px;background:var(--field);padding:12px 14px;overflow:visible}
 body.kompakt .deck:has(.wave[hidden]) .drop{display:none}
 body.kompakt .deck .drop{padding:0 0 8px;background:transparent;border:0;flex-wrap:nowrap}
 body.kompakt .deck .drop #aname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1166,6 +1168,9 @@ body.kompakt .mlow>.sub.after h3{font-size:1rem;margin:0 0 6px}
   body.kompakt .dmain{gap:10px}
   body.kompakt .pbig{width:48px;height:48px;font-size:1.1rem}
   body.kompakt .deck .wave,body.kompakt .wempty{height:50px}
+  body.kompakt .deck{padding:10px 8px}
+  body.kompakt .dtrans{gap:5px}
+  body.kompakt .dtrans .ib{padding:2px 7px}
   body.kompakt .dmix{gap:8px}
   body.kompakt .dmix .seg button{padding:5px 9px;font-size:.8rem}
   body.kompakt .dmix .btn.abyp,body.kompakt .dmix #adl{font-size:.82rem;padding:4px 11px}
