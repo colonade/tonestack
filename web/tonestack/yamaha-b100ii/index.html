@@ -679,7 +679,7 @@ function drawGrid() {
     const f = dec*m; if (f < F0 || f > F1) continue;
     el('line', {x1:xOf(f), x2:xOf(f), y1:T, y2:Ht-B, stroke: m===1 ? 'var(--grid)' : 'var(--grid2)', 'stroke-width': m===1 ? 1.2 : 1});
   }
-  const st = (b - a) > 60 ? 10 : 5;
+  const st = ((b - a) > 60 || window.__mobH) ? 10 : 5;
   for (let d = a; d <= b; d += st) {
     el('line', {x1:L, x2:W-R, y1:yOf(d), y2:yOf(d), stroke: d===0 ? 'var(--ink2)' : 'var(--grid)', 'stroke-width': d===0 ? 1.2 : 1});
     const t = el('text', {x:L-8, y:yOf(d)+4, 'text-anchor':'end'}); t.textContent = d > 0 ? '+'+d : String(d).replace('-', '−');
@@ -702,8 +702,8 @@ function render() {
   if (typeof updFront === 'function') updFront();
   const v = vals();
   const cw = svg.clientWidth || 1000;
-  if (window.__plotH) { W = Math.max(600, Math.round(cw)); Ht = window.__plotH; } else if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }   // Breitbild-Ansicht: Höhe passend zum Player, Maßstab 1:1
-  svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640);
+  if (window.__plotH) { W = Math.max(600, Math.round(cw)); Ht = window.__plotH; } else if (window.__mobH) { W = Math.max(280, Math.round(cw)); Ht = window.__mobH; } else if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }   // Breitbild-Ansicht: Höhe passend zum Player, Maßstab 1:1
+  svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640 && !window.__mobH);
   const cur = curve(S.knobs, v);
   const refK = {t:10,m:10,b:10,e0:5,e1:5,e2:5,e3:5,e4:5}, refKey = S.mode + '|' + S.sw.inp + '|' + S.sw.spk + '|' + S.taper + '|' + JSON.stringify(v);
   if (refKey !== refMemo.key) { refMemo.key = refKey; refMemo.data = curve(refK, v); }   // Werkskurve hängt nicht von den Knöpfen ab: nur neu rechnen, wenn sich Bauteile/Buchse ändern
@@ -1259,7 +1259,7 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
     const ro = plot.querySelector('.readout'); const rh = ro ? ro.getBoundingClientRect().height + 8 : 0;
     window.__plotH = Math.max(220, Math.min(620, Math.round(target - top - (below - rh)))); };
   function apply() {
-    if (mq.matches) { if (k2 && reihe) { reihe.before(main); main.append(reihe, k2); }
+    if (mq.matches) { if (k2 && reihe && !main.parentNode) { reihe.before(main); main.append(reihe, k2); }
       (front.querySelector('figcaption') || front.lastChild).before(ck); ck.prepend(kipp); L.append(deck); if (st) L.append(st); Rr.append(plot); document.body.classList.add('cockpit'); }
     else { if (k2 && reihe && main.parentNode) { main.before(reihe); reihe.after(k2); main.remove(); }
       for (const [el, c] of marks) c.after(el); ck.remove(); document.body.classList.remove('cockpit'); }
@@ -1274,7 +1274,7 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
 /* Beim Aufrufen langsam zur Frontplatte scrollen (nicht bei Sprungmarke in der Adresse, nicht beim Zurückkehren auf eine gescrollte Stelle);
    bricht ab, sobald man selbst scrollt oder tippt; bei „Bewegung reduzieren" ohne Animation */
 (() => { const f = document.getElementById('front'); if (!f || location.hash) return;
-  const go = () => { if (scrollY > 40) return;
+  const go = () => { if (scrollY > 40 || document.body.classList.contains('mob')) return;
     const target = Math.max(0, f.getBoundingClientRect().top + scrollY - 8), start = scrollY, d = target - start; if (d < 20) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { scrollTo(0, target); return; }
     let stop = false, t0 = null; const halt = () => { stop = true; };
@@ -1326,6 +1326,171 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
     inp.addEventListener('input', draw); new MutationObserver(draw).observe(out || inp, { childList: true, characterData: true, subtree: true }); draw(); };
   const go = () => ['avin', 'amis', 'avol'].forEach(window.rknob);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
+</script>
+<style id="mob-css">
+/* Handy-Ansicht (bis 700 px Breite, ab 2026-11-06): Kopf einzeilig, Modell-Leiste verdichtet, Frequenzgang und Player kompakt direkt unter der Frontplatte,
+   Erklärungen eingeklappt und nach unten. Nur aktiv mit body.mob (gesetzt vom Skript mob-js); die Breitansicht bleibt unverändert. */
+.mback,.minfo,.mhelp{display:none}
+body.mob .wrap{padding:8px 10px 32px}
+body.mob .wrap>nav:first-child,body.mob .jump{display:none}
+body.mob header{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin:0}
+body.mob header h1{flex:1;min-width:0;font-size:1.32rem;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.mob .mback{display:inline-block;text-decoration:none;color:var(--ink2);font-size:1.35rem;line-height:1;padding:6px 6px 6px 0}
+body.mob .minfo,body.mob .mhelp{display:inline-flex;align-items:center;font:inherit;font-size:.8rem;line-height:1.2;border:1px solid var(--line);border-radius:999px;background:var(--field);color:var(--ink);padding:4px 10px;cursor:pointer}
+body.mob .minfo[aria-expanded="true"],body.mob .mhelp[aria-expanded="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+body.mob header>p{display:none;flex-basis:100%;font-size:.86rem;margin:4px 0 2px}
+body.mob header.open>p{display:block}
+body.mob .front{margin-top:4px}
+body.mob .fview{margin-top:5px}
+/* Modell-Leiste: eine bis zwei Zeilen */
+body.mob .kipp{margin-top:6px;padding:8px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+body.mob .kippkopf,body.mob .kipp .ks,body.mob .kp{display:none}
+body.mob .kippreihe,body.mob .kipp2{display:contents}
+body.mob .ki{flex-direction:row;align-items:center;min-width:0;gap:7px}
+body.mob .ki .kt{margin:0;order:2;font-size:.78rem}
+body.mob .kk{align-items:center}
+body.mob .kipp input[type=checkbox]{width:38px;height:22px;border-radius:11px;background:radial-gradient(circle at 11px 50%,#e6e6e8 0 7px,transparent 7.5px) #3a3d44;background-size:auto}
+body.mob .kipp input[type=checkbox]:checked{background:radial-gradient(circle at 27px 50%,#191b1f 0 7px,transparent 7.5px) #ffd98a;background-size:auto}
+body.mob .kgrp{flex-direction:row;align-items:center;gap:7px}
+body.mob .kgrp>.kt{font-size:.78rem;margin:0}
+body.mob .kin{gap:6px;font-size:.84rem}
+body.mob .kin output{min-width:0;color:#ffd98a}
+body.mob .kipp .rk,body.mob .kipp .rk svg{width:34px;height:34px}
+body.mob .kipp .ksel{font-size:.8rem;padding:2px 4px}
+body.mob .kipp{position:relative;padding-right:46px}
+body.mob .kipp .mhelp{position:absolute;top:8px;right:9px;width:28px;height:28px;padding:0;justify-content:center;font-weight:700;background:transparent;color:#b9bcc3;border-color:#3a3d44}
+body.mob .kipp .mhelp[aria-expanded="true"]{background:#dcdee2;color:#191b1f}
+body.mob #pwrrow{order:9;flex-basis:100%}
+body.mob #pwrrow .stg{flex:1;flex-direction:row;align-items:center;gap:8px}
+body.mob #pwrrow .stg .sb{flex:1}
+body.mob .front figcaption{display:none;margin-top:6px}
+body.mob .front.hilfe figcaption{display:block}
+/* Frequenzgang */
+body.mob .panel{padding:10px 10px 12px;margin-top:10px}
+body.mob #sec-plot .ph{flex-wrap:nowrap;align-items:center;justify-content:space-between;margin-bottom:6px}
+body.mob #sec-plot .ph p{display:none}
+body.mob .panel>.ph>h2{font-size:1.1rem}
+body.mob .panel>.ph>h2::before{height:18px;width:7px}
+body.mob #sec-plot .ph .seg button{padding:4px 9px;font-size:.8rem}
+body.mob #sec-plot .bar{margin:0 0 4px;gap:6px}
+body.mob #sec-plot .bar label,body.mob .mchip{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;line-height:1.2;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--ink);background:var(--field);flex-wrap:nowrap}
+body.mob #sec-plot .bar label input{margin:0;width:14px;height:14px}
+body.mob .mchip i{display:inline-block;width:16px;height:0;border-top:3px solid var(--curve)}
+body.mob .mchip i.c{border-top:2px dashed var(--cmp)}
+body.mob .mchip[hidden]{display:none}
+body.mob #sec-plot .legend{display:none}
+body.mob #sec-plot .plotbox{border:0}
+body.mob .readout{margin-top:4px;display:flex;flex-wrap:nowrap;gap:0 12px;overflow:hidden;white-space:nowrap;cursor:pointer;font-size:.8rem;position:relative;padding-left:16px;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+body.mob .readout::before{content:"▸";position:absolute;left:2px;top:1px;color:var(--ink2)}
+body.mob .readout .ro{border:0;padding:0;display:flex;gap:4px;align-items:baseline;flex:none}
+body.mob .readout .ro .f{font-size:.76rem}
+body.mob .readout .ro .v{font-size:.84rem;font-weight:700;font-stretch:100%}
+body.mob .readout.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;white-space:normal;-webkit-mask-image:none;mask-image:none}
+body.mob .readout.open::before{content:"▾"}
+body.mob .readout.open .ro{display:block;border-left:2px solid var(--alu-ink);padding-left:8px}
+body.mob .readout.open .ro .v{font-size:1.05rem}
+body.mob .readout:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* Player */
+body.mob #listen>.ph{display:none}
+body.mob .deck{margin-top:0;border:0;border-radius:0;background:transparent;overflow:visible}
+body.mob .deck:has(.wave[hidden]) .drop{display:none}
+body.mob .deck .drop{padding:0 0 8px;background:transparent;border:0;flex-wrap:nowrap}
+body.mob .deck .drop #aname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.mob .dmain{padding:0;gap:10px}
+body.mob .pbig{width:48px;height:48px;font-size:1.1rem}
+body.mob .deck .wave,body.mob .wempty{height:50px}
+body.mob .wempty{cursor:pointer;color:var(--ink)}
+body.mob .dmix{border:0;margin-top:8px;padding:0;gap:8px}
+body.mob .dmix .seg button{padding:5px 9px;font-size:.8rem}
+body.mob .dmix .btn.abyp{min-height:30px;padding:4px 11px;font-size:.82rem}
+body.mob .dmix .dtrans{flex-basis:100%;margin:0;gap:6px}
+body.mob .dtrans .ib{min-height:28px;min-width:0;padding:2px 9px;font-size:.8rem}
+body.mob .dtrans .opt{margin:0;font-size:.78rem;border:1px solid var(--line);border-radius:999px;padding:3px 9px;gap:5px;background:var(--field)}
+body.mob .dtrans .opt input{margin:0;width:14px;height:14px}
+body.mob .dtrans .atime{font-size:.76rem;white-space:nowrap}
+body.mob .dvol{flex:1;width:auto;margin:0;flex-direction:row;align-items:center;gap:8px;min-width:0}
+body.mob .dvol .avol{display:flex;align-items:center;gap:6px;font-size:.84rem;flex:none}
+body.mob .dvol .rk,body.mob .dvol .rk svg{width:34px;height:34px}
+body.mob .dvol .meter{flex:1;min-width:30px}
+body.mob .dmix #adl{min-height:30px;padding:4px 11px;font-size:.82rem}
+body.mob .dfoot{padding:4px 0 0;border:0;background:transparent}
+body.mob .dfoot:has(.note:empty){display:none}
+body.mob #astatus:empty{display:none}
+/* Unten: eingeklappte Abschnitte */
+body.mob .panel.zuk>.ph{margin:0;cursor:pointer}
+body.mob .panel.zuk>.ph>h2::after{content:"▾";margin-left:auto;font-size:.9rem;color:var(--ink2)}
+body.mob .panel.zuk.zu>.ph>h2::after{content:"▸"}
+body.mob .panel.zuk.zu>:not(.ph),body.mob .panel.zuk.zu>.ph>p{display:none}
+body.mob .panel.zuk>.ph>h2{flex:1}
+body.mob .panel.zuk>.ph{flex-wrap:wrap}
+body.mob .mlow #pwrbox{margin-top:8px}
+body.mob .mlow #pwrbox h3{font-size:1rem;margin:0 0 6px}
+</style>
+<script id="mob-js">
+/* Handy-Ansicht: unter 700 px Breite Elemente umhängen (verschoben, nicht kopiert; Rückweg über Merkzeichen) und Beschriftungen kürzen; ab 700 px alles zurück */
+(() => { const mq = matchMedia('(max-width:700px)'), $ = id => document.getElementById(id), B = document.body;
+  const hdr = document.querySelector('.wrap>header'), h1 = hdr && hdr.querySelector('h1'), front = $('front'), kipp = $('kipp'), plot = $('sec-plot'), deck = $('deck');
+  if (!hdr || !h1 || !front || !kipp || !plot || !deck) return;
+  const moved = [], texts = [], made = [], on = { v: false };
+  const move = (el, fn) => { if (!el) return; const c = document.createComment('mob'); el.before(c); moved.push([el, c]); fn(el); };
+  const txt = (node, s) => { if (!node) return; if (node.nodeType !== 3) { const t = [...node.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).pop(); if (!t) { texts.push([node, node.textContent, 1]); node.textContent = s; return; } node = t; }
+    texts.push([node, node.textContent, 0]); node.textContent = ' ' + s; };
+  const mk = (tag, cls, html, at) => { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; made.push(e); at(e); return e; };
+  const tog = (btn, el, cls) => { btn.setAttribute('aria-expanded', 'false'); btn.addEventListener('click', () => { const o = el.classList.toggle(cls); btn.setAttribute('aria-expanded', String(o)); }); };
+  const ro = $('readout'), roTog = e => { if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return; if (e.type === 'keydown') e.preventDefault(); const o = ro.classList.toggle('open'); ro.setAttribute('aria-expanded', String(o)); };
+  const zuk = e => { if (e.target.closest('a,button,input,select')) return; const p = e.currentTarget.parentNode; const z = p.classList.toggle('zu'); e.currentTarget.setAttribute('aria-expanded', String(!z)); };
+  const zukKey = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zuk(e); } };
+  const pick = () => { const b = $('apick'); if (b) b.click(); };
+  function an() {
+    if (on.v) return; on.v = true; B.classList.add('mob');
+    // Kopf: Zurück-Pfeil, kurzer Titel, Einleitung hinter „Info"
+    texts.push([h1, h1.textContent, 1]); h1.textContent = h1.textContent.split(':')[0].trim();
+    mk('a', 'mback', '←', e => { e.href = '../'; e.setAttribute('aria-label', 'Zur Übersicht'); hdr.prepend(e); });
+    tog(mk('button', 'minfo', 'ⓘ Info', e => { e.type = 'button'; h1.after(e); }), hdr, 'open');
+    // Modell-Leiste: Hilfe-Knopf blendet die Bedienhinweise ein
+    for (const o of kipp.querySelectorAll('select option')) { const k = o.textContent.replace(/\s*\(.*\)\s*$/, ''); if (k !== o.textContent) { texts.push([o, o.textContent, 1]); o.textContent = k; } }
+    tog(mk('button', 'mhelp', '?', e => { e.type = 'button'; e.title = 'Bedienhinweise'; e.setAttribute('aria-label', 'Bedienhinweise ein- oder ausblenden'); kipp.append(e); }), front, 'hilfe');
+    // Frequenzgang: Bezugswahl in die Kopfzeile, Legende als Chips, Ablesewerte einzeilig
+    const bar = plot.querySelector('.bar'), seg = bar && bar.querySelector('.seg'), ph = plot.querySelector('.ph');
+    if (seg && ph) move(seg, e => ph.append(e));
+    txt($('mRel'), 're 1 kHz'); txt($('mAbs'), 'absolut');
+    txt($('showRef') && $('showRef').closest('label'), 'Service'); txt($('showFig') && $('showFig').closest('label'), 'Werk Fig. 1');
+    const lg = plot.querySelector('.legend'), lg0 = lg && lg.querySelector('span'), lgc = $('lgCmp');
+    if (bar && lg0) { move(lg0, e => bar.prepend(e)); lg0.classList.add('mchip'); txt(lg0, 'Aktuell'); }
+    if (bar && lgc) { move(lgc, e => bar.append(e)); lgc.classList.add('mchip'); txt(lgc, 'Gemerkt'); }
+    if (ro) { ro.tabIndex = 0; ro.setAttribute('aria-expanded', 'false'); ro.title = 'Antippen: Pegel bei den markierten Frequenzen auf- oder zuklappen'; ro.addEventListener('click', roTog); ro.addEventListener('keydown', roTog); }
+    // Player: Transport unter Modus/Bypass, „Pegel angleichen" zur Schleife, WAV neben Lautstärke
+    const dtrans = deck.querySelector('.dtrans'), abyp = $('abyp'), am = $('amatch'), adl = $('adl'), dvol = deck.querySelector('.dvol'), lp = $('aloop');
+    if (dtrans && abyp) move(dtrans, e => abyp.after(e));
+    if (am && lp) move(am.closest('label'), e => lp.closest('label').after(e));
+    if (adl && dvol) move(adl, e => dvol.after(e));
+    for (const b of deck.querySelectorAll('.lseg button')) { if (b.dataset.lm === 'cmp') txt(b, 'Gemerkt'); else if (b.dataset.lm === 'off') txt(b, 'Ohne'); }
+    if (am) txt(am.closest('label').querySelector('span'), 'Pegel');
+    if (adl) txt(adl, '⤓ WAV');
+    const we = deck.querySelector('.wempty'); if (we) { txt(we, 'Audiodatei wählen'); we.addEventListener('click', pick); we.setAttribute('role', 'button'); we.tabIndex = 0; }
+    // Unten: Erklärungen zu POWER AMP/SPEAKER und Hinweise in eigenen Abschnitt nach Bauteile; Einstellungen und Bauteile eingeklappt
+    const last = $('sec-parts') || $('sec-set'), pb = $('pwrbox'), hw = [...$('listen').querySelectorAll(':scope>details.exp')];
+    const low = mk('section', 'panel mlow zuk zu', '<div class="ph"><h2>Über POWER AMP, SPEAKER und den Player</h2></div>', e => (last || plot).after(e));
+    if (pb) move(pb, e => low.append(e)); for (const d of hw) move(d, e => low.append(e));
+    for (const p of [$('sec-set'), $('sec-parts'), low]) { if (!p) continue; const h = p.querySelector(':scope>.ph'); if (!h) continue;
+      if (p !== low) { p.classList.add('zuk', 'zu'); made.push({ remove: () => p.classList.remove('zuk', 'zu') }); }
+      h.tabIndex = 0; h.setAttribute('role', 'button'); h.setAttribute('aria-expanded', 'false'); h.addEventListener('click', zuk); h.addEventListener('keydown', zukKey);
+      made.push({ remove: () => { h.removeEventListener('click', zuk); h.removeEventListener('keydown', zukKey); h.removeAttribute('tabindex'); h.removeAttribute('role'); h.removeAttribute('aria-expanded'); } }); }
+    made.push({ remove: () => { if (ro) { ro.removeEventListener('click', roTog); ro.removeEventListener('keydown', roTog); ro.removeAttribute('tabindex'); ro.removeAttribute('aria-expanded'); ro.removeAttribute('title'); ro.classList.remove('open'); }
+      if (we) { we.removeEventListener('click', pick); we.removeAttribute('role'); we.removeAttribute('tabindex'); }
+      for (const c of [lg0, lgc]) if (c) c.classList.remove('mchip'); hdr.classList.remove('open'); front.classList.remove('hilfe'); } });
+    window.__mobH = Math.round(Math.min(200, Math.max(150, innerWidth * 0.4)));
+  }
+  function aus() {
+    if (!on.v) return; on.v = false; B.classList.remove('mob'); window.__mobH = 0;
+    while (moved.length) { const [el, c] = moved.pop(); c.after(el); c.remove(); }
+    while (texts.length) { const [n, t] = texts.pop(); n.textContent = t; }
+    while (made.length) made.pop().remove();
+  }
+  const apply = () => { mq.matches ? an() : aus(); requestAnimationFrame(() => dispatchEvent(new Event('resize'))); };
+  mq.addEventListener ? mq.addEventListener('change', apply) : mq.addListener(apply);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply); else apply();
 })();
 </script>
 </body></html>

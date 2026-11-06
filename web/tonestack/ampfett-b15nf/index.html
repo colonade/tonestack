@@ -962,7 +962,7 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
     const ro = plot.querySelector('.readout'); const rh = ro ? ro.getBoundingClientRect().height + 8 : 0;
     window.__plotH = Math.max(220, Math.min(620, Math.round(target - top - (below - rh)))); };
   function apply() {
-    if (mq.matches) { if (k2 && reihe) { reihe.before(main); main.append(reihe, k2); }
+    if (mq.matches) { if (k2 && reihe && !main.parentNode) { reihe.before(main); main.append(reihe, k2); }
       (front.querySelector('figcaption') || front.lastChild).before(ck); ck.prepend(kipp); L.append(deck); if (st) L.append(st); Rr.append(plot); document.body.classList.add('cockpit'); }
     else { if (k2 && reihe && main.parentNode) { main.before(reihe); reihe.after(k2); main.remove(); }
       for (const [el, c] of marks) c.after(el); ck.remove(); document.body.classList.remove('cockpit'); }
