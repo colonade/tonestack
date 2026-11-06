@@ -1,6 +1,6 @@
 // Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.16"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.17"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "yamaha_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -142,7 +142,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->sleeping && inPk >= 1e-6f) { pl->sleeping = false; pl->quiet = 0; }
   if (pl->sleeping) {   // Schlaf auch ohne Mitwirkung des Hosts: lineares Netz ist abgeklungen, Stille ausgeben
     for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
-    return CLAP_PROCESS_SLEEP; }
+    return CLAP_PROCESS_CONTINUE; }
   pl->eng->block(m, (int)n); if (stereo) pl->eng2->block(m2, (int)n);
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
   { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));   // Ausgangspegel gleitet (kein Knacken beim Drehen)
@@ -150,9 +150,11 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = src[i]; else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i]; }
   if ((pl->pkCnt += n) >= pl->fs / 10) { pl->pkCnt = 0; double q = pl->eng->takePeak(); if (stereo) q = std::max(q, pl->eng2->takePeak()); pl->pk = q; }
   // Schlafen: Eingang still (< −120 dBFS) und Ausgang abgeklungen (< −100 dBFS) für 0,5 s (längste Zeitkonstante des Netzes: 47 µF-Koppelkondensatoren, unter 0,5 s)
+  // Ab Laney 3.38 / Yamaha 1.17 / AmpFett 1.17 / GK 1.2 / G100 1.5 / B100-III 1.2 / SVT-CL 1.2 nur noch intern: Rückgabe CONTINUE statt SLEEP. REAPER rief das Plugin nach SLEEP
+  // bei Live-Eingang (Spur scharf, Transport steht) erst nach einem Druck auf Play wieder auf; der Schlaf kostet so nur die Prüfung des Eingangs.
   double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0));
   if (inPk < 1e-6f && outPk < 1e-5) pl->quiet += n; else pl->quiet = 0;
-  if (pl->quiet >= (long)(0.5 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; pl->pk = 0; } return CLAP_PROCESS_SLEEP; }
+  if (pl->quiet >= (long)(0.5 * pl->fs)) { if (!pl->sleeping) { pl->sleeping = true; pl->load = 0; pl->pk = 0; } return CLAP_PROCESS_CONTINUE; }
   return CLAP_PROCESS_CONTINUE;
 }
 // Hülle: Denormals abschalten (FTZ/DAZ, danach wiederherstellen); eine Ausnahme darf nie die C-Grenze zum Host überschreiten

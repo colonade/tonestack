@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -126,6 +126,19 @@ CPU
   amp system about 10 % faster); stereo with different left and right
   signals doubles that. With
   the same signal on both channels it is computed once.
+
+1.2
+  - Hard attacks with much GAIN: when the solver does not converge at once
+    it now takes damped steps right away instead of falling back to a slow
+    emergency path (up to 240 steps for one sample). That emergency path
+    caused single audio blocks to take more than twice the buffer time,
+    heard as a crackle on every note with small buffers (64 samples).
+    Faster matrix products as well. Sound unchanged apart from solver
+    tolerance (difference below -100 dB).
+  - Fixed: after inserting or enabling the plugin on a record-armed track
+    it stayed silent for live input (meters dead) until Play was pressed
+    once. The idle mode after silence is now internal only; the plugin no
+    longer asks the host to stop calling it.
 
 1.1
   - Oversampling removed (only 1x): 2x/4x were not usable in real time.

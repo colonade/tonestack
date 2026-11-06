@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.16
+Version 1.17
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -121,6 +121,15 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.17
+  - Faster solver (dense matrix products): about 6-8 % less CPU. Sound
+    unchanged apart from rounding and solver tolerance (difference below
+    -95 dB).
+  - Fixed: after inserting or enabling the plugin on a record-armed track
+    it stayed silent for live input (meters dead) until Play was pressed
+    once. The idle mode after silence is now internal only; the plugin no
+    longer asks the host to stop calling it.
 
 1.16
   - New parameter "Volume pot taper" (POT TAPER toggle in the model strip):
