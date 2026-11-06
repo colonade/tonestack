@@ -508,7 +508,7 @@ function drawGrid() {
   el('rect', {x:L, y:T, width:W - L - R, height:Ht - T - B, fill:'var(--paper)'});
   for (let dec = 10; dec <= 10000; dec *= 10) for (let m = 1; m <= 9; m++) { const f = dec * m; if (f < F0 || f > F1) continue;
     el('line', {x1:xOf(f), x2:xOf(f), y1:T, y2:Ht - B, stroke: m === 1 ? 'var(--grid)' : 'var(--grid2)', 'stroke-width': m === 1 ? 1.2 : 1}); }
-  const st = (b - a) > 60 ? 10 : 5;
+  const st = ((b - a) > 60 || window.__mobH) ? 10 : 5;
   for (let d = a; d <= b; d += st) { el('line', {x1:L, x2:W - R, y1:yOf(d), y2:yOf(d), stroke: d === 0 ? 'var(--ink2)' : 'var(--grid)', 'stroke-width': d === 0 ? 1.2 : 1});
     const t = el('text', {x:L - 8, y:yOf(d) + 4, 'text-anchor':'end'}); t.textContent = d > 0 ? '+' + d : String(d).replace('-', '−'); }
   for (const f of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) { const t = el('text', {x:xOf(f), y:Ht - B + 20, 'text-anchor':'middle'}); t.textContent = f >= 1000 ? f / 1000 + 'k' : f; }
@@ -524,8 +524,8 @@ let rafR = 0; const requestRender = () => { if (!rafR) rafR = requestAnimationFr
 function render() {
   updFront();
   const cw = svg.clientWidth || 1000;
-  if (window.__plotH) { W = Math.max(600, Math.round(cw)); Ht = window.__plotH; } else if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }
-  svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640);
+  if (window.__plotH) { W = Math.max(600, Math.round(cw)); Ht = window.__plotH; } else if (window.__mobH) { W = Math.max(280, Math.round(cw)); Ht = window.__mobH; } else if (cw < 700) { W = 640; Ht = 400; } else { W = 1000; Ht = 300; }
+  svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`); svg.classList.toggle('sm', W === 640 && !window.__mobH);
   const raw = plotCurve(S.knobs, S.jack, S.sw.spk);
   const rk = S.jack + '|' + S.sw.spk + '|' + S.taper; if (raw && rk !== refMemo.key) { refMemo.key = rk; refMemo.data = plotCurve(DEF.knobs, S.jack, S.sw.spk); }
   curC = rel(raw); refC = rel(refMemo.data); cmpC = cmp ? rel(plotCurve(cmp.kn, cmp.jack, S.sw.spk)) : null;
@@ -958,7 +958,7 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
   const ck = document.createElement('div'); ck.className = 'cockpit'; ck.innerHTML = '<div class="ckgrid"><div class="ckl"></div><div class="ckr"></div></div>';
   const L = ck.querySelector('.ckl'), Rr = ck.querySelector('.ckr');
   const fit = () => { if (!document.body.classList.contains('cockpit')) { window.__plotH = 0; return; }
-    const target = Math.max(L.getBoundingClientRect().bottom, front.getBoundingClientRect().top + innerHeight - 16), top = svg.getBoundingClientRect().top, below = Rr.getBoundingClientRect().bottom - svg.getBoundingClientRect().bottom;
+    const target = Math.max(L.getBoundingClientRect().bottom, (document.body.classList.contains('kompakt') ? -scrollY : front.getBoundingClientRect().top) + innerHeight - 16), top = svg.getBoundingClientRect().top, below = Rr.getBoundingClientRect().bottom - svg.getBoundingClientRect().bottom;
     const ro = plot.querySelector('.readout'); const rh = ro ? ro.getBoundingClientRect().height + 8 : 0;
     window.__plotH = Math.max(220, Math.min(620, Math.round(target - top - (below - rh)))); };
   function apply() {
@@ -977,7 +977,7 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
 /* Beim Aufrufen langsam zur Frontplatte scrollen (nicht bei Sprungmarke in der Adresse, nicht beim Zurückkehren auf eine gescrollte Stelle);
    bricht ab, sobald man selbst scrollt oder tippt; bei „Bewegung reduzieren“ ohne Animation */
 (() => { const f = document.getElementById('front'); if (!f || location.hash) return;
-  const go = () => { if (scrollY > 40) return;
+  const go = () => { if (scrollY > 40 || document.body.classList.contains('kompakt')) return;
     const target = Math.max(0, f.getBoundingClientRect().top + scrollY - 8), start = scrollY, d = target - start; if (d < 20) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { scrollTo(0, target); return; }
     let stop = false, t0 = null; const halt = () => { stop = true; };
@@ -1029,6 +1029,208 @@ $('aloop').onchange = e => { if (A.src) A.src.loop = e.target.checked; };
     inp.addEventListener('input', draw); new MutationObserver(draw).observe(out || inp, { childList: true, characterData: true, subtree: true }); draw(); };
   const go = () => ['avin', 'amis', 'avol'].forEach(window.rknob);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
+</script>
+<style id="kompakt-css">
+/* Kompaktansicht (ab 2026-11-06, alle Breiten; gesetzt vom Skript kompakt-js): Kopf einzeilig, Modell-Leiste verdichtet, Frequenzgang mit Chips,
+   Ablesewerte eingeklappt, kompakter Player, Erklärungen unten eingeklappt. Ab 1200 px ordnet das Breitbild-Skript (cockpit) Player und Diagramm nebeneinander. */
+.mback,.minfo,.mhelp{display:none}
+body.kompakt .wrap>nav:first-child,body.kompakt .jump{display:none}
+body.kompakt header{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;margin:0}
+body.kompakt header h1{flex:1;min-width:0;font-size:clamp(1.3rem,2.4vw,1.9rem);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.kompakt .mback{display:inline-block;text-decoration:none;color:var(--ink2);font-size:1.35rem;line-height:1;padding:6px 6px 6px 0}
+body.kompakt .minfo{display:inline-flex;align-items:center;font:inherit;font-size:.82rem;line-height:1.2;border:1px solid var(--line);border-radius:999px;background:var(--field);color:var(--ink);padding:4px 11px;cursor:pointer}
+body.kompakt .minfo[aria-expanded="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+body.kompakt header>:not(h1):not(.mback):not(.minfo){display:none;flex-basis:100%;font-size:.9rem;margin:4px 0 2px;max-width:80ch}
+body.kompakt header.open>:not(h1):not(.mback):not(.minfo){display:block}
+body.kompakt header>details>summary{display:none}
+body.kompakt .front{margin-top:6px}
+/* Modell-Leiste: alles in einer umbrechenden Zeile */
+body.kompakt .kipp{position:relative;margin-top:6px;padding:8px 46px 8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px}
+body.kompakt .kippkopf,body.kompakt .kipp .ks{display:none}
+body.kompakt .kippreihe,body.kompakt .kipp2,body.kompakt .kippmain{display:contents}
+body.kompakt .ki{flex-direction:row;align-items:center;min-width:0;gap:7px}
+body.kompakt .ki .kk{display:contents}
+body.kompakt .ki input{order:1}
+body.kompakt .ki .kt{order:2;margin:0;font-size:.78rem}
+body.kompakt .ki .kp{order:3;display:block;padding:0;font-size:.7rem;white-space:nowrap}
+body.kompakt .ki .kp>span{display:none}
+body.kompakt .ki input:checked+.kp .on,body.kompakt .ki input:not(:checked)+.kp .off{display:inline;color:#ffd98a;font-weight:700}
+body.kompakt .ki .kp.std{display:none}
+body.kompakt .kipp input[type=checkbox]{width:38px;height:22px;margin:0;border-radius:11px;background:radial-gradient(circle at 11px 50%,#e6e6e8 0 7px,transparent 7.5px) #3a3d44;background-size:auto}
+body.kompakt .kipp input[type=checkbox]:checked{background:radial-gradient(circle at 27px 50%,#191b1f 0 7px,transparent 7.5px) #ffd98a;background-size:auto}
+body.kompakt .kgrp{flex-direction:row;align-items:center;gap:7px}
+body.kompakt .kgrp>.kt{font-size:.78rem;margin:0;min-width:0}
+body.kompakt .kin{gap:6px;font-size:.84rem}
+body.kompakt .kin output{min-width:0;color:#ffd98a}
+body.kompakt .kipp .rk,body.kompakt .kipp .rk svg{width:36px;height:36px}
+body.kompakt .kipp .ksel{font-size:.8rem;padding:2px 4px}
+body.kompakt .kipp .mhelp{display:inline-flex;align-items:center;justify-content:center;position:absolute;top:8px;right:9px;width:28px;height:28px;padding:0;font:inherit;font-size:.82rem;font-weight:700;border:1px solid #3a3d44;border-radius:999px;background:transparent;color:#b9bcc3;cursor:pointer}
+body.kompakt .kipp .mhelp[aria-expanded="true"]{background:#dcdee2;color:#191b1f}
+body.kompakt #pwrrow{order:9;flex-basis:100%}
+body.kompakt #pwrrow .stg{flex:1;flex-direction:row;align-items:center;gap:8px}
+body.kompakt #pwrrow .stg .sb{flex:1}
+body.kompakt .kgrp.drive{order:9;flex:1 1 100%;gap:4px 14px}
+body.kompakt .kdrive{order:9;flex:1 1 100%;margin:0;padding-top:6px}
+body.kompakt .kdrive .khead{margin-bottom:4px}
+body.kompakt .front figcaption{display:none;margin-top:6px}
+body.kompakt .front.hilfe figcaption{display:block}
+/* Frequenzgang */
+body.kompakt #sec-plot .ph{flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;margin-bottom:6px}
+body.kompakt #sec-plot .ph p{display:none}
+body.kompakt #sec-plot .ph .seg button{padding:4px 10px;font-size:.82rem}
+body.kompakt #sec-plot .bar{margin:0 0 6px;gap:6px}
+body.kompakt #sec-plot .bar label,body.kompakt .mchip{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;line-height:1.2;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--ink);background:var(--field);flex-wrap:nowrap;margin:0}
+body.kompakt #sec-plot .bar label input{margin:0;width:14px;height:14px}
+body.kompakt .mchip i{display:inline-block;width:16px;height:0;margin:0;border-top:3px solid var(--curve)}
+body.kompakt .mchip i.c{border-top:2px dashed var(--cmp)}
+body.kompakt .mchip[hidden]{display:none}
+body.kompakt #sec-plot .legend{display:none}
+body.kompakt #plotstatus{font-size:.8rem;margin:4px 0 0}
+body.kompakt #plotstatus:empty{display:none}
+body.kompakt .readout{margin-top:6px;display:flex;flex-wrap:nowrap;gap:0 14px;overflow:hidden;white-space:nowrap;cursor:pointer;font-size:.8rem;position:relative;padding-left:16px;-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}
+body.kompakt .readout::before{content:"▸";position:absolute;left:2px;top:1px;color:var(--ink2)}
+body.kompakt .readout .ro{border:0;padding:0;display:flex;gap:4px;align-items:baseline;flex:none}
+body.kompakt .readout .ro .f{font-size:.76rem}
+body.kompakt .readout .ro .v{font-size:.84rem;font-weight:700;font-stretch:100%;line-height:1.3}
+body.kompakt .readout.open{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px 12px;white-space:normal;-webkit-mask-image:none;mask-image:none}
+body.kompakt .readout.open::before{content:"▾"}
+body.kompakt .readout.open .ro{display:block;border-left:2px solid var(--alu-ink);padding-left:8px}
+body.kompakt .readout.open .ro .v{font-size:1.05rem}
+body.kompakt .readout:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* Player */
+body.kompakt #listen>.ph{display:none}
+body.kompakt .deck{margin-top:0;border:0;border-radius:0;background:transparent;overflow:visible}
+body.kompakt .deck:has(.wave[hidden]) .drop{display:none}
+body.kompakt .deck .drop{padding:0 0 8px;background:transparent;border:0;flex-wrap:nowrap}
+body.kompakt .deck .drop #aname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.kompakt .dmain{padding:0;gap:12px}
+body.kompakt .pbig{width:52px;height:52px;font-size:1.15rem}
+body.kompakt .deck .wave,body.kompakt .wempty{height:56px}
+body.kompakt .wempty{cursor:pointer;color:var(--ink)}
+body.kompakt .wempty:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+body.kompakt .dmix{border:0;margin-top:8px;padding:0;gap:8px 10px}
+body.kompakt .dmix .seg button{padding:5px 10px;font-size:.82rem}
+body.kompakt .dmix .lseg{width:auto;flex:none}
+body.kompakt .dmix .lseg button{flex:none;min-width:0;white-space:nowrap}
+body.kompakt .dmix .btn.abyp{min-height:30px;padding:4px 12px;font-size:.84rem}
+body.kompakt .dmix .dtrans{flex-basis:100%;margin:0;gap:6px}
+body.kompakt .dtrans .ib{min-height:28px;min-width:0;padding:2px 10px;font-size:.82rem}
+body.kompakt .dtrans .opt{margin:0;font-size:.8rem;border:1px solid var(--line);border-radius:999px;padding:3px 10px;gap:5px;background:var(--field);align-items:center}
+body.kompakt .dtrans .opt input{margin:0;width:14px;height:14px}
+body.kompakt .dtrans .atime{margin-left:auto;font-size:.8rem;white-space:nowrap}
+body.kompakt .dvol{flex:1;width:auto;margin:0;flex-direction:row;align-items:center;gap:8px;min-width:0}
+body.kompakt .dvol .avol{display:flex;align-items:center;gap:6px;font-size:.86rem;flex:none}
+body.kompakt .dvol .rk,body.kompakt .dvol .rk svg{width:36px;height:36px}
+body.kompakt .dvol .meter{flex:1;min-width:30px}
+body.kompakt .dmix #adl{min-height:30px;padding:4px 12px;font-size:.84rem}
+body.kompakt .dfoot{padding:4px 0 0;border:0;background:transparent}
+body.kompakt .dfoot:has(.note:empty){display:none}
+body.kompakt #astatus:empty{display:none}
+/* Unten: eingeklappte Abschnitte (Kopf antippen) */
+body.kompakt .panel.zuk>.ph{margin:0;cursor:pointer;flex-wrap:wrap}
+body.kompakt .panel.zuk>.ph>h2{flex:1}
+body.kompakt .panel.zuk>.ph>h2::after{content:"▾";margin-left:auto;font-size:.9rem;color:var(--ink2)}
+body.kompakt .panel.zuk.zu>.ph>h2::after{content:"▸"}
+body.kompakt .panel.zuk.zu>:not(.ph),body.kompakt .panel.zuk.zu>.ph>p{display:none}
+body.kompakt .panel.zuk>.ph:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+body.kompakt .mlow>.sub.after{margin-top:8px}
+body.kompakt .mlow>.sub.after h3{font-size:1rem;margin:0 0 6px}
+/* Handy */
+@media (max-width:700px){
+  body.kompakt .wrap{padding:8px 10px 32px}
+  body.kompakt header h1{font-size:1.32rem}
+  body.kompakt .minfo{font-size:.8rem;padding:4px 10px}
+  body.kompakt .front{margin-top:4px}
+  body.kompakt .fview{margin-top:5px}
+  body.kompakt .kipp{padding:8px 46px 8px 10px;gap:8px 14px}
+  body.kompakt .kipp .rk,body.kompakt .kipp .rk svg{width:34px;height:34px}
+  body.kompakt .kgrp.drive,body.kompakt .stages{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px}
+  body.kompakt .drive .stg,body.kompakt .stages .stg{display:grid;grid-template-columns:4.8em minmax(28px,1fr) 2.6em;align-items:center;gap:5px;margin:0}
+  body.kompakt .drive .stg .sn,body.kompakt .stages .stg .sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.kompakt .stages .stg .sn small{display:none}
+  body.kompakt .drive .stg .sv,body.kompakt .stages .stg .sv{text-align:right;font-size:.7rem;grid-column:auto}
+  body.kompakt .kgrp:has(.tubemenu){flex:1 1 100%;flex-wrap:wrap}
+  body.kompakt .kipp .tubemenu{gap:6px 10px}
+  body.kompakt .kipp .tubemenu select{max-width:7.5em}
+  body.kompakt .panel{padding:10px 10px 12px;margin-top:10px}
+  body.kompakt .panel>.ph>h2{font-size:1.1rem}
+  body.kompakt .panel>.ph>h2::before{height:18px;width:7px}
+  body.kompakt #sec-plot .ph{flex-wrap:nowrap}
+  body.kompakt #sec-plot .ph .seg button{padding:4px 8px;font-size:.78rem}
+  body.kompakt #sec-plot .bar label,body.kompakt .mchip{font-size:.78rem;padding:3px 9px}
+  body.kompakt #sec-plot .plotbox{border:0}
+  body.kompakt .readout.open{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.kompakt .dmain{gap:10px}
+  body.kompakt .pbig{width:48px;height:48px;font-size:1.1rem}
+  body.kompakt .deck .wave,body.kompakt .wempty{height:50px}
+  body.kompakt .dmix{gap:8px}
+  body.kompakt .dmix .seg button{padding:5px 9px;font-size:.8rem}
+  body.kompakt .dmix .btn.abyp,body.kompakt .dmix #adl{font-size:.82rem;padding:4px 11px}
+  body.kompakt .dtrans .ib{padding:2px 9px;font-size:.8rem}
+  body.kompakt .dtrans .opt{font-size:.78rem;padding:3px 9px}
+  body.kompakt .dtrans .atime{font-size:.76rem}
+  body.kompakt .dvol .avol{font-size:.84rem}
+  body.kompakt .dvol .rk,body.kompakt .dvol .rk svg{width:34px;height:34px}
+  body.kompakt .mlow>.sub.after h3{font-size:.95rem}
+}
+</style>
+<script id="kompakt-js">
+/* Kompaktansicht für alle Breiten: Elemente umhängen (verschoben, nicht kopiert) und Beschriftungen kürzen; unter 700 px flaches Diagramm (window.__mobH) */
+(() => { const $ = id => document.getElementById(id), B = document.body;
+  const hdr = document.querySelector('.wrap>header'), h1 = hdr && hdr.querySelector('h1'), front = $('front'), kipp = $('kipp'), plot = $('sec-plot'), deck = $('deck'), listen = $('listen');
+  if (!hdr || !h1 || !front || !plot || !deck || !listen) return;
+  const set = (node, s) => { if (!node) return; const t = [...node.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).pop();
+    if (t) t.textContent = (t.previousSibling ? ' ' : '') + s; else node.textContent = s; };
+  const mk = (tag, cls, html, at) => { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; at(e); return e; };
+  const tog = (btn, el, cls, also) => { btn.type = 'button'; btn.setAttribute('aria-expanded', 'false');
+    btn.addEventListener('click', () => { const o = el.classList.toggle(cls); btn.setAttribute('aria-expanded', String(o)); if (o && also) for (const d of el.querySelectorAll(also)) d.open = true; }); };
+  const klick = (el, fn) => { el.tabIndex = 0; el.setAttribute('role', 'button'); el.addEventListener('click', fn);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(e); } }); };
+  function init() {
+    if (B.classList.contains('kompakt')) return; B.classList.add('kompakt');
+    // Kopf: Zurück-Pfeil, kurzer Titel (bis zum Doppelpunkt), Einleitung hinter „Info"
+    const full = h1.textContent; h1.title = full; h1.textContent = full.split(':')[0].trim();
+    mk('a', 'mback', '←', e => { e.href = '../'; e.setAttribute('aria-label', 'Zur Übersicht'); hdr.prepend(e); });
+    tog(mk('button', 'minfo', 'ⓘ Info', e => { e.setAttribute('aria-label', 'Einleitung ein- oder ausblenden'); h1.after(e); }), hdr, 'open', ':scope>details');
+    // Modell-Leiste: Hilfe-Knopf für die Bedienhinweise, ON/OFF-Beschriftungen nur, wenn sie etwas anderes sagen, POT TAPER ohne Klammerzusatz
+    if (kipp) {
+      tog(mk('button', 'mhelp', '?', e => { e.title = 'Bedienhinweise'; e.setAttribute('aria-label', 'Bedienhinweise ein- oder ausblenden'); kipp.append(e); }), front, 'hilfe', 'figcaption details');
+      for (const kp of kipp.querySelectorAll('.kp')) { const on = kp.querySelector('.on'), off = kp.querySelector('.off'); if (on && off && on.textContent.trim() === 'ON' && off.textContent.trim() === 'OFF') kp.classList.add('std'); }
+      const tp = $('ataper'); if (tp) for (const o of tp.options) o.textContent = o.textContent.replace(/\s*\(.*\)\s*$/, '');
+    }
+    // Frequenzgang: Bezugswahl in die Kopfzeile, Legende als Chips (Erklärung im Tooltip), Ablesewerte einzeilig
+    const bar = plot.querySelector('.bar'), seg = bar && bar.querySelector('.seg'), ph = plot.querySelector(':scope>.ph'), lg = plot.querySelector('.legend');
+    if (seg && ph) { ph.append(seg); for (const b of seg.querySelectorAll('button')) { const t = b.textContent.trim(), m = t.match(/^Bezogen auf (.+)$/);
+      if (m) set(b, 're ' + m[1]); else if (/^Absolut/.test(t)) set(b, 'absolut'); } }
+    if (bar) for (const l of bar.querySelectorAll('label')) { const i = l.querySelector('input'); if (!i) continue; const t = l.textContent.trim(); l.title = t;
+      if (i.id === 'showFig') { const m = t.match(/^Werksmessung (.+?) einblenden/); set(l, m ? 'Werk ' + m[1] : 'Werk'); }
+      else if (/^Service/.test(t)) set(l, 'Service'); else if (/^Original/.test(t)) set(l, 'Original'); else set(l, 'Vergleich');
+      const ref = i.id === 'showFig' ? $('lgFig') : lg && lg.querySelector('i.r') && lg.querySelector('i.r').parentNode; if (ref) l.title = ref.textContent.trim(); }
+    const lg0 = lg && lg.querySelector('span'), lgc = $('lgCmp');
+    if (bar && lg0 && lg0 !== lgc) { bar.prepend(lg0); lg0.classList.add('mchip'); set(lg0, 'Aktuell'); }
+    if (bar && lgc) { bar.append(lgc); lgc.classList.add('mchip'); set(lgc, 'Gemerkt'); }
+    const ro = $('readout'); if (ro) { ro.setAttribute('aria-expanded', 'false'); ro.title = 'Antippen: Pegel bei den markierten Frequenzen auf- oder zuklappen';
+      klick(ro, () => ro.setAttribute('aria-expanded', String(ro.classList.toggle('open')))); }
+    // Player: Transport unter Modus/Bypass, „Pegel angleichen" zur Schleife, WAV neben die Lautstärke
+    const dtrans = deck.querySelector('.dtrans'), abyp = $('abyp'), am = $('amatch'), adl = $('adl'), dvol = deck.querySelector('.dvol'), lp = $('aloop');
+    if (dtrans && abyp) abyp.after(dtrans);
+    if (am && lp && am.closest('label') && lp.closest('label')) { lp.closest('label').after(am.closest('label')); set(am.closest('label').querySelector('span'), 'Pegel'); }
+    if (adl && dvol) { dvol.after(adl); adl.title = adl.title || adl.textContent.trim(); set(adl, '⤓ WAV'); }
+    for (const b of deck.querySelectorAll('.lseg button')) { const t = b.textContent.trim(); if (b.dataset.lm === 'cmp') set(b, 'Gemerkt'); else if (/^Ohne /.test(t)) set(b, 'Ohne'); }
+    const we = deck.querySelector('.wempty'); if (we) { set(we, 'Audiodatei wählen'); klick(we, () => { const b = $('apick'); if (b) b.click(); }); }
+    // Unten: Erklärungen zu den Schaltern und Hinweise in eigenen Abschnitt; alle Abschnitte nach dem Player eingeklappt
+    const sub = listen.querySelector(':scope>.sub.after'), hw = [...listen.querySelectorAll(':scope>details.exp')];
+    const panels = [...document.querySelectorAll('.wrap>section.panel')].filter(p => p !== plot && p !== listen);
+    let low = null;
+    if (sub || hw.length) { low = mk('section', 'panel mlow', '<div class="ph"><h2>' + (sub ? 'Erklärungen zu Schaltern und Player' : 'Hinweise zum Player') + '</h2></div>', e => (panels[panels.length - 1] || listen).after(e));
+      if (sub) low.append(sub); for (const d of hw) low.append(d); panels.push(low); }
+    for (const p of panels) { const h = p.querySelector(':scope>.ph'); if (!h) continue; p.classList.add('zuk', 'zu'); h.setAttribute('aria-expanded', 'false');
+      klick(h, e => { if (e.target && e.target.closest && e.target.closest('a,input,select') ) return; h.setAttribute('aria-expanded', String(!p.classList.toggle('zu'))); }); }
+    const mq = matchMedia('(max-width:700px)'), hoch = () => { window.__mobH = mq.matches ? Math.round(Math.min(200, Math.max(150, innerWidth * 0.4))) : 0; dispatchEvent(new Event('resize')); };
+    mq.addEventListener ? mq.addEventListener('change', hoch) : mq.addListener(hoch); hoch();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
 </body></html>
