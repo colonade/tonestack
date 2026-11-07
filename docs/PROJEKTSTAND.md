@@ -290,6 +290,7 @@ Nutzer: „ob oversampling so wie es jetzt implementiert ist überhaupt untersch
 - `svt_panel.py`: Bild 1390 × 260 statt 1800 (ohne Anzeige STANDBY/POWER/FAULT, ohne STANDBY und POWER, ohne dritte Trennlinie); `svtgeo_gen.h` mit SVTSW[2], ohne SVTLED.
 - Plugin: Schalter und Anzeige aus `svtgui.hpp` entfernt (NPS aus SVTSW); Parameter Standby/Power bleiben mit gleicher Nummer, aber verborgen und ohne Wirkung (alte Projekte mit Standby an spielen jetzt); Fenster in Grundgröße 1200 breit (1200 × 674). Klang bitgleich zu 1.2 (gezupft, normal und +8 dB; auch mit Standby=1/Power=0 gleich).
 - Seite: neues Bild und GEO, Schalter-/Anzeigecode entfernt, Handy zwei statt drei Frontplatten-Streifen, gespeicherter Zustand ohne stby/power; Einstellung an den Rechenkern immer power = true. Übersicht: Text ohne STANDBY und ohne „bis zu 4-fache Überabtastung“ (seit 1.1 falsch).
+- Release laney-3.38_…_svtcl-1.3 (Lauf 42354574361): Prüfsummen ok, Linux-Pakete identisch mit dem Bau hier, Mac-Prüfbild mit schmaler Frontplatte ok.
 - Geprüft: svtguitest (Buchsen, GAIN, FREQUENCY, ULTRA, verborgene Parameter, Ausgang hörbar, OUTPUT, TAPER, MASTER, Wertanzeigen), clapstress, verify (übrige Plugins identisch), Seite in Pixel 7, 360 dunkel, 900, 1280, 1600 ohne Fehler.
 
 ## Knacken live in REAPER, Last, Ruhemodus (2026-11-06, Laney 3.38 / Yamaha 1.17 / AmpFett 1.17 / GK 1.2 / G100 1.5 / B100-III 1.2 / SVT-CL 1.2, Web 2026-11-06-4)
