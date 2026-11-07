@@ -30,7 +30,7 @@ Mit der Datei des Nutzers (Strum, Crest 24 dB, Spitzen = gedämpfte Anschläge, 
 
 ## Vorgemerkte Änderungen
 - erledigt (SVT-CL 1.5): TUBE MISMATCH im SVT-CL (Nutzer, 2026-11-07: „In den svt soll auch der Tube missmatch eingebaut werden“).
-- Offen (Frage an den Nutzer): Adresse mit Rechnernamen in PROJEKTSTAND, README und Plugin-READMEs belassen oder ersetzen?
+- Entschieden (Nutzer, 2026-11-07): die öffentliche Web-Adresse mit dem Rechnernamen bleibt in Doku und READMEs („Borg ist ok“).
 - erledigt (SVT-CL-Seite, Web 2026-11-05-3): Zeiger der Potis (Nutzer, 2026-11-05: „beim Drehen der Potis werden die Striche auf den Potis nicht schön gerechnet“, „aufgefallen nur beim SVT“, im Plugin gut). Ursache: auf der Seite nur ein dünner dunkler Strich (3,5) auf der hellen Metallkappe, im Plugin dunkler Strich plus weiße Spitze auf dem Riffelrand. Jetzt wie im Plugin: Gruppe aus dunklem Strich (4,5, mit heller Kante) und weißer Spitze, geometrisch geglättet gedreht. Andere Seiten unverändert (dort kein Hinweis).
 
 ## Ideen, die besprochen, aber nicht gebaut wurden
