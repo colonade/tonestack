@@ -220,11 +220,13 @@ struct Amp {
       xb.assign(64, 0); yb.assign(2 * L, 0); xi = yi = 0; }
     ready = true; }
   int latency() const { return os > 1 ? 31 : 0; }
+  static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.mis == b.mis; }   // ohne psu/bal (Aufbau, cfg)
   static bool sameSw(const Setting &a, const Setting &b) { return a.freq == b.freq && a.ulo == b.ulo && a.uhi == b.uhi && a.jack == b.jack && a.tap == b.tap && a.taper == b.taper; }
   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   // Netzteil und BAL OUT ändern den Aufbau samt Arbeitspunkt: nur über init (neu eingeschwungen), hier bleiben sie wie im Kern
   void setTarget(const Setting &s0) { Setting s = s0; s.psu = c.cur.psu; s.bal = c.cur.bal; tgt = s; if (!sameSw(s, c.cur)) { Setting n = c.cur; n.freq = s.freq; n.ulo = s.ulo; n.uhi = s.uhi; n.jack = s.jack; n.tap = s.tap; n.taper = s.taper; c.apply(n); readBias(); } }
   void snap() { c.apply(tgt); readBias(); pwr = power ? 1 : 0; cnt = 0; }
+  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); c.settle(secs, cancel); c0 = c; readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen (Neubeginn ohne Einschwing-Knacks)
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 5; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     { double d = tgt.mis - n.mis; if (d != 0) { moved = true; if (std::fabs(d) > 1e-5) n.mis += d * (1 - std::exp(-64 / (0.3 * fsB))); else n.mis = tgt.mis; } }   // Streuung gleitet 0,3 s (Gleichstrom im Übertrager ändert sich langsam, kein Plopp)
