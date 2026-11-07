@@ -52,8 +52,9 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
 - Kathode → C26 .68 → Ausgang (R33 1 M gegen Masse) → J3-3 (0,4 V) → Endstufe. (07S519-11, Seite 32: C26 .1 µ/200 V; gerechnet .68 wie -12 und HSVTCL.)
 - Weg zur Endstufe (Abgleich 2026-11-07): J3-3 → J1-3 „FX SEND“ → Schaltkontakt von J5B „POWER AMP IN“ (nichts gesteckt) → J1-14 „FX RETURN“ → auf der
   Vorstufenplatine J3-14 = J3-12 = J3-9 → J1-12 → R92 (Eingang Endstufe) und J1-9 „POST“ → R91 220 → Primärwicklung T1 (94-025-11, BAL OUT) gegen Masse.
-  An FX SEND außerdem R80 1 M gegen Masse und der Eingang von IC2A (Puffer für PREAMP OUT). **Im Modell nicht enthalten:** R80 und der Zweig R91/T1;
-  T1-Daten (Induktivität, Widerstände, Übersetzung) stehen in keinem Plan.
+  An FX SEND außerdem R80 1 M gegen Masse und der Eingang von IC2A (Puffer für PREAMP OUT). Im Modell (ab 1.5): R80 immer; der Zweig R91/T1
+  abschaltbar (Parameter „BAL OUT load“, Grundstellung aus). T1-Daten stehen in keinem Plan → geschätzt 10 H, Wicklung 50 Ω, Eisenverluste 20 kΩ
+  (damit 40 Hz −2,8 dB wie die Spezifikation −3 dB; Anhebung um 60 Hz +5,7 dB durch den Reihenkreis mit C26). Knoten im Code „balT“.
 
 ## Endstufe 07S419-12
 - J1-12 (Vorstufe über FX RETURN, siehe oben) → R92 220 → Spitze der Buchse SLAVE J2 (Schaltkontakt offen) → R7 1 k → Gitter V1A (12AX7); D55/D56 1N3070 antiparallel und R8 470 k gegen Masse.
@@ -76,16 +77,25 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
   R54 15 k 5 W → +470 V (C17/C18 47 µ in Reihe, R56/R57 220 k); daraus R58 47 k 1 W → +345 V (C20 100 µ) für V1A/V1B der Endstufe und
   R55 47 k 5 W → +343 V (C19 47 µ) über J20-5 zur Vorstufe (07S419-04, Seite 56: R55 18 k).
 - Zweite Wicklung: Brücke D14–D17 → +380 V (C21 47 µ) für die Kathodenfolger; R59 2,2 k → +365 V (C22 47 µ) für die Treiberanoden; D26 → J18 → Schirmgitter (345 V in Ruhe).
-- −180 V aus einer eigenen Wicklung, Brücke D18–D21, C23 100 µ (Gittervorspannung); gerechnet als ideale Quelle hinter 1 Ω.
+- −180 V aus einer eigenen Wicklung, Brücke D18–D21, C23 100 µ (Gittervorspannung).
 - Innenwiderstände der Wicklungen und die Wechselspannungen stehen nicht im Plan → geschätzt (siehe Code).
+- Zwei Fassungen im Modell (ab 1.5, Parameter „Power supply“):
+  - einfach (Grundstellung, wie 1.0–1.4): Gleichspannungen hinter Innenwiderständen, −180 V ideal hinter 1 Ω, Vorstufe an idealen 345 V, Gleichrichter immer leitend.
+  - nach Plan, 50 oder 60 Hz: Gleichrichter (Diodenmodell) an den Scheitelwerten der Wicklungen (694,12 / 358,74 / 192 V, Wicklungswiderstände 25 / 60 / 200 Ω
+    geschätzt), die ganze Kette R54–C17/C18–R56/R57–R58–C20 und R55–C19 für die Vorstufe, C23 an −180 V, BIAS-Teiler je Seite mit Poti (Stellung für 24 mA).
+    Ergebnis: +660,8 V, Schirmgitter 345,2 V, Vorstufe 348,2 V (Plan 343), aber +470 V → 537 V und +345 V → 397 V (V1A-Anode 249 statt 200 V,
+    Phasenumkehr 295 statt 250 V). Nachgerechnet: R58 passt zum Strom der Phasenumkehr (2,85 mA, 47 k braucht 2,66 mA); R55 47 k bräuchte für 470 → 343 V
+    etwa 35 k (Vorstufe 3,65 mA); über R54 fließen bei den Planspannungen 12,7 mA, die bekannten Lasten ziehen aber nur etwa 7,5 mA (Entladewiderstände 1,07,
+    Phasenumkehr 2,85, Vorstufe 3,65) – es fehlen etwa 5 mA oder ein Planwert stimmt nicht. Gerechnet wird mit den Planwerten.
 
 ## Entscheidungen bei Widersprüchen im Plan
 - Schirmgitter: Verdrahtungsplan 16W412-01 führt die Röhrenplatine J13 (Schirmgitterleitung) an die Endstufe J18 = +380 V hinter D26. Auf der Röhrenplatine
   (07S419-41 und 2033759) steht an dieser Leitung „345V“, an den Treiberanoden „180V“ (aus +365 V über 47 k). Gerechnet: Schirmgitterwicklung so, dass die
   Schirmgitter in Ruhe 345 V haben (gemessener Wert auf der Platine, an der die Röhren sitzen); die Treiberanoden liegen dann bei 156 V statt 180 V.
-- Vorstufen-Anodenspannung 345 V als ideale Quelle (Plan: +345 V an J4; die Siebkette R54/R55/R58 lässt sich mit den Strömen nicht ganz in Einklang bringen).
+- Vorstufen-Anodenspannung im einfachen Netzteil 345 V als ideale Quelle (Plan: +345 V an J4; die Siebkette R54/R55/R58 lässt sich mit den Strömen nicht
+  in Einklang bringen, siehe Netzteil).
 - Ruhestrom: BIAS-Schleifer so, dass jede 6550 24 mA zieht (0,24 V an 10 Ω, Plan); Gittervorspannung dann −39,9 V („approx. −45 V“ im Plan).
-- Gleichrichterbrücken als immer leitend (Gleichspannung hinter Innenwiderstand, ohne Brumm), D26 als 1 Ω.
+- Einfaches Netzteil: Gleichrichterbrücken als immer leitend (Gleichspannung hinter Innenwiderstand, ohne Brumm), D26 als 1 Ω.
 
 ## Geschätzt (in keinem Plan)
 - Übertrager: Primärinduktivität 30 H, Kopplung primär–sekundär 0,9995 (Streuung), Primärhälften 0,9998, Wicklungskapazität 1 nF, Eisenverluste 50 kΩ,
