@@ -29,6 +29,8 @@ Gitterstopper vor V102B/V103B wurden am 2026-10-29 im Kern eingebaut, gemessen (
 Mit der Datei des Nutzers (Strum, Crest 24 dB, Spitzen = gedämpfte Anschläge, 74 % der Zeit unter −20 dB): Preamp 2 alles 5 folgt der Hüllkurve fast exakt, nur die obersten 6 dB jedes Anschlags werden begrenzt; Preamp 1 Volume 2/2 komprimiert die Ausklingphase auf −20…−30 dB. Verhalten der Schaltung, kein Fehler.
 
 ## Vorgemerkte Änderungen
+- vorgemerkt (Nutzer, 2026-11-07): „In den svt soll auch der Tube missmatch eingebaut werden“ – Regler TUBE MISMATCH wie Laney/AmpFett (Plugin und Web) für die sechs 6550.
+- vorgemerkt: SVT-CL 1.5 (lokal, nicht gepusht) wartet auf den Test des Nutzers; danach Push mit Mac-Bau. Offen: Historie von persönlichen Angaben bereinigen (Force-Push), Adresse mit Rechnernamen in Doku/READMEs.
 - erledigt (SVT-CL-Seite, Web 2026-11-05-3): Zeiger der Potis (Nutzer, 2026-11-05: „beim Drehen der Potis werden die Striche auf den Potis nicht schön gerechnet“, „aufgefallen nur beim SVT“, im Plugin gut). Ursache: auf der Seite nur ein dünner dunkler Strich (3,5) auf der hellen Metallkappe, im Plugin dunkler Strich plus weiße Spitze auf dem Riffelrand. Jetzt wie im Plugin: Gruppe aus dunklem Strich (4,5, mit heller Kante) und weißer Spitze, geometrisch geglättet gedreht. Andere Seiten unverändert (dort kein Hinweis).
 
 ## Ideen, die besprochen, aber nicht gebaut wurden
