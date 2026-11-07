@@ -35,7 +35,8 @@ enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_
 static const int KPARAM[6] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER};   // Knopf (Reihenfolge SVTKNOB) → Parameter
 static const char *KNAME[6] = {"GAIN", "BASS", "MIDRANGE", "FREQUENCY", "TREBLE", "MASTER"};
 static const char *FNAME[5] = {"220 Hz", "450 Hz", "800 Hz", "1.6 kHz", "3 kHz"};
-static const int SWPARAM[4] = {P_UHI, P_ULO, P_STBY, P_PWR};   // Frontplattenschalter (Reihenfolge SVTSW), Hebel oben = ein
+static const int SWPARAM[2] = {P_UHI, P_ULO};   // Frontplattenschalter (Reihenfolge SVTSW), Hebel oben = ein; STANDBY/POWER ab 1.3 nicht mehr auf der Frontplatte
+constexpr int NPS = sizeof(SVTSW) / sizeof(SVTSW[0]);
 constexpr double FW = SVTW, FH = SVTH;
 constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 1200 breit)
 constexpr double PLOTU = 300;   // Frequenzgang
@@ -136,12 +137,8 @@ struct Gui {
       setrgb(c, 0x202124); cairo_set_line_width(c, 4); cairo_move_to(c, 0, -g[2] * 0.12); cairo_line_to(c, 0, -g[2] * 0.62); cairo_stroke(c);
       setrgb(c, 0xf2f2f2); cairo_set_line_width(c, 4); cairo_move_to(c, 0, -g[2] * 0.72); cairo_line_to(c, 0, -g[2] * 0.95); cairo_stroke(c); cairo_restore(c);
       if (i == drag || i == hover) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] * 1.08, 0, 2 * PI); cairo_stroke(c); } }
-    // Anzeige STANDBY/POWER/FAULT: grün = Betrieb, rot = Standby, dunkel = aus
-    { bool on = v[P_PWR] > 0.5, sb = v[P_STBY] > 0.5; if (on) { int col = sb ? 0xff3a28 : 0x3ee25a; setrgb(c, col); cairo_new_path(c); cairo_arc(c, SVTLED[0], SVTLED[1], 9, 0, 2 * PI); cairo_fill(c);
-        cairo_pattern_t *gl = cairo_pattern_create_radial(SVTLED[0], SVTLED[1], 4, SVTLED[0], SVTLED[1], 24); double r = ((col >> 16) & 255) / 255.0, gg = ((col >> 8) & 255) / 255.0, b = (col & 255) / 255.0;
-        cairo_pattern_add_color_stop_rgba(gl, 0, r, gg, b, 0.5); cairo_pattern_add_color_stop_rgba(gl, 1, r, gg, b, 0); cairo_new_path(c); cairo_arc(c, SVTLED[0], SVTLED[1], 24, 0, 2 * PI); cairo_set_source(c, gl); cairo_fill(c); cairo_pattern_destroy(gl); } }
     // Schalterhebel: von der Mutter schräg nach oben bzw. unten
-    for (int k = 0; k < 4; k++) { double x = SVTSW[k][0], y = SVTSW[k][1], d = swUp(k, v) ? -1 : 1;
+    for (int k = 0; k < NPS; k++) { double x = SVTSW[k][0], y = SVTSW[k][1], d = swUp(k, v) ? -1 : 1;
       cairo_new_path(c); cairo_move_to(c, x - 6, y); cairo_line_to(c, x - 8, y + d * 40); cairo_curve_to(c, x - 8 + 16.0 / 3, y + d * (40 + 16.0 / 3), x + 8 - 16.0 / 3, y + d * (40 + 16.0 / 3), x + 8, y + d * 40); cairo_line_to(c, x + 6, y); cairo_close_path(c);
       setrgb(c, 0xd8dadf); cairo_fill_preserve(c); setrgb(c, 0x4a4d52); cairo_set_line_width(c, 2); cairo_stroke(c);
       if (hover == 20 + k) { setrgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, x, y, 26, 0, 2 * PI); cairo_stroke(c); } }
@@ -183,8 +180,8 @@ struct Gui {
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[112]; double ax, ay;
       if (i < 6) { const double *g = SVTKNOB[i]; ax = g[0] * s; ay = (g[1] - g[2] * 1.12) * s; knobText(i, v[KPARAM[i]], buf, sizeof buf); }
       else if (i >= 30) { int k = i - 30; ax = SVTJACK[k][0] * s; ay = (SVTJACK[k][1] - 40) * s; std::snprintf(buf, sizeof buf, "%s INPUT%s", k ? "-15 dB (active basses)" : "0 dB (passive basses)", k == jack ? "" : " - click to plug in"); }
-      else if (i >= 20) {   /* 20 … 23 Frontplattenschalter (30/31 Buchsen oben) */ int k = i - 20; ax = SVTSW[k][0] * s; ay = (SVTSW[k][1] - 60) * s; const char *nm[4] = {"ULTRA HI", "ULTRA LO", "STANDBY", "POWER"};
-        std::snprintf(buf, sizeof buf, "%s: %s%s", nm[k], v[SWPARAM[k]] > 0.5 ? "ON" : "OFF", k == 2 && v[P_STBY] > 0.5 ? " (muted)" : k == 3 && v[P_PWR] < 0.5 ? " (muted)" : ""); }
+      else if (i >= 20) {   /* 20, 21 Frontplattenschalter (30/31 Buchsen oben) */ int k = i - 20; ax = SVTSW[k][0] * s; ay = (SVTSW[k][1] - 60) * s; const char *nm[NPS] = {"ULTRA HI", "ULTRA LO"};
+        std::snprintf(buf, sizeof buf, "%s: %s", nm[k], v[SWPARAM[k]] > 0.5 ? "ON" : "OFF"); }
       else { ax = KN_X[i - 9] * u; ay = FH * s + (KN_Y - 30) * u; std::snprintf(buf, sizeof buf, "%s", vt[i - 9]); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }
@@ -192,7 +189,7 @@ struct Gui {
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < 6; i++) { double dx = x - SVTKNOB[i][0], dy = y - SVTKNOB[i][1]; if (dx*dx + dy*dy <= SVTKNOB[i][2] * SVTKNOB[i][2] * 1.69) return i; }
     double lx, ly; toLower(px, py, lx, ly); for (int i = 0; i < 2; i++) { double dx = lx - KN_X[i], dy = ly - KN_Y; if (dx*dx + dy*dy <= 32 * 32) return 9 + i; } return -1; }
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 2; i++) { const double *J = SVTJACK[i]; double dx = x - J[0], dy = y - J[1]; if (dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14)) return i; } return -1; }
-  int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < 4; k++) if (std::fabs(x - SVTSW[k][0]) <= 32 && std::fabs(y - SVTSW[k][1]) <= 52) return k; return -1; }
+  int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < NPS; k++) if (std::fabs(x - SVTSW[k][0]) <= 32 && std::fabs(y - SVTSW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
   void moveSwitch(int p, int dir) { if (p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); }   // OUTPUT: oben = 4 Ω
   void togglePanel(int k) { int p = SWPARAM[k]; setP(p, getP(p) > 0.5 ? 0 : 1); }

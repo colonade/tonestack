@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -79,24 +79,24 @@ Parameters
   Gain, Bass, Midrange (0 ... 10); Frequency (220 Hz, 450 Hz, 800 Hz,
   1.6 kHz, 3 kHz); Treble, Master (0 ... 10); Ultra Hi (Off / On); Ultra
   Lo (Off / On); Input (0 dB / -15 dB jack); Output tap (4 ohm / 2 ohm);
-  Standby (Off / On); Power (Off / On); Instrument level at 0 dBFS (mV
-  peak, 1 ... 1000); Output level (-36 ...
+  Instrument level at 0 dBFS (mV peak, 1 ... 1000); Output level (-36 ...
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
   TREBLE).
-  Knob 10 = clockwise end. Standby on or Power off mutes the output.
+  Knob 10 = clockwise end.
   Defaults: all knobs 5, Frequency 800 Hz, Ultra Hi and Ultra Lo off,
-  0 dB input, 4 ohm tap, standby off, power on, 100 mV, 0 dB, log 15 %.
+  0 dB input, 4 ohm tap, 100 mV, 0 dB, log 15 %.
   (The hidden parameter "Oversampling" is kept for old projects; since 1.1
-  it is always 1x.)
+  it is always 1x. The hidden parameters "Standby" and "Power" are kept for
+  old projects as well; since 1.3 they have no effect.)
 
 User interface
   Front panel drawn after the layout in the owner's manual (no photo, no
   logo; "AmpFett" lettering in Damion, SIL Open Font License): 0 dB and
   -15 dB INPUT jacks (click a jack to plug in there), GAIN, toggle
   switches ULTRA HI and ULTRA LO, BASS, MIDRANGE, FREQUENCY (five detented
-  positions), TREBLE, MASTER, the STANDBY / POWER / FAULT lamp (green =
-  playing, red = standby), toggle switches STANDBY and POWER (lever up =
-  on). Knobs: drag vertically, mouse wheel, double-click = center. Below the
+  positions), TREBLE, MASTER (lever up = on). Since 1.3 without the right
+  part of the panel (STANDBY / POWER / FAULT lamp, STANDBY and POWER
+  switches); the panel is narrower and the default window 1200 wide. Knobs: drag vertically, mouse wheel, double-click = center. Below the
   panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, the DRIVE meters (grid swing of V1B input, V1A gain, V2B
   midrange, power amp input, 6550 grids, 100 % = grid reaches 0 V; output
   power into the selected load, mark = 300 W), INPUT (instrument level) and
@@ -126,6 +126,12 @@ CPU
   amp system about 10 % faster); stereo with different left and right
   signals doubles that. With
   the same signal on both channels it is computed once.
+
+1.3
+  - Front panel narrower: the right part with the STANDBY / POWER / FAULT
+    lamp and the STANDBY and POWER switches is gone. The two parameters
+    stay hidden so old projects load; they no longer mute. Default window
+    1200 wide. Sound unchanged (bit-identical to 1.2).
 
 1.2
   - Hard attacks with much GAIN: when the solver does not converge at once
