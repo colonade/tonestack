@@ -301,6 +301,7 @@ Nutzer: „ob oversampling so wie es jetzt implementiert ist überhaupt untersch
 - Ergebnis SVT-CL (bester von 5, 4 s Basston, Block 128, hier): Grundstellung 33 → 28,4 % (−14 %), GAIN 10 kräftig 43 → 35 % (−19 %), GAIN 10 sehr kräftig 48 → 39 % (−19 %); seltener gemeinsamer Solve (284 → 115 in 8 s), längster Block 194 → 118 %.
 - Abweichung gegen 1.3: Grundstellung −104 dB, +8 dB Eingang −102 dB, GAIN 10 −97 dB. Bei GAIN/BASS/TREBLE 10 und ULTRA an verhält sich die Schaltung selbst chaotisch: 1.3 gegen 1.3 mit Eingang × (1 + 1e-6) (−120 dB) weicht schon −33 … −38 dB ab; 1.4 gegen 1.3 dort −30 … −34 dB, also gleiche Größe.
 - Übrige Plugins: nur neu gebaut (gemeinsamer Code), Ausgabe bitgleich zu den Vorversionen; Versionen erhöht, weil sich die Dateien ändern.
+- Release laney-3.39_…_svtcl-1.4 (Lauf 42361975222): Prüfsummen ok, Linux-Pakete identisch mit dem Bau hier.
 - Geprüft: svttest/b3test/g100test 0 Abweichungen, b15test/gktest bis auf Laufzeiten gleich, alle GUI-Tests, clapstress, alle Seiten (Pixel 7, 1280) mit Abspielen, verify.
 
 ## AmpFett SVT-CL 1.3: schmalere Frontplatte (2026-11-07, Web 2026-11-07-1)
