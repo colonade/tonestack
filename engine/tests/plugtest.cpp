@@ -36,6 +36,12 @@ static int64_t memRead(const clap_istream_t *st, void *buf, uint64_t n) { MemIn 
 static void stateParams(const clap_plugin_t *p, const std::string &spec) { if (spec.empty()) return; auto *st = (const clap_plugin_state_t*)p->get_extension(p, CLAP_EXT_STATE); if (!st) return;
   MemIn m; size_t q = 0; while (q < spec.size()) { size_t c = spec.find(',', q); if (c == std::string::npos) c = spec.size(); m.d += spec.substr(q, c - q) + "\n"; q = c + 1; }
   clap_istream_t is{&m, memRead}; st->load(p, &is); }
+// LOADSTATE=datei: Zustand roh laden (statt der Liste); SAVESTATE=datei: Zustand nach dem Durchrechnen speichern (Eingangsbezug, ab Laney 3.40 usw.)
+static void loadStateFile(const clap_plugin_t *p, const char *fn) { auto *st = (const clap_plugin_state_t*)p->get_extension(p, CLAP_EXT_STATE); FILE *f = fopen(fn, "rb"); if (!st || !f) return;
+  MemIn m; char b[4096]; size_t r; while ((r = fread(b, 1, sizeof b, f)) > 0) m.d.append(b, r); fclose(f); clap_istream_t is{&m, memRead}; st->load(p, &is); }
+static int64_t fileWrite(const clap_ostream_t *s, const void *b, uint64_t n) { return (int64_t)fwrite(b, 1, n, (FILE*)s->ctx); }
+static void saveStateFile(const clap_plugin_t *p, const char *fn) { auto *st = (const clap_plugin_state_t*)p->get_extension(p, CLAP_EXT_STATE); FILE *f = fopen(fn, "wb"); if (!st || !f) return;
+  clap_ostream_t os{f, fileWrite}; st->save(p, &os); fclose(f); }
 struct Host {
   void *lib = nullptr; const clap_plugin_entry_t *entry = nullptr; const clap_plugin_t *p = nullptr; const clap_plugin_params_t *params = nullptr; const clap_plugin_latency_t *lat = nullptr;
   clap_host_t host = {CLAP_VERSION_INIT, nullptr, "plugtest", "", "", "1", host_ext, host_nop, host_nop, host_nop};
@@ -73,7 +79,7 @@ int main(int argc, char **argv) {
     const char *spec = argc > 5 ? argv[5] : ""; double fs = argc > 6 ? atof(argv[6]) : 48000; std::string bs = argc > 7 ? argv[7] : "256";
     bool rnd = bs[0] == 'r'; int B = atoi(bs.c_str() + (rnd ? 1 : 0)); if (B < 1) B = 256;
     FILE *fi = fopen(argv[3], "rb"); if (!fi) return 2; fseek(fi, 0, SEEK_END); long n = ftell(fi) / 4; fseek(fi, 0, SEEK_SET); std::vector<float> x(n); if (fread(x.data(), 4, n, fi) != (size_t)n) return 2; fclose(fi);
-    stateParams(H.p, spec); H.activate(fs, (uint32_t)B); addParams(spec);
+    if (getenv("LOADSTATE")) loadStateFile(H.p, getenv("LOADSTATE")); else stateParams(H.p, spec); H.activate(fs, (uint32_t)B); addParams(spec);
     std::vector<float> xR(n, 0.f), yR(n, 0.f); bool hasR = getenv("INR") != nullptr;
     if (hasR) { FILE *f2 = fopen(getenv("INR"), "rb"); if (!f2 || fread(xR.data(), 4, n, f2) != (size_t)n) return 2; fclose(f2); }
     std::vector<float> y(n, 0.f); std::mt19937 rng(7); bool asleep = false; long skipped = 0, sleeps = 0, calls = 0; double tmax = 0, tsum = 0;
@@ -83,6 +89,7 @@ int main(int argc, char **argv) {
         if (c != std::string::npos) { long at = (long)(atof(t.c_str()) * fs); if (at >= pos && at < pos + m) addParams(t.c_str() + c + 1); } q = e + 1; } }   // Parameteränderungen zu Zeitpunkten: "t:id=v,...;t:..."
       H.xr = hasR ? &xR[pos] : nullptr; H.yr = &yR[pos]; double dt; clap_process_status s = H.run(&x[pos], &y[pos], m, dt); calls++; tsum += dt; tmax = std::max(tmax, dt); if (getenv("TRACE") && dt > m / fs) fprintf(stderr, "  langsam: Block bei %.3f s (%d Werte) %.2f ms = %.0f%% %s\n", pos / fs, m, dt * 1e3, 100 * dt / (m / fs), asleep ? "(nach Schlaf)" : ""); if (s == CLAP_PROCESS_SLEEP) { asleep = true; sleeps++; } pos += m; }
     FILE *fo = fopen(argv[4], "wb"); fwrite(y.data(), 4, n, fo); fclose(fo);
+    if (getenv("SAVESTATE")) saveStateFile(H.p, getenv("SAVESTATE"));
     if (getenv("OUTR")) { FILE *f3 = fopen(getenv("OUTR"), "wb"); fwrite(yR.data(), 4, n, f3); fclose(f3); }
     uint32_t L = H.lat ? H.lat->get(H.p) : 0;
     printf("latenz_gemeldet=%u aufrufe=%ld sleep=%ld uebersprungen=%ld last=%.4f max_block_ms=%.3f\n", L, calls, sleeps, skipped, tsum / (n / fs), tmax * 1e3);

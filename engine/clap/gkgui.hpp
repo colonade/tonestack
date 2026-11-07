@@ -27,11 +27,12 @@
 #include "stb_image.h"
 #include "gkpanel_jpg.h"
 #include "widgets.hpp"
+#include "autoin.hpp"
 
 namespace gkgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_TAPER, P_COUNT };
+enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_TAPER, P_INREF, P_COUNT };
 constexpr int NK = 9;
 static const int KPARAM[NK] = {P_VOL, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_FREQ, P_HIMA, P_LOMA};   // Knopf (Reihenfolge GKKNOB) → Parameter
 static const char *KNAME[NK] = {"VOLUME", "TREBLE", "HI MID", "LO MID", "BASS", "BOOST", "BI-AMP FREQ.", "HI MASTER", "LO MASTER"};
@@ -60,6 +61,7 @@ struct Gui {
   Display *dpy = nullptr; Window win = 0, parent = 0; cairo_surface_t *xs = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0;
 #endif
   std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;
+  double inPk = -999; std::function<void()> resetPeak;   // Eingangsbezug: gemerkte Spitze (dBFS, −999 = nichts gehört), Klick setzt sie zurück (autoin.hpp)
   double meter[5] = {0, 0, 0, 0, 0}; bool meterOn = false;   // Aussteuerung: Eingangsstufe, EQ-Stufen (1 = OPV-Grenze), J113 (1 = voller Hub), 300-W- und 100-W-Endstufe (W)
   int osActive = 0;   // Überabtastung, mit der der Kern gerade rechnet (Umschalten dauert einen Augenblick)
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;
@@ -146,7 +148,7 @@ struct Gui {
     cairo_restore(c);
     // ---- Modellstreifen ----
     const double u = uscale(); int os = std::max(0, std::min(2, (int)std::lround(v[P_OS])));
-    char vt[2][40]; std::snprintf(vt[0], 40, "%.0f mV at 0 dBFS", v[P_VIN]); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]);
+    char vt[2][40]; tsin::valueText(vt[0], 40, v[P_VIN], v[P_INREF] > 0.5); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
@@ -170,6 +172,7 @@ struct Gui {
         setrgb(c, over && meterOn ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, meterOn ? t : "-", bx + bw + 10, by + 12, 12, false); } }
     for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 9 + i || hover == 9 + i, false); }
+    { char xt[64]; tsin::extraText(xt, sizeof xt, inPk, v[P_INREF] > 0.5); setrgb(c, 0x9a9ea6); tsw::text(c, xt, KN_X[0], KN_Y + 76, 11, false, 1); }   // unter INPUT: gemerkte Spitze; Klick setzt zurück bzw. schaltet alte Projekte auf „auto“
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
     { char kb[320]; int kn = 0; const int ks[] = {P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_SPK, P_DIRECT, P_TAPER};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -212,11 +215,13 @@ struct Gui {
       default: return false; } }
 #endif
   // kind 0 drücken (button 1 links, 4/5 Mausrad), 1 bewegen, 2 loslassen, 3 verlassen; now in Sekunden
+  bool hitInRef(double px, double py) const { double lx, ly; toLower(px, py, lx, ly); return std::fabs(lx - KN_X[0]) < 85 && ly > KN_Y + 64 && ly < KN_Y + 82; }   // Zeile unter INPUT
   bool onMouse(int kind, double x, double y, int button, double now) {
     switch (kind) {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, button == 4 ? -1 : 1); } return true; }
         if (button != 1) return false;
+        if (hitInRef(x, y)) { if (getP(P_INREF) > 0.5) setP(P_INREF, 0); else if (resetPeak) resetPeak(); return true; }
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
@@ -232,7 +237,7 @@ struct Gui {
     }
   }
   std::string lastSig;
-  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
+  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i)); sapp(b, sizeof b, n, "%.1f|", inPk);
     for (int i = 0; i < 5; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + std::min(std::max(meter[i], 0.0), 999.0)) * 60));   /* nur sichtbare Änderungen neu zeichnen */
     sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d", meterOn ? 1 : 0, osActive, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__

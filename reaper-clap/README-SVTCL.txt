@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -84,7 +84,8 @@ Parameters
   Gain, Bass, Midrange (0 ... 10); Frequency (220 Hz, 450 Hz, 800 Hz,
   1.6 kHz, 3 kHz); Treble, Master (0 ... 10); Ultra Hi (Off / On); Ultra
   Lo (Off / On); Input (0 dB / -15 dB jack); Output tap (4 ohm / 2 ohm);
-  Instrument level at 0 dBFS (mV peak, 1 ... 1000); Output level (-36 ...
+  Instrument level (mV peak, 1 ... 1000); Input reference (peak of your
+  playing / 0 dBFS); Output level (-36 ...
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
   TREBLE); Power supply (Simple / As schematic, 50 Hz mains / As
   schematic, 60 Hz mains); BAL OUT load (T1) (Off / On (T1 estimated));
@@ -116,8 +117,8 @@ User interface
   point (relative to 1 kHz). Window resizable. Needs libcairo2 and libX11.
 
 Levels
-  INPUT sets what peak voltage at the jack corresponds to 0 dBFS of the
-  track (default 100 mV; passive basses about 100-300 mV, active basses up
+  INPUT sets the peak voltage of your playing at the jack (see "Input
+  level" below) (default 100 mV; passive basses about 100-300 mV, active basses up
   to 1 V and more). The output is the voltage at the selected output
   transformer tap: 60 V peak = 0 dBFS into 4 ohm, 42.4 V peak = 0 dBFS
   into 2 ohm (the same power, 450 W, in both cases; 300 W into 4 ohm are
@@ -138,6 +139,33 @@ CPU
   amp system about 10 % faster); stereo with different left and right
   signals doubles that. With
   the same signal on both channels it is computed once.
+
+Input level (INPUT, since 1.6)
+  INPUT is the peak voltage of your playing at the input jack. The plugin
+  remembers the highest input peak it has seen and scales the track so
+  that this peak arrives at the amp with the set voltage: a track that
+  peaks at -12 dBFS and one that peaks at -3 dBFS drive the amp the same.
+  The line below the INPUT knob shows the remembered peak ("at your peak
+  (-11.7 dBFS)"); it is saved with the project, so the project sounds the
+  same when opened again and when rendered. Click the line to forget it
+  (e.g. after a louder or quieter take). It only grows: until the loudest
+  note has been played once, earlier notes get more level; while it grows
+  during the very first loud note, that note's rising edge is limited to
+  the set voltage. Below -40 dBFS nothing is raised further.
+  Typical values: passive bass about 100-200 mV on a hard attack, active
+  bass up to 1 V; single-coil guitar about 100-200 mV, humbucker or active
+  pickups up to 1 V. Default 100 mV.
+  Projects saved with an earlier version keep the old meaning (INPUT = the
+  voltage at 0 dBFS of the track) and sound as before; the line then reads
+  "at 0 dBFS (old)", a click switches to the new behaviour (parameter
+  "Input reference").
+
+1.6
+  - INPUT now means the peak voltage of your playing: the plugin remembers
+    the highest input peak and scales to it (see "Input level"). Before, it
+    was the voltage at 0 dBFS of the track, so a track peaking at -12 dBFS
+    reached the amp with only a quarter of the set voltage. Old projects
+    keep the old behaviour and sound bit-identical.
 
 1.5
   - New switch "Power supply": "As schematic, 50 Hz / 60 Hz" computes the

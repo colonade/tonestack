@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <atomic>
 #include <vector>
+#include <string>
+#include <cstdlib>
 static std::atomic<bool> cbReq{false};
 static bool ok_timer(const clap_host_t *, uint32_t, clap_id *id) { *id = 1; return true; }
 static bool ok_untimer(const clap_host_t *, clap_id) { return true; }
@@ -72,6 +74,18 @@ int main(int argc, char **argv) {
   { const int pts[][2] = {{100, 150}, {196, 150}, {470, 140}, {560, 140}, {1340, 140}, {1380, 200}, {330, 138}, {990, 138}};
     for (auto &q : pts) { send(MotionNotify, kx(q[0]), kx(q[1]), 0); tick(); tick(); } printf("Wertanzeigen über Buchsen, Schaltern, Knöpfen: ok\n"); }
   send(MotionNotify, kx(840), kx(138), 0); tick(); usleep(200000); for (int i = 0; i < 6; i++) tick();
+  // Eingangsbezug (ab 1.6): gemerkte Spitze im Zustand („999=“), Klick auf die Zeile unter INPUT setzt sie zurück; altes Projekt (fest) → Klick schaltet auf „auto“
+  { auto *st = (const clap_plugin_state_t*)p->get_extension(p, CLAP_EXT_STATE);
+    auto pkState = [&]() { std::string sb; clap_ostream_t os{&sb, [](const clap_ostream_t *o, const void *b, uint64_t n) -> int64_t { ((std::string*)o->ctx)->append((const char*)b, n); return (int64_t)n; }}; st->save(p, &os);
+      size_t q = sb.find("\n999="); return q == std::string::npos ? -1.0 : std::atof(sb.c_str() + q + 5); };
+    auto idle = [&]() { for (int i = 0; i < 15; i++) { usleep(20000); tim->on_timer(p, 1); } };   // Ereignisse ohne Audio abarbeiten (Audio würde die Spitze sofort neu lernen)
+    printf("Eingangsbezug Grundstellung: %g (erwartet 0 = auto), gemerkte Spitze nach Spielen: %.3f (erwartet 0.5)\n", pv(19), pkState());
+    send(ButtonPress, ux(1010), uy(72 + 76), 1); send(ButtonRelease, ux(1010), uy(72 + 76), 1); idle(); printf("nach Klick auf die Zeile: %.3f (erwartet 0)\n", pkState());
+    audio(4); printf("nach weiterem Spielen: %.3f (erwartet 0.5)\n", pkState());
+    struct MI { std::string d; size_t k = 0; } mi; std::string sb; clap_ostream_t os{&sb, [](const clap_ostream_t *o, const void *b, uint64_t n) -> int64_t { ((std::string*)o->ctx)->append((const char*)b, n); return (int64_t)n; }}; st->save(p, &os);
+    mi.d = sb.substr(0, sb.find("\n19=") + 1) + "19=1\n"; clap_istream_t is{&mi, [](const clap_istream_t *s2, void *b, uint64_t n) -> int64_t { MI *m = (MI*)s2->ctx; size_t r = std::min<size_t>(n, m->d.size() - m->k); std::memcpy(b, m->d.data() + m->k, r); m->k += r; return (int64_t)r; }};
+    st->load(p, &is); idle(); printf("Projekt mit festem Bezug: %g (erwartet 1)\n", pv(19));
+    send(ButtonPress, ux(1010), uy(72 + 76), 1); send(ButtonRelease, ux(1010), uy(72 + 76), 1); idle(); printf("Klick schaltet auf auto: %g (erwartet 0)\n", pv(19)); }
   printf("Ausgang Spitze: %.3f\n", outPk);
   char t[64]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);

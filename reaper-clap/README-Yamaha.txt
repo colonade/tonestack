@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.18
+Version 1.19
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -64,7 +64,7 @@ Power amp (MA board)
   relative to the input: all controls at 5 (log taper) give about -20 dB at
   1 kHz and -9 dB at 100 Hz, Volume 10 about -4 dB / +7 dB - use OUTPUT to
   make up. On: the whole amp with absolute levels. INPUT
-  sets what peak voltage at the jack corresponds to 0 dBFS of the track
+  sets the peak voltage of your playing at the jack (see "Input level")
   (default 100 mV - a passive bass peaks around 100-300 mV, an active one
   up to 1 V). The chain is calibrated to the service manual (table 3: 0.775 mV
   at HIGH give 2.2 V at the speaker, 69 dB): TR101 x8.7, PA board, MA board
@@ -95,6 +95,35 @@ Frequency response
   mark the low E (41 Hz) and low B (31 Hz) of a bass. The plot ends at the
   power amp input (MA board input network included); the power amp itself is
   flat above 20 Hz apart from its clipping.
+
+Input level (INPUT, since 1.19)
+  INPUT is the peak voltage of your playing at the input jack. The plugin
+  remembers the highest input peak it has seen and scales the track so
+  that this peak arrives at the amp with the set voltage: a track that
+  peaks at -12 dBFS and one that peaks at -3 dBFS drive the amp the same.
+  The line below the INPUT knob shows the remembered peak ("at your peak
+  (-11.7 dBFS)"); it is saved with the project, so the project sounds the
+  same when opened again and when rendered. Click the line to forget it
+  (e.g. after a louder or quieter take). It only grows: until the loudest
+  note has been played once, earlier notes get more level; while it grows
+  during the very first loud note, that note's rising edge is limited to
+  the set voltage. Below -40 dBFS nothing is raised further.
+  Typical values: passive bass about 100-200 mV on a hard attack, active
+  bass up to 1 V; single-coil guitar about 100-200 mV, humbucker or active
+  pickups up to 1 V. Default 100 mV.
+  In this plugin INPUT only acts with the power amp on; with it off, the
+  linear output stays relative to the track, as before.
+  Projects saved with an earlier version keep the old meaning (INPUT = the
+  voltage at 0 dBFS of the track) and sound as before; the line then reads
+  "at 0 dBFS (old)", a click switches to the new behaviour (parameter
+  "Input reference").
+
+1.19
+  - INPUT now means the peak voltage of your playing: the plugin remembers
+    the highest input peak and scales to it (see "Input level"). Before, it
+    was the voltage at 0 dBFS of the track, so a track peaking at -12 dBFS
+    reached the amp with only a quarter of the set voltage. Old projects
+    keep the old behaviour and sound bit-identical.
 
 1.18
   - Rebuilt with the shared solver code of the SVT-CL 1.4 (matrix of the

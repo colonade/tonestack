@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.39
+Version 3.40
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -46,7 +46,7 @@ Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
   Treble, Middle, Bass, Master Volume, Mid/Top/Bass Boost, Bass mod,
   FX loop + power amp (Presence), Output level,
-  Tube distortion, Instrument level, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
+  Tube distortion, Instrument level, Input reference, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
   3.20), Middle/Presence/Reverb pot taper (log 15 % = original 22KA, log
@@ -129,6 +129,33 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+Input level (INPUT, since 3.40)
+  INPUT is the peak voltage of your playing at the input jack. The plugin
+  remembers the highest input peak it has seen and scales the track so
+  that this peak arrives at the amp with the set voltage: a track that
+  peaks at -12 dBFS and one that peaks at -3 dBFS drive the amp the same.
+  The line below the INPUT knob shows the remembered peak ("at your peak
+  (-11.7 dBFS)"); it is saved with the project, so the project sounds the
+  same when opened again and when rendered. Click the line to forget it
+  (e.g. after a louder or quieter take). It only grows: until the loudest
+  note has been played once, earlier notes get more level; while it grows
+  during the very first loud note, that note's rising edge is limited to
+  the set voltage. Below -40 dBFS nothing is raised further.
+  Typical values: passive bass about 100-200 mV on a hard attack, active
+  bass up to 1 V; single-coil guitar about 100-200 mV, humbucker or active
+  pickups up to 1 V. Default 100 mV.
+  Projects saved with an earlier version keep the old meaning (INPUT = the
+  voltage at 0 dBFS of the track) and sound as before; the line then reads
+  "at 0 dBFS (old)", a click switches to the new behaviour (parameter
+  "Input reference").
+
+3.40
+  - INPUT now means the peak voltage of your playing: the plugin remembers
+    the highest input peak and scales to it (see "Input level"). Before, it
+    was the voltage at 0 dBFS of the track, so a track peaking at -12 dBFS
+    reached the amp with only a quarter of the set voltage. Old projects
+    keep the old behaviour and sound bit-identical.
 
 3.39
   - Rebuilt with the shared solver code of the SVT-CL 1.4 (matrix of the
