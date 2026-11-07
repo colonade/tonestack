@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.6
+Version 1.7
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -159,6 +159,24 @@ Input level (INPUT, since 1.6)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.7
+  - No more dropout and click when the circuit is switched (oversampling, power supply, BAL OUT load):
+    the old circuit fades out over 3 ms, the new one fades in, and the old
+    one is freed outside the audio thread. Before, the switch could take
+    long enough for a dropout at small buffers (128 samples) and the output
+    jumped.
+  - Restart after a pause (Play, FX switched on) costs about a third less
+    time in its first block: only the left-channel amp is set up, the right
+    one is copied from it when the channels differ.
+  - Restart without "plop": the resting state the plugin restarts from now
+    sits on the current knob settings. Before it was the default setting,
+    and at every Play the circuit jumped to the project settings and settled
+    audibly (SVT-CL up to -31 dBFS, B-15NF -38 dBFS for about 50 ms). When
+    the settings change and then stay for 0.5 s, a background thread settles
+    a new resting state (about 0.5 s computing time). Until it is ready (for
+    example right after loading a project) a restart fades in over 150 ms
+    instead.
 
 1.6
   - INPUT now means the peak voltage of your playing: the plugin remembers

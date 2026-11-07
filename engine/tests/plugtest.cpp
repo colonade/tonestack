@@ -16,6 +16,8 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <thread>
+#include <atomic>
 #include <algorithm>
 
 static std::vector<clap_event_param_value_t> EVS;
@@ -24,6 +26,7 @@ static const clap_event_header_t *ev_get(const clap_input_events_t *, uint32_t i
 static bool out_push(const clap_output_events_t *, const clap_event_header_t *) { return true; }
 static const void *host_ext(const clap_host_t *, const char *) { return nullptr; }
 static void host_nop(const clap_host_t *) {}
+static std::atomic<bool> cbReq{false}; static void host_cb(const clap_host_t *) { cbReq = true; }   // request_callback: nach dem Block on_main_thread (Kernwechsel, Papierkorb)
 static void addParam(uint32_t id, double v) { clap_event_param_value_t e{}; e.header.size = sizeof e; e.header.type = CLAP_EVENT_PARAM_VALUE; e.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
   e.param_id = id; e.value = v; e.note_id = -1; e.port_index = -1; e.channel = -1; e.key = -1; EVS.push_back(e); }
 static void addParams(const char *spec) { if (!spec || !*spec) return; std::string s(spec); size_t p = 0;
@@ -44,7 +47,7 @@ static void saveStateFile(const clap_plugin_t *p, const char *fn) { auto *st = (
   clap_ostream_t os{f, fileWrite}; st->save(p, &os); fclose(f); }
 struct Host {
   void *lib = nullptr; const clap_plugin_entry_t *entry = nullptr; const clap_plugin_t *p = nullptr; const clap_plugin_params_t *params = nullptr; const clap_plugin_latency_t *lat = nullptr;
-  clap_host_t host = {CLAP_VERSION_INIT, nullptr, "plugtest", "", "", "1", host_ext, host_nop, host_nop, host_nop};
+  clap_host_t host = {CLAP_VERSION_INIT, nullptr, "plugtest", "", "", "1", host_ext, host_nop, host_nop, host_cb};
   std::vector<float> l, r, ol, orr; double fs = 48000;
   bool open(const char *path) { lib = dlopen(path, RTLD_NOW); if (!lib) { printf("dlopen: %s\n", dlerror()); return false; }
     entry = (const clap_plugin_entry_t*)dlsym(lib, "clap_entry"); entry->init(path); auto *fac = (const clap_plugin_factory_t*)entry->get_factory(CLAP_PLUGIN_FACTORY_ID);
@@ -87,7 +90,8 @@ int main(int argc, char **argv) {
       if (asleep && getenv("HONOR")) { bool silent = true; for (int i = 0; i < m; i++) if (x[pos + i] != 0) silent = false; if (silent) { skipped++; pos += m; continue; } asleep = false; }
       if (getenv("EVENTS")) { std::string ev = getenv("EVENTS"); size_t q = 0; while (q < ev.size()) { size_t e = ev.find(';', q); if (e == std::string::npos) e = ev.size(); std::string t = ev.substr(q, e - q); size_t c = t.find(':');
         if (c != std::string::npos) { long at = (long)(atof(t.c_str()) * fs); if (at >= pos && at < pos + m) addParams(t.c_str() + c + 1); } q = e + 1; } }   // Parameteränderungen zu Zeitpunkten: "t:id=v,...;t:..."
-      H.xr = hasR ? &xR[pos] : nullptr; H.yr = &yR[pos]; double dt; clap_process_status s = H.run(&x[pos], &y[pos], m, dt); calls++; tsum += dt; tmax = std::max(tmax, dt); if (getenv("TRACE") && dt > m / fs) fprintf(stderr, "  langsam: Block bei %.3f s (%d Werte) %.2f ms = %.0f%% %s\n", pos / fs, m, dt * 1e3, 100 * dt / (m / fs), asleep ? "(nach Schlaf)" : ""); if (s == CLAP_PROCESS_SLEEP) { asleep = true; sleeps++; } pos += m; }
+      if (getenv("RESETAT")) { long at = (long)(atof(getenv("RESETAT")) * fs); if (at >= pos && at < pos + m) H.p->reset(H.p); }   /* RESETAT=t: Neubeginn wie nach einer Pause (Play, FX an) */
+      H.xr = hasR ? &xR[pos] : nullptr; H.yr = &yR[pos]; double dt; clap_process_status s = H.run(&x[pos], &y[pos], m, dt); calls++; if (cbReq.exchange(false)) H.p->on_main_thread(H.p); if (getenv("REALTIME")) { static auto t0 = std::chrono::steady_clock::now(); auto due = t0 + std::chrono::duration<double>((pos + m) / fs); std::this_thread::sleep_until(due); } /* REALTIME: im Takt der Wiedergabe (Hintergrund-Aufbau wie im Host) */ tsum += dt; tmax = std::max(tmax, dt); if (getenv("TRACE") && dt > m / fs) fprintf(stderr, "  langsam: Block bei %.3f s (%d Werte) %.2f ms = %.0f%% %s\n", pos / fs, m, dt * 1e3, 100 * dt / (m / fs), asleep ? "(nach Schlaf)" : ""); if (s == CLAP_PROCESS_SLEEP) { asleep = true; sleeps++; } pos += m; }
     FILE *fo = fopen(argv[4], "wb"); fwrite(y.data(), 4, n, fo); fclose(fo);
     if (getenv("SAVESTATE")) saveStateFile(H.p, getenv("SAVESTATE"));
     if (getenv("OUTR")) { FILE *f3 = fopen(getenv("OUTR"), "wb"); fwrite(yR.data(), 4, n, f3); fclose(f3); }

@@ -286,7 +286,9 @@ struct Amp {
   // sofort auf das Ziel (ohne Gleiten), Schalter-Rampen am Ziel: nach Neustart aus dem Ruhezustand
   // Netzfrequenz (60 Hz Original USA, 50 Hz Exportfassung): ändert nur den Takt der Netzspannung
   void setMains(double hz) { if (hz == v.mains_hz) return; v.mains_hz = hz; c.setMains(hz); c0.setMains(hz); }
+  static bool sameAll(const Setting &a, const Setting &b) { return a.vol1 == b.vol1 && a.bass1 == b.bass1 && a.treb1 == b.treb1 && a.vol2 == b.vol2 && a.bass2 == b.bass2 && a.treb2 == b.treb2 && a.jack == b.jack && a.tap16 == b.tap16 && a.mis == b.mis && a.stby == b.stby && a.taper == b.taper; }
   void snap() { c.apply(tgt); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; spkMix = spk ? 1 : 0; pwr = power ? 1 : 0; cnt = 0; }
+  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); c.settle(secs, cancel); c0 = c; for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
   // alle 64 Abtastwerte (Grundrate) einen Schritt Richtung Ziel; Netz neu aufbauen kostet etwa 0,1 ms
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }

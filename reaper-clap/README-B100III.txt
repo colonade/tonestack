@@ -1,5 +1,5 @@
 Yamaha B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   Yamaha_B100III.clap and Yamaha_B100III.vst3 contain the same code and
@@ -147,6 +147,16 @@ Input level (INPUT, since 1.4)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.5
+  - No more dropout and click when the circuit is switched (oversampling):
+    the old circuit fades out over 3 ms, the new one fades in, and the old
+    one is freed outside the audio thread. Before, the switch could take
+    long enough for a dropout at small buffers (128 samples) and the output
+    jumped.
+  - Restart after a pause (Play, FX switched on) costs about a third less
+    time in its first block: only the left-channel amp is set up, the right
+    one is copied from it when the channels differ.
 
 1.4
   - INPUT now means the peak voltage of your playing: the plugin remembers
