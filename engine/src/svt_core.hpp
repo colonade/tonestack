@@ -149,7 +149,7 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; const std::vector<std::string> *dbg = nullptr;
   void apply(const Setting &s) { cur = s; bl = build(v, s, dbg); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); }
-  void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); run.dampFull = true; apply(s);   // ab 1.2: gemeinsamer Solve gleich gedämpft (harter Anschlag: kaum noch Notfälle, kürzere Spitzen je Block)
+  void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); run.dampFull = true; run.reuseStep = true; run.reuseRho = 0.1; apply(s);   // ab 1.2: gemeinsamer Solve gleich gedämpft (harter Anschlag: kaum noch Notfälle, kürzere Spitzen je Block); ab 1.4: Zerlegung der großen Gruppe innerhalb eines Abtastwerts weiterverwenden
     // Startwerte aus den Spannungen des Plans, damit das Netzteil nicht lange einschwingen muss
     std::map<std::string, double> g = {{"B1", 660}, {"hv", 661}, {"B380", 346}, {"B365", 330}, {"SCR", 345}, {"Bd", 340}, {"A1", 235}, {"K1", 1.5}, {"A2", 240}, {"K2", 1.6}, {"Kt2", 0.8},
       {"A3", 240}, {"K3", 2.3}, {"Kt3", 1.4}, {"mc", 2.3}, {"K4", 100}, {"Kt4", 98}, {"G4", 98}, {"pa", 200}, {"pk", 1.7}, {"F", 0.3}, {"pb", 250}, {"kb", 95}, {"kt", 94}, {"gb", 94},

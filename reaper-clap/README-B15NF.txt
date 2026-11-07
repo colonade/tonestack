@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.17
+Version 1.18
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -121,6 +121,10 @@ CPU
   different left and right signals doubles that. With the same signal on
   both channels it is computed once. After 2 s of silence at the input
   (output below -70 dBFS, i.e. only hum) the plugin goes idle.
+
+1.18
+  - Rebuilt with the shared solver code of the SVT-CL 1.4 (matrix of the
+    Newton step built per device block). Sound bit-identical to 1.17.
 
 1.17
   - Faster solver (dense matrix products): about 6-8 % less CPU. Sound
