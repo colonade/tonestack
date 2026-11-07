@@ -1,6 +1,6 @@
 // GUI-Test (AmpFett SVT-CL): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   svtguitest AmpFett_SVTCL.clap bild.png
-// Prüft: Netzteil- und BAL-OUT-Schalter (ab 1.5), Buchsen −15 dB / 0 dB, GAIN ziehen, FREQUENCY bis 3 kHz, ULTRA HI/LO, STANDBY und POWER verborgen (ab 1.3 nicht mehr auf der Frontplatte), Ausgang 2 Ω, POT TAPER, Mausrad auf MASTER (Überabtastung ab 1.1 entfernt).
+// Prüft: Netzteil- und BAL-OUT-Schalter, TUBE MISMATCH (ab 1.5), Buchsen −15 dB / 0 dB, GAIN ziehen, FREQUENCY bis 3 kHz, ULTRA HI/LO, STANDBY und POWER verborgen (ab 1.3 nicht mehr auf der Frontplatte), Ausgang 2 Ω, POT TAPER, Mausrad auf MASTER (Überabtastung ab 1.1 entfernt).
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -62,6 +62,11 @@ int main(int argc, char **argv) {
   for (int i = 0; i < 300; i++) { tick(); usleep(10000); }   // neuer Kern im Hilfsfaden (Netzteil nach Plan, T1)
   { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar nach Umbau: %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
+  printf("Tube mismatch Grundstellung: %g (erwartet 8)\n", pv(18));
+  send(ButtonPress, ux(905), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(905), uy(72) + i * 8, 0); tick(); } send(ButtonRelease, ux(905), uy(152), 1); tick(); printf("Tube mismatch gezogen: %g (erwartet < 8)\n", pv(18));
+  { double m = 0; for (int i = 0; i < 20; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar nach Mismatch: %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
+  send(ButtonPress, ux(905), uy(72), 4); tick(); printf("Tube mismatch Mausrad: %g\n", pv(18));
+  send(MotionNotify, ux(905), uy(72), 0); tick(); tick();
   send(ButtonPress, kx(1290), kx(138), 4); tick(); send(ButtonPress, kx(1290), kx(138), 4); tick(); printf("Master: %g (erwartet 5.4)\n", pv(5));
   // Wertanzeige über allen Bedienelementen (1.0 stürzte beim Zeigen auf eine Buchse ab: falscher Zweig, Zugriff außerhalb der Schalterliste)
   { const int pts[][2] = {{100, 150}, {196, 150}, {470, 140}, {560, 140}, {1340, 140}, {1380, 200}, {330, 138}, {990, 138}};

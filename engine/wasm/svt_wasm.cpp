@@ -7,7 +7,8 @@ static Amp *A = nullptr; static Core *P = nullptr; static float bufS[8192]; stat
 // 13 Netzteil (0 einfach, 1 nach Plan 50 Hz, 2 nach Plan 60 Hz), 14 BAL OUT (0 aus, 1 T1 geschätzt) – 13/14 wirken nur über sv_init
 static int clampI(double x, int lo, int hi, int d) { return std::isfinite(x) ? std::max(lo, std::min(hi, (int)std::lround(x))) : d; }
 static Setting fromT() { Setting s; for (int i = 0; i < 5; i++) { double x = tgtS[i]; sfield(s, i) = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0.5; }
-  s.freq = clampI(tgtS[5], 0, 4, 2); s.ulo = tgtS[6] > 0.5; s.uhi = tgtS[7] > 0.5; s.jack = clampI(tgtS[8], 0, 1, 0); s.tap = clampI(tgtS[9], 0, 1, 0); s.taper = clampI(tgtS[10], 0, 2, 0); s.psu = clampI(tgtS[13], 0, 2, 0); s.bal = clampI(tgtS[14], 0, 1, 0); return s; }
+  s.freq = clampI(tgtS[5], 0, 4, 2); s.ulo = tgtS[6] > 0.5; s.uhi = tgtS[7] > 0.5; s.jack = clampI(tgtS[8], 0, 1, 0); s.tap = clampI(tgtS[9], 0, 1, 0); s.taper = clampI(tgtS[10], 0, 2, 0); s.psu = clampI(tgtS[13], 0, 2, 0); s.bal = clampI(tgtS[14], 0, 1, 0);
+  s.mis = std::isfinite(tgtS[15]) ? std::min(0.1, std::max(0.0, tgtS[15])) : 0; return s; }   // 15: Streuung der Endröhren (0 … 0,1)
 extern "C" {
 float *sv_buffer() { return bufS; } double *sv_target_buffer() { return tgtS; } double *sv_peaks_buffer() { return peakS; } double *sv_freq_buffer() { return freqS; } double *sv_resp_buffer() { return respS; }
 void sv_init(double fs, int os) { delete A; A = new Amp(); int o = (os == 1 || os == 2 || os == 4) ? os : 1; A->vin = 0.1; A->power = !(tgtS[12] < 0.5); A->init(fs, o, Parts(), fromT()); }

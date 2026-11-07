@@ -28,7 +28,7 @@ namespace sgui { struct Gui; }
 #endif
 using namespace svt;
 
-enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_PSU, P_BAL, P_COUNT };
+enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_PSU, P_BAL, P_MIS, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_FREQ[] = {"220 Hz", "450 Hz", "800 Hz", "1.6 kHz", "3 kHz"}; static const char *N_JACK[] = {"0 dB (passive)", "-15 dB (active)"};
 static const char *N_TAPO[] = {"4 ohm (load 4 ohm)", "2 ohm (load 2 ohm)"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x"}; static const char *N_PSU[] = {"Simple", "As schematic, 50 Hz mains", "As schematic, 60 Hz mains"}; static const char *N_BAL[] = {"Off", "On (T1 estimated)"};
@@ -37,7 +37,8 @@ static const PDef PD[P_COUNT] = {
   {"Ultra Hi", 0, 1, 0, N_ONOFF, 2}, {"Ultra Lo", 0, 1, 0, N_ONOFF, 2}, {"Input", 0, 1, 0, N_JACK, 2}, {"Output tap", 0, 1, 0, N_TAPO, 2},
   {"Standby", 0, 1, 0, N_ONOFF, 2}, {"Power", 0, 1, 1, N_ONOFF, 2},
   {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (1x only since 1.1)", 0, 0, 0, N_OS, 1}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3},
-  {"Power supply", 0, 2, 0, N_PSU, 3}, {"BAL OUT load (T1)", 0, 1, 0, N_BAL, 2} };   // ab 1.5
+  {"Power supply", 0, 2, 0, N_PSU, 3}, {"BAL OUT load (T1)", 0, 1, 0, N_BAL, 2},   // ab 1.5
+  {"Power tube mismatch (%)", 0, 10, 8, 0, 0} };   // ab 1.5: Ruhestrom-Unterschied der beiden 6550-Seiten
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int) { return 1; }   // ab 1.1 nur noch 1x: 2x/4x brauchten mehr als einen Rechenkern; Aliasing bei Bass-Grundtönen auch bei 1x unter −80 dB (docs/PROJEKTSTAND.md)
 
@@ -70,7 +71,7 @@ struct Plugin {
   int cfgWant() const { return osFactor((int)std::lround(val[P_OS])) + 10 * (2 * ix(val[P_PSU], 2) + ix(val[P_BAL], 1)); }
   static int ix(double v, int hi) { return std::max(0, std::min(hi, (int)std::lround(v))); }
   Setting setting(double g, double b, double m, double t, double ms) const { Setting s; s.gain = g / 10; s.bass = b / 10; s.mid = m / 10; s.treb = t / 10; s.master = ms / 10;
-    s.freq = ix(val[P_FREQ], 4); s.ulo = val[P_ULO] > 0.5; s.uhi = val[P_UHI] > 0.5; s.jack = ix(val[P_JACK], 1); s.tap = ix(val[P_TAP], 1); s.taper = ix(val[P_TAPER], 2); s.bal = ix(val[P_BAL], 1); s.psu = 0; return s; }   // psu/bal für den Kern: Amp übernimmt sie vom eingeschwungenen Kern (Wechsel nur über cfg)
+    s.freq = ix(val[P_FREQ], 4); s.ulo = val[P_ULO] > 0.5; s.uhi = val[P_UHI] > 0.5; s.jack = ix(val[P_JACK], 1); s.tap = ix(val[P_TAP], 1); s.taper = ix(val[P_TAPER], 2); s.bal = ix(val[P_BAL], 1); s.psu = 0; s.mis = std::max(0.0, std::min(10.0, (double)val[P_MIS])) / 100; return s; }   // psu/bal für den Kern: Amp übernimmt sie vom eingeschwungenen Kern (Wechsel nur über cfg)
   Setting target() const { return setting(val[P_GAIN], val[P_BASS], val[P_MID], val[P_TREB], val[P_MASTER]); }
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->power = true; a->setTarget(target()); if (snap) a->snap(); }   // STANDBY/POWER ab 1.3 ohne Wirkung (Schalter von der Frontplatte entfernt; Parameter bleiben verborgen, damit alte Projekte laden)
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } }
@@ -124,7 +125,7 @@ static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::stri
   bool seen[P_COUNT] = {};
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
     size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
-  for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(PD[i].def);
+  for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(i == P_MIS ? 0.0 : PD[i].def);   // Projekte vor 1.5 ohne Streuung (klingen wie damals)
   Plugin *pl = P(p); pl->dirty = true; if (pl->active && pl->cfgWant() != pl->cfgAct) ask_main(pl); return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 

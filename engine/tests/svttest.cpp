@@ -71,7 +71,16 @@ int main() {
     for (double f : {30.0, 40.0, 60.0, 80.0, 100.0, 200.0}) { char t[80]; std::snprintf(t, sizeof t, "  %.0f Hz", f); printf("  %-58s %+8.2f dB\n", t + 2, rel(cb, f) - rel(ca, f)); }
     chk("  mit T1: 40 Hz rel. 1 kHz (Spez. −3 dB)", rel(cb, 40), -3, 1, "dB");
     chk("  1 kHz absolut gegenüber ohne T1", db(cb.response(1000)) - db(ca.response(1000)), 0, 0.5, "dB"); }
+  printf("TUBE MISMATCH (Ruhestrom-Unterschied Seite A gegen B)\n");
+  { std::vector<std::string> N = {"kA", "kB"}; double h2[2] = {0, 0}, r0 = 100;
+    for (int k = 0; k < 2; k++) { Setting s; s.mis = k ? 0.08 : 0; Core c = mk(s, &N); double y[O_NO + 4]; c.step(0, y); double ia = y[O_NO], ib = y[O_NO + 1];
+      if (k) chk("  8 %: Ruhestrom A/B, Unterschied zu 0 %", 100 * (ia / ib) - r0, 8, 0.8, "%"); else { r0 = 100 * (ia / ib); chk("  0 %: Ruhestrom A/B − 1 (Rest des Einschwingens nach 1,2 s)", r0 - 100, 0, 1, "%"); }
+      Core c2 = mk(s); double w, thd; bool fin; sine(c2, 0.05, 100, w, thd, fin);
+      int per = (int)std::lround(FS / 100); long n1 = 20L * per; std::vector<double> o(n1); for (long i = 0; i < n1; i++) { c2.step(0.05 * std::sqrt(2.0) * std::sin(2 * PI * 100 * i / FS), y); o[i] = y[O_SPK]; }
+      auto hm = [&](int hn) { double re = 0, im = 0; for (long i = 0; i < n1; i++) { double ph = 2 * PI * 100 * hn * i / FS; re += o[i] * std::cos(ph); im += o[i] * std::sin(ph); } return std::sqrt(re * re + im * im); };
+      h2[k] = 20 * std::log10(hm(2) / hm(1)); printf("  %-58s %+8.2f dB\n", k ? "8 %: 2. Oberwelle (50 mV, 100 Hz)" : "0 %: 2. Oberwelle (50 mV, 100 Hz)", h2[k]); }
+    chk("  2. Oberwelle mit 8 % stärker als ohne", h2[1] - h2[0] > 3 ? 1 : 0, 1, 0, ""); }
   printf("Stabilität (harte Übersteuerung, 48 und 96 kHz)\n");
-  for (int var = 0; var < 3; var++) for (double fs : {48000.0, 96000.0}) { if (var && fs > 50000) continue; double sv = FS; FS = fs; Setting s; s.gain = 1; s.master = 1; s.bass = 1; s.uhi = true; s.psu = var; s.bal = var > 0; Core c = mk(s); double w, thd; bool fin; sine(c, 1.0, 82.4, w, thd, fin); FS = sv;
-    char b[80]; std::snprintf(b, sizeof b, "1 V bei 82 Hz, %.0f kHz%s: endlich, Leistung", fs / 1000, var == 1 ? ", Netzteil 50 Hz + T1" : var == 2 ? ", Netzteil 60 Hz + T1" : ""); chk(b, fin ? w : NAN, 450, 450, "W"); }
+  for (int var = 0; var < 3; var++) for (double fs : {48000.0, 96000.0}) { if (var && fs > 50000) continue; double sv = FS; FS = fs; Setting s; s.gain = 1; s.master = 1; s.bass = 1; s.uhi = true; s.psu = var; s.bal = var > 0; s.mis = var ? 0.1 : 0; Core c = mk(s); double w, thd; bool fin; sine(c, 1.0, 82.4, w, thd, fin); FS = sv;
+    char b[80]; std::snprintf(b, sizeof b, "1 V bei 82 Hz, %.0f kHz%s: endlich, Leistung", fs / 1000, var == 1 ? ", Netzteil 50 Hz + T1 + 10 %" : var == 2 ? ", Netzteil 60 Hz + T1 + 10 %" : ""); chk(b, fin ? w : NAN, 450, 450, "W"); }
   printf("\n%d Abweichungen, %d bekannte\n", bad, known); return bad ? 1 : 0; }
