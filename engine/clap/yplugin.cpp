@@ -1,9 +1,10 @@
 // Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.18"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.19"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "yamaha_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
+#include "autoin.hpp"
 #ifndef TS_NO_GUI
 #include "ygui.hpp"
 #else
@@ -25,16 +26,17 @@ namespace ygui { struct Gui; }
 #endif
 using namespace b100;
 
-enum { P_INP, P_VOL, P_T, P_M, P_B, P_E0, P_E1, P_E2, P_E3, P_E4, P_TAPER, P_PWR, P_VIN, P_SPK, P_OUT, P_COUNT };
+enum { P_INP, P_VOL, P_T, P_M, P_B, P_E0, P_E1, P_E2, P_E3, P_E4, P_TAPER, P_PWR, P_VIN, P_SPK, P_OUT, P_INREF, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_INP[] = {"HIGH", "LOW (-12 dB)"}; static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_TAP[] = {"Log 15 %", "Log 10 %", "Linear"};
 static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 1, 0, N_INP, 2}, {"Volume", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0},
   {"EQ 60 Hz", -5, 5, 0, 0, 0}, {"EQ 150 Hz", -5, 5, 0, 0, 0}, {"EQ 320 Hz", -5, 5, 0, 0, 0}, {"EQ 640 Hz", -5, 5, 0, 0, 0}, {"EQ 1250 Hz", -5, 5, 0, 0, 0},
-  {"Pot taper (volume, tone)", 0, 2, 0, N_TAP, 3}, {"Power amp (MA board, clipping at 42 V)", 0, 1, 0, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
-  {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2}, {"Output level (dB)", -36, 24, 0, 0, 0} };
+  {"Pot taper (volume, tone)", 0, 2, 0, N_TAP, 3}, {"Power amp (MA board, clipping at 42 V)", 0, 1, 0, N_ONOFF, 2}, {"Instrument level (mV peak)", 1, 1000, 100, 0, 0},
+  {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };
 
 struct Plugin {
+  tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; YCore *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};
   std::atomic<double> load{0}; std::atomic<double> pk{0}; int pkCnt = 0; std::vector<float> mono, mono2; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */ bool eng2Has = false; YSetting lastT;
@@ -92,10 +94,12 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
-  int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+  len += tsin::saveLine(buf + len, (int)sizeof buf - len, P(p)->ain.pk.load()); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
+  bool refSeen = false; P(p)->ain.pk = 0;
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
-    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); }
+    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id == tsin::STATE_ID) { P(p)->ain.pk = tsin::clampPk(v); continue; } if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); if (id == P_INREF) refSeen = true; } }
+  if (!refSeen) P(p)->val[P_INREF].store(1.0);   // Projekte vor dem Eingangsbezug: fest 0 dBFS (klingen wie damals)
   P(p)->dirty = true; return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
@@ -143,6 +147,9 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->sleeping) {   // Schlaf auch ohne Mitwirkung des Hosts: lineares Netz ist abgeklungen, Stille ausgeben
     for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
     return CLAP_PROCESS_CONTINUE; }
+  { double v = pl->val[P_VIN].load() / 1000;   // Eingangsbezug (autoin.hpp): der Pegel wirkt hier nur im Endstufenpfad (vin des Kerns); der lineare Ausgang bleibt wie bisher auf den Eingang bezogen
+    bool learned = false; if (pl->val[P_INREF].load() < 0.5) { double p0 = pl->ain.pk.load(), p = pl->ain.learn(inPk); learned = p > p0; v /= std::max(p, tsin::FLOOR); }   // gemerkte Spitze = eingestellte mV; Blockspitze vorab (kein Überschwingen beim ersten Ton)
+    for (YCore *e : {pl->eng, pl->eng2}) { e->tgt.vin = v; if (learned && e->vinCur > v) e->vinCur = v; } }   // neu gelernte (größere) Spitze: Pegel sofort kleiner, sonst gleitend wie bisher
   pl->eng->block(m, (int)n); if (stereo) pl->eng2->block(m2, (int)n);
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
   { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));   // Ausgangspegel gleitet (kein Knacken beim Drehen)
@@ -185,7 +192,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
 #ifndef __APPLE__
   if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
 #endif
-  if (!pl->gui) { pl->gui = new ygui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
+  if (!pl->gui) { pl->gui = new ygui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->resetPeak = [pl]() { pl->ain.requestReset(); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) {   // Kleinsignal-Frequenzgang wie im Web-Simulator (ohne Endstufe)
       YSetting t = pl->target(); t.pwr = false; double fs = pl->fs; YParts v = YParts::orig();
       auto curveOf = [&](const YSetting &s, std::vector<double> &out) { LinNet o = netY(v, s, fs); double r = ymag(o, 1000, s); out.resize(ygui::NF); for (int i = 0; i < ygui::NF; i++) out[i] = 20 * std::log10(std::max(1e-12, ymag(o, ygui::freqAt(i), s) / r)); };
@@ -208,7 +215,7 @@ static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if
 static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %.0f Hz · stereo%s", pl->load.load() * 100, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); { const char *m = std::strstr(b, " · "); std::string mode = m ? m : "";   // CPU-Wert höchstens zweimal je Sekunde neu (jede Änderung zeichnet das Fenster neu), Modus sofort
     if (++pl->diagCnt < 15 && mode == pl->diagMode && !pl->diagTxt.empty()) return; pl->diagCnt = 0; pl->diagMode = mode; pl->diagTxt = b; } }
 // Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
-static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; upd_diag(pl); pl->gui->meterOn = pl->val[P_PWR].load() > 0.5 && !pl->sleeping; pl->gui->meter = std::max(pl->pk.load(), pl->gui->meter * 0.85); }
+static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; pl->gui->inPk = tsin::pkDb(pl->ain.pk.load()); upd_diag(pl); pl->gui->meterOn = pl->val[P_PWR].load() > 0.5 && !pl->sleeping; pl->gui->meter = std::max(pl->pk.load(), pl->gui->meter * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }

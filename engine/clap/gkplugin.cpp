@@ -1,9 +1,10 @@
 // GK 800RB (Gallien-Krueger, Service-Manual 1991: Vorstufe 406-0045-C als Schaltung, Endstufen 300 W / 100 W) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "gk_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
+#include "autoin.hpp"
 #ifndef TS_NO_GUI
 #include "gkgui.hpp"
 #else
@@ -28,7 +29,7 @@ namespace gkgui { struct Gui; }
 #endif
 using namespace gk;
 
-enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_TAPER, P_COUNT };
+enum { P_PAD, P_VOL, P_LOCUT, P_CONTOUR, P_HIBOOST, P_TREB, P_HIMID, P_LOMID, P_BASS, P_BOOST, P_BOOSTSW, P_BIAMP, P_FREQ, P_HIMA, P_LOMA, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_DIRECT, P_TAPER, P_INREF, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_INOUT[] = {"Out", "In"}; static const char *N_BSW[] = {"Off (preset level)", "On"}; static const char *N_BIAMP[] = {"Full range", "Bi-amp"};
 static const char *N_PWR[] = {"Linear (no clipping)", "On (clipping at 300 W / 100 W)"}; static const char *N_DIR[] = {"Speaker outputs (300 W + 100 W amps)", "Direct out (post EQ, pre boost)"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"};
@@ -38,7 +39,7 @@ static const PDef PD[P_COUNT] = {
   {"Boost", 0, 10, 5, 0, 0}, {"Boost switch (footswitch)", 0, 1, 1, N_BSW, 2}, {"Bi-Amp", 0, 1, 0, N_BIAMP, 2}, {"Bi-Amp frequency", 0, 10, 5, 0, 0},
   {"Hi Master (100 W amp)", 0, 10, 5, 0, 0}, {"Lo Master (300 W amp)", 0, 10, 5, 0, 0},
   {"Power amps", 0, 1, 1, N_PWR, 2}, {"Speaker (15\" CB158, vented box, estimated)", 0, 1, 0, N_ONOFF, 2},
-  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Output", 0, 1, 0, N_DIR, 2}, {"Volume pot taper", 0, 2, 0, N_TAP, 3} };
+  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Output", 0, 1, 0, N_DIR, 2}, {"Volume pot taper", 0, 2, 0, N_TAP, 3}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -54,6 +55,7 @@ struct Pend { Amp *a, *proto; };   // fertig eingeschwungener Kern für eine neu
 struct Dly { float b[LATENCY] = {}; int i = 0; float step(float x) { float y = b[i]; b[i] = x; if (++i == (int)LATENCY) i = 0; return y; } };
 
 struct Plugin {
+  tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Amp *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono, mono2; double outg = 1, outCur = -1; bool monoOK = true, eng2Stale = true;
@@ -119,12 +121,13 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
-  int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+  len += tsin::saveLine(buf + len, (int)sizeof buf - len, P(p)->ain.pk.load()); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
-  bool seen[P_COUNT] = {};
+  bool seen[P_COUNT] = {}; P(p)->ain.pk = 0;
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
-    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
+    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id == tsin::STATE_ID) { P(p)->ain.pk = tsin::clampPk(v); continue; } if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(PD[i].def);   // Parameter späterer Fassungen: Grundstellung
+  if (!seen[P_INREF]) P(p)->val[P_INREF].store(1.0);   // Projekte vor dem Eingangsbezug: fest 0 dBFS (klingen wie damals)
   Plugin *pl = P(p); pl->dirty = true; if (pl->active && pl->cfgWant() != pl->cfgAct) ask_main(pl); return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
@@ -180,6 +183,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->sleeping && inPk >= 1e-6f) { pl->sleeping = false; pl->quiet = 0; }   // Aufwachen: Kern rechnet vom angehaltenen Ruhezustand weiter
   if (pl->sleeping) { for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
     return CLAP_PROCESS_CONTINUE; }
+  if (pl->val[P_INREF].load() < 0.5) pl->ain.apply(m, stereo ? m2 : nullptr, n);   // Eingangsbezug: gemerkte Spitze = eingestellte mV (autoin.hpp)
   pl->eng->process(m, (int)n); if (pl->eng->os == 1) for (uint32_t i = 0; i < n; i++) m[i] = pl->d1.step(m[i]);
   if (dual) { pl->eng2->process(m2, (int)n); if (pl->eng2->os == 1) for (uint32_t i = 0; i < n; i++) m2[i] = pl->d2.step(m2[i]);
     if (same) { bool eq = true; for (uint32_t i = 0; i < n; i++) if (std::fabs(m[i] - m2[i]) > 1e-7f) { eq = false; break; } if (eq) { pl->monoOK = true; pl->eng2Stale = true; } } }
@@ -250,7 +254,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
 #ifndef __APPLE__
   if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
 #endif
-  if (!pl->gui) { pl->gui = new gkgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
+  if (!pl->gui) { pl->gui = new gkgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->resetPeak = [pl]() { pl->ain.requestReset(); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) { curves(pl, cur, ref); }; }
   pl->guiH = pl->guiW * gkgui::TOTALH / gkgui::FW;
   }
@@ -268,7 +272,7 @@ static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if
   }
 static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %dx oversampling · %.0f Hz%s", pl->load.load() * 100, pl->cfgAct.load(), pl->fs, pl->sleeping ? " · idle (silent input)" : ""); { const char *m = std::strstr(b, " · "); std::string mode = m ? m : "";   // CPU-Wert höchstens zweimal je Sekunde neu (jede Änderung zeichnet das Fenster neu), Modus sofort
     if (++pl->diagCnt < 15 && mode == pl->diagMode && !pl->diagTxt.empty()) return; pl->diagCnt = 0; pl->diagMode = mode; pl->diagTxt = b; } }
-static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; if (pl->plotRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl);
+static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; pl->gui->inPk = tsin::pkDb(pl->ain.pk.load()); if (pl->plotRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl);
   pl->gui->meterOn = pl->active && !pl->sleeping; int oa = pl->cfgAct; pl->gui->osActive = oa == 1 ? 0 : oa == 2 ? 1 : 2;
   for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }

@@ -25,11 +25,12 @@
 #include "stb_image.h"
 #include "panel_jpg.h"
 #include "widgets.hpp"
+#include "autoin.hpp"
 
 namespace aorgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_ECO, P_REV, P_TANK, P_COUNT };
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_ECO, P_REV, P_TANK, P_INREF, P_COUNT };
 static const char *TUBE_SHORT[5] = {"12AX7", "12AT7", "12AU7", "5751", "12AY7"};
 static const int KPARAM[9] = {P_V1, P_V2, P_PL, P_MV, P_T, P_M, P_B, P_PRES, P_REV};   // Knopf → Parameter (REVERB ab 3.35)
 static const char *KNAME[9] = {"PREAMP 1 VOLUME","PREAMP 2 VOLUME","PREAMP 1 LEVEL","MASTER VOLUME","TREBLE","MIDDLE","BASS","PRESENCE","REVERB"};
@@ -44,6 +45,7 @@ static const int SW_P[6] = {P_UMBAU, P_PA, P_NL, P_SPK, P_SOFT, P_PAD};
 constexpr double OS_X = 506, TAP_X = 614;   // Überabtastung (Drehwahlschalter), Kennlinie der log-Potis Middle/Presence (Kippschalter, 3 Stellungen; 3.27–3.33 entfallen, ab 3.34 wieder da)
 // Stellung des Überabtastungs-Wahlschalters: 1x, eco (2x mit Endstufe in Grundrate), 2x, 4x (Parameter Oversampling und Eco; 8x ab 3.28 entfernt)
 inline int osIdx(double os, double eco) { int o = std::max(0, std::min(2, (int)std::lround(os))); return o == 0 ? 0 : o == 1 ? (eco > 0.5 ? 1 : 2) : o + 1; }
+static const double REF_X = 985;   // Zeile „at your peak“ zwischen INPUT und OUTPUT (unter INPUT stieße sie an die Beschriftung von LATE)
 static const double KN_X[3] = {935, 1035, 1135};    // INPUT, OUTPUT, MISMATCH (Streuung der Endröhren), Beschriftung unter dem Knopf
 constexpr double KN_Y = 72;                         // Mittelpunkt der kleinen Regler
 static const char *REFLABEL = "original parts, stock tubes, all controls 5, boosts off";
@@ -58,6 +60,7 @@ struct Gui {
   Display *dpy = nullptr; Window win = 0, parent = 0; cairo_surface_t *xs = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0;
 #endif
   std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;   // gesture: Ziehen beginnt/endet (Parameter-ID)
+  double inPk = -999; std::function<void()> resetPeak;   // Eingangsbezug: gemerkte Spitze (dBFS, −999 = nichts gehört), Klick setzt sie zurück (autoin.hpp)
   double meter[5] = {0,0,0,0,0};
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;   // Kurven in dB (bezogen auf 1 kHz): aktuell, Original/alle 5
   std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0; bool curveStale = false;
@@ -164,7 +167,7 @@ struct Gui {
     cairo_restore(c);   // Ende Foto-Maßstab
     // ---- unterer Bereich in UI-Einheiten ----
     const double u = uscale(); bool nl = v[P_NL] > 0.5; int osv = osIdx(v[P_OS], v[P_ECO]), tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER])));
-    char vt[3][32]; std::snprintf(vt[0], 32, "%.0f mV", v[P_VIN]); std::snprintf(vt[1], 32, "%+.1f dB", v[P_OUT]); std::snprintf(vt[2], 32, "%.1f %%", v[P_MIS]);
+    char vt[3][32]; tsin::valueText(vt[0], 32, v[P_VIN], v[P_INREF] > 0.5); std::snprintf(vt[1], 32, "%+.1f dB", v[P_OUT]); std::snprintf(vt[2], 32, "%.1f %%", v[P_MIS]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
@@ -177,6 +180,7 @@ struct Gui {
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe
+    { char xt[64]; tsin::extraText(xt, sizeof xt, inPk, v[P_INREF] > 0.5); setrgb(c, 0x9a9ea6); tsw::text(c, xt, REF_X, KN_Y + 76, 11, false, 1); }   // unter INPUT: gemerkte Spitze; Klick setzt zurück bzw. schaltet alte Projekte auf „auto“
     // Röhrenbestückung: V101, V102, V103 (Taste schaltet den Typ durch), RESET = Bestückung wie im Gerät
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x16181c); cairo_rectangle(c, 0, 0, tsw::UW, TUBEU); cairo_fill(c);
       setrgb(c, 0xdcdee2); tsw::text(c, "TUBES", 16, 28, 14, true);
@@ -251,11 +255,13 @@ struct Gui {
       default: return false; } }
 #endif
   // kind 0 drücken (button 1 links, 4/5 Mausrad), 1 bewegen, 2 loslassen, 3 verlassen; now in Sekunden
+  bool hitInRef(double px, double py) const { double lx, ly; toLower(px, py, lx, ly); return std::fabs(lx - REF_X) < 85 && ly > KN_Y + 64 && ly < KN_Y + 82; }   // Zeile unter INPUT
   bool onMouse(int kind, double x, double y, int button, double now) {
     switch (kind) {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else if (k < 0) { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, p == P_OS ? (button == 4 ? 1 : -1) : (button == 4 ? -1 : 1)); } return true; }
         if (button != 1) return false;
+        if (hitInRef(x, y)) { if (getP(P_INREF) > 0.5) setP(P_INREF, 0); else if (resetPeak) resetPeak(); return true; }
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 8 ? 0 : k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : k == 11 ? 8 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int pp = hitPull(x, y); if (pp >= 0) { setP(pp, getP(pp) > 0.5 ? 0 : 1); return true; }
@@ -272,7 +278,7 @@ struct Gui {
     }
   }
   std::string lastSig;   // Signatur: Anzeigebalken auf ganze Pixel gerundet, damit nur sichtbare Änderungen neu zeichnen
-  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
+  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i)); sapp(b, sizeof b, n, "%.1f|", inPk);
     for (int i = 0; i < 5; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + 9 * std::min(std::max(meter[i], 0.0), 2.0) / 2) * 74));   sapp(b, sizeof b, n, "%d|%d|%d|%d|%d", drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
   // Fenster vom Host mit dem Containerfenster zerstört: nicht mehr zeichnen und nicht noch einmal zerstören

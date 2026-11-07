@@ -1,10 +1,11 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.39"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.40"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
+#include "autoin.hpp"
 #ifndef TS_NO_GUI
 #include "gui.hpp"
 #else
@@ -27,7 +28,7 @@ namespace aorgui { struct Gui; }
 #endif
 using namespace aor;
 
-enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_ECO, P_REV, P_TANK, P_COUNT };   // P_REV, P_TANK ab 3.35 (angehängt)
+enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_ECO, P_REV, P_TANK, P_INREF, P_COUNT };   // P_REV, P_TANK ab 3.35 (angehängt)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_INP[] = {"HIGH (~1 mV)", "LOW (~30 mV)"}; static const char *N_CH[] = {"Preamp 1 (high gain)", "Preamp 2"};
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_UMB[] = {"Original", "Bass mod C2 C3 C14"};
@@ -39,17 +40,18 @@ static const PDef PD[P_COUNT] = {
   {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Master Volume", 0, 10, 5, 0, 0},
   {"Mid Boost (S105)", 0, 1, 1, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 1, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 1, N_ONOFF, 2},
   {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Middle/Presence/Reverb pot taper", 0, 2, 0, N_TAP, 3},
-  {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0},
+  {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level (mV peak)", 1, 1000, 100, 0, 0},
   {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Presence", 0, 10, 5, 0, 0},
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
   {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2},
   {"Power tube mismatch (%)", 0, 10, 8, 0, 0},   // Grundstellung 8 % (Nutzer, 2026-11-02)
   {"Eco (2x: power amp at base rate, about 1/3 less CPU)", 0, 1, 0, N_ONOFF, 2},   // ab 3.26
-  {"Reverb (needs FX loop + power amp)", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear)", 0, 10, 5, 0, 0} };   // ab 3.35: Federhall nach dem Plan (IC201/IC202), Grundstellung 0 = wie 3.34
+  {"Reverb (needs FX loop + power amp)", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };   // ab 3.35: Federhall nach dem Plan (IC201/IC202), Grundstellung 0 = wie 3.34
 
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
+  tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
@@ -127,13 +129,14 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
-  int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+  len += tsin::saveLine(buf + len, (int)sizeof buf - len, P(p)->ain.pk.load()); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }   // Zustand ist knapp 1 KB; mehr ist kaputt
-  bool seen[P_COUNT] = {};
+  bool seen[P_COUNT] = {}; P(p)->ain.pk = 0;
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
-    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
+    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id == tsin::STATE_ID) { P(p)->ain.pk = tsin::clampPk(v); continue; } if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   // Projekte älterer Fassungen: Parameter, die es damals nicht gab, so setzen, wie die alte Fassung klang (nicht die heutige Grundstellung)
   for (int i = 0; i < P_COUNT; i++) if (!seen[i]) { double v = PD[i].def; if (i == P_PRES) v = 5; else if (i == P_TUBE1 || i == P_TUBE2 || i == P_TUBE3 || i == P_SPK || i == P_SOFT || i == P_PAD || i == P_MIS) v = 0; P(p)->val[i].store(v); }
+  if (!seen[P_INREF]) P(p)->val[P_INREF].store(1.0);   // Projekte vor dem Eingangsbezug: fest 0 dBFS (klingen wie damals)
   P(p)->dirty = true; return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
@@ -196,6 +199,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->sleeping) {   // Schlaf auch ohne Mitwirkung des Hosts: Kern übergehen, Stille ausgeben (echter Ausgang läge unter −100 dBFS)
     for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
     return CLAP_PROCESS_CONTINUE; }
+  if (pl->val[P_INREF].load() < 0.5) pl->ain.apply(m, stereo ? m2 : nullptr, n);   // Eingangsbezug: gemerkte Spitze = eingestellte mV (autoin.hpp)
   pl->eng->block(m, (int)n);
   if (dual) { pl->eng2->block(m2, (int)n);
     if (same) { bool eq = true; for (uint32_t i = 0; i < n; i++) if (std::fabs(m[i] - m2[i]) > 1e-7f) { eq = false; break; } if (eq) { pl->monoOK = true; pl->eng2Stale = true; } } }   // gleichauf: ab jetzt einmal rechnen
@@ -247,7 +251,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
 #ifndef __APPLE__
   if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
 #endif
-  if (!pl->gui) { pl->gui = new aorgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
+  if (!pl->gui) { pl->gui = new aorgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->resetPeak = [pl]() { pl->ain.requestReset(); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
     pl->gui->computeCurves = [pl](std::vector<double> &cur, std::vector<double> &ref) {   // Kleinsignal-Frequenzgang wie im Web-Simulator
       Target t = pl->target(); double fs = pl->fs; auto curveOf = [&](const Parts &v, const Setting &s, bool pa, std::vector<double> &out) {
         std::vector<TriSS> ss; const std::vector<TriSS> *sp = nullptr; if (!stockTubes(s)) { ss = smallSignal(v, s, fs); sp = &ss; }
@@ -276,7 +280,7 @@ static void upd_diag(Plugin *pl) {   // Textzeile: CPU-Wert höchstens zweimal j
   if (++pl->diagCnt < 15 && pl->diagMode == m) return; pl->diagCnt = 0; pl->diagMode = m;
   char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %s", pl->load.load() * 100, m); pl->diagTxt = b; }
 // Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
-static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; if (pl->curveRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
+static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; pl->gui->inPk = tsin::pkDb(pl->ain.pk.load()); if (pl->curveRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }

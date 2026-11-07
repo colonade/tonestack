@@ -28,11 +28,12 @@
 #include "stb_image.h"
 #include "g100panel_jpg.h"
 #include "widgets.hpp"
+#include "autoin.hpp"
 
 namespace g100gui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_TANK, P_COUNT };
+enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_TANK, P_INREF, P_COUNT };
 constexpr int NK = 13;   // Knöpfe der Frontplatte (Reihenfolge G100KNOB)
 static const int KPARAM[NK] = {P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_LEVEL, P_Q, P_FREQ, P_REVERB};
 static const int KPULL[NK] = {P_FATA, P_BRIGHTA, -1, -1, P_FATB, -1, P_BRIGHTB, -1, -1, -1, -1, -1, -1};   // Zugschalter des Knopfs
@@ -63,6 +64,7 @@ struct Gui {
   Display *dpy = nullptr; Window win = 0, parent = 0; cairo_surface_t *xs = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0;
 #endif
   std::function<double(int)> getP; std::function<void(int,double)> setP; std::function<std::string()> diag; std::function<void(int,bool)> gesture;
+  double inPk = -999; std::function<void()> resetPeak;   // Eingangsbezug: gemerkte Spitze (dBFS, −999 = nichts gehört), Klick setzt sie zurück (autoin.hpp)
   static constexpr int NM = 6; double meter[NM] = {0, 0, 0, 0, 0, 0}; bool meterOn = false;   // Aussteuerung: IC1, Kanal A, Dioden B, 2SK30A, EQ-Stufen (1 = Grenze), Endstufe (W)
   int osActive = 0;   // Überabtastung, mit der der Kern gerade rechnet (Umschalten dauert einen Augenblick)
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;
@@ -155,7 +157,7 @@ struct Gui {
     cairo_restore(c);
     // ---- Modellstreifen ----
     const double u = uscale(); int os = std::max(0, std::min(2, (int)std::lround(v[P_OS])));
-    char vt[3][40]; std::snprintf(vt[0], 40, "%.0f mV at 0 dBFS", v[P_VIN]); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]); if (v[P_TANK] <= 0) std::snprintf(vt[2], 40, "linear (as 1.1)"); else std::snprintf(vt[2], 40, "%.1f nonlinear", v[P_TANK]);
+    char vt[3][40]; tsin::valueText(vt[0], 40, v[P_VIN], v[P_INREF] > 0.5); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]); if (v[P_TANK] <= 0) std::snprintf(vt[2], 40, "linear (as 1.1)"); else std::snprintf(vt[2], 40, "%.1f nonlinear", v[P_TANK]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
@@ -178,6 +180,7 @@ struct Gui {
         setrgb(c, dim ? 0x5e626a : over && meterOn ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, meterOn && !dim ? t : "-", bx + bw + 8, by + 11, 11.5, false); } }
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_TANK] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "REVERB TANK", vt[i], drag == 50 + i || hover == 50 + i, false); }
+    { char xt[64]; tsin::extraText(xt, sizeof xt, inPk, v[P_INREF] > 0.5); setrgb(c, 0x9a9ea6); tsw::text(c, xt, KN_X[0], KN_Y + 76, 11, false, 1); }   // unter INPUT: gemerkte Spitze; Klick setzt zurück bzw. schaltet alte Projekte auf „auto“
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
     { char kb[400]; int kn = 0; for (int id = 0; id < P_COUNT; id++) if (id != P_VIN && id != P_OS && id != P_OUT && id != P_PWR) sapp(kb, sizeof kb, kn, "%.4g|", v[id]);
       std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -223,11 +226,13 @@ struct Gui {
       default: return false; } }
 #endif
   // kind 0 drücken (button 1 links, 4/5 Mausrad), 1 bewegen, 2 loslassen, 3 verlassen; now in Sekunden
+  bool hitInRef(double px, double py) const { double lx, ly; toLower(px, py, lx, ly); return std::fabs(lx - KN_X[0]) < 85 && ly > KN_Y + 64 && ly < KN_Y + 82; }   // Zeile unter INPUT
   bool onMouse(int kind, double x, double y, int button, double now) {
     switch (kind) {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(p, button == 4 ? -1 : 1); } return true; }
         if (button != 1) return false;
+        if (hitInRef(x, y)) { if (getP(P_INREF) > 0.5) setP(P_INREF, 0); else if (resetPeak) resetPeak(); return true; }
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 50 ? std::log(100.0) / std::log(1000.0) * 10 : k == 51 ? 6 : 5); /* REVERB TANK (52): Doppelklick = 5 */ } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int ps = hitPanel(x, y); if (ps >= 0) { clickPanel(ps); return true; }
@@ -243,7 +248,7 @@ struct Gui {
     }
   }
   std::string lastSig;
-  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
+  std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i)); sapp(b, sizeof b, n, "%.1f|", inPk);
     for (int i = 0; i < NM; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + std::min(std::max(meter[i], 0.0), 999.0)) * 60));
     sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d", meterOn ? 1 : 0, osActive, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
