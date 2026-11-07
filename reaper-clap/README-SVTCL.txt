@@ -87,11 +87,13 @@ Parameters
   Instrument level at 0 dBFS (mV peak, 1 ... 1000); Output level (-36 ...
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
   TREBLE); Power supply (Simple / As schematic, 50 Hz mains / As
-  schematic, 60 Hz mains); BAL OUT load (T1) (Off / On (T1 estimated)).
+  schematic, 60 Hz mains); BAL OUT load (T1) (Off / On (T1 estimated));
+  Power tube mismatch (%) (0 ... 10).
   Knob 10 = clockwise end.
   Defaults: all knobs 5, Frequency 800 Hz, Ultra Hi and Ultra Lo off,
   0 dB input, 4 ohm tap, 100 mV, 0 dB, log 15 %, simple power supply,
-  BAL OUT load off.
+  BAL OUT load off, tube mismatch 8 % (projects saved before 1.5 load
+  with 0 %, so they sound as before).
   Changing Power supply or BAL OUT load rebuilds the circuit in the
   background (1-3 s, the old setting keeps playing until then).
   (The hidden parameter "Oversampling" is kept for old projects; since 1.1
@@ -109,8 +111,8 @@ User interface
   panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, POWER SUPPLY (SIMPLE / 50 HZ /
   60 HZ), BAL OUT (OFF / T1 EST.), the DRIVE meters (grid swing of V1B input, V1A gain, V2B
   midrange, power amp input, 6550 grids, 100 % = grid reaches 0 V; output
-  power into the selected load, mark = 300 W), INPUT (instrument level) and
-  OUTPUT. Below that the small-signal frequency response at the operating
+  power into the selected load, mark = 300 W), TUBE MISMATCH, INPUT
+  (instrument level) and OUTPUT. Below that the small-signal frequency response at the operating
   point (relative to 1 kHz). Window resizable. Needs libcairo2 and libX11.
 
 Levels
@@ -155,10 +157,16 @@ CPU
     50 ohm, 20 kohm). With it the whole amp is -2.8 dB at 40 Hz (spec
     -3 dB) with a lift of about +5.7 dB around 60 Hz (series resonance with
     C26); 1 kHz changes by -0.1 dB. Off by default.
+  - New knob "TUBE MISMATCH" (0 ... 10 %, default 8 %), as in the Laney
+    and the AmpFett B-15NF: the three 6550 of one side draw half the value
+    more idle current, the other side half less (unmatched or unevenly
+    aged tubes). Direct current in the output transformer and more even
+    harmonics (2nd harmonic at small level about -39 dB instead of -45 dB
+    at 8 %). Changes glide over 0.3 s.
   - R80 (1 Mohm, PREAMP OUT buffer) is now on the preamp output, as in the
     schematic. This changes the sound by about -55 dB (low-frequency
     corner of C26 and the following phase); everything else is unchanged
-    with both new switches off.
+    with both new switches off and tube mismatch at 0 %.
 
 1.4
   - Faster solver for the power amp block (23 coupled equations: valve

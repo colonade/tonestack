@@ -88,7 +88,7 @@ struct Parts {   // Werte laut Plan (Ω, F); geschätzt markiert
   double r24 = 120e3, pbias = 50e3, r25 = 68e3, bias_x = BIAS_X_DEFAULT;
 };
 // Stellungen: jack 0 = 0 dB, 1 = −15 dB; freq 0 … 4 = 220 Hz … 3 kHz; tap 0 = 4 Ω (Last 4 Ω), 1 = 2 Ω (Last 2 Ω)
-struct Setting { double gain = 0.5, bass = 0.5, mid = 0.5, treb = 0.5, master = 0.5; int freq = 2; bool ulo = false, uhi = false; int jack = 0, tap = 0, taper = 0, psu = 0, bal = 0; };   // psu: 0 einfach, 1 nach Plan 50 Hz, 2 nach Plan 60 Hz; bal: BAL OUT (T1, geschätzt) 0 aus, 1 an
+struct Setting { double gain = 0.5, bass = 0.5, mid = 0.5, treb = 0.5, master = 0.5; int freq = 2; bool ulo = false, uhi = false; int jack = 0, tap = 0, taper = 0, psu = 0, bal = 0; double mis = 0; };   // mis (ab 1.5): Streuung der Endröhren, Ruhestrom-Unterschied Seite A gegen B (0,08 = 8 %)   // psu: 0 einfach, 1 nach Plan 50 Hz, 2 nach Plan 60 Hz; bal: BAL OUT (T1, geschätzt) 0 aus, 1 an
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.gain, &s.bass, &s.mid, &s.treb, &s.master}; return *f[i]; }
 inline double potTaper(double x, int mode) { return b15::potTaper(x, mode); }
 enum { O_SPK = 0, O_B1 = 1, O_SCR = 2, O_PRE = 3, O_GA = 4, O_GB = 5, O_NO = 6 };
@@ -154,7 +154,7 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
     o.c("dp" + S, "dn" + S, v.pc10); o.r("dn" + S, "fg" + S, v.pr22); o.r("dn" + S, "bw" + S, v.pr23); if (!full) o.src("bw" + S, v.bias_rth, 4); else { o.r("NEG", "bt" + S, v.r24); pot("bt" + S, "bw" + S, "bb" + S, v.pbias, v.bias_x); o.r("bb" + S, "0", v.r25); }
     tri(K_AU7, "fg" + S, "B380", "fk" + S); o.r("fk" + S, "NEG", v.pr26);
     o.r("fk" + S, "g" + S, v.rg / 3); o.r("SCR", "s" + S, v.rscr / 3); o.r("k" + S, "0", v.rk / 3);
-    B.pen[k] = (int)o.P.size(); int p0 = o.port("g" + S, "k" + S); o.port("s" + S, "k" + S); o.port("a" + S, "k" + S); dk::Dev d{K_6550, p0, 3, nullptr}; d.sc = 3; dev.push_back(d); }
+    B.pen[k] = (int)o.P.size(); int p0 = o.port("g" + S, "k" + S); o.port("s" + S, "k" + S); o.port("a" + S, "k" + S); dk::Dev d{K_6550, p0, 3, nullptr}; d.sc = 3 * (1 + (k == 0 ? 0.5 : -0.5) * s.mis); dev.push_back(d); }   // drei parallele Röhren je Seite; mis: Seite A +mis/2, Seite B −mis/2 (Streuung innerhalb einer Seite wirkt wie deren Summe)
   if (!full) o.src("NEG", 1.0, 3); else { o.src("negr", v.neg_rw, 3); o.c("NEG", "0", v.c23p); }
   { int p = o.port("aAw", "aBw"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; b15::hystSetup(d, OT_SAT); dev.push_back(d); }
   if (full) for (auto pr : {std::make_pair("hvr", "B1"), std::make_pair("scrr", "B380"), std::make_pair("NEG", "negr")}) { int p = o.port(pr.first, pr.second); dev.push_back({K_RECT, p, 1, nullptr}); }
@@ -227,6 +227,7 @@ struct Amp {
   void snap() { c.apply(tgt); readBias(); pwr = power ? 1 : 0; cnt = 0; }
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 5; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
+    { double d = tgt.mis - n.mis; if (d != 0) { moved = true; if (std::fabs(d) > 1e-5) n.mis += d * (1 - std::exp(-64 / (0.3 * fsB))); else n.mis = tgt.mis; } }   // Streuung gleitet 0,3 s (Gleichstrom im Übertrager ändert sich langsam, kein Plopp)
     if (moved) c.apply(n); }
   double run1(double x) { double y[O_NO]; c.step(x, y);
     for (int i = 0; i < 6; i++) { double d = std::fabs(c.run.vp[monPort(i)] - vgk0[i]); if (d > peak[i]) peak[i] = d; }
