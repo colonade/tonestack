@@ -177,7 +177,7 @@ CPU
     longer asks the host to stop calling it.
 
 1.4
-  - REVERB TANK is a knob 0 ... 10 instead of a switch (user: "large
+  - REVERB TANK is a knob 0 ... 10 instead of a switch (Nutzer: "large
     range"): 0 = linear (bit-identical to 1.1), 5 = as 1.3 (bit-identical),
     below 5 all scales grow (bead coupling and spring scale up to 300 mA,
     core saturation up to 320 mA: almost linear), above 5 the spring gets
