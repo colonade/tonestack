@@ -1,5 +1,5 @@
 GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -119,6 +119,10 @@ CPU
   with different left and right signals doubles that. With the same signal
   on both channels it is computed once. After 2 s of silence at the input
   the plugin goes idle.
+
+1.3
+  - Rebuilt with the shared solver code of the SVT-CL 1.4 (matrix of the
+    Newton step built per device block). Sound bit-identical to 1.2.
 
 1.2
   - Faster solver (dense matrix products): about 4-9 % less CPU. Sound

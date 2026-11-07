@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.38
+Version 3.39
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -129,6 +129,10 @@ Speaker (since 3.6)
   100 Hz); the top is the voice-coil inductance (3 kHz) plus an estimated
   second-order roll-off at 4 kHz for cone break-up. No room, no microphone.
   The frequency-response plot includes it when it is on. Off = identical to 3.5.
+
+3.39
+  - Rebuilt with the shared solver code of the SVT-CL 1.4 (matrix of the
+    Newton step built per device block). Sound bit-identical to 3.38.
 
 3.38
   - Faster solver code shared by all tonestack plugins (dense matrix

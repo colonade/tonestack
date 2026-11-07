@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -163,6 +163,10 @@ CPU
   signals doubles that. With the same
   signal on both channels it is computed once. After 2 s of silence at the
   input the plugin goes idle.
+
+1.6
+  - Rebuilt with the shared solver code of the SVT-CL 1.4 (matrix of the
+    Newton step built per device block). Sound bit-identical to 1.5.
 
 1.5
   - Faster solver (dense matrix products): about 35 % less CPU. Sound
