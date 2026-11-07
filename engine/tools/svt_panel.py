@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # Zeichnet die Frontplatte des AmpFett SVT-CL (Bedienelemente in der Reihenfolge der Ampeg-Bedienungsanleitung: 0 dB / −15 dB INPUT, GAIN, ULTRA HI,
-# ULTRA LO, BASS, MIDRANGE, FREQUENCY (fünf Stellungen), TREBLE, MASTER, Anzeige STANDBY/POWER/FAULT, STANDBY, POWER; kein Foto, kein Logo;
+# ULTRA LO, BASS, MIDRANGE, FREQUENCY (fünf Stellungen), TREBLE, MASTER (ab SVT-CL 1.3 ohne den rechten Teil mit Anzeige, STANDBY, POWER); kein Foto, kein Logo;
 # Schriftzug „AmpFett“ in Damion wie beim B-15NF, „SVT-CL“ in normaler Schrift) und schreibt
-#   engine/gen/svtpanel.jpg   Bild 1800 × 260 (Knöpfe ohne Zeiger; Zeiger, Schalterhebel und Anzeige zeichnen Seite und Plugin)
+#   engine/gen/svtpanel.jpg   Bild 1390 × 260 (Knöpfe ohne Zeiger; Zeiger, Schalterhebel und Anzeige zeichnen Seite und Plugin)
 #   engine/gen/svtgeo.json    Lage von Knöpfen, Buchsen, Schaltern und Anzeige in Bildpunkten
 #   engine/gen/svtpanel_jpg.h, engine/gen/svtgeo_gen.h   für das Plugin
 #   web/tonestack/assets/icons/ampfett-svtcl-{180,192,512,maskable-512}.png   Ausschnitt um GAIN als Seitensymbol
@@ -11,7 +11,7 @@ import json, os, sys, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 R = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', '..')
 GEN = os.path.join(R, 'engine', 'gen')
-W, H, S = 1800, 260, 2
+W, H, S = 1390, 260, 2   # bis 1.2: 1800 (rechts Anzeige STANDBY/POWER/FAULT, STANDBY, POWER)
 FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FN = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf'
 FS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts', 'Damion-Regular.ttf')
@@ -23,8 +23,7 @@ FPOS = [(-60, '220'), (-30, '450'), (0, '800'), (30, '1.6K'), (60, '3K')]   # FR
 JY = 150; JR = 22
 JACKS = [('in0', 100, '0 dB'), ('in15', 196, '−15 dB')]
 SY = 140
-SWITCHES = [('uhi', 470, 'ULTRA', 'HI'), ('ulo', 560, 'ULTRA', 'LO'), ('stby', 1560, 'STANDBY', ''), ('power', 1680, 'POWER', '')]
-LED = (1440, 140)
+SWITCHES = [('uhi', 470, 'ULTRA', 'HI'), ('ulo', 560, 'ULTRA', 'LO')]
 def font(px, f=FB): return ImageFont.truetype(f, int(round(px * S)))
 def main():
     im = Image.new('RGB', (W * S, H * S)); d = ImageDraw.Draw(im)
@@ -40,7 +39,7 @@ def main():
     d.text((34 * S, 4 * S), 'AmpFett', font=font(44, FS), fill=ink, stroke_width=S, stroke_fill=ink)
     tw = d.textlength('SVT-CL', font=font(26)); d.text(((W - 36) * S - tw, 14 * S), 'SVT-CL', font=font(26), fill=ink)
     # Trennlinien
-    for x in (250, 610, 1370):
+    for x in (250, 610):
         d.line([(x * S, 40 * S), (x * S, (H - 30) * S)], fill=(120, 122, 128), width=2 * S)
     # Buchsen
     ctext(148, 72, 'INPUT', 15)
@@ -81,9 +80,6 @@ def main():
         else: ctext(x, SY - 56, 'ON', 11); ctext(x, SY + 46, 'OFF', 11)
         for r, c in [(18, (70, 72, 76)), (14, (210, 213, 220)), (9, (150, 152, 158))]:
             d.ellipse([(x - r) * S, (SY - r) * S, (x + r) * S, (SY + r) * S], fill=c)
-    # Anzeige (Fassung)
-    x, y = LED; ctext(x, y - 74, 'STANDBY', 11); ctext(x, y - 60, 'POWER', 11); ctext(x, y - 46, 'FAULT', 11)
-    d.ellipse([(x - 13) * S, (y - 13) * S, (x + 13) * S, (y + 13) * S], fill=(60, 62, 66)); d.ellipse([(x - 9) * S, (y - 9) * S, (x + 9) * S, (y + 9) * S], fill=(40, 20, 18))
     for x in (18, W - 18):
         d.ellipse([(x - 7) * S, (H / 2 - 7) * S, (x + 7) * S, (H / 2 + 7) * S], fill=(120, 122, 126))
     return im
@@ -92,7 +88,7 @@ def write():
     os.makedirs(GEN, exist_ok=True); jp = os.path.join(GEN, 'svtpanel.jpg'); im.save(jp, quality=90)
     geo = {'w': W, 'h': H, 'knobs': {k: {'x': x, 'y': KY, 'r': KR, 'label': lab, 'scale': sc} for k, x, lab, sc in KNOBS},
            'fpos': [a for a, _ in FPOS], 'jacks': {k: {'x': x, 'y': JY, 'r': JR, 'label': lab} for k, x, lab in JACKS},
-           'switches': {k: {'x': x, 'y': SY} for k, x, _, _ in SWITCHES}, 'led': {'x': LED[0], 'y': LED[1]}}
+           'switches': {k: {'x': x, 'y': SY} for k, x, _, _ in SWITCHES}}
     json.dump(geo, open(os.path.join(GEN, 'svtgeo.json'), 'w'))
     data = open(jp, 'rb').read()
     with open(os.path.join(GEN, 'svtpanel_jpg.h'), 'w') as f:
@@ -105,8 +101,7 @@ def write():
         f.write('static const double SVTKNOB[%d][3] = {%s};   // GAIN, BASS, MIDRANGE, FREQUENCY, TREBLE, MASTER\n' % (len(KNOBS), ', '.join('{%d, %d, %d}' % (x, KY, KR) for _, x, _, _ in KNOBS)))
         f.write('static const double SVTFPOS[5] = {%s};   // FREQUENCY: Winkel der Stellungen (Grad)\n' % ', '.join(str(a) for a, _ in FPOS))
         f.write('static const double SVTJACK[2][3] = {%s};   // 0 dB, −15 dB\n' % ', '.join('{%d, %d, %d}' % (x, JY, JR) for _, x, _ in JACKS))
-        f.write('static const double SVTSW[4][2] = {%s};   // ULTRA HI, ULTRA LO, STANDBY, POWER\n' % ', '.join('{%d, %d}' % (x, SY) for _, x, _, _ in SWITCHES))
-        f.write('static const double SVTLED[2] = {%d, %d};\n' % LED)
+        f.write('static const double SVTSW[%d][2] = {%s};   // ULTRA HI, ULTRA LO\n' % (len(SWITCHES), ', '.join('{%d, %d}' % (x, SY) for _, x, _, _ in SWITCHES)))
     print('svtpanel.jpg', len(data), 'Bytes')
     S4 = 4; big = main_big(S4); x0 = KNOBS[0][1] - 90; crop = big.crop((x0 * S4, 46 * S4, (x0 + 180) * S4, 226 * S4))
     ICO = os.path.join(R, 'web', 'tonestack', 'assets', 'icons'); os.makedirs(ICO, exist_ok=True)
