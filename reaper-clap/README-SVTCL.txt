@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -50,7 +50,8 @@ What it is
       six 6550 in push-pull with fixed bias, screen grids from the 345 V
       line, the output transformer (1750 ohm primary, 4 and 2 ohm taps)
     - the power supply (660 V, 470 V, 345 V, 380 V / 365 V, -180 V bias)
-      sags with the signal
+      sags with the signal; switchable to the full rectifier and filter
+      chain of the schematic with 50 or 60 Hz mains (since 1.5)
   Checked against the schematic and the specifications
   (engine/tests/svttest.cpp):
     - preamp signal levels at 1 kHz, 15 mV in, GAIN and MASTER full (the
@@ -67,13 +68,17 @@ What it is
   Known deviations: overall gain 72.6 dB instead of 67 dB, and 300 W are
   reached with about 0.25 V instead of 0.4 V at the power amp input (with
   the schematic values the driver amplifies about 8 times, while the boxes
-  in the schematic show 5.5 V -> 30 V). 40 Hz is +0.5 dB instead of -3 dB.
+  in the schematic show 5.5 V -> 30 V). 40 Hz is +0.5 dB instead of -3 dB
+  with "BAL OUT load" off; with the estimated T1 on it is -2.8 dB.
   Estimated (not in the manual): inductance, leakage and losses of the
   output transformer, the inductor L1 (winding resistance, coupling),
   internal resistances of the power supply, which transformer tap feeds
   the negative feedback (4 ohm assumed), the 6550 model (fitted to data
   sheet points), the log taper of the A pots (15 % at center), the source
-  impedance (1 kohm). No speaker, no SLAVE / BALANCED outputs.
+  impedance (1 kohm), the BAL OUT transformer T1 (10 H, 50 ohm, 20 kohm
+  iron losses), the mains transformer source resistances. No speaker; the
+  SLAVE / BALANCED outputs themselves are not available, only the load
+  of T1 on the preamp output (switchable).
 
 Parameters
   Gain, Bass, Midrange (0 ... 10); Frequency (220 Hz, 450 Hz, 800 Hz,
@@ -81,10 +86,14 @@ Parameters
   Lo (Off / On); Input (0 dB / -15 dB jack); Output tap (4 ohm / 2 ohm);
   Instrument level at 0 dBFS (mV peak, 1 ... 1000); Output level (-36 ...
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
-  TREBLE).
+  TREBLE); Power supply (Simple / As schematic, 50 Hz mains / As
+  schematic, 60 Hz mains); BAL OUT load (T1) (Off / On (T1 estimated)).
   Knob 10 = clockwise end.
   Defaults: all knobs 5, Frequency 800 Hz, Ultra Hi and Ultra Lo off,
-  0 dB input, 4 ohm tap, 100 mV, 0 dB, log 15 %.
+  0 dB input, 4 ohm tap, 100 mV, 0 dB, log 15 %, simple power supply,
+  BAL OUT load off.
+  Changing Power supply or BAL OUT load rebuilds the circuit in the
+  background (1-3 s, the old setting keeps playing until then).
   (The hidden parameter "Oversampling" is kept for old projects; since 1.1
   it is always 1x. The hidden parameters "Standby" and "Power" are kept for
   old projects as well; since 1.3 they have no effect.)
@@ -97,7 +106,8 @@ User interface
   positions), TREBLE, MASTER (lever up = on). Since 1.3 without the right
   part of the panel (STANDBY / POWER / FAULT lamp, STANDBY and POWER
   switches); the panel is narrower and the default window 1200 wide. Knobs: drag vertically, mouse wheel, double-click = center. Below the
-  panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, the DRIVE meters (grid swing of V1B input, V1A gain, V2B
+  panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, POWER SUPPLY (SIMPLE / 50 HZ /
+  60 HZ), BAL OUT (OFF / T1 EST.), the DRIVE meters (grid swing of V1B input, V1A gain, V2B
   midrange, power amp input, 6550 grids, 100 % = grid reaches 0 V; output
   power into the selected load, mark = 300 W), INPUT (instrument level) and
   OUTPUT. Below that the small-signal frequency response at the operating
@@ -126,6 +136,29 @@ CPU
   amp system about 10 % faster); stereo with different left and right
   signals doubles that. With
   the same signal on both channels it is computed once.
+
+1.5
+  - New switch "Power supply": "As schematic, 50 Hz / 60 Hz" computes the
+    rectifiers from the mains transformer and the whole filter chain with
+    the part values of the schematic (C17/C18, R54, R58, C20, R55, C19,
+    bleeders, C23, bias divider with the BIAS pot set for about 24 mA per
+    6550). Ripple and sag follow from the circuit: idle hum at the output
+    about 0.1 mV (50 Hz) / 2 mV (60 Hz), at hard overdrive the output
+    power drops to about 295 W (simple supply about 508 W). CPU about
+    +25 to +50 %. Note: with the schematic resistor values the +470 V and
+    +345 V lines come out at about 537 V and 397 V, not at the voltages
+    printed in the schematic (the preamp line gets 348 V, schematic 343 V);
+    the model keeps the part values. "Simple" is the supply of 1.0-1.4.
+  - New switch "BAL OUT load (T1)": the transformer of the balanced output
+    (R91 220 ohm, T1 primary) loads the preamp output, as in the amp when
+    nothing is plugged into BAL OUT. The values of T1 are estimated (10 H,
+    50 ohm, 20 kohm). With it the whole amp is -2.8 dB at 40 Hz (spec
+    -3 dB) with a lift of about +5.7 dB around 60 Hz (series resonance with
+    C26); 1 kHz changes by -0.1 dB. Off by default.
+  - R80 (1 Mohm, PREAMP OUT buffer) is now on the preamp output, as in the
+    schematic. This changes the sound by about -55 dB (low-frequency
+    corner of C26 and the following phase); everything else is unchanged
+    with both new switches off.
 
 1.4
   - Faster solver for the power amp block (23 coupled equations: valve

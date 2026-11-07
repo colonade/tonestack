@@ -56,7 +56,22 @@ int main() {
     Core c = mk(s); sine(c, lo, 1000, w, thd, fin); char b[80]; std::snprintf(b, sizeof b, "Leistung bei 3 %% Klirr an %d Ω (≥ 300 W; Netzteil geschätzt)", tap ? 2 : 4); chk(b, w, 350, 50, "W");
     std::vector<std::string> N = {"PO"}; Core c2 = mk(s, &N); double y[O_NO + 2], sq = 0; long n = 9600; for (long i = 0; i < 48000 + n; i++) { c2.step(lo * std::sqrt(2.0) * std::sin(2 * PI * 1000 * i / FS), y); if (i >= 48000) sq += y[O_NO] * y[O_NO]; }
     std::snprintf(b, sizeof b, "  Vorverstärker-Ausgang dabei (Spez. 0,4 V für 300 W)"); chk(b, std::sqrt(sq / n), 0.4, 0.05, "V", true); }
+  printf("Netzteil nach Plan (Gleichrichter, Siebkette R54/R55/R58; Grundstellung, Mittel über 0,2 s)\n");
+  for (int psu : {1, 2}) { std::vector<std::string> N = {"B1", "SCR", "NEG", "kA", "kB", "B470", "B345", "B343", "pa", "pb", "A1"}; Setting s; s.psu = psu; Core c = mk(s, &N);
+    double y[O_NO + 16], m[11] = {}; int n = (int)(0.2 * FS); double mn = 1e9, mx = -1e9;
+    for (int i = 0; i < n; i++) { c.step(0, y); for (int k = 0; k < 11; k++) m[k] += y[O_NO + k] / n; mn = std::min(mn, y[O_SPK]); mx = std::max(mx, y[O_SPK]); }
+    printf("  %d Hz Netz:\n", psu == 2 ? 60 : 50);
+    chk("  Hochspannung (660 V)", m[0], 660, 5, "V"); chk("  Schirmgitter (345 V)", m[1], 345, 5, "V"); chk("  −180 V", m[2], -180, 2, "V");
+    chk("  6550 Ruhestrom (24 mA)", (m[3] + m[4]) / 2 / 10 * 1000, 24, 1, "mA");
+    chk("  +343 V Vorstufe (R55 47 k)", m[7], 343, 10, "V"); chk("  +470 V (R54 15 k; Lasten laut Plan ergeben mehr)", m[5], 470, 10, "V", true);
+    chk("  +345 V Endstufen-Eingang (R58 47 k)", m[6], 345, 10, "V", true); chk("  Endstufe V1A Anode (200 V)", m[8], 200, 15, "V", true); chk("  Phasenumkehr Anode (250 V)", m[9], 250, 15, "V", true);
+    chk("  Brumm am Abgriff in Ruhe, Spitze-Spitze (unter 10 mV)", (mx - mn) * 1000, 0, 10, "mV"); }
+  printf("BAL OUT (T1 geschätzt: 10 H, 50 Ω, 20 kΩ; GAIN und MASTER Maximum, Klang Mitte), Abstand zu ohne T1\n");
+  { Setting a; a.gain = 1; a.master = 1; Setting b = a; b.bal = 1; Core ca = mk(a), cb = mk(b); auto rel = [](Core &c, double f) { return db(c.response(f)) - db(c.response(1000)); };
+    for (double f : {30.0, 40.0, 60.0, 80.0, 100.0, 200.0}) { char t[80]; std::snprintf(t, sizeof t, "  %.0f Hz", f); printf("  %-58s %+8.2f dB\n", t + 2, rel(cb, f) - rel(ca, f)); }
+    chk("  mit T1: 40 Hz rel. 1 kHz (Spez. −3 dB)", rel(cb, 40), -3, 1, "dB");
+    chk("  1 kHz absolut gegenüber ohne T1", db(cb.response(1000)) - db(ca.response(1000)), 0, 0.5, "dB"); }
   printf("Stabilität (harte Übersteuerung, 48 und 96 kHz)\n");
-  for (double fs : {48000.0, 96000.0}) { double sv = FS; FS = fs; Setting s; s.gain = 1; s.master = 1; s.bass = 1; s.uhi = true; Core c = mk(s); double w, thd; bool fin; sine(c, 1.0, 82.4, w, thd, fin); FS = sv;
-    char b[80]; std::snprintf(b, sizeof b, "1 V bei 82 Hz, %.0f kHz: endlich, Leistung", fs / 1000); chk(b, fin ? w : NAN, 450, 450, "W"); }
+  for (int var = 0; var < 3; var++) for (double fs : {48000.0, 96000.0}) { if (var && fs > 50000) continue; double sv = FS; FS = fs; Setting s; s.gain = 1; s.master = 1; s.bass = 1; s.uhi = true; s.psu = var; s.bal = var > 0; Core c = mk(s); double w, thd; bool fin; sine(c, 1.0, 82.4, w, thd, fin); FS = sv;
+    char b[80]; std::snprintf(b, sizeof b, "1 V bei 82 Hz, %.0f kHz%s: endlich, Leistung", fs / 1000, var == 1 ? ", Netzteil 50 Hz + T1" : var == 2 ? ", Netzteil 60 Hz + T1" : ""); chk(b, fin ? w : NAN, 450, 450, "W"); }
   printf("\n%d Abweichungen, %d bekannte\n", bad, known); return bad ? 1 : 0; }
