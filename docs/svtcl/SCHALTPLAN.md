@@ -25,6 +25,8 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
 - Aus (8–7, 11–10): R21 überbrückt, R20 330 k gegen Masse; X → 220 k → M. Ein (8–9, 11–12): M = T, U an Masse (C8 .0047 von L gegen Masse),
   X → 220 k → L → 220 k → M, Höhen über R11 100 k + C7 470 pF auf M: Mitten abgesenkt (Rechnung siehe Prüfung).
   Zuordnung ein/aus aus der Wirkung (nur so ergibt sich „+2 dB bei 40 Hz, −10 dB bei 500 Hz“); im Plan beide Schalter in derselben Stellung gezeichnet.
+  Bestätigt durch 07S519-11 (Seite 32): Kontakte 7/10 „OUT“, 9/12 „IN“ (gedrückt = ein). Der Plan nennt SW1:A/SW1:B Teile eines Schalters; gerechnet
+  (wie im Owner's Manual) als zwei getrennte Tasten.
 - GAIN-Schleifer → C9 .1 → Gitter V1A.
 ### V1A (12AX7), ULTRA HIGH (SW1:A)
 - Gitter: R26 1 M zum Knoten zwischen R28 1,5 k und R29 1,5 k (Kathode → R28 → R29 → Masse; Gitter-Vorspannung über R28).
@@ -47,10 +49,14 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
   Resonanzen ohne Verluste: 2771 / 1600 / 919 / 459 / 216 Hz.
 ### V2A (12AX7, Kathodenfolger)
 - Gitter R14 220 k zum Knoten R15 4,7 k / R16 220 k (Kathode → R15 → R16 → Masse); Anode +345 V; Kathode 100 V.
-- Kathode → C26 .68 → Ausgang (R33 1 M gegen Masse) → J3-3 (0,4 V) → Endstufe.
+- Kathode → C26 .68 → Ausgang (R33 1 M gegen Masse) → J3-3 (0,4 V) → Endstufe. (07S519-11, Seite 32: C26 .1 µ/200 V; gerechnet .68 wie -12 und HSVTCL.)
+- Weg zur Endstufe (Abgleich 2026-11-07): J3-3 → J1-3 „FX SEND“ → Schaltkontakt von J5B „POWER AMP IN“ (nichts gesteckt) → J1-14 „FX RETURN“ → auf der
+  Vorstufenplatine J3-14 = J3-12 = J3-9 → J1-12 → R92 (Eingang Endstufe) und J1-9 „POST“ → R91 220 → Primärwicklung T1 (94-025-11, BAL OUT) gegen Masse.
+  An FX SEND außerdem R80 1 M gegen Masse und der Eingang von IC2A (Puffer für PREAMP OUT). **Im Modell nicht enthalten:** R80 und der Zweig R91/T1;
+  T1-Daten (Induktivität, Widerstände, Übersetzung) stehen in keinem Plan.
 
 ## Endstufe 07S419-12
-- J1-12 „PREAMP OUT“ → R92 220 → Schaltkontakt SLAVE J2 → R7 1 k → Gitter V1A (12AX7); D55/D56 1N3070 antiparallel und R8 470 k gegen Masse.
+- J1-12 (Vorstufe über FX RETURN, siehe oben) → R92 220 → Spitze der Buchse SLAVE J2 (Schaltkontakt offen) → R7 1 k → Gitter V1A (12AX7); D55/D56 1N3070 antiparallel und R8 470 k gegen Masse.
 - V1A: Anode R12 100 k von +345 V (200 V); Kathode → R13 1 k → F → R14 220 → Masse. F = Gegenkopplungseinspeisung (J10).
 - Gegenkopplung (Lautsprecherplatine 06A319-14): R1 68 k ∥ C1 100 pF von J6-1 (Übertrager-Abgriff) nach J5-1 → J10 → F. Die Buchsen hängen über S1 (2/4 Ω) an J6-1 oder J6-3;
   die Gegenkopplung bleibt immer an J6-1. Welcher Abgriff J6-1 ist, steht nicht im Plan → geschätzt (4 Ω), geeicht an 300 W bei 0,4 V.
@@ -58,16 +64,19 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
   (Kathode → R17 → R18 → Masse). Anode R15 68 k von +345 V (250 V). C7 50 pF Anode → Gitter.
 - Treiber V2/V3 (12AU7, je zwei Systeme): Anode V1B → C8 .1 → Gitter V2-1 (R19 470 k gegen Masse), Kathode R20 1,8 k, Anode R21 47 k von +365 V (180 V).
   Kathode V1B → C9 .1 → Gitter V3-1 (R27 470 k), R28 1,8 k, R29 47 k.
-  Anode → C10/C11 .047 → R22/R30 150 k → Gitter des Kathodenfolgers V2-2/V3-2 (Anode +380 V, Kathode R26/R34 47 k nach −180 V).
-  Gitter-Vorspannung über R23/R31 150 k vom Schleifer BIAS P2/P1 50 k L im Teiler −180 V → R24/R33 120 k → Poti → R25/R32 68 k → Masse.
+  Anode → C10/C11 .047 → R22/R31 150 k → Gitter des Kathodenfolgers V2-2/V3-2 (Anode +380 V, Kathode R26/R34 47 k nach −180 V).
+  Gitter-Vorspannung über R23/R30 150 k vom Schleifer BIAS P2/P1 50 k L im Teiler −180 V → R24/R33 120 k → Poti → R25/R32 68 k → Masse.
   Kathodenfolger-Ausgang (etwa −45 V, 30 V Signal) direkt an die drei Gitterwiderstände einer Seite.
 - Röhrenplatine: je 6550 Gitter über R1/R3/R5 47 k, Schirmgitter über 22 Ω (07S419-41; 220 Ω in 2033759) an die 345-V-Leitung, Anode über Ferritperle an den
-  Übertrager (660 V), Kathode über 10 Ω 2 W gegen Masse (Messwiderstände der BIAS-Anzeige; 0,24 V = 24 mA Ruhestrom).
+  Übertrager (660 V). Kathoden über J7/J11 zu R35–R40 10 Ω 2 W 1 % auf der Endstufenplatine gegen Masse (Messwiderstände der BIAS-Anzeige; 0,24 V = 24 mA Ruhestrom;
+  am Knoten außerdem R89 2,2 k mit C36 10 µ, R72 1 k und D39 für die Anzeige/Fehlererkennung – nicht gerechnet, < 0,5 %).
+  Auf der Röhrenplatine außerdem D1–D3/D7–D9 1N4007 parallel zu den Schirmgitterwiderständen, Ferritperlen L1–L6 und D4–D6/D10–D12 gegen negative Anodenspitzen: nicht gerechnet.
 ## Netzteil
 - Hochspannung: Brückengleichrichter (je zwei 1N4007) → +660 V, C15/C16 100 µ in Reihe (50 µF), R52/R53 150 k; → Übertrager-Mittelanzapfung.
-  R54 15 k 5 W → +470 V (C17/C18 47 µ in Reihe), R58 47 k 1 W → +345 V (C20 100 µ) für die Vorstufen.
+  R54 15 k 5 W → +470 V (C17/C18 47 µ in Reihe, R56/R57 220 k); daraus R58 47 k 1 W → +345 V (C20 100 µ) für V1A/V1B der Endstufe und
+  R55 47 k 5 W → +343 V (C19 47 µ) über J20-5 zur Vorstufe (07S419-04, Seite 56: R55 18 k).
 - Zweite Wicklung: Brücke D14–D17 → +380 V (C21 47 µ) für die Kathodenfolger; R59 2,2 k → +365 V (C22 47 µ) für die Treiberanoden; D26 → J18 → Schirmgitter (345 V in Ruhe).
-- −180 V aus einer eigenen Wicklung (Gittervorspannung).
+- −180 V aus einer eigenen Wicklung, Brücke D18–D21, C23 100 µ (Gittervorspannung); gerechnet als ideale Quelle hinter 1 Ω.
 - Innenwiderstände der Wicklungen und die Wechselspannungen stehen nicht im Plan → geschätzt (siehe Code).
 
 ## Entscheidungen bei Widersprüchen im Plan
@@ -89,6 +98,8 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
   Ig2 4–9 mA) angepasst; Knie-Form (ex, β, αs) wie 6L6GC. Die SED-6550C-Gegentaktdaten passen nicht zu den Tung-Sol/GE-Werten und wurden nicht verwendet.
 - 1N3070 (D55/D56): Shockley, Is 2 nA, n 1,9.
 - Quelle (Instrument) 1 kΩ.
+- Gitter-Anoden-Kapazität 1,7 pF je 12AX7 (2,0 pF 12AU7), Röhreneigenschaft, nicht im Plan.
+- Kennlinie der „A“-Potis (GAIN, BASS, TREBLE): Plan nur „A“; gerechnet log 15 % in Mittelstellung (umschaltbar 10 % / linear).
 
 ## Prüfung (engine/tests/svttest.cpp; Rückgabe 1 bei Abweichung)
 | Prüfpunkt | Plan / Spezifikation | Rechnung |
