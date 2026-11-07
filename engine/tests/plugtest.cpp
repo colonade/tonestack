@@ -29,6 +29,13 @@ static void addParam(uint32_t id, double v) { clap_event_param_value_t e{}; e.he
 static void addParams(const char *spec) { if (!spec || !*spec) return; std::string s(spec); size_t p = 0;
   while (p < s.size()) { size_t c = s.find(',', p); if (c == std::string::npos) c = s.size(); std::string t = s.substr(p, c - p); size_t q = t.find('='); if (q != std::string::npos) addParam((uint32_t)atoi(t.c_str()), atof(t.c_str() + q + 1)); p = c + 1; } }
 
+// Parameter vor dem Aktivieren über den Zustand setzen (ab 2026-11-07): Einstellungen, die den Aufbau ändern (z. B. Netzteil des SVT-CL), wirken sonst erst
+// nach einem Rückruf im Hauptfaden, den dieser Prüf-Host nicht gibt. Format „id=wert“ je Zeile wie st_save der Plugins; nicht genannte bleiben auf dem Standard.
+struct MemIn { std::string d; size_t pos = 0; };
+static int64_t memRead(const clap_istream_t *st, void *buf, uint64_t n) { MemIn *m = (MemIn*)st->ctx; uint64_t k = std::min<uint64_t>(n, m->d.size() - m->pos); std::memcpy(buf, m->d.data() + m->pos, k); m->pos += k; return (int64_t)k; }
+static void stateParams(const clap_plugin_t *p, const std::string &spec) { if (spec.empty()) return; auto *st = (const clap_plugin_state_t*)p->get_extension(p, CLAP_EXT_STATE); if (!st) return;
+  MemIn m; size_t q = 0; while (q < spec.size()) { size_t c = spec.find(',', q); if (c == std::string::npos) c = spec.size(); m.d += spec.substr(q, c - q) + "\n"; q = c + 1; }
+  clap_istream_t is{&m, memRead}; st->load(p, &is); }
 struct Host {
   void *lib = nullptr; const clap_plugin_entry_t *entry = nullptr; const clap_plugin_t *p = nullptr; const clap_plugin_params_t *params = nullptr; const clap_plugin_latency_t *lat = nullptr;
   clap_host_t host = {CLAP_VERSION_INIT, nullptr, "plugtest", "", "", "1", host_ext, host_nop, host_nop, host_nop};
@@ -66,7 +73,7 @@ int main(int argc, char **argv) {
     const char *spec = argc > 5 ? argv[5] : ""; double fs = argc > 6 ? atof(argv[6]) : 48000; std::string bs = argc > 7 ? argv[7] : "256";
     bool rnd = bs[0] == 'r'; int B = atoi(bs.c_str() + (rnd ? 1 : 0)); if (B < 1) B = 256;
     FILE *fi = fopen(argv[3], "rb"); if (!fi) return 2; fseek(fi, 0, SEEK_END); long n = ftell(fi) / 4; fseek(fi, 0, SEEK_SET); std::vector<float> x(n); if (fread(x.data(), 4, n, fi) != (size_t)n) return 2; fclose(fi);
-    H.activate(fs, (uint32_t)B); addParams(spec);
+    stateParams(H.p, spec); H.activate(fs, (uint32_t)B); addParams(spec);
     std::vector<float> xR(n, 0.f), yR(n, 0.f); bool hasR = getenv("INR") != nullptr;
     if (hasR) { FILE *f2 = fopen(getenv("INR"), "rb"); if (!f2 || fread(xR.data(), 4, n, f2) != (size_t)n) return 2; fclose(f2); }
     std::vector<float> y(n, 0.f); std::mt19937 rng(7); bool asleep = false; long skipped = 0, sleeps = 0, calls = 0; double tmax = 0, tsum = 0;
@@ -82,7 +89,7 @@ int main(int argc, char **argv) {
     H.close(); return 0; }
   if (cmd == "perf") {
     const char *spec = argc > 3 ? argv[3] : ""; double fs = argc > 4 ? atof(argv[4]) : 48000; int B = argc > 5 ? atoi(argv[5]) : 128;
-    H.activate(fs, (uint32_t)B); addParams(spec); std::vector<float> x = bassSignal(fs, 10), y(B);
+    stateParams(H.p, spec); H.activate(fs, (uint32_t)B); addParams(spec); std::vector<float> x = bassSignal(fs, 10), y(B);
     // Einschwingen 1 s, dann 9 s messen
     double tsum = 0, tmax = 0; std::vector<double> ts; long pos = 0;
     FILE *dump = getenv("DUMP") ? fopen(getenv("DUMP"), "w") : nullptr;

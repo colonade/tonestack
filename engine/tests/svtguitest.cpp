@@ -1,6 +1,6 @@
 // GUI-Test (AmpFett SVT-CL): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   svtguitest AmpFett_SVTCL.clap bild.png
-// Prüft: Buchsen −15 dB / 0 dB, GAIN ziehen, FREQUENCY bis 3 kHz, ULTRA HI/LO, STANDBY und POWER verborgen (ab 1.3 nicht mehr auf der Frontplatte), Ausgang 2 Ω, POT TAPER, Mausrad auf MASTER (Überabtastung ab 1.1 entfernt).
+// Prüft: Netzteil- und BAL-OUT-Schalter (ab 1.5), Buchsen −15 dB / 0 dB, GAIN ziehen, FREQUENCY bis 3 kHz, ULTRA HI/LO, STANDBY und POWER verborgen (ab 1.3 nicht mehr auf der Frontplatte), Ausgang 2 Ω, POT TAPER, Mausrad auf MASTER (Überabtastung ab 1.1 entfernt).
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -58,6 +58,9 @@ int main(int argc, char **argv) {
   audio(40); printf("Ausgang hörbar: %d (erwartet 1)\n", outPk > 1e-3 ? 1 : 0);
   click(ux(64), uy(100)); printf("Ausgang: %g (erwartet 1 = 2 Ohm)\n", pv(9));
   click(ux(186), uy(100)); printf("Pot taper: %g (erwartet 1 = log 10 %%)\n", pv(15));
+  click(ux(308), uy(100)); printf("Netzteil: %g (erwartet 1 = nach Plan 50 Hz)\n", pv(16)); click(ux(430), uy(100)); printf("BAL OUT: %g (erwartet 1 = T1 geschätzt)\n", pv(17));
+  for (int i = 0; i < 300; i++) { tick(); usleep(10000); }   // neuer Kern im Hilfsfaden (Netzteil nach Plan, T1)
+  { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar nach Umbau: %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
   send(ButtonPress, kx(1290), kx(138), 4); tick(); send(ButtonPress, kx(1290), kx(138), 4); tick(); printf("Master: %g (erwartet 5.4)\n", pv(5));
   // Wertanzeige über allen Bedienelementen (1.0 stürzte beim Zeigen auf eine Buchse ab: falscher Zweig, Zugriff außerhalb der Schalterliste)

@@ -1,6 +1,6 @@
 // AmpFett SVT-CL, Nachbau des Ampeg SVT-CL (Service Manual: Vorverstärker 07S519-12, Endstufe 07S419-12; alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "svt_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -28,15 +28,16 @@ namespace sgui { struct Gui; }
 #endif
 using namespace svt;
 
-enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_COUNT };
+enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_PSU, P_BAL, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_FREQ[] = {"220 Hz", "450 Hz", "800 Hz", "1.6 kHz", "3 kHz"}; static const char *N_JACK[] = {"0 dB (passive)", "-15 dB (active)"};
-static const char *N_TAPO[] = {"4 ohm (load 4 ohm)", "2 ohm (load 2 ohm)"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x"};
+static const char *N_TAPO[] = {"4 ohm (load 4 ohm)", "2 ohm (load 2 ohm)"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x"}; static const char *N_PSU[] = {"Simple", "As schematic, 50 Hz mains", "As schematic, 60 Hz mains"}; static const char *N_BAL[] = {"Off", "On (T1 estimated)"};
 static const PDef PD[P_COUNT] = {
   {"Gain", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Midrange", 0, 10, 5, 0, 0}, {"Frequency", 0, 4, 2, N_FREQ, 5}, {"Treble", 0, 10, 5, 0, 0}, {"Master", 0, 10, 5, 0, 0},
   {"Ultra Hi", 0, 1, 0, N_ONOFF, 2}, {"Ultra Lo", 0, 1, 0, N_ONOFF, 2}, {"Input", 0, 1, 0, N_JACK, 2}, {"Output tap", 0, 1, 0, N_TAPO, 2},
   {"Standby", 0, 1, 0, N_ONOFF, 2}, {"Power", 0, 1, 1, N_ONOFF, 2},
-  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (1x only since 1.1)", 0, 0, 0, N_OS, 1}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3} };
+  {"Instrument level at 0 dBFS (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (1x only since 1.1)", 0, 0, 0, N_OS, 1}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3},
+  {"Power supply", 0, 2, 0, N_PSU, 3}, {"BAL OUT load (T1)", 0, 1, 0, N_BAL, 2} };   // ab 1.5
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int) { return 1; }   // ab 1.1 nur noch 1x: 2x/4x brauchten mehr als einen Rechenkern; Aliasing bei Bass-Grundtönen auch bei 1x unter −80 dB (docs/PROJEKTSTAND.md)
 
@@ -46,7 +47,7 @@ static std::mutex g_protoM;
 // cancel (ab 1.14): Hintergrund-Fäden brechen auf Wunsch ab (nullptr zurück, nichts gespeichert), damit deactivate/destroy nicht bis zu Sekunden warten
 static Amp *newAmp(double fs, int cfg, const std::atomic<bool> *cancel = nullptr) { static std::map<std::pair<double,int>, std::unique_ptr<Amp>> cache;   // cfg: Überabtastung
   { std::lock_guard<std::mutex> lk(g_protoM); auto it = cache.find({fs, cfg}); if (it != cache.end()) return new Amp(*it->second); }
-  std::unique_ptr<Amp> a(new Amp()); a->init(fs, cfg, Parts(), Setting(), cancel); if (cancel && cancel->load()) return nullptr;
+  std::unique_ptr<Amp> a(new Amp()); Setting s0; s0.psu = (cfg / 10) / 2; s0.bal = (cfg / 10) % 2; a->init(fs, cfg % 10, Parts(), s0, cancel); a->cfg = cfg; if (cancel && cancel->load()) return nullptr;
   std::lock_guard<std::mutex> lk(g_protoM); auto &p = cache[{fs, cfg}]; if (!p) p = std::move(a); return new Amp(*p); }
 struct Pend { Amp *a, *proto; };   // fertig eingeschwungener Kern für eine neue Überabtastung samt Ruhezustand (für reset)
 struct Dly { float b[LATENCY] = {}; int i = 0; float step(float x) { float y = b[i]; b[i] = x; if (++i == (int)LATENCY) i = 0; return y; } };
@@ -65,10 +66,11 @@ struct Plugin {
   // ab 1.14: der eingeschwungene 1x-Kern für das Diagramm entsteht im Hintergrund (vorher bis zu Sekunden im Hauptfaden beim ersten Öffnen bei 2x/4x)
   std::thread plotJob; std::atomic<bool> plotBusy{false}, plotRedo{false}, plotStop{false}, cancelJobs{false}; std::mutex plotM; std::unique_ptr<Core> plotReady; double plotReadyFs = 0;
   // Aufbau des Kerns: Überabtastung; ein Wechsel braucht einen neu eingeschwungenen Kern (Hilfsfaden)
-  int cfgWant() const { return osFactor((int)std::lround(val[P_OS])); }
+  // cfg = Überabtastung + 10 · (2 · Netzteil + BAL OUT): beides ändert den Aufbau des Netzes und braucht einen neu eingeschwungenen Kern (ab 1.5)
+  int cfgWant() const { return osFactor((int)std::lround(val[P_OS])) + 10 * (2 * ix(val[P_PSU], 2) + ix(val[P_BAL], 1)); }
   static int ix(double v, int hi) { return std::max(0, std::min(hi, (int)std::lround(v))); }
   Setting setting(double g, double b, double m, double t, double ms) const { Setting s; s.gain = g / 10; s.bass = b / 10; s.mid = m / 10; s.treb = t / 10; s.master = ms / 10;
-    s.freq = ix(val[P_FREQ], 4); s.ulo = val[P_ULO] > 0.5; s.uhi = val[P_UHI] > 0.5; s.jack = ix(val[P_JACK], 1); s.tap = ix(val[P_TAP], 1); s.taper = ix(val[P_TAPER], 2); return s; }
+    s.freq = ix(val[P_FREQ], 4); s.ulo = val[P_ULO] > 0.5; s.uhi = val[P_UHI] > 0.5; s.jack = ix(val[P_JACK], 1); s.tap = ix(val[P_TAP], 1); s.taper = ix(val[P_TAPER], 2); s.bal = ix(val[P_BAL], 1); s.psu = 0; return s; }   // psu/bal für den Kern: Amp übernimmt sie vom eingeschwungenen Kern (Wechsel nur über cfg)
   Setting target() const { return setting(val[P_GAIN], val[P_BASS], val[P_MID], val[P_TREB], val[P_MASTER]); }
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->power = true; a->setTarget(target()); if (snap) a->snap(); }   // STANDBY/POWER ab 1.3 ohne Wirkung (Schalter von der Frontplatte entfernt; Parameter bleiben verborgen, damit alte Projekte laden)
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } }
@@ -157,7 +159,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
   // fertig eingeschwungener Kern mit neuer Überabtastung
-  if (Pend *q = pl->pending.exchange(nullptr)) { if (q->a->os == pl->cfgWant()) { delete pl->eng; pl->eng = q->a; delete pl->proto; pl->proto = q->proto; pl->cfgAct = q->a->os; pl->eng2Stale = true; pl->monoOK = true; pl->dirty = true; pl->quiet = 0; pl->d1 = Dly(); pl->d2 = Dly(); }
+  if (Pend *q = pl->pending.exchange(nullptr)) { if (q->a->cfg == pl->cfgWant()) { delete pl->eng; pl->eng = q->a; delete pl->proto; pl->proto = q->proto; pl->cfgAct = q->a->cfg; pl->eng2Stale = true; pl->monoOK = true; pl->dirty = true; pl->quiet = 0; pl->d1 = Dly(); pl->d2 = Dly(); }
     else { delete q->a; delete q->proto; } delete q; pl->building = false; if (pl->cfgWant() != pl->cfgAct) ask_main(pl); }   // inzwischen anders gewählt: neu anstoßen
   // Neubeginn: eingeschwungener Ruhezustand (wie ein Verstärker, der während der Pause still weiterlief), Regler und Schalter sofort am Ziel.
   // Auslöser: activate, start_processing, reset oder eine Pause zwischen zwei Aufrufen von über 0,2 s (bzw. drei Blocklängen) (FX aus und wieder an, ohne dass der Host es meldet).

@@ -7,13 +7,14 @@
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.os = 0; this.ready = false; }
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
     // p = { s: {gain, bass, mid, treb, master} 0…1, freq 0…4 (220/450/800/1600/3000 Hz), ulo, uhi, jack (0 = 0 dB, 1 = −15 dB), tap (0 = 4 Ω, 1 = 2 Ω),
-    //       vin (V Spitze bei 0 dBFS), power (false = stumm: POWER aus oder STANDBY), os (1, 2, 4), taper (0 log 15 %, 1 log 10 %, 2 linear) }
+    //       vin (V Spitze bei 0 dBFS), power (false = stumm), os (1), taper (0 log 15 %, 1 log 10 %, 2 linear), psu (0 einfach, 1/2 nach Plan 50/60 Hz), bal (BAL OUT T1) }
     setTarget(p) { if (!p) return; const s = p.s || {}, t = this.f64(this.x.sv_target_buffer(), 16), num = (v, d) => Number.isFinite(+v) ? +v : d;
       [s.gain, s.bass, s.mid, s.treb, s.master].forEach((v, i) => t[i] = Math.min(1, Math.max(0, num(v, 0.5))));
       t[5] = Math.max(0, Math.min(4, Math.round(num(p.freq, 2)))); t[6] = p.ulo ? 1 : 0; t[7] = p.uhi ? 1 : 0; t[8] = p.jack === 1 ? 1 : 0; t[9] = p.tap === 1 ? 1 : 0;
       t[10] = [1, 2].includes(p.taper) ? p.taper : 0; t[11] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[12] = p.power === false ? 0 : 1;
-      const os = 1;   // ab 1.1 nur 1x
-      if (!this.ready || os !== this.os) { this.x.sv_init(this.fs, os); this.os = os; }   // Neuaufbau mit Einschwingen der Schaltung (etwa 1–3 s Rechenzeit)
+      t[13] = [1, 2].includes(p.psu) ? p.psu : 0; t[14] = p.bal ? 1 : 0;
+      const os = 1, cfg = t[13] * 2 + t[14];   // ab 1.1 nur 1x; Netzteil und BAL OUT ändern den Aufbau (ab 2026-11-07)
+      if (!this.ready || os !== this.os || cfg !== this.cfg) { this.x.sv_init(this.fs, os); this.os = os; this.cfg = cfg; }   // Neuaufbau mit Einschwingen der Schaltung (etwa 1–3 s Rechenzeit)
       this.x.sv_set_target(); this.ready = true; }
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.sv_buffer(), n); b.set(buf.subarray(0, n)); this.x.sv_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.sv_buffer(), n)); }
     takePeaks() { this.x.sv_take_peaks(); return Array.from(this.f64(this.x.sv_peaks_buffer(), 8)); }

@@ -31,7 +31,7 @@
 namespace sgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_COUNT };
+enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_PSU, P_BAL, P_COUNT };
 static const int KPARAM[6] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER};   // Knopf (Reihenfolge SVTKNOB) → Parameter
 static const char *KNAME[6] = {"GAIN", "BASS", "MIDRANGE", "FREQUENCY", "TREBLE", "MASTER"};
 static const char *FNAME[5] = {"220 Hz", "450 Hz", "800 Hz", "1.6 kHz", "3 kHz"};
@@ -42,9 +42,9 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-constexpr int NSW = 2;
-static const double SW_X[NSW] = {64, 186};   // OUTPUT TAP (4 / 2 Ω), POT TAPER (Überabtastung ab 1.1 entfernt: nur 1x)
-static const int SW_P[NSW] = {P_TAP, P_TAPER};
+constexpr int NSW = 4;
+static const double SW_X[NSW] = {64, 186, 308, 430};   // OUTPUT TAP (4 / 2 Ω), POT TAPER, POWER SUPPLY (ab 1.5), BAL OUT (ab 1.5)
+static const int SW_P[NSW] = {P_TAP, P_TAPER, P_PSU, P_BAL};
 static const double KN_X[2] = {1010, 1120}; // INPUT, OUTPUT
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
@@ -152,10 +152,12 @@ struct Gui {
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *tt[2] = {"4 OHM", "2 OHM"}; (void)os;
       tsw::toggle(c, SW_X[0], SW_Y, 2, v[P_TAP] > 0.5 ? 1 : 0, "OUTPUT", tt, "tap = load");
-      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[1], SW_Y, 3, tp, "POT TAPER", tl, "gain, bass, treble"); }
+      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[1], SW_Y, 3, tp, "POT TAPER", tl, "gain, bass, treble");
+      const char *tps[3] = {"SIMPLE", "50 HZ", "60 HZ"}; int ps = std::max(0, std::min(2, (int)std::lround(v[P_PSU]))); tsw::toggle(c, SW_X[2], SW_Y, 3, ps, "POWER SUPPLY", tps, "as schematic");
+      const char *tb[2] = {"OFF", "T1 EST."}; tsw::toggle(c, SW_X[3], SW_Y, 2, v[P_BAL] > 0.5 ? 1 : 0, "BAL OUT", tb, "load on preamp out"); }
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht 0 V, Strich), Leistung an 8 Ω (Strich = 30 W)
     { const char *tn[6] = {"V1B input", "V1A gain", "V2B mid", "amp in V1A", "6550 grid", "power"};
-      double lx = 460, bx = 570, bw = 170, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
+      double lx = 580, bx = 690, bw = 170, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
       for (int i = 0; i < 6; i++) { double by = y0 + i * dy; setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], lx, by + 11, 11.5, false);
         setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
         double x = meter[i], f, mark; bool over; char t[24];
@@ -167,7 +169,7 @@ struct Gui {
     for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 9 + i || hover == 9 + i, false); }
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
-    { char kb[256]; int kn = 0; const int ks[] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_TAPER};
+    { char kb[256]; int kn = 0; const int ks[] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_TAPER, P_BAL};
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }
@@ -191,7 +193,7 @@ struct Gui {
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 2; i++) { const double *J = SVTJACK[i]; double dx = x - J[0], dy = y - J[1]; if (dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14)) return i; } return -1; }
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < NPS; k++) if (std::fabs(x - SVTSW[k][0]) <= 32 && std::fabs(y - SVTSW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
-  void moveSwitch(int p, int dir) { if (p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); }   // OUTPUT: oben = 4 Ω
+  void moveSwitch(int p, int dir) { if (p == P_TAPER || p == P_PSU) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); }   // OUTPUT: oben = 4 Ω
   void togglePanel(int k) { int p = SWPARAM[k]; setP(p, getP(p) > 0.5 ? 0 : 1); }
   int knobParam(int i) const { return i < 6 ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
   double knobVal(int i) const { if (i < 6) return KPARAM[i] == P_FREQ ? getP(P_FREQ) * 2.5 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }   // FREQUENCY: 0 … 4 auf 0 … 10 Ziehweg
@@ -216,7 +218,7 @@ struct Gui {
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(100.0) / std::log(1000.0) * 10 : k == 10 ? 6 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int j = hitJack(x, y); if (j >= 0) { setP(P_JACK, j); return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_TAPER || b == P_PSU ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }
       case 1: {
         if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }
