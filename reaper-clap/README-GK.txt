@@ -1,5 +1,5 @@
 GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -139,6 +139,22 @@ Input level (INPUT, since 1.4)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.6
+  - Turning knobs costs less CPU: when only resistor values change (pots),
+    the circuit matrix is updated with rank-one corrections instead of being
+    inverted again; a full inversion every 16 updates keeps the rounding in
+    check. Load while turning three knobs: about 0.18 -> 0.13 of a core (2x,
+    block 128). Sound with fixed settings bit-identical; while turning the
+    difference to a full inversion is below -80 dB.
+  - Switches no longer click: -10 dB pad, LO CUT, MID CONTOUR, HI BOOST,
+    BOOST footswitch, BI-AMP and the pot taper used to switch the circuit
+    from one sample to the next, which made the output jump. Now the output
+    fades out over 3 ms, the switch happens in the silent spot, and after
+    the plugin latency (31 samples) it fades in over 4 ms. Measured with a
+    sine: the click is down from up to +4 dB to about -75 dB relative to the
+    signal (the level of the fades themselves). Speaker and DIRECT OUT
+    already crossfade inside the amp (20 ms).
 
 1.5
   - No more dropout and click when the circuit is switched (oversampling):

@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.40
+Version 3.41
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -149,6 +149,18 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.41
+  - Rebuilt with the shared solver code of the other plugins (rank-one
+    matrix updates when a pot moves). In this preamp the power amp is the
+    only part that uses it; no measurable change in load. Sound difference
+    to 3.40 below -140 dB.
+  - FX LOOP + power amp no longer clicks: it switched the power amp in or
+    out from one sample to the next (with a sine: a jump above signal
+    level). Now the output fades out over 3 ms, switches, and fades in over
+    4 ms after the latency (31 samples); measured: from about +17 dB to -55
+    dB relative to the signal. The other switches already glide (15 ms) or
+    crossfade with replay (channel, input, tubes) as before.
 
 3.40
   - INPUT now means the peak voltage of your playing: the plugin remembers

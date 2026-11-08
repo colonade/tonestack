@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.7
+Version 1.8
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -159,6 +159,23 @@ Input level (INPUT, since 1.6)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.8
+  - Turning knobs costs less CPU: when only resistor values change (pots),
+    the circuit matrix is updated with rank-one corrections instead of being
+    inverted again; a full inversion every 16 updates keeps the rounding in
+    check. Load while turning three knobs: about 0.58 -> 0.46 of a core
+    (block 128). Sound with fixed settings bit-identical; while turning the
+    difference to a full inversion is below -80 dB.
+  - Switches no longer click: MIDRANGE frequency, ULTRA HI, ULTRA LO, input
+    jack, output tap and the pot taper used to switch the circuit from one
+    sample to the next, which made the output jump. Now the output fades out
+    over 3 ms, the switch happens in the silent spot, and after the plugin
+    latency (31 samples) it fades in over 4 ms. Measured with a sine: the
+    click is down from up to -1 dB to -75 dB for most switches; ULTRA HI,
+    ULTRA LO, the input jack and the log 10 % taper leave a short ringing
+    near 18 kHz at about -40 to -47 dB. Oversampling, power supply and BAL
+    OUT load keep the core swap of 1.7.
 
 1.7
   - No more dropout and click when the circuit is switched (oversampling, power supply, BAL OUT load):

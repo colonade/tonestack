@@ -1,6 +1,6 @@
 // AmpFett SVT-CL, Nachbau des Ampeg SVT-CL (Service Manual: Vorverstärker 07S519-12, Endstufe 07S419-12; alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.7"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "svt_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -59,6 +59,10 @@ struct Dly { float b[LATENCY] = {}; int i = 0; float step(float x) { float y = b
 struct Plugin {
   tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   tsfx::Trash<Pend> trash; Pend *swapQ = nullptr; tsfx::Fade fade;
+  double swSeen[P_COUNT] = {}; bool swHold = false;   // Schalter ohne Knacks (swapfade.hpp): zuletzt übernommene Stellungen, Umschalten wartet aufs Ausblenden
+  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_PSU && id != P_BAL && id != P_INREF; }   // stufige Parameter; Überabtastung/Netzteil laufen über den Kernwechsel
+  bool swDiff() const { for (int i = 0; i < P_COUNT; i++) if (swIs(i) && val[i].load() != swSeen[i]) return true; return false; }
+  void swTake() { for (int i = 0; i < P_COUNT; i++) swSeen[i] = val[i].load(); }   // vor applyTo: eine Änderung danach fällt beim nächsten Block auf
   // Ruhezustand auf den aktuellen Stellungen (ab AmpFett 1.20 / SVT-CL 1.7): proto ist der Startpunkt nach jeder Pause (Play, FX an). Bisher stand er auf der
   // Grundstellung; beim Neubeginn sprangen die Regler dann auf die Projektstellung, und die Schaltung schwang hörbar ein (SVT bis −31 dBFS „Plopp“).
   // Ändern sich die Stellungen und bleiben 0,5 s stehen, schwingt ein Hilfsfaden einen neuen proto ein (1,5 s Rechenzeit im Hintergrund).
@@ -85,7 +89,7 @@ struct Plugin {
   Setting target() const { return setting(val[P_GAIN], val[P_BASS], val[P_MID], val[P_TREB], val[P_MASTER]); }
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->power = true; a->setTarget(target()); if (snap) a->snap(); }   // STANDBY/POWER ab 1.3 ohne Wirkung (Schalter von der Frontplatte entfernt; Parameter bleiben verborgen, damit alte Projekte laden)
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; }
-    trash.freeAll(); if (swapQ) { delete swapQ->a; delete swapQ->proto; delete swapQ; swapQ = nullptr; } fade = tsfx::Fade();
+    trash.freeAll(); if (swapQ) { delete swapQ->a; delete swapQ->proto; delete swapQ; swapQ = nullptr; } fade = tsfx::Fade(); swHold = false;
     if (Pend *q = protoNew.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } resettleReq = false; resettling = false; protoValsOK = false; seenFor = 0; }   // nur bei stehendem Audio-Faden (activate, deactivate, destroy)
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
@@ -174,7 +178,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
   // fertig eingeschwungener Kern mit neuer Überabtastung
   // fertig eingeschwungener Kern (neue Überabtastung/Schaltung): alter Kern 3 ms ausblenden, dann tauschen und einblenden; der alte geht in den Papierkorb (swapfade.hpp)
-  if (!pl->swapQ) if (Pend *q = pl->pending.exchange(nullptr)) { if (q->a->cfg == pl->cfgWant()) { pl->swapQ = q; pl->fade.start(-1, pl->fs); } else { pl->trash.push(q); pl->building = false; ask_main(pl); } }   // inzwischen anders gewählt: weg damit, neu anstoßen
+  if (!pl->swapQ && !pl->swHold) if (Pend *q = pl->pending.exchange(nullptr)) { if (q->a->cfg == pl->cfgWant()) { pl->swapQ = q; pl->fade.start(-1, pl->fs); } else { pl->trash.push(q); pl->building = false; ask_main(pl); } }   // inzwischen anders gewählt: weg damit, neu anstoßen
   if (pl->swapQ && (pl->fade.outDone() || pl->fresh.load())) { Pend *q = pl->swapQ; pl->swapQ = nullptr; std::swap(pl->eng, q->a); std::swap(pl->proto, q->proto); pl->protoVals = q->vals; pl->protoValsOK = true; pl->trash.push(q);
     pl->cfgAct = pl->eng->cfg; pl->eng2Stale = true; pl->monoOK = true; pl->dirty = true; pl->quiet = 0; pl->d1 = Dly(); pl->d2 = Dly(); pl->building = false; pl->fade.start(1, pl->fs); ask_main(pl); }   // Hauptfaden: Papierkorb leeren, ggf. weitere Wahl bauen
   // neuer Ruhezustand auf den aktuellen Stellungen aus dem Hilfsfaden; sonst nach 0,5 s unveränderter, abweichender Stellungen anfordern
@@ -186,9 +190,11 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   // steady_time taugt dafür nicht: clap-wrapper (VST3, AU) liefert dort die Projektposition, die bei stehendem Transport steht und bei Schleifen springt.
   { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
     if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs) && !pl->sleeping) pl->fresh = true; }   // große Puffer: erst ab dreifacher Blockdauer; im Schlaf darf der Host aussetzen (ab 1.14 wie Laney: kein Neubeginn)
-  if (pl->fresh.exchange(false) && pl->proto) { *pl->eng = *pl->proto; bool at = Amp::sameAll(pl->proto->c.cur, pl->target()); pl->applyTo(pl->eng, !at); pl->dirty = false; pl->fade = tsfx::Fade(); if (!at) pl->fade.start(1, pl->fs, 0.15);   // Ruhezustand noch nicht auf diesen Stellungen: Einschwingen 150 ms einblenden   // nur der erste Kern; der zweite wird bei Bedarf von ihm kopiert (eng2Stale)
+  if (pl->fresh.exchange(false) && pl->proto) { *pl->eng = *pl->proto; bool at = Amp::sameAll(pl->proto->c.cur, pl->target()); pl->applyTo(pl->eng, !at); pl->dirty = false; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); if (!at) pl->fade.start(1, pl->fs, 0.15);   // Ruhezustand noch nicht auf diesen Stellungen: Einschwingen 150 ms einblenden   // nur der erste Kern; der zweite wird bei Bedarf von ihm kopiert (eng2Stale)
     pl->d1 = Dly(); pl->d2 = Dly(); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->outCur = -1; }
-  if (pl->dirty.exchange(false)) { pl->applyTo(pl->eng); if (!pl->eng2Stale) pl->applyTo(pl->eng2); pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; if (pl->cfgWant() != pl->cfgAct) ask_main(pl); }
+  // Schalter umgelegt (läuft, kein anderes Blenden): erst 3 ms ausblenden, umgeschaltet wird im Block an der Stelle, an der es still ist
+  if (pl->dirty.exchange(false)) { if (!pl->swHold && pl->fade.dir == 0 && pl->outCur >= 0 && !pl->sleeping && pl->swDiff()) { pl->swHold = true; pl->fade.start(-1, pl->fs); }
+    if (!pl->swHold) { pl->swTake(); pl->applyTo(pl->eng); if (!pl->eng2Stale) pl->applyTo(pl->eng2); } pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; if (pl->cfgWant() != pl->cfgAct) ask_main(pl); }
   auto t0 = std::chrono::steady_clock::now();
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } m[i] = (float)x; m2[i] = (float)x2; }
   // gleiche Kanäle (Mono-Spur auf Stereo): einmal rechnen; unterscheiden sie sich, übernimmt der zweite Kern den Zustand des ersten
@@ -201,14 +207,19 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   if (pl->sleeping) { for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
     return CLAP_PROCESS_CONTINUE; }
   if (pl->val[P_INREF].load() < 0.5) pl->ain.apply(m, stereo ? m2 : nullptr, n);   // Eingangsbezug: gemerkte Spitze = eingestellte mV (autoin.hpp)
-  pl->eng->process(m, (int)n); if (pl->eng->os == 1) for (uint32_t i = 0; i < n; i++) m[i] = pl->d1.step(m[i]);
-  if (dual) { pl->eng2->process(m2, (int)n); if (pl->eng2->os == 1) for (uint32_t i = 0; i < n; i++) m2[i] = pl->d2.step(m2[i]);
+  auto run = [&](uint32_t o, uint32_t len) { if (!len) return; pl->eng->process(m + o, (int)len); if (pl->eng->os == 1) for (uint32_t i = o; i < o + len; i++) m[i] = pl->d1.step(m[i]);
+    if (dual) { pl->eng2->process(m2 + o, (int)len); if (pl->eng2->os == 1) for (uint32_t i = o; i < o + len; i++) m2[i] = pl->d2.step(m2[i]); } };
+  uint32_t cut = pl->swHold ? (uint32_t)std::max(0, std::min((int)n, pl->fade.len - pl->fade.pos)) : n; int swAt = -1;   // cut: hier ist das Ausblenden fertig
+  run(0, cut);
+  if (pl->swHold && cut < n) { pl->swHold = false; swAt = (int)cut; pl->swTake(); pl->applyTo(pl->eng); if (!pl->eng2Stale) pl->applyTo(pl->eng2); }   // still: jetzt umschalten, ab swAt einblenden
+  run(cut, n - cut);
+  if (dual) {
     if (same) { bool eq = true; for (uint32_t i = 0; i < n; i++) if (std::fabs(m[i] - m2[i]) > 1e-7f) { eq = false; break; } if (eq) { pl->monoOK = true; pl->eng2Stale = true; } } }
   else if (stereo) std::memcpy(m2, m, n * sizeof(float));
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
   double outPk = 0; for (uint32_t i = 0; i < n; i++) outPk = std::max(outPk, std::max(std::fabs((double)m[i]), stereo ? std::fabs((double)m2[i]) : 0.0));
   { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));
-    for (uint32_t i = 0; i < n; i++) { g += (gt - g) * k; double gf = g * pl->fade.next(); m[i] = (float)(m[i] * gf); if (stereo) m2[i] = (float)(m2[i] * gf); } pl->outCur = g; }
+    for (uint32_t i = 0; i < n; i++) { if ((int)i == swAt) pl->fade.start(1, pl->fs, 0.004, (int)LATENCY); g += (gt - g) * k; double gf = g * pl->fade.next(); m[i] = (float)(m[i] * gf); if (stereo) m2[i] = (float)(m2[i] * gf); } pl->outCur = g; }
   for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = src[i]; else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i]; }
   if ((pl->pkCnt += n) >= pl->fs / 10) { pl->pkCnt = 0; double q[6], q2[6]; pl->eng->takePeaks(q); double o = pl->eng->takeOut();
     if (dual) { pl->eng2->takePeaks(q2); o = std::max(o, pl->eng2->takeOut()); for (int i = 0; i < 6; i++) q[i] = std::max(q[i], q2[i]); }

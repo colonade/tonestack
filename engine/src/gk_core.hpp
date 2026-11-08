@@ -148,7 +148,8 @@ struct PowerAmp { aor::IIR fb; double lim = 49, knee = 44; double pk = 0;
 // ---------- Laufzeit ----------
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double jdDC = 0;
-  void apply(const Setting &s) { cur = s; bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); run.stepLim = 8; fixDev(); }   // Newton-Schritt höchstens 8 V: alle Torspannungen liegen unter ±15 V (sonst riesige Zwischenströme der Begrenzer)
+  dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
+  void apply(const Setting &s) { cur = s; bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); run.stepLim = 8; fixDev(); }   // Newton-Schritt höchstens 8 V: alle Torspannungen liegen unter ±15 V (sonst riesige Zwischenströme der Begrenzer)
   void fixDev() { for (auto &d : run.dev) d.model = d.kind == K_CLAMP ? (const void *)&bl.clamp : d.kind == K_JFET ? (const void *)&bl.jf : nullptr; }   // Zeiger auf die eigenen Modelle (nach Kopie)
   Core() {} Core(const Core &o) { *this = o; }
   Core &operator=(const Core &o) { if (this == &o) return *this; fs = o.fs; v = o.v; cur = o.cur; net = o.net; run = o.run; bl = o.bl; jdDC = o.jdDC; fixDev(); return *this; }

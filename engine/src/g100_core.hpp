@@ -157,7 +157,8 @@ inline std::complex<double> paResponse(double f, const Parts &v) { std::complex<
 // ---------- Laufzeit ----------
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double dDC = 0; springrev::Tank tank; double vrev = 0;   // tank: Federmodell zwischen Treiberspule und Abnehmerspule (ein Abtastwert Verzug)
-  void apply(const Setting &s) { cur = s; tank.nl = !s.tankLin; if (!s.tankLin) tank.setStrength(s.tankAmt); bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); run.stepLim = 8; fixDev(); }
+  dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
+  void apply(const Setting &s) { cur = s; tank.nl = !s.tankLin; if (!s.tankLin) tank.setStrength(s.tankAmt); bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); run.stepLim = 8; fixDev(); }
   void fixDev() { for (auto &d : run.dev) d.model = d.kind == K_CLAMP ? (const void *)&bl.clamp : d.kind == K_CLAMP1 ? (const void *)&bl.clamp1 : d.kind == K_CLAMP3 ? (const void *)&bl.clamp3 : d.kind == K_JFET ? (const void *)&bl.jf : (const void *)&bl.dp; }   // Zeiger auf die eigenen Modelle (nach Kopie)
   Core() {} Core(const Core &o) { *this = o; }
   Core &operator=(const Core &o) { if (this == &o) return *this; fs = o.fs; v = o.v; cur = o.cur; net = o.net; run = o.run; bl = o.bl; dDC = o.dDC; tank = o.tank; vrev = o.vrev; fixDev(); return *this; }

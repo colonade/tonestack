@@ -145,14 +145,15 @@ struct Sys {
     cP.fin(nh + nu, false); cK.fin(m, false); cB.fin(nh + nu + m, false); cO.fin(nh + nu + m, false); }
   void setDense(bool d) { cP.fin(cP.nc, d); cK.fin(cK.nc, d); cB.fin(cB.nc, d); cO.fin(cO.nc, d); }
 };
-inline Sys compile(const Net &net, double fs) {
-  Sys s; s.T = 1 / fs; s.nn = net.nn; s.m = (int)net.P.size(); s.no = (int)net.O.size(); s.ncap = (int)net.C.size();
+// Teile von compile (ab 2026-11-08 auch für Compiler): Kopf baut G und die Zweigliste, Schwanz zieht aus M = G⁻¹ die Matrizen
+inline void compileHead(const Net &net, double fs, Sys &s, std::vector<std::pair<int,int>> &br, Mat &G) {
+  s.T = 1 / fs; s.nn = net.nn; s.m = (int)net.P.size(); s.no = (int)net.O.size(); s.ncap = (int)net.C.size();
   for (auto &x : net.S) s.nu = std::max(s.nu, x.in + 1);
   for (auto &x : net.I) s.nu = std::max(s.nu, x.in + 1);
-  std::vector<std::pair<int,int>> br; for (auto &c : net.C) br.push_back({c.a, c.b});
+  br.clear(); for (auto &c : net.C) br.push_back({c.a, c.b});
   for (auto &g : net.L) { s.glOff.push_back((int)br.size()); for (auto &w : g.w) br.push_back(w); }
   s.nh = (int)br.size(); int N = s.nn;
-  Mat G(N, N);
+  G = Mat(N, N);
   auto stamp = [&](int a, int b, double g) { if (a) G(a-1, a-1) += g; if (b) G(b-1, b-1) += g; if (a && b) { G(a-1, b-1) -= g; G(b-1, a-1) -= g; } };
   for (auto &x : net.R) stamp(x.a, x.b, 1 / x.v);
   for (auto &x : net.S) stamp(x.a, 0, 1 / x.r);
@@ -164,7 +165,8 @@ inline Sys compile(const Net &net, double fs) {
       auto add = [&](int r_, int c_, double x) { if (r_ && c_) G(r_-1, c_-1) += x; };
       add(ai, aj, v); add(ai, bj, -v); add(bi, aj, -v); add(bi, bj, v); } }
   for (int i = 0; i < N; i++) if (G(i, i) == 0) G(i, i) = 1e-12;   // schwebende Knoten (sollte nicht vorkommen)
-  Mat M = G; if (!invert(M)) return s;
+}
+inline void compileTail(const Net &net, Sys &s, const std::vector<std::pair<int,int>> &br, const Mat &M) {
   // Spalten: Zweig k prägt −h in a und +h in b ein (Strom h fließt a→b durch den Zweig)
   auto colH = [&](int k, int row) { int a = br[k].first, b = br[k].second; double v = 0; if (a) v -= M(row, a-1); if (b) v += M(row, b-1); return v; };   // (M·(−S))[row][k]
   auto colU = [&](int u, int row) { double v = 0; for (auto &x : net.S) if (x.in == u && x.a) v += M(row, x.a-1) / x.r;
@@ -186,8 +188,42 @@ inline Sys compile(const Net &net, double fs) {
     for (int j = 0; j < s.nh; j++) s.Ooh(k, j) = rowD(a, b, colH, j);
     for (int j = 0; j < s.nu; j++) s.Oou(k, j) = rowD(a, b, colU, j);
     for (int j = 0; j < s.m; j++) s.Ooi(k, j) = rowD(a, b, colI, j); }
-  s.finish(); s.ok = true; return s;
+  s.finish(); s.ok = true;
 }
+inline Sys compile(const Net &net, double fs) { Sys s; std::vector<std::pair<int,int>> br; Mat G; compileHead(net, fs, s, br, G); Mat M = G; if (!invert(M)) return s; compileTail(net, s, br, M); return s; }
+// Compiler (ab 2026-11-08): wie compile, merkt sich aber M = G⁻¹. Ändern sich zwischen zwei Aufrufen nur Widerstandswerte (Potis beim Drehen),
+// wird M mit je einer Rang-1-Korrektur pro geändertem Widerstand nachgeführt (Sherman-Morrison, O(N²) statt Inversion O(N³)).
+// Nach maxUpd Korrekturen in Folge, bei mehr als maxRank Änderungen, anderem Aufbau oder schlechter Kondition: volle Inversion.
+// Unterschied zur vollen Rechnung: Rundung (geprüft in den Tests); ohne Reglerbewegung identisch.
+struct Compiler {
+  Net pn; Mat M; double pfs = 0; bool have = false; int nUpd = 0, maxUpd = 16, maxRank = 12; long nFull = 0, nFast = 0;
+  static bool sameTopo(const Net &a, const Net &b) {
+    if (a.nn != b.nn || a.R.size() != b.R.size() || a.C.size() != b.C.size() || a.S.size() != b.S.size() || a.P.size() != b.P.size() || a.O.size() != b.O.size() || a.G.size() != b.G.size() || a.I.size() != b.I.size() || a.L.size() != b.L.size()) return false;
+    for (size_t k = 0; k < a.R.size(); k++) if (a.R[k].a != b.R[k].a || a.R[k].b != b.R[k].b) return false;
+    for (size_t k = 0; k < a.C.size(); k++) if (a.C[k].a != b.C[k].a || a.C[k].b != b.C[k].b || a.C[k].v != b.C[k].v) return false;
+    for (size_t k = 0; k < a.S.size(); k++) if (a.S[k].a != b.S[k].a || a.S[k].r != b.S[k].r || a.S[k].in != b.S[k].in) return false;
+    for (size_t k = 0; k < a.P.size(); k++) if (a.P[k].a != b.P[k].a || a.P[k].b != b.P[k].b) return false;
+    for (size_t k = 0; k < a.O.size(); k++) if (a.O[k].a != b.O[k].a || a.O[k].b != b.O[k].b) return false;
+    for (size_t k = 0; k < a.G.size(); k++) if (a.G[k].a != b.G[k].a || a.G[k].b != b.G[k].b || a.G[k].c != b.G[k].c || a.G[k].d != b.G[k].d || a.G[k].g != b.G[k].g) return false;
+    for (size_t k = 0; k < a.I.size(); k++) if (a.I[k].a != b.I[k].a || a.I[k].b != b.I[k].b || a.I[k].in != b.I[k].in || a.I[k].k != b.I[k].k) return false;
+    for (size_t k = 0; k < a.L.size(); k++) if (a.L[k].w != b.L[k].w || a.L[k].L.d != b.L[k].L.d) return false;
+    return true; }
+  Sys compile(const Net &net, double fs) {
+    Sys s; std::vector<std::pair<int,int>> br; Mat G; compileHead(net, fs, s, br, G);
+    std::vector<int> ch; bool fast = have && fs == pfs && sameTopo(pn, net) && nUpd < maxUpd;
+    if (fast) { for (size_t k = 0; k < net.R.size(); k++) if (net.R[k].v != pn.R[k].v) ch.push_back((int)k); if ((int)ch.size() > maxRank) fast = false; }
+    if (fast) { const int N = M.r; std::vector<double> mu(N), um(N);
+      for (int k : ch) { int a = net.R[k].a, b = net.R[k].b; if (std::min(net.R[k].v, pn.R[k].v) < 10) { fast = false; break; }   // Poti am Anschlag (fast 0 Ω): große Leitwertsprünge lieber voll rechnen
+        double dg = 1 / net.R[k].v - 1 / pn.R[k].v;
+        for (int i = 0; i < N; i++) { double v = 0; if (a) v += M(i, a - 1); if (b) v -= M(i, b - 1); mu[i] = v; }   // M·u, u = e_a − e_b
+        for (int j = 0; j < N; j++) { double v = 0; if (a) v += M(a - 1, j); if (b) v -= M(b - 1, j); um[j] = v; }   // uᵀ·M
+        double den = 1 + dg * ((a ? mu[a - 1] : 0) - (b ? mu[b - 1] : 0)); if (!(std::fabs(den) > 1e-9)) { fast = false; break; }
+        double f = dg / den; for (int i = 0; i < N; i++) { double fi = f * mu[i]; if (fi == 0) continue; double *row = &M(i, 0); for (int j = 0; j < N; j++) row[j] -= fi * um[j]; }
+        pn.R[k].v = net.R[k].v; }
+      if (fast) { nUpd++; nFast++; } }
+    if (!fast) { M = G; if (!invert(M)) { have = false; return s; } pn = net; pfs = fs; have = true; nUpd = 0; nFull++; }
+    compileTail(net, s, br, M); return s; }
+};
 // Knotenspannungen aus dem Zustand (für Prüfungen/Anzeige, nicht im Audiopfad): v = M(−S h + B u + Nᵀ i)
 inline Vec nodeVoltages(const Net &net, double fs, const Vec &h, const Vec &u, const Vec &i) {
   Net tmp = net; for (int k = 1; k <= net.nn; k++) tmp.O.push_back({k, 0});

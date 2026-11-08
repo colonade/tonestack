@@ -124,8 +124,9 @@ inline Built build(const Fixed &f, const Vals &v) {
 
 struct Core {
   double fs = 48000; Fixed f; Vals cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0, peak = 0, last = 0;
+  dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
   void apply(const Vals &v) { cur = v; bl = build(f, v); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); }
-    run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); }
+    run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); }
   void init(double fs_, const Vals &v) { fs = fs_; run = dk::Runner(); apply(v); w = 2 * PI * f.mains_hz / fs; t = 0;
     // Startwerte nach den Spannungen im Plan, damit das Netzteil nicht lange einschwingen muss
     std::map<std::string, double> g = {{"B1", 400}, {"B2", 398}, {"B3", 326}, {"pa", 225}, {"pb", 209}, {"k", 36.4}, {"n", 35.3}, {"x", 10.8}, {"ga", 35.3}, {"gb", 35.3},

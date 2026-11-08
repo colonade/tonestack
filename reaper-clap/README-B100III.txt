@@ -1,5 +1,5 @@
 Yamaha B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   Yamaha_B100III.clap and Yamaha_B100III.vst3 contain the same code and
@@ -147,6 +147,20 @@ Input level (INPUT, since 1.4)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.6
+  - Turning knobs costs less CPU: when only resistor values change (pots),
+    the circuit matrix is updated with rank-one corrections instead of being
+    inverted again; a full inversion every 16 updates keeps the rounding in
+    check. Load while turning three knobs: about 0.39 -> 0.26 of a core (2x,
+    block 128). Sound with fixed settings bit-identical; while turning the
+    difference to a full inversion is below -80 dB.
+  - Switches no longer click: the two EQ on/off footswitches and the pot
+    taper used to switch the circuit from one sample to the next, which made
+    the output jump. Now the output fades out over 3 ms, the switch happens
+    in the silent spot, and after the plugin latency (31 samples) it fades
+    in over 4 ms. Measured with a sine: the click is down from up to -2 dB
+    to about -75 dB.
 
 1.5
   - No more dropout and click when the circuit is switched (oversampling):

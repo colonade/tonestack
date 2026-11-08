@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.8
+Version 1.9
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -183,6 +183,20 @@ Input level (INPUT, since 1.7)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.9
+  - Turning knobs costs less CPU: when only resistor values change (pots),
+    the circuit matrix is updated with rank-one corrections instead of being
+    inverted again; a full inversion every 16 updates keeps the rounding in
+    check. Load while turning three knobs: about 0.41 -> 0.35 of a core (2x,
+    block 128). Sound with fixed settings bit-identical; while turning the
+    difference to a full inversion is below -80 dB.
+  - Switches no longer click: PULL FAT, PULL BRIGHT, channel A/B, input jack
+    and the pot taper used to switch the circuit from one sample to the
+    next, which made the output jump. Now the output fades out over 3 ms,
+    the switch happens in the silent spot, and after the plugin latency (31
+    samples) it fades in over 4 ms. Measured with a sine: the click is down
+    from up to -9 dB to about -76 dB.
 
 1.8
   - No more dropout and click when the circuit is switched (oversampling):
