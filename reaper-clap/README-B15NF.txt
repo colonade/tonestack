@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.20
+Version 1.21
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -141,6 +141,21 @@ Input level (INPUT, since 1.19)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.21
+  - Turning knobs costs less CPU: when only resistor values change (pots),
+    the circuit matrix is updated with rank-one corrections instead of being
+    inverted again; a full inversion every 16 updates keeps the rounding in
+    check. Load while turning three knobs: about 0.26 -> 0.22 of a core
+    (block 128). Sound with fixed settings bit-identical; while turning the
+    difference to a full inversion is below -80 dB.
+  - Switches no longer click: input jack and the volume pot taper used to
+    switch the circuit from one sample to the next, which made the output
+    jump. Now the output fades out over 3 ms, the switch happens in the
+    silent spot, and after the plugin latency (31 samples) it fades in over
+    4 ms. Measured with a sine: the click is down from up to -8 dB to about
+    -76 dB (linear taper: -51 dB). Speaker already crossfades inside the amp
+    (20 ms); oversampling and power supply keep the core swap of 1.20.
 
 1.20
   - No more dropout and click when the circuit is switched (oversampling, power supply):

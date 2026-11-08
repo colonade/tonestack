@@ -179,7 +179,8 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
 
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; const std::vector<std::string> *dbg = nullptr; double ph = 0;   // ph: Netzphase (Netzteil nach Plan)
-  void apply(const Setting &s) { cur = s; bl = build(v, s, dbg); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); }
+  dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
+  void apply(const Setting &s) { cur = s; bl = build(v, s, dbg); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); run.dampFull = true; run.reuseStep = true; run.reuseRho = 0.1; apply(s);   // ab 1.2: gemeinsamer Solve gleich gedämpft (harter Anschlag: kaum noch Notfälle, kürzere Spitzen je Block); ab 1.4: Zerlegung der großen Gruppe innerhalb eines Abtastwerts weiterverwenden
     // Startwerte aus den Spannungen des Plans, damit das Netzteil nicht lange einschwingen muss
     std::map<std::string, double> g = {{"B1", 660}, {"hv", 661}, {"B380", 346}, {"B365", 330}, {"SCR", 345}, {"Bd", 340}, {"A1", 235}, {"K1", 1.5}, {"A2", 240}, {"K2", 1.6}, {"Kt2", 0.8},

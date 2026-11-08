@@ -1,11 +1,12 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.40"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.41"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #include "core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
 #include "autoin.hpp"
+#include "swapfade.hpp"
 #ifndef TS_NO_GUI
 #include "gui.hpp"
 #else
@@ -52,6 +53,14 @@ static const PDef PD[P_COUNT] = {
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
   tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
+  // Schalter ohne Knacks (ab 3.41, swapfade.hpp): FX LOOP + Endstufe setzt der Kern sofort um (Sprung bis über Signalhöhe) → 3 ms ausblenden,
+  // umschalten, nach der Latenz 4 ms einblenden. Die übrigen Schalter gleiten im Kern (Mid/Top/Bass Boost, Bass mod, Soft, Late, Kennlinie: 15 ms)
+  // oder werden mit Nachrechnen übergeblendet (Kanal, Eingang, Röhren, Röhrenmodus, Überabtastung, Eco; Engine::setTarget), Lautsprecher 20 ms.
+  tsfx::Fade fade; double swSeen[P_COUNT] = {}; bool swHold = false;
+  static bool swIs(int id) { return id == P_PA; }
+  bool swDiff() const { for (int i = 0; i < P_COUNT; i++) if (swIs(i) && val[i].load() != swSeen[i]) return true; return false; }
+  void swTake() { for (int i = 0; i < P_COUNT; i++) swSeen[i] = val[i].load(); }   // vor setTarget: eine Änderung danach fällt beim nächsten Block auf
+  void swApply() { swTake(); lastT = target(); eng->setTarget(lastT); eng2Has = false; }
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Engine *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};   // val: von Oberfläche und Audio-Thread gelesen/geschrieben
   std::atomic<double> load{0}; std::atomic<double> pk[5] = {}; int pkCnt = 0; std::vector<float> mono2; bool eng2Has = false; Target lastT; bool monoOK = true, eng2Stale = true;   // monoOK: beide Kanäle gleich und Kerne gleichauf → einmal rechnen; eng2Stale: zweite Engine veraltet, vor Gebrauch vom linken klonen   // eng2Has: zweite Engine (rechter Kanal) hat das aktuelle Ziel
@@ -163,7 +172,7 @@ static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t ma
     // Endstufe rechnet höchstens mit der doppelten Grundrate (2x, 4x mit Zweiergruppe; bis 3.32 wurde zusätzlich die vierfache gerechnet, die nichts mehr nutzt)
     double mis = pl->val[P_MIS] / 100; std::atomic<bool> *stop = &pl->stopJobs;
     try { pl->warm = std::thread([sr, mis, stop]() { DenormGuard dg; for (double m : {0.0, mis}) for (double r : {sr, 2 * sr}) { if (*stop) return; lpa::Vals v = PaDk::valsOf(Parts::orig(), 0.5, m); if (!PaDk::has(r, v)) PaDk::settled(r, v, true, stop); } }); } catch (...) {} }
-  delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; return true; }
+  delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); stopJobs(pl); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
@@ -178,12 +187,14 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   const clap_audio_buffer_t &in = pr->audio_inputs[0]; clap_audio_buffer_t &out = pr->audio_outputs[0];
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
-  if (pl->dirty.exchange(false)) { pl->lastT = pl->target(); pl->eng->setTarget(pl->lastT); pl->eng2Has = false; pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; }
+  // Schalter umgelegt (läuft): erst 3 ms ausblenden, umgeschaltet wird im Block an der Stelle, an der es still ist
+  if (pl->dirty.exchange(false)) { if (!pl->swHold && pl->fade.dir == 0 && pl->outCur >= 0 && pl->eng->a && !pl->sleeping && pl->swDiff()) { pl->swHold = true; pl->fade.start(-1, pl->fs); }
+    if (!pl->swHold) pl->swApply(); pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; }
   // Neubeginn aus der Ruhe (wie ein Verstärker, der während der Pause still weiterlief): nach start_processing (REAPER: FX wieder an)
   // oder einer Pause zwischen zwei Aufrufen über 0,2 s bzw. drei Blocklängen; sonst liefe der beim Ausschalten eingefrorene Zustand kurz nach
   { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
     if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs) && !pl->sleeping) pl->fresh = true; }   // im Schlaf darf der Host aussetzen: kein Neubeginn
-  if (pl->fresh.exchange(false)) { settle(pl->eng); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; }   // zweite Engine wird bei Bedarf vom ersten geklont
+  if (pl->fresh.exchange(false)) { if (pl->swHold) pl->swApply(); pl->swHold = false; pl->fade = tsfx::Fade(); settle(pl->eng); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; }   // zweite Engine wird bei Bedarf vom ersten geklont
   auto t0 = std::chrono::steady_clock::now();
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } m[i] = (float)x; m2[i] = (float)x2; }
   // Stereo mit gleichem Signal links und rechts (Mono-Spur, Bass-DI auf Stereospur): nur einmal rechnen. Erst wenn die Kanäle sich
@@ -200,13 +211,17 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
     for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); }
     return CLAP_PROCESS_CONTINUE; }
   if (pl->val[P_INREF].load() < 0.5) pl->ain.apply(m, stereo ? m2 : nullptr, n);   // Eingangsbezug: gemerkte Spitze = eingestellte mV (autoin.hpp)
-  pl->eng->block(m, (int)n);
-  if (dual) { pl->eng2->block(m2, (int)n);
+  auto run = [&](uint32_t o, uint32_t len) { if (!len) return; pl->eng->block(m + o, (int)len); if (dual) pl->eng2->block(m2 + o, (int)len); };
+  uint32_t cut = pl->swHold ? (uint32_t)std::max(0, std::min((int)n, pl->fade.len - pl->fade.pos)) : n; int swAt = -1;   // cut: hier ist das Ausblenden fertig
+  run(0, cut);
+  if (pl->swHold && cut < n) { pl->swHold = false; swAt = (int)cut; pl->swApply(); if (dual) { pl->eng2->setTarget(pl->lastT); pl->eng2Has = true; } }   // still: jetzt umschalten, ab swAt (nach der Latenz) einblenden
+  run(cut, n - cut);
+  if (dual) {
     if (same) { bool eq = true; for (uint32_t i = 0; i < n; i++) if (std::fabs(m[i] - m2[i]) > 1e-7f) { eq = false; break; } if (eq) { pl->monoOK = true; pl->eng2Stale = true; } } }   // gleichauf: ab jetzt einmal rechnen
   else if (stereo) std::memcpy(m2, m, n * sizeof(float));
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
   { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));   // Ausgangspegel gleitet (kein Knacken beim Drehen)
-    for (uint32_t i = 0; i < n; i++) { g += (gt - g) * k; m[i] = (float)(m[i] * g); if (stereo) m2[i] = (float)(m2[i] * g); } pl->outCur = g; }
+    for (uint32_t i = 0; i < n; i++) { if ((int)i == swAt) pl->fade.start(1, pl->fs, 0.004, (int)LATENCY); g += (gt - g) * k; double gf = g * pl->fade.next(); m[i] = (float)(m[i] * gf); if (stereo) m2[i] = (float)(m2[i] * gf); } pl->outCur = g; }
   for (uint32_t c = 0; c < out.channel_count; c++) { const float *src = (c == 1 && stereo) ? m2 : m; if (out.data32) for (uint32_t i = 0; i < n; i++) out.data32[c][i] = src[i]; else if (out.data64) for (uint32_t i = 0; i < n; i++) out.data64[c][i] = src[i]; }
   if ((pl->pkCnt += n) >= pl->fs / 10) { pl->pkCnt = 0; double q[5]; takePeaksFrom(pl->eng, q); for (int i = 0; i < 5; i++) pl->pk[i] = q[i]; }
   // Schlafen: Eingang still (< −120 dBFS), Ausgang abgeklungen (< −100 dBFS), kein Umschaltvorgang; nach 0,5 s darf der Host aussetzen

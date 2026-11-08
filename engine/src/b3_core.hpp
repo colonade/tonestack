@@ -139,7 +139,8 @@ inline std::complex<double> paResponse(double f, const Parts &v) { std::complex<
 
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl;
-  void apply(const Setting &s) { cur = s; bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(dk::compile(net, fs)); run.stepLim = 8; fixDev(); }
+  dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
+  void apply(const Setting &s) { cur = s; bl = Built(); buildInto(bl, v, s); net = bl.net; run.dev = bl.dev; run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); run.stepLim = 8; fixDev(); }
   void fixDev() { for (auto &d : run.dev) d.model = d.kind == K_CLAMP ? (const void *)&bl.clamp : (const void *)&bl.dp; }
   Core() {} Core(const Core &o) { *this = o; }
   Core &operator=(const Core &o) { if (this == &o) return *this; fs = o.fs; v = o.v; cur = o.cur; net = o.net; run = o.run; bl = o.bl; fixDev(); return *this; }
