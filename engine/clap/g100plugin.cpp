@@ -1,6 +1,6 @@
 // Yamaha G100-212II (Service Manual YAMU-02234: Vorverstärker als Schaltung, Endstufe nach Tabelle 3 geeicht; ohne Lautsprecher und Hall) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.9"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.10"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "g100_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -30,17 +30,17 @@ namespace g100gui { struct Gui; }
 #endif
 using namespace g100;
 
-enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_TANK, P_INREF, P_COUNT };   // P_REVERB ab 1.1, P_TANK ab 1.2 (angehängt: gespeicherte Projekte laden ohne Verschiebung)
+enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_TANK, P_INREF, P_SPK, P_COUNT };   // P_REVERB ab 1.1, P_TANK ab 1.2, P_SPK ab 1.10 (angehängt: gespeicherte Projekte laden ohne Verschiebung)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_PULL[] = {"Pushed in", "Pulled"}; static const char *N_CHAN[] = {"A", "B"}; static const char *N_JACK[] = {"High (1 Mohm)", "Low (60 kohm, -12 dB)"};
-static const char *N_PWR[] = {"Linear (no clipping)", "On (clipping at 100 W into 4 ohm)"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; 
+static const char *N_PWR[] = {"Linear (no clipping)", "On (clipping at 100 W into 4 ohm)"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_SPK[] = {"Off (speaker terminals)", "On (2 x 12\" G12T-75, open back)"}; 
 static const PDef PD[P_COUNT] = {
   {"A: Volume", 0, 10, 5, 0, 0}, {"A: Treble", 0, 10, 5, 0, 0}, {"A: Middle", 0, 10, 5, 0, 0}, {"A: Bass", 0, 10, 5, 0, 0}, {"A: Pull Fat (volume)", 0, 1, 0, N_PULL, 2}, {"A: Pull Bright (treble)", 0, 1, 0, N_PULL, 2},
   {"Channel (A/B)", 0, 1, 0, N_CHAN, 2},
   {"B: Gain", 0, 10, 5, 0, 0}, {"B: Master Volume", 0, 10, 5, 0, 0}, {"B: Treble", 0, 10, 5, 0, 0}, {"B: Middle", 0, 10, 5, 0, 0}, {"B: Bass", 0, 10, 5, 0, 0}, {"B: Pull Fat (gain)", 0, 1, 0, N_PULL, 2}, {"B: Pull Bright (treble)", 0, 1, 0, N_PULL, 2},
   {"EQ: Level", -5, 5, 0, 0, 0}, {"EQ: Q", 0, 10, 5, 0, 0}, {"EQ: Frequency", 0, 10, 5, 0, 0},
   {"Input jack", 0, 1, 0, N_JACK, 2}, {"Power amp", 0, 1, 1, N_PWR, 2},
-  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Reverb", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear as 1.1)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };   // ab 1.4 Regler 0 … 10 (1.2/1.3: Schalter, 1 = physikalisch)
+  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Reverb", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear as 1.1)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2}, {"Speaker (2 x 12\" Celestion G12T-75, open back)", 0, 1, 0, N_SPK, 2} };   // ab 1.4 Regler 0 … 10 (1.2/1.3: Schalter, 1 = physikalisch)
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -59,7 +59,7 @@ struct Plugin {
   tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   tsfx::Trash<Pend> trash; Pend *swapQ = nullptr; tsfx::Fade fade;   // Kernwechsel: Papierkorb (Hauptfaden löscht), wartender neuer Kern, Aus-/Einblenden (swapfade.hpp)
   double swSeen[P_COUNT] = {}; bool swHold = false;   // Schalter ohne Knacks (swapfade.hpp): zuletzt übernommene Stellungen, Umschalten wartet aufs Ausblenden
-  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_INREF; }   // stufige Parameter; Überabtastung/Netzteil laufen über den Kernwechsel
+  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_INREF && id != P_SPK; }   // stufige Parameter; Überabtastung läuft über den Kernwechsel, den Lautsprecher blendet der Kern selbst über (20 ms)
   bool swDiff() const { for (int i = 0; i < P_COUNT; i++) if (swIs(i) && val[i].load() != swSeen[i]) return true; return false; }
   void swTake() { for (int i = 0; i < P_COUNT; i++) swSeen[i] = val[i].load(); }   // vor applyTo: eine Änderung danach fällt beim nächsten Block auf
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
@@ -81,7 +81,7 @@ struct Plugin {
     s.fata = val[P_FATA] > 0.5; s.brighta = val[P_BRIGHTA] > 0.5; s.fatb = val[P_FATB] > 0.5; s.brightb = val[P_BRIGHTB] > 0.5; s.chanB = val[P_CHAN] > 0.5; s.low = val[P_LOW] > 0.5;
     s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); s.reverb = val[P_REVERB] / 10; s.tankAmt = val[P_TANK]; s.tankLin = val[P_TANK] <= 0; return s; }   // taper: Kennlinie der A-Potis
   Setting refSetting() const { Setting s; s.low = val[P_LOW] > 0.5; s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); return s; }   // Bezug des Diagramms: alle Regler 5, LEVEL 0, Zugschalter aus, Kanal A, gleiche Buchse und Kennlinie
-  void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->power = val[P_PWR] > 0.5; a->setTarget(target()); if (snap) a->snap(); }
+  void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->power = val[P_PWR] > 0.5; a->spk = val[P_SPK] > 0.5; a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; }
     trash.freeAll(); if (swapQ) { delete swapQ->a; delete swapQ->proto; delete swapQ; swapQ = nullptr; } fade = tsfx::Fade(); swHold = false; }   // nur bei stehendem Audio-Faden (activate, deactivate, destroy)
 };
@@ -262,7 +262,8 @@ static void curves(Plugin *pl, std::vector<double> &cur, std::vector<double> &re
   if (!have) { std::lock_guard<std::mutex> lk(pl->plotM); if (pl->plotReady && pl->plotReadyFs == pl->fs) { pl->plotC = std::move(pl->plotReady); pl->plotFs = pl->plotReadyFs; } }
   if (!pl->plotC || pl->plotFs != pl->fs) { startPlotJob(pl, pl->fs); cur.clear(); ref.clear(); return; }   // noch nicht da: leeres Diagramm, nach dem Rechnen neu
   Core &C = *pl->plotC;
-  auto mag = [&](double f) { return std::abs(C.response(f, O_G)) * std::abs(paResponse(f, C.v)); };   // bis zum Gate der Endstufe als Schaltung, Endstufe mit Ausgangselko
+  const bool spk = pl->val[P_SPK] > 0.5;
+  auto mag = [&](double f) { double m = std::abs(C.response(f, O_G)) * std::abs(paResponse(f, C.v)); return spk ? m * std::abs(g12t::rel(f)) : m; };   // bis zum Gate der Endstufe als Schaltung, Endstufe mit Ausgangselko; mit Lautsprecher Schalldruck (bei 1 kHz gleich)
   auto curveOf = [&](const Setting &s, std::vector<double> &o) { C.apply(s); double r = mag(1000); o.resize(g100gui::NF);
     for (int i = 0; i < g100gui::NF; i++) o[i] = 20 * std::log10(std::max(1e-12, mag(g100gui::freqAt(i)) / std::max(r, 1e-30))); };
   curveOf(pl->target(), cur); curveOf(pl->refSetting(), ref); }

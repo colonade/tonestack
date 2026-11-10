@@ -33,7 +33,7 @@
 namespace g100gui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_TANK, P_INREF, P_COUNT };
+enum { P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_FATA, P_BRIGHTA, P_CHAN, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_FATB, P_BRIGHTB, P_LEVEL, P_Q, P_FREQ, P_LOW, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_REVERB, P_TANK, P_INREF, P_SPK, P_COUNT };
 constexpr int NK = 13;   // Knöpfe der Frontplatte (Reihenfolge G100KNOB)
 static const int KPARAM[NK] = {P_VOLA, P_TREBA, P_MIDA, P_BASSA, P_GAINB, P_MASTERB, P_TREBB, P_MIDB, P_BASSB, P_LEVEL, P_Q, P_FREQ, P_REVERB};
 static const int KPULL[NK] = {P_FATA, P_BRIGHTA, -1, -1, P_FATB, -1, P_BRIGHTB, -1, -1, -1, -1, -1, -1};   // Zugschalter des Knopfs
@@ -44,10 +44,10 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-constexpr int NSW = 3;
-static const double SW_X[NSW] = {60, 172, 290};   // OVERSAMPLING, POWER AMP (Begrenzung / linear), POT TAPER (REVERB TANK ab 1.4 als kleiner Regler)
-static const int SW_P[NSW] = {P_OS, P_PWR, P_TAPER};
-static const double KN_X[3] = {1020, 1130, 420}; // INPUT, OUTPUT, REVERB TANK (ab 1.4: Stärke der Nichtlinearität, 0 = linear), Beschriftung unter dem Knopf
+constexpr int NSW = 4;
+static const double SW_X[NSW] = {60, 178, 296, 414};   // SPEAKER (ab 1.10), OVERSAMPLING, POWER AMP (Begrenzung / linear), POT TAPER (REVERB TANK ab 1.4 als kleiner Regler, ab 1.10 rechts neben DRIVE)
+static const int SW_P[NSW] = {P_SPK, P_OS, P_PWR, P_TAPER};
+static const double KN_X[3] = {1020, 1130, 905}; // INPUT, OUTPUT, REVERB TANK (ab 1.4: Stärke der Nichtlinearität, 0 = linear), Beschriftung unter dem Knopf
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
@@ -162,14 +162,15 @@ struct Gui {
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const char *ol[3] = {"1x", "2x", "4x"}, *op[2] = {"CLIP", "LINEAR"};
-      tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
-      tsw::toggle(c, SW_X[1], SW_Y, 2, v[P_PWR] > 0.5 ? 0 : 1, "POWER AMP", op, v[P_PWR] > 0.5 ? "100 W into 4 ohm" : "no limit");
-      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[2], SW_Y, 3, tp, "POT TAPER", tl, "A pots (vol, tone, Q)");
+    { const char *ol[3] = {"1x", "2x", "4x"}, *op[2] = {"CLIP", "LINEAR"}, *oo[2] = {"ON", "OFF"};
+      tsw::toggle(c, SW_X[0], SW_Y, 2, v[P_SPK] > 0.5 ? 0 : 1, "SPEAKER", oo, "G12T-75, open");
+      tsw::toggle(c, SW_X[1], SW_Y, 3, os, "OVERSAMPLING", ol, os != osActive ? "switching ..." : "against aliasing");
+      tsw::toggle(c, SW_X[2], SW_Y, 2, v[P_PWR] > 0.5 ? 0 : 1, "POWER AMP", op, v[P_PWR] > 0.5 ? "100 W into 4 ohm" : "no limit");
+      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[3], SW_Y, 3, tp, "POT TAPER", tl, "A pots (vol, tone, Q)");
     }
     // Aussteuerung: Stufen relativ zur Begrenzung (Strich = 100 %), Endstufe als Leistung (Strich = 100 W)
     { const char *tn[NM] = {"input stage (IC1)", "channel A stages", "ch. B diodes", "ch. B 2SK30A", "EQ stages", "power amp"};
-      double lx = 540, bx = 660, bw = 160, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
+      double lx = 548, bx = 655, bw = 120, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
       for (int i = 0; i < NM; i++) { double by = y0 + i * dy; bool dim = (i == 1 && chanB) || ((i == 2 || i == 3) && !chanB); setrgb(c, dim ? 0x5e626a : 0x9a9ea6); tsw::text(c, tn[i], lx, by + 11, 11.5, false);
         setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
         double x = meter[i], f, mark; bool over; char t[24];
@@ -188,7 +189,7 @@ struct Gui {
       curveStale = computeCurves && key != curveKey; }
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x14161a); cairo_rectangle(c, 0, 0, tsw::UW, PLOTU); cairo_fill(c);
       double px0 = 58, px1 = tsw::UW - 18, py0 = 36, py1 = PLOTU - 40;
-      setrgb(c, 0xc8ccd4); tsw::text(c, chanB ? "FREQUENCY RESPONSE  (small signal, channel B, speaker terminals, re 1 kHz)" : "FREQUENCY RESPONSE  (small signal, channel A, speaker terminals, re 1 kHz)", px0, 22, 13, true);
+      setrgb(c, 0xc8ccd4); tsw::text(c, v[P_SPK] > 0.5 ? (chanB ? "FREQUENCY RESPONSE  (small signal, channel B, sound pressure 2x12 G12T-75 open back, re 1 kHz)" : "FREQUENCY RESPONSE  (small signal, channel A, sound pressure 2x12 G12T-75 open back, re 1 kHz)") : chanB ? "FREQUENCY RESPONSE  (small signal, channel B, speaker terminals, re 1 kHz)" : "FREQUENCY RESPONSE  (small signal, channel A, speaker terminals, re 1 kHz)", px0, 22, 13, true);
       tsw::plot(c, curve, refCurve, NF, freqAt, px0, px1, py0, py1, REFLABEL, false); cairo_restore(c); }
     cairo_restore(c);
     // Wertanzeige

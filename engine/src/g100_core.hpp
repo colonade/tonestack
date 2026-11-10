@@ -8,12 +8,14 @@
 // Hall: Treiber IC3 (TA7220P, Stromtreiber mit steigender Verstärkung), Federtank als physikalisches Modell (spring.hpp), Rückholverstärker IC7 1/2, REVERB,
 // Ausgangsnetzwerk, Eingang der Endstufe (MA-Platine). Operationsverstärker NJM4558 als gesteuerte Quellen mit Begrenzung.
 // Endstufe: Verstärkung aus der Gegenkopplung (1,8 M gegen 100 k ∥ (10 k + 1 µ): Form), Pegel nach Tabelle 3 des Service Manuals geeicht,
-// weiche Begrenzung an der Aussteuerungsgrenze (100 W an 4 Ω bei 10 % Klirr), Ausgangselko 2200 µ an 4 Ω. Kein Lautsprecher.
+// weiche Begrenzung an der Aussteuerungsgrenze (100 W an 4 Ω bei 10 % Klirr), Ausgangselko 2200 µ an 4 Ω.
+// Lautsprecher wahlweise (ab 1.10, Schalter SPEAKER): 2 × Celestion G12T-75 in der offenen Box (g12t75.hpp, docs/g100/LAUTSPRECHER.md).
 // Geschätzt (nicht im Plan): 2SK30A-Kennwerte (an Tabelle 3, Kanal B, angepasst), Diodenmodell 1S1555, Aussteuerungsgrenzen der OPVs und der Endstufe,
 // Einschaltwiderstand des Stummschalters, Innenwiderstand der Quelle.
 #pragma once
 #include "gk_core.hpp"   // expg, Clamp/clampI, Jfet/jfetI, potTaper; aor::IIR, bilinear
 #include "spring.hpp"    // Federhall-Tank
+#include "g12t75.hpp"    // Lautsprecher (ab 1.10)
 #include <atomic>
 #include <cmath>
 #include <map>
@@ -143,13 +145,13 @@ inline Built build(const Parts &v, const Setting &s) { Built B; buildInto(B, v, 
 
 // ---------- Endstufe (MA-Platine): Gegenkopplung 1,8 M / 100 k ∥ (10 k + 1 µ) gibt die Form (Schulter unter 16 Hz), der Pegel ist an Tabelle 3 geeicht;
 // weiche Begrenzung; Ausgangselko 2200 µ an 4 Ω (Hochpass 18 Hz) ----------
-struct PowerAmp { aor::IIR fb, hp; double lim = 31, knee = 26; double pk = 0;
+struct PowerAmp { aor::IIR fb, hp; double lim = 31, knee = 26; double pk = 0, pre = 0;   // pre: Spannung der Endstufe vor dem Ausgangselko (für den Lautsprecher)
   void design(double fs, const Parts &v) { double C = v.pa_cg, rb = v.pa_rb, rg = v.pa_rg, rf = v.pa_rf, ghf = 1 + rf / (rb * rg / (rb + rg)), k = v.pa_gain / ghf;
     double b1[2] = {k * (rb + rf) / rb, k * C * (rb * rg + rf * (rb + rg)) / rb}, a1[2] = {1, C * rg}; fb.n = 1; aor::bilinear(b1, a1, 1, fs, fb.b, fb.a);
     double t = v.pa_cout * v.pa_rload, b2[2] = {0, t}, a2[2] = {1, t}; hp.n = 1; aor::bilinear(b2, a2, 1, fs, hp.b, hp.a);
     lim = v.pa_lim; knee = v.pa_knee; }
-  double step(double x, bool clip) { double y = fb.step(x); double a = std::fabs(y); if (clip && a > knee) { double z = knee + (lim - knee) * std::tanh((a - knee) / (lim - knee)); y = y < 0 ? -z : z; a = z; } if (a > pk) pk = a; return hp.step(y); }   // pk: Spitze hinter der Begrenzung, vor dem Ausgangselko
-  void reset() { fb.reset(); hp.reset(); pk = 0; } };
+  double step(double x, bool clip) { double y = fb.step(x); double a = std::fabs(y); if (clip && a > knee) { double z = knee + (lim - knee) * std::tanh((a - knee) / (lim - knee)); y = y < 0 ? -z : z; a = z; } if (a > pk) pk = a; pre = y; return hp.step(y); }   // pk: Spitze hinter der Begrenzung, vor dem Ausgangselko
+  void reset() { fb.reset(); hp.reset(); pk = 0; pre = 0; } };
 // Kleinsignal-Übertragung der Endstufe (für Diagramme)
 inline std::complex<double> paResponse(double f, const Parts &v) { std::complex<double> s(0, 2 * PI * f); double C = v.pa_cg, rb = v.pa_rb, rg = v.pa_rg, rf = v.pa_rf, ghf = 1 + rf / (rb * rg / (rb + rg)), k = v.pa_gain / ghf;
   std::complex<double> fbk = k * ((rb + rf) / rb + s * (C * (rb * rg + rf * (rb + rg)) / rb)) / (1.0 + s * C * rg); double t = v.pa_cout * v.pa_rload; return fbk * (s * t) / (1.0 + s * t); }
@@ -181,14 +183,15 @@ struct Core {
 };
 
 // Verstärker mit Überabtastung, Reglerglättung, Endstufe, Anzeigen. Ausgabe: Spannung an den Lautsprecherklemmen / V_FS
+// bzw. mit spk Schalldruck der Lautsprecher, bei 1 kHz auf die Klemmenspannung normiert (Umschalten gleitet 20 ms)
 constexpr double V_FS = 40.0;   // 1,0 = 40 V Spitze (100 W an 4 Ω sind 28 V Spitze)
 struct Amp {
-  double fsB = 48000; int os = 1; Core c; Parts v; Setting tgt; bool ready = false; int cnt = 0; double vin = 0.1; bool power = true;
-  PowerAmp pa; double peak[6] = {0, 0, 0, 0, 0, 0};   // Spitzen: IC1 (V), Kanal A OPVs (V), Kanal-B-Dioden (V am Knoten X), TR101-Drain (V um den Ruhepunkt), EQ-OPVs (V), Endstufe (V am Lautsprecher)
+  double fsB = 48000; int os = 1; Core c; Parts v; Setting tgt; bool ready = false; int cnt = 0; double vin = 0.1; bool power = true, spk = false; double spkMix = -1;
+  PowerAmp pa; g12t::Speaker spkF; double peak[6] = {0, 0, 0, 0, 0, 0};   // Spitzen: IC1 (V), Kanal A OPVs (V), Kanal-B-Dioden (V am Knoten X), TR101-Drain (V um den Ruhepunkt), EQ-OPVs (V), Endstufe (V am Lautsprecher)
   int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
   Core c0; int bad = 0;
   void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
-    c.init(fsB * os, v, s); c.settle(0.5, cancel); c0 = c; pa.design(fsB * os, v);
+    c.init(fsB * os, v, s); c.settle(0.5, cancel); c0 = c; pa.design(fsB * os, v); spkF.design(fsB * os); spkMix = spk ? 1 : 0;
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * wd; sum += h[k]; }
@@ -201,7 +204,7 @@ struct Amp {
   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   void setTarget(const Setting &s) { bool rebuild = !swEq(s, c.cur); tgt = s; if (rebuild) { Setting n = c.cur; n.fata = s.fata; n.brighta = s.brighta; n.fatb = s.fatb; n.brightb = s.brightb; n.chanB = s.chanB; n.low = s.low; n.taper = s.taper; n.tankLin = s.tankLin; n.tankAmt = s.tankAmt; c.apply(n); }
     else if (s.tankAmt != c.cur.tankAmt) { c.cur.tankAmt = s.tankAmt; if (!s.tankLin) c.tank.setStrength(s.tankAmt); } }   // TANK-Regler: nur das Federmodell, kein Netzneubau
-  void snap() { c.apply(tgt); cnt = 0; }
+  void snap() { c.apply(tgt); spkMix = spk ? 1 : 0; cnt = 0; }
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < NKNOB; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     if (moved) c.apply(n); }
@@ -209,6 +212,8 @@ struct Amp {
     auto up = [&](int k, double a) { if (a > peak[k]) peak[k] = a; };
     up(0, std::fabs(y[O_A1])); up(1, std::max(std::fabs(y[O_A2]), std::fabs(y[O_A3]))); up(2, std::fabs(y[O_X])); up(3, std::fabs(y[O_D] - c.dDC)); up(4, std::fabs(y[O_EQ]));
     double el = pa.step(y[O_G], power); up(5, pa.pk); pa.pk = 0;
+    double ys = spkF.step(pa.pre), tS = spk ? 1 : 0, st = 1.0 / (0.02 * c.fs); if (spkMix < tS) spkMix = std::min(tS, spkMix + st); else if (spkMix > tS) spkMix = std::max(tS, spkMix - st);
+    if (spkMix > 0) el += spkMix * spkMix * (3 - 2 * spkMix) * (ys - el);   // weiche Überblendung (Smoothstep, ohne Knick an den Enden); ohne Lautsprecher genau wie bis 1.9
     return el / V_FS; }
   void process(float *buf, int n) { if (!ready) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
     for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? std::max(-20.0, std::min(20.0, buf[i] * vin)) : 0, y; tick();
@@ -218,7 +223,7 @@ struct Amp {
           double z = run1(os * u); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = z;
           if (ph == os - 2) for (int k = 0; k < L; k++) y += h[k] * yb[yi + k]; } }
       if (!(std::fabs(y) < 10)) { y = 0;
-        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); pa.reset(); bad = (int)(0.1 * fsB); } }
+        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); pa.reset(); spkF.reset(); bad = (int)(0.1 * fsB); } }
       if (bad > 0) bad--;
       buf[i] = (float)y; } }
   // Aussteuerung seit der letzten Abfrage: IC1 relativ zu seiner Grenze, Kanal A und EQ relativ zur OPV-Grenze, Dioden relativ zu 0,6 V, TR101 relativ zu 6 V Hub, Endstufe als Leistung (W an 4 Ω)
