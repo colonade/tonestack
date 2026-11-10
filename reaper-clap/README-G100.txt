@@ -1,5 +1,5 @@
 Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.9
+Version 1.10
 
 Two formats, one engine
   Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
@@ -93,7 +93,19 @@ What it is
   volume 5, 100 mV -24 dB; channel B, gain 10, master 5 -10 dB; channel
   A, volume 10 -2 dB. LINEAR 1.1 computes the tank exactly as in 1.1
   (bit-identical output).
-  No speaker.
+  Speaker (since 1.10, SPEAKER switch, default off): the two Celestion
+  G12T-75 (8 ohm, in parallel) of the combo in its open-back cabinet, fed by
+  the power amp through the 2200 uF output capacitor. Based on the frequency
+  response in the Celestion data sheet (read from the chart, about +-0.5 dB;
+  the model follows it within 1.1 dB up to 7 kHz), Thiele-Small values of the
+  8 ohm speaker (Fs 85 Hz, Re 6.8 ohm, Qms 10.6, Qes 0.63; from a user
+  database, not from Celestion) and the cabinet size from the service manual
+  (687 x 560 x 280 mm). The open back is estimated: the wave from the rear
+  of the cones travels about 0.6 m around the cabinet, which removes bass
+  below about 100 Hz and adds up to 3 dB around 200-600 Hz. The output
+  capacitor and the speaker form a series circuit below resonance (+2 dB at
+  40 Hz). Same level at 1 kHz as without the speaker. Not included: room,
+  floor, microphone. Details: docs/g100/LAUTSPRECHER.md in the source.
   Checked against the manual: tables 3 (gain A HIGH / A LOW / B HIGH),
   6 (frequency response), 7 (TREBLE / MIDDLE / BASS range), 8 (FAT),
   9 (BRIGHT), 10 (parametric EQ: +-7, +-1, +-15 dB) and the curve of
@@ -116,13 +128,13 @@ Parameters
   1 kHz at 7.2, 5 kHz at 10); Reverb (0 ... 10, linear pot, 1.1); Reverb tank nonlinearity
   (0 ... 10, 0 = linear as 1.1, 5 = as 1.3; 1.4, was a switch in 1.2/1.3); Input
   jack (High / Low); Power amp
-  (clipping / linear); Instrument level; Input reference; Oversampling (1x, 2x, 4x);
+  (clipping / linear); Speaker (off / on, 1.10); Instrument level; Input reference; Oversampling (1x, 2x, 4x);
   Output level; Pot taper (log 15 % / log 10 % / linear; the A pots:
   volume, gain, master, tone controls, Q).
   Knob 10 = clockwise end. Channel B with everything up is very hot: the
   diodes clip from a few millivolts at the jack - that is the amp.
   Defaults: all knobs 5, Level 0, Reverb 0, pull switches in, channel A,
-  High jack, power amp clipping, 100 mV, 2x, 0 dB, reverb tank 5.
+  High jack, power amp clipping, speaker off, 100 mV, 2x, 0 dB, reverb tank 5.
 
 User interface
   Front panel drawn after the drawing in the service manual (no photo, no
@@ -131,20 +143,22 @@ User interface
   knob (pulled = light collar around the knob), the A/B button with its
   indicator (A green, B red), the HIGH and LOW jacks (click to plug in),
   REVERB. Below the panel the model strip (not on the
-  amp): OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, REVERB TANK
-  (small knob 0 ... 10 since 1.4), the DRIVE meters
+  amp): SPEAKER (ON / OFF, 1.10), OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT
+  TAPER, the DRIVE meters
   (input stage, channel A stages, channel B diodes, channel B FET and EQ
   stages relative to their limits, 100 % = clipping; output power into
   4 ohm, mark = 100 W; the meters of the channel not selected are dimmed),
-  INPUT (instrument level) and OUTPUT. Below that the small-signal frequency
-  response at the operating point (relative to 1 kHz; dashed: all knobs at
-  5, Level 0, channel A). Window resizable. Needs libcairo2 and libX11.
+  REVERB TANK (small knob 0 ... 10 since 1.4), INPUT (instrument level) and
+  OUTPUT. Below that the small-signal frequency response at the operating
+  point (relative to 1 kHz; with SPEAKER on the sound pressure; dashed: all
+  knobs at 5, Level 0, channel A). Window resizable. Needs libcairo2 and libX11.
 
 Levels
   INPUT sets the peak voltage of your playing at the jack (see "Input
   level" below) (default 100 mV; single coils about 100-200 mV, humbuckers and
   active pickups up to 1 V). The output is the voltage at the speaker
-  terminals, 40 V peak = 0 dBFS (100 W into 4 ohm is 28 V peak).
+  terminals, 40 V peak = 0 dBFS (100 W into 4 ohm is 28 V peak); with
+  SPEAKER on the sound pressure, scaled to the same level at 1 kHz.
 
 Oversampling and latency
   1x is enough for clean and moderately driven playing; 2x (default) or 4x
@@ -183,6 +197,18 @@ Input level (INPUT, since 1.7)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.10
+  - SPEAKER switch: the two Celestion G12T-75 in the open-back combo (see
+    "What it is"). Default off; off, the plugin sounds bit-identical to 1.9
+    (checked with 72 renders: four settings, block sizes 128 / random 256 /
+    random 4096, 44.1 / 96 kHz, 1x / 2x / 4x). Measured with sines
+    against the model: within 0.01 dB up to 2.3 kHz (0.07 dB at 6.5 kHz,
+    2x). Switching it while playing crossfades over 20 ms (smooth curve):
+    with a sine the residue above 4 kHz is about -95 dB relative to the
+    signal. CPU of the speaker: about 0.5 % of a core at 2x.
+  - The REVERB TANK knob moved to the right of the DRIVE meters to make room
+    for the switch.
 
 1.9
   - Turning knobs costs less CPU: when only resistor values change (pots),

@@ -55,12 +55,13 @@ int main(int argc, char **argv) {
   click(kx(540), kx(100)); printf("Kanal: %g (erwartet 1 = B)\n", pv(6)); audio(40); printf("Ausgang Kanal B: %.3f\n", outPk);
   click(kx(662), kx(136)); printf("Buchse: %g (erwartet 1 = LOW)\n", pv(17)); click(kx(606), kx(136)); printf("Buchse: %g (erwartet 0 = HIGH)\n", pv(17));
   click(kx(974), kx(48)); printf("Pull Bright B: %g (erwartet 1)\n", pv(13));
-  click(ux(60), uy(100)); printf("Überabtastung: %g (erwartet 2 = 4x)\n", pv(20));
+  click(ux(178), uy(100)); printf("Überabtastung: %g (erwartet 2 = 4x)\n", pv(20));
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
-  click(ux(172), uy(100)); printf("Endstufe: %g (erwartet 0 = linear)\n", pv(18)); click(ux(172), uy(70)); printf("Endstufe: %g (erwartet 1)\n", pv(18));
-  click(ux(290), uy(100)); printf("Poti-Kennlinie: %g (erwartet 1)\n", pv(22));
-  send(ButtonPress, ux(420), uy(72), 1); for (int i = 1; i <= 12; i++) { send(MotionNotify, ux(420), uy(72) + i * 10, 0); tick(); } send(ButtonRelease, ux(420), uy(192), 1); tick(); printf("Federtank: %g (erwartet 0 = linear wie 1.1)\n", pv(24));
-  send(ButtonPress, ux(420), uy(72), 1); for (int i = 1; i <= 12; i++) { send(MotionNotify, ux(420), uy(72) - i * 10, 0); tick(); } send(ButtonRelease, ux(420), uy(-48), 1); tick(); printf("Federtank: %g (erwartet 5: zweiter Druck auf denselben Regler gilt im Test als Doppelklick = Grundstellung)\n", pv(24));
+  click(ux(296), uy(100)); printf("Endstufe: %g (erwartet 0 = linear)\n", pv(18)); click(ux(296), uy(70)); printf("Endstufe: %g (erwartet 1)\n", pv(18));
+  click(ux(60), uy(100)); printf("Lautsprecher: %g (erwartet 1 = an, ab 1.10)\n", pv(26)); audio(20); printf("Ausgang mit Lautsprecher: %.3f\n", outPk);
+  click(ux(414), uy(100)); printf("Poti-Kennlinie: %g (erwartet 1)\n", pv(22));
+  send(ButtonPress, ux(905), uy(72), 1); for (int i = 1; i <= 12; i++) { send(MotionNotify, ux(905), uy(72) + i * 10, 0); tick(); } send(ButtonRelease, ux(905), uy(192), 1); tick(); printf("Federtank: %g (erwartet 0 = linear wie 1.1)\n", pv(24));
+  send(ButtonPress, ux(905), uy(72), 1); for (int i = 1; i <= 12; i++) { send(MotionNotify, ux(905), uy(72) - i * 10, 0); tick(); } send(ButtonRelease, ux(905), uy(-48), 1); tick(); printf("Federtank: %g (erwartet 5: zweiter Druck auf denselben Regler gilt im Test als Doppelklick = Grundstellung)\n", pv(24));
   send(ButtonPress, ux(1020), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1020), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1020), uy(32), 1); tick(); printf("Instrument: %g (erwartet > 100)\n", pv(19));
   send(ButtonPress, kx(1294), kx(136), 4); tick(); send(ButtonPress, kx(1294), kx(136), 4); tick(); printf("Level: %g (erwartet 0.4)\n", pv(14));
   send(ButtonPress, kx(1612), kx(136), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(1612), kx(136) - i * 8, 0); tick(); } send(ButtonRelease, kx(1612), kx(56), 1); tick(); printf("Reverb: %g (erwartet > 2)\n", pv(23));
