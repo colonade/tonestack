@@ -8,9 +8,10 @@
 #include "yamaha_core.hpp"   // Rechenkerne (die Oberflächen nutzen Röhrenliste und Konstanten)
 #include TS_GUI_HDR
 using namespace TS_NS;
-// Anzeigen setzen: Laney/AmpFett haben fünf, Yamaha eine
+// Anzeigen setzen: Laney/AmpFett haben fünf, Yamaha eine, der Wien EQ keine
 template <class G> static auto setM(G &g, double v, int) -> decltype(g.meter[0], void()) { for (auto &m : g.meter) m = v; }
-template <class G> static void setM(G &g, double v, long) { g.meter = v; }
+template <class G> static auto setM(G &g, double v, long) -> decltype(g.meter = v, void()) { g.meter = v; }
+template <class G> static void setM(G &, double, ...) {}   // ohne Anzeige (Wien EQ)
 int main(int argc, char **argv) {
   const char *out = argc > 1 ? argv[1] : "render.png"; double vals[64]; for (double &v : vals) v = 5;
   for (int i = 2; i < argc; i++) { int id; double v; if (std::sscanf(argv[i], "%d=%lf", &id, &v) == 2 && id >= 0 && id < 64) vals[id] = v; }

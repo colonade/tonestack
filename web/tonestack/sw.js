@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-10-1";
+const VERSION = "2026-11-11-1";
 const FILES = [
   "./",
   "index.html",
@@ -53,7 +53,14 @@ const FILES = [
   "ampfett-svtcl/svtcl-worklet.js",
   "ampfett-svtcl/svtcl-render.js",
   "assets/icons/ampfett-svtcl-192.png",
-  "assets/icons/ampfett-svtcl-512.png"
+  "assets/icons/ampfett-svtcl-512.png",
+  "wien-eq/",
+  "wien-eq/index.html",
+  "wien-eq/manifest.webmanifest",
+  "wien-eq/weq-worklet.js",
+  "wien-eq/weq-render.js",
+  "assets/icons/wien-eq-192.png",
+  "assets/icons/wien-eq-512.png"
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

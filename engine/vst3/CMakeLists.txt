@@ -4,7 +4,7 @@
 #
 #   cmake -S engine/vst3 -B engine/build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release
 #   cmake --build engine/build/vst3
-#   → engine/build/vst3/Laney_AOR50.vst3, Yamaha_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Yamaha_G100.vst3, Yamaha_B100III.vst3, AmpFett_SVTCL.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
+#   → engine/build/vst3/Laney_AOR50.vst3, Yamaha_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Yamaha_G100.vst3, Yamaha_B100III.vst3, AmpFett_SVTCL.vst3, Wien_EQ.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
 # macOS (Xcode-Befehlszeilenwerkzeuge, cmake, ninja): dieselben Befehle; gebaut werden VST3 und Audio Unit (AUv2, .component)
 # für Apple Silicon und Intel, mit Frontplatte (NSView + CoreGraphics: clap/macview.mm, clap/cairo_cg.hpp).
 cmake_minimum_required(VERSION 3.21)
@@ -96,7 +96,8 @@ ts_version(gkplugin.cpp GV)
 ts_version(g100plugin.cpp G1V)
 ts_version(b3plugin.cpp B3V)
 ts_version(svtplugin.cpp SVV)
-message(STATUS "tonestack: Laney ${LV}, Yamaha ${YV}, AmpFett ${BV}, GK ${GV}, G100 ${G1V}, B100-III ${B3V}, SVT-CL ${SVV}")
+ts_version(weqplugin.cpp WQV)
+message(STATUS "tonestack: Laney ${LV}, Yamaha ${YV}, AmpFett ${BV}, GK ${GV}, G100 ${G1V}, B100-III ${B3V}, SVT-CL ${SVV}, Wien EQ ${WQV}")
 tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   ${LV} Lany)
 tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Yamaha_B100II de.tonestack.yamaha-b100ii.vst3 ${YV} B100)
 tonestack_plugin(b15    b15plugin.cpp b15_entry.cpp AmpFett_B15NF de.tonestack.ampfett-b15nf.vst3  ${BV} AFB1)
@@ -104,3 +105,4 @@ tonestack_plugin(gk     gkplugin.cpp  gk_entry.cpp  GK_800RB      de.tonestack.g
 tonestack_plugin(g100   g100plugin.cpp g100_entry.cpp Yamaha_G100 de.tonestack.yamaha-g100.vst3    ${G1V} YG10)
 tonestack_plugin(b3     b3plugin.cpp  b3_entry.cpp  Yamaha_B100III de.tonestack.yamaha-b100iii.vst3 ${B3V} YB3A)
 tonestack_plugin(svt    svtplugin.cpp svt_entry.cpp AmpFett_SVTCL de.tonestack.ampfett-svtcl.vst3 ${SVV} AFSV)
+tonestack_plugin(weq    weqplugin.cpp weq_entry.cpp Wien_EQ       de.tonestack.wien-eq.vst3        ${WQV} WEQ5)
