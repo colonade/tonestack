@@ -1,5 +1,5 @@
 AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   AmpFett_76.clap and AmpFett_76.vst3 contain the same code and sound
@@ -125,4 +125,8 @@ CPU and latency
   goes idle.
 
 Changes
+  1.1  VALUE POPUP ON / OFF in the header line of the model strip switches
+       the value display at the knobs. Stored for all tonestack plugins of
+       this user (Linux: ~/.config/tonestack/ui.conf, macOS: ~/Library/
+       Application Support/tonestack/ui.conf), not per project.
   1.0  First version.

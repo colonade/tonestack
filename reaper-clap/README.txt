@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.41
+Version 3.42
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -149,6 +149,14 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.42
+  - In the header line of the model strip, "VALUE POPUP ON / OFF" switches the
+    small value display that appears at a knob while the mouse is over it or
+    while turning. Click to toggle. The choice is stored for all tonestack
+    plugins of this user (Linux: ~/.config/tonestack/ui.conf, macOS:
+    ~/Library/Application Support/tonestack/ui.conf), not per project.
+    No change in sound.
 
 3.41
   - Rebuilt with the shared solver code of the other plugins (rank-one

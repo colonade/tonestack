@@ -7,9 +7,11 @@
 #include <cairo/cairo-xlib.h>
 #include <dlfcn.h>
 #include <cmath>
+#include <string>
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
+#include <cstdlib>
 #include <atomic>
 #include <vector>
 static std::atomic<bool> cbReq{false};
@@ -25,6 +27,8 @@ static uint32_t ev0(const clap_input_events_t *) { return 0; } static const clap
 static bool push(const clap_output_events_t *, const clap_event_header_t *) { return true; }
 int main(int argc, char **argv) {
   if (argc < 3) { printf("weqguitest PLUGIN bild.png\n"); return 1; }
+  // eigener HOME-Ordner: die Schalter VALUE POPUP und BAND LIST schreiben eine Einstellungsdatei, die des Benutzers bleibt unberührt
+  char home[] = "/tmp/weqguitest-XXXXXX"; if (!mkdtemp(home)) { printf("kein Testordner\n"); return 1; } setenv("HOME", home, 1); unsetenv("XDG_CONFIG_HOME");
   Display *d = XOpenDisplay(nullptr); if (!d) { printf("kein Display\n"); return 1; }
   Window root = RootWindow(d, DefaultScreen(d)); Window par = XCreateSimpleWindow(d, root, 0, 0, 1400, 800, 0, 0, 0x202020); XMapWindow(d, par); XFlush(d);
   void *lib = dlopen(argv[1], RTLD_NOW); if (!lib) { printf("%s\n", dlerror()); return 2; } auto *entry = (const clap_plugin_entry_t*)dlsym(lib, "clap_entry"); entry->init(argv[1]);
@@ -66,5 +70,14 @@ int main(int argc, char **argv) {
   printf("Ausgang Spitze: %.3f\n", outPk);
   char t[64]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 64); printf("  %s = %s\n", inf.name, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
-  gui->hide(p); gui->destroy(p); p->stop_processing(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d); return 0;
+  // Schalter der Kopfzeile: VALUE POPUP und BAND LIST aus und wieder ein; Stand in der Einstellungsdatei; Bild ohne beide daneben
+  int bad = 0; { std::string cf = std::string(home) + "/.config/tonestack/ui.conf"; auto rd = [&](int &tp, int &bd) { tp = bd = -1; FILE *f = fopen(cf.c_str(), "r"); if (!f) return; char k[32]; int v; while (fscanf(f, " %31[a-z]=%d", k, &v) == 2) { if (!strcmp(k, "tips")) tp = v; if (!strcmp(k, "bands")) bd = v; } fclose(f); };
+    int tp, bd; click(ux(460), uy(16)); rd(tp, bd); printf("VALUE POPUP aus: tips=%d (Soll 0)\n", tp); if (tp != 0) bad++;
+    click(ux(630), uy(16)); rd(tp, bd); printf("BAND LIST aus: bands=%d (Soll 0)\n", bd); if (bd != 0) bad++;
+    send(MotionNotify, kx(1016), kx(140), 0); for (int i = 0; i < 4; i++) tick(); std::string f2 = std::string(argv[2]); size_t dot = f2.rfind('.'); f2 = f2.substr(0, dot) + "-aus" + f2.substr(dot);
+    cairo_surface_t *x2 = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(x2, f2.c_str()); cairo_surface_destroy(x2);
+    click(ux(460), uy(16)); click(ux(630), uy(16)); rd(tp, bd); printf("beide wieder ein: tips=%d bands=%d (Soll 1 1)\n", tp, bd); if (tp != 1 || bd != 1) bad++;
+    remove(cf.c_str()); rmdir((std::string(home) + "/.config/tonestack").c_str()); rmdir((std::string(home) + "/.config").c_str()); rmdir(home); }
+  gui->hide(p); gui->destroy(p); p->stop_processing(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d);
+  if (bad) { printf("FEHLER: %d Schalterprüfung(en)\n", bad); return 1; } return 0;
 }

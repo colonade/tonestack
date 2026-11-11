@@ -1,5 +1,5 @@
 Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.19
+Version 1.20
 
 Two formats, one engine
   Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
@@ -272,6 +272,14 @@ Idle
   After 0.5 s of silence at the input with the output decayed, the plugin
   tells REAPER it may stop calling it (CLAP "sleep") and outputs silence
   itself; the CPU line then shows "idle (silent input)".
+
+VALUE POPUP (new in 1.20)
+  In the header line of the model strip, "VALUE POPUP ON / OFF" switches the
+  small value display that appears at a knob while the mouse is over it or
+  while turning. Click to toggle. The choice is stored for all tonestack
+  plugins of this user (Linux: ~/.config/tonestack/ui.conf, macOS:
+  ~/Library/Application Support/tonestack/ui.conf), not per project.
+  No change in sound.
 
 Notes
   True stereo: left and right are processed by two independent engines. A

@@ -132,6 +132,10 @@ Röhrenauswahl bzw. Endstufenanzeige und den Frequenzgang.
   Eingang:        auf die Buchse HIGH oder LOW klicken
   Kippschalter:   anklicken (bei drei Stellungen obere/untere Hälfte)
   Tasten (Wien EQ): anklicken schaltet um; die grüne Anzeige EQ ON ebenso
+  Wertanzeige:    das kleine Feld mit dem Wert am Knopf lässt sich in der
+                  Kopfzeile unter der Frontplatte abschalten (VALUE POPUP
+                  ON / OFF anklicken); beim Wien EQ ebenso die Liste
+                  BANDS (BAND LIST). Gilt für alle Plugins gemeinsam.
   Tasten (AmpFett 76): RATIO 20/12/8/4 und METER anklicken; ATTACK ganz
                   nach links = OFF (keine Kompression)
 

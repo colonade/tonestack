@@ -1,7 +1,7 @@
 // AmpFett 76, Nachbau des UREI 1176LN (Schaltplan ab Seriennummer-Endung K; alle Transistoren und der FET gerechnet) mit Erweiterungen nach Origin Effects Cali76,
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Jeder Kanal ist ein eigenes Gerät (zweikanalig, nicht gekoppelt).
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "u76_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
