@@ -1,5 +1,5 @@
 #!/bin/bash
-# Prüfbilder der Mac-Oberflächen (Laney, Yamaha, AmpFett B-15NF, GK 800RB, Yamaha G100, Yamaha B100-III, AmpFett SVT-CL, Wien EQ) nach mac/test/out/*.png
+# Prüfbilder der Mac-Oberflächen (Laney, Yamaha, AmpFett B-15NF, GK 800RB, Yamaha G100, Yamaha B100-III, AmpFett SVT-CL, Wien EQ, AmpFett 76) nach mac/test/out/*.png
 set -euo pipefail
 cd "$(dirname "$0")/../.."; E=engine; O=mac/test/out; mkdir -p "$O"
 FL=(-std=c++17 -O3 -arch arm64 -arch x86_64 -fobjc-arc -I$E/clap -I$E/src -I$E/gen -I$E/third_party -framework Foundation -framework CoreGraphics -framework CoreText -framework ImageIO -framework Cocoa)
@@ -11,6 +11,7 @@ clang++ "${FL[@]}" -DTS_GUI_HDR='"g100gui.hpp"' -DTS_NS=g100gui -DTS_FW=FW mac/t
 clang++ "${FL[@]}" -DTS_GUI_HDR='"b3gui.hpp"' -DTS_NS=b3gui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_b3
 clang++ "${FL[@]}" -DTS_GUI_HDR='"svtgui.hpp"' -DTS_NS=sgui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_svt
 clang++ "${FL[@]}" -DTS_GUI_HDR='"weqgui.hpp"' -DTS_NS=weqgui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_weq
+clang++ "${FL[@]}" -DTS_GUI_HDR='"u76gui.hpp"' -DTS_NS=u76gui -DTS_FW=FW -DTS_NO_CURVES mac/test/render.mm $E/clap/macview.mm -o /tmp/render_u76
 /tmp/render_laney "$O/laney.png" 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5
 /tmp/render_yamaha "$O/yamaha.png" 0=0 5=0 6=2 7=-1 8=0 9=1 10=0 11=1 12=100 13=1 14=0
 /tmp/render_b15nf "$O/b15nf.png" 0=1 1=7 2=3.5 3=6 4=5 5=5 6=5 7=0 8=1 9=1 10=100 11=1 12=0
@@ -19,6 +20,7 @@ clang++ "${FL[@]}" -DTS_GUI_HDR='"weqgui.hpp"' -DTS_NS=weqgui -DTS_FW=FW mac/tes
 /tmp/render_b3 "$O/b3.png" 0=7 1=2 2=-1 3=3 4=4 5=6 6=3 7=1 8=1 9=-2 10=5 11=7 12=0 13=0 14=1 15=100 16=0 17=0 18=0
 /tmp/render_svt "$O/svt.png" 0=7 1=6 2=3 3=1 4=6.5 5=4 6=1 7=0 8=0 9=1 10=0 11=1 12=100 13=0 14=0 15=0
 /tmp/render_weq "$O/weq.png" 0=3 1=2 2=-2 3=4 4=3 5=1.5 6=8 7=6 8=-3 9=5 10=8 11=2 12=1 13=1 14=1 15=0
+/tmp/render_u76 "$O/u76.png" 0=6 1=5 2=4 3=4 4=1 5=8 6=0 7=3 8=1 9=150 10=1 11=6 12=4 13=4 14=5 15=300 16=0 17=0 18=0
 # Zeichenzeit unter Rosetta (x86_64-Teil derselben Programme), Bilder nur zum Vergleich
 if arch -x86_64 /usr/bin/true 2>/dev/null; then
   arch -x86_64 /tmp/render_laney /tmp/rosetta_laney.png 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
@@ -29,4 +31,5 @@ if arch -x86_64 /usr/bin/true 2>/dev/null; then
   arch -x86_64 /tmp/render_b3 /tmp/rosetta_b3.png 0=7 1=2 2=-1 3=3 4=4 5=6 6=3 7=1 8=1 9=-2 10=5 11=7 12=0 13=0 14=1 15=100 16=0 17=0 18=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_svt /tmp/rosetta_svt.png 0=7 1=6 2=3 3=1 4=6.5 5=4 6=1 7=0 8=0 9=1 10=0 11=1 12=100 13=0 14=0 15=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_weq /tmp/rosetta_weq.png 0=3 1=2 2=-2 3=4 4=3 5=1.5 6=8 7=6 8=-3 9=5 10=8 11=2 12=1 13=1 14=1 15=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
+  arch -x86_64 /tmp/render_u76 /tmp/rosetta_u76.png 0=6 1=5 2=4 3=4 4=1 5=8 6=0 7=3 8=1 9=150 10=1 11=6 12=4 13=4 14=5 15=300 16=0 17=0 18=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
 else echo "RESULT kind=draw arch=x86_64 rosetta=missing"; fi

@@ -33,4 +33,6 @@ docs/svtcl/*
 !docs/svtcl/SCHALTPLAN.md
 docs/wieneq/*
 !docs/wieneq/ENTWURF.md
+docs/u76/*
+!docs/u76/SCHALTPLAN.md
 *.PDF
