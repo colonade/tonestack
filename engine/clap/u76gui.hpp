@@ -147,11 +147,13 @@ struct Gui {
         setrgb(c, 0xf2c14e); cairo_set_line_width(c, 2.5); tsw::rrect(c, x0 + 1, y0 + 1, B[2] - 2, B[3] - 2, 5); cairo_stroke(c); }
       if (hover == 40 + b) { setrgb(c, 0xd09a10); cairo_set_line_width(c, 2); tsw::rrect(c, x0 - 4, y0 - 4, B[2] + 8, B[3] + 8, 7); cairo_stroke(c); } }
     // VU-Nadel (GR: 0 = Ruhe, Ausschlag nach links; +8/+4: Ausgangspegel)
-    { const double *V = U76VU; cairo_save(c); cairo_rectangle(c, V[0], V[1], V[2] - V[0], V[3] - V[1]); cairo_clip(c);
+    // ohne Clip (den gibt es in cairo_cg.hpp nicht): Winkel auf ±49° begrenzt (Spitze bleibt im Fenster), Anfang der Nadel an der Unterkante des Fensters
+    { const double *V = U76VU;
       if (meter() == 3 || !meterOn) { setrgb(c, 0x000000, 0.45); cairo_rectangle(c, V[0], V[1], V[2] - V[0], V[3] - V[1]); cairo_fill(c); }
-      double db = meter() == 3 ? -40 : std::max(-25.0, std::min(4.5, needle)); double a = (db < -20 ? vuDeg(-20) - (-20 - db) * 0.6 : vuDeg(db)) * PI / 180;
-      cairo_translate(c, V[4], V[5]); cairo_rotate(c, a); setrgb(c, 0x000000, 0.25); cairo_set_line_width(c, 3); cairo_move_to(c, 3, -40); cairo_line_to(c, 3, -V[6]); cairo_stroke(c);
-      setrgb(c, 0x16161a); cairo_set_line_width(c, 2.2); cairo_move_to(c, 0, -40); cairo_line_to(c, 0, -V[6]); cairo_stroke(c); cairo_restore(c); }
+      double db = meter() == 3 ? -40 : std::max(-25.0, std::min(4.5, needle)); double deg = std::max(-49.0, std::min(49.0, db < -20 ? vuDeg(-20) - (-20 - db) * 0.6 : vuDeg(db))), a = deg * PI / 180;
+      double r0 = (V[5] - V[3]) / std::cos(a) + 2;
+      cairo_save(c); cairo_translate(c, V[4], V[5]); cairo_rotate(c, a); setrgb(c, 0x000000, 0.25); cairo_set_line_width(c, 3); cairo_move_to(c, 3, -r0); cairo_line_to(c, 3, -V[6]); cairo_stroke(c);
+      setrgb(c, 0x16161a); cairo_set_line_width(c, 2.2); cairo_move_to(c, 0, -r0); cairo_line_to(c, 0, -V[6]); cairo_stroke(c); cairo_restore(c); }
     // Knöpfe: Zeiger auf der Metallkappe
     for (int i = 0; i < 4; i++) { const double *g = U76KNOB[i];
       cairo_save(c); cairo_translate(c, g[0], g[1]); cairo_rotate(c, knobDeg(i, v[KPARAM[i]]) * PI / 180); setrgb(c, 0x16181c); cairo_set_line_width(c, i < 2 ? 5 : 4); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND);
