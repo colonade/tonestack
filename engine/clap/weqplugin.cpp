@@ -2,7 +2,7 @@
 // Umsetzung eigener Entwurf, docs/wieneq/ENTWURF.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Linear; ein Regler-Satz für beide Kanäle wie am Gerät.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "weq_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -32,7 +32,7 @@ enum { P_LOWG, P_LOWF, P_M1G, P_M1Q, P_M1F, P_M2G, P_M2Q, P_M2F, P_M3G, P_M3Q, P
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off (bypass)", "On"};
 static const char *N_LOWF[] = {"40 Hz (no button)", "60 Hz", "100 Hz", "160 Hz (both buttons)"};
-static const char *N_HIF[] = {"Shelf (20 kHz, no button)", "12 kHz", "8 kHz", "4 kHz (both buttons)"};
+static const char *N_HIF[] = {"20 kHz (no button)", "12 kHz", "8 kHz", "4 kHz (both buttons)"};
 static const char *N_RANGE[] = {"+/-6 dB", "+/-12 dB", "+/-20 dB"};
 static const PDef PD[P_COUNT] = {
   {"Low: Gain", -5, 5, 0, 0, 0}, {"Low: Frequency", 0, 3, 0, N_LOWF, 4},
@@ -235,7 +235,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_EQUALIZER, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.wien-eq", "Wien EQ (after adt-audio TM205)", "tonestack", "", "", "", TS_VERSION, "5-band stereo mastering EQ with active Wien-Robinson bridge after the published specifications of the adt-audio ToolMod TM205 (own design, no schematic published): low bell 40/60/100/160 Hz, three fully parametric mids, high shelf or bell 12/8/4 kHz", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.wien-eq", "Wien EQ (after adt-audio TM205)", "tonestack", "", "", "", TS_VERSION, "5-band stereo mastering EQ with active Wien-Robinson bridge after the published specifications of the adt-audio ToolMod TM205 (own design, no schematic published): low shelf 40/60/100/160 Hz, three fully parametric mids, high shelf 20/12/8/4 kHz", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def); for (auto &c : pl->ch) c.setup(48000);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

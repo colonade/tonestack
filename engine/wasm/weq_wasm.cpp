@@ -3,7 +3,7 @@
 using namespace weq;
 static Channel *C = nullptr; static float bufB[8192]; static double tgtB[24], freqB[512], respB[512];
 // tgtB = 0 … 4 GAIN LOW, MID 1, MID 2, MID 3, HIGH (Knopf 0 … 1, Mitte 0,5 = 0 dB); 5 … 7 Q MID 1 … 3 (0 … 1); 8 … 10 FREQ MID 1 … 3 (0 … 1);
-// 11 LOW-Tasten (0 keine = 40 Hz, 1 = 60, 2 = 100, 3 beide = 160); 12 HIGH-Tasten (0 keine = Kuhschwanz, 1 = 12k, 2 = 8k, 3 beide = 4k); 13 EQ ein; 14 Regelbereich (0 ±6, 1 ±12, 2 ±20 dB)
+// 11 LOW-Tasten (0 keine = 40 Hz, 1 = 60, 2 = 100, 3 beide = 160); 12 HIGH-Tasten (0 keine = 20k, 1 = 12k, 2 = 8k, 3 beide = 4k); 13 EQ ein; 14 Regelbereich (0 ±6, 1 ±12, 2 ±20 dB)
 static Setting fromT() { Setting s; auto num = [](double x, double d) { return std::isfinite(x) ? x : d; };
   for (int i = 0; i < NB; i++) s.gain[i] = 2 * std::min(1.0, std::max(0.0, num(tgtB[i], 0.5))) - 1;
   for (int k = 0; k < 3; k++) { s.q[k] = std::min(1.0, std::max(0.0, num(tgtB[5 + k], 0.5))); s.f[k] = std::min(1.0, std::max(0.0, num(tgtB[8 + k], 0.5))); }

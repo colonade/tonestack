@@ -1,5 +1,5 @@
 Wien EQ (after adt-audio TM205) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Wien_EQ.clap and Wien_EQ.vst3 contain the same code and sound identical.
@@ -41,15 +41,21 @@ What it is
     - HIGH: soft filter; no button = shelf, otherwise a flat maximum at 12,
       8 or 4 kHz (two buttons)
     - range +-12 dB, versions with +-6 and +-20 dB (switch RANGE)
-  Assumed (not published): every band has the shape of the ideal Wien
+  Assumed (not published): every mid band has the shape of the ideal Wien
   bridge, a 2nd-order band-pass B(s) = (s/Qw) / (1 + s/Qw + (s/w)^2) with
   peak 1; boost H = 1 + G B, cut exactly the inverse 1 / (1 + G B) (band-
   pass in the feedback path), G = 10^(|dB|/20) - 1, so the bandwidth does
   not change with the gain and equal boost and cut cancel. Q of the mid
   bands 0.18 (5 octaves) to 4.32 (1/3 octave) between the -3 dB points of
-  the band-pass, log taper; LOW and HIGH Q 1/3; HIGH without button a bell
-  at 20 kHz (a gentle shelf within the audio band); button 60 / 100 and
-  12k / 8k as listed, both = 160 Hz / 4 kHz, none = 40 Hz / shelf; gain
+  the band-pass, log taper. LOW and HIGH are first-order shelving filters
+  (6 dB/octave) in every button position - for HIGH this deviates, on
+  request, from the manufacturer's "flat maximum" at 12 / 8 / 4 kHz:
+  low H = (s + w sqrt(g)) / (s + w / sqrt(g)), high H = (sqrt(g) s + w) /
+  (s / sqrt(g) + w), g = 10^(|dB|/20), cut = exact inverse. The frequency
+  named is the middle of the slope: half of the gain in dB is reached
+  there, the full gain far below (LOW) or above (HIGH). HIGH at 20 kHz
+  with +12 dB gives +6 dB at 20 kHz and +2.7 dB at 10 kHz. Button 60 / 100
+  and 12k / 8k as listed, both = 160 Hz / 4 kHz, none = 40 Hz / 20 kHz; gain
   knob law dB = R (|p| + p^2) / 2 (p = -1 ... +1), spread around the center
   detent. If you own a TM205, a measurement would show where the real unit
   differs; the curves can then be adjusted.
@@ -58,7 +64,7 @@ Parameters
   Low: Gain, Mid 1/2/3: Gain, High: Gain (-5 ... +5, 0 = flat; the knob law
   above); Mid 1/2/3: Q (0 = 5 octaves ... 10 = 1/3 octave), Frequency
   (0 ... 10 over the band's range, logarithmic); Low: Frequency (40 / 60 /
-  100 / 160 Hz = the two buttons); High: Frequency (shelf / 12 / 8 / 4 kHz);
+  100 / 160 Hz = the two buttons); High: Frequency (20 / 12 / 8 / 4 kHz);
   EQ on (on / off, crossfaded over 20 ms with an equally delayed dry signal);
   Range (+-6 / +-12 / +-20 dB); Output level (-24 ... +24 dB, model, not on
   the unit). One set of controls for both channels, as on the unit.
@@ -92,6 +98,10 @@ CPU
   silence at the input the plugin goes idle.
 
 Changes
+  1.2  LOW and HIGH are shelving filters in every button position (were
+       bells with Q 1/3); HIGH without a button is a shelf at 20 kHz. The
+       sound of LOW and HIGH changes; projects keep their settings.
+       Larger numbers on the knob scales and button labels.
   1.1  The value shown while turning a mid band's Q knob used a wrong range
        (0.33 ... 4.32 instead of 0.18 ... 4.32). The filter itself, the band
        text in the model strip and the curve were right; sound unchanged.

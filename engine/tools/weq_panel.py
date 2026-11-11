@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Zeichnet die Frontplatte des Wien-EQ (5-Band-Stereo-Equalizer nach den veröffentlichten Angaben zum adt-audio TM205). Eigene Gestaltung:
 # kein Foto, kein Logo, keine Nachbildung der ADT-Frontplatte; Bedienelemente wie in der ADT-Beschreibung (LOW mit zwei Tasten 60 / 100 Hz,
-# beide = 160 Hz, keine = 40 Hz; MID 1/2/3 GAIN, Q, FREQ; HIGH mit Tasten 12k / 8k, beide = 4 kHz, keine = Kuhschwanz; EQ ON mit Anzeige).
+# beide = 160 Hz, keine = 40 Hz; MID 1/2/3 GAIN, Q, FREQ; HIGH mit Tasten 12k / 8k, beide = 4 kHz, keine = 20 kHz; LOW und HIGH sind Kuhschwanzfilter; EQ ON mit Anzeige).
 # Schreibt
 #   engine/gen/weqpanel.jpg   Bild 2000 × 240 (Knöpfe ohne Zeiger; Zeiger, Tasten und Anzeige zeichnen Seite und Plugin)
 #   engine/gen/weqgeo.json    Lage von Knöpfen, Tasten und Anzeige in Bildpunkten
@@ -16,6 +16,7 @@ W, H, S = 2000, 240, 2
 FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FN = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf'
 KY = 140; KR = 30; KC = 21
+NUM = 13   # Schriftgröße der Zahlen an den Skalen (bis 1.1: 8,5 – im Plugin-Fenster zu klein)
 PANEL = (44, 50, 60); INK = (232, 234, 238); DIM = (150, 156, 166)
 CAP = {'low': (232, 150, 72), 'm1': (110, 196, 132), 'm2': (98, 160, 230), 'm3': (176, 140, 220), 'high': (236, 206, 92)}
 # (Schlüssel, x, Beschriftung, Skala, Farbe): Skala 'g' = − 0 +, 'q' = Bandbreite, ('f', lo, hi, Marken) = Frequenz logarithmisch
@@ -47,14 +48,14 @@ def draw(S):
         ctext((x0 + x1) / 2, 18, t, 14, FB); d.line([(x0 * S, 40 * S), (x1 * S, 40 * S)], fill=(120, 126, 136), width=S)
     for x in (380, 736, 1096, 1456, 1692): d.line([(x * S, 20 * S), (x * S, (H - 20) * S)], fill=(28, 32, 38), width=3 * S); d.line([((x + 2) * S, 20 * S), ((x + 2) * S, (H - 20) * S)], fill=(84, 90, 100), width=S)
     ctext(322, 196, 'none = 40 Hz', 9.5, FN, DIM); ctext(322, 209, 'both = 160 Hz', 9.5, FN, DIM)
-    ctext(1630, 196, 'none = shelf', 9.5, FN, DIM); ctext(1630, 209, 'both = 4 kHz', 9.5, FN, DIM)
+    ctext(1630, 196, 'none = 20 kHz', 9.5, FN, DIM); ctext(1630, 209, 'both = 4 kHz', 9.5, FN, DIM)
     # Tasten (Ruhezustand; gedrückt/leuchtend zeichnen Seite und Plugin)
     for k, x, y, t in BTNS:
         sh = Image.new('L', (W * S, H * S), 0); ImageDraw.Draw(sh).rounded_rectangle([(x - BW / 2 + 2) * S, (y - BH / 2 + 4) * S, (x + BW / 2 + 2) * S, (y + BH / 2 + 4) * S], radius=4 * S, fill=180)
         sh = sh.filter(ImageFilter.GaussianBlur(3 * S)); im.paste((16, 18, 22), mask=sh); d = ImageDraw.Draw(im)
         d.rounded_rectangle([(x - BW / 2) * S, (y - BH / 2) * S, (x + BW / 2) * S, (y + BH / 2) * S], radius=4 * S, fill=(196, 200, 206), outline=(30, 32, 36), width=S)
         d.rounded_rectangle([(x - BW / 2 + 3) * S, (y - BH / 2 + 3) * S, (x + BW / 2 - 3) * S, (y + BH / 2 - 6) * S], radius=3 * S, fill=(216, 220, 226))
-        if k != 'on': ctext(x, y - BH / 2 - 16, t, 11, FB)   # EQ ON: Beschriftung über der Anzeige
+        if k != 'on': ctext(x, y - BH / 2 - 18, t, 13, FB)   # EQ ON: Beschriftung über der Anzeige
     ctext(1772, 52, 'EQ ON', 12, FB)
     x, y = LED; d.ellipse([(x - 10) * S, (y - 10) * S, (x + 10) * S, (y + 10) * S], fill=(18, 20, 24)); d.ellipse([(x - 7) * S, (y - 7) * S, (x + 7) * S, (y + 7) * S], fill=(40, 70, 40))
     ctext(1900, 96, 'STEREO', 12, FB, DIM); ctext(1900, 114, 'one control set', 9.5, FN, DIM); ctext(1900, 127, 'for both channels', 9.5, FN, DIM)
@@ -69,14 +70,14 @@ def draw(S):
             a = (-150 + 30 * j) * math.pi / 180; px, py = x + (KR + 6) * math.sin(a), KY - (KR + 6) * math.cos(a)
             d.ellipse([(px - 1.6) * S, (py - 1.6) * S, (px + 1.6) * S, (py + 1.6) * S], fill=INK)
             if t:
-                tx, ty = x + (KR + 16) * math.sin(a), KY - (KR + 16) * math.cos(a); ff = font(8.5, FN, S); tw = d.textlength(t, font=ff)
-                d.text((tx * S - tw / 2, ty * S - 5.5 * S), t, font=ff, fill=INK)
+                tx, ty = x + (KR + 20) * math.sin(a), KY - (KR + 20) * math.cos(a); ff = font(NUM, FB, S); tw = d.textlength(t, font=ff)   # Zahlen der Skala
+                d.text((tx * S - tw / 2, ty * S - 0.62 * NUM * S), t, font=ff, fill=INK)
         if scale == 'g':
             ff = font(13, FB, S); d.text(((x - KR - 16) * S, (KY + KR) * S), '−', font=ff, fill=INK); d.text(((x + KR + 8) * S, (KY + KR) * S), '+', font=ff, fill=INK)
         if scale == 'q':
-            ff = font(8.5, FN, S)
+            ff = font(NUM, FB, S)
             for j, t in [(0, '5 oct'), (10, '1/3')]:
-                a = (-150 + 30 * j) * math.pi / 180; tx, ty = x + (KR + 18) * math.sin(a), KY - (KR + 18) * math.cos(a); tw = d.textlength(t, font=ff); d.text((tx * S - tw / 2, ty * S - 5.5 * S), t, font=ff, fill=INK)
+                a = (-150 + 30 * j) * math.pi / 180; tx, ty = x + (KR + 22) * math.sin(a), KY - (KR + 22) * math.cos(a); tw = d.textlength(t, font=ff); d.text((tx * S - tw / 2, ty * S - 0.62 * NUM * S), t, font=ff, fill=INK)
         sh = Image.new('L', (W * S, H * S), 0); ImageDraw.Draw(sh).ellipse([(x - KR + 3) * S, (KY - KR + 6) * S, (x + KR + 3) * S, (KY + KR + 6) * S], fill=200)
         sh = sh.filter(ImageFilter.GaussianBlur(5 * S)); im.paste((14, 16, 20), mask=sh); d = ImageDraw.Draw(im)
         d.ellipse([(x - KR) * S, (KY - KR) * S, (x + KR) * S, (KY + KR) * S], fill=(20, 21, 24))
