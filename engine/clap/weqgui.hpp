@@ -148,10 +148,10 @@ struct Gui {
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *rl[3] = {"+/-6 dB", "+/-12 dB", "+/-20 dB"}; tsw::toggle(c, SW_X, SW_Y, 3, range(), "RANGE", rl, "TM205 versions"); }
     // Bänder als Text: Frequenz, Güte, dB
-    { setrgb(c, 0xdcdee2); tsw::text(c, "BANDS", 250, 30, 13, true); const char *bn[5] = {"LOW", "MID 1", "MID 2", "MID 3", "HIGH"}; const double lf[4] = {40, 60, 100, 160}; const char *hf[4] = {"shelf (20 kHz)", "12 kHz", "8 kHz", "4 kHz"};
+    { setrgb(c, 0xdcdee2); tsw::text(c, "BANDS", 250, 30, 13, true); const char *bn[5] = {"LOW", "MID 1", "MID 2", "MID 3", "HIGH"}; const double lf[4] = {40, 60, 100, 160}; const char *hf[4] = {"20 kHz", "12 kHz", "8 kHz", "4 kHz"};
       for (int b = 0; b < 5; b++) { double y = 50 + b * 18; char t[96]; double db = gainDb(v[b == 0 ? P_LOWG : b == 4 ? P_HIG : P_M1G + 3 * (b - 1)] / 5, range());
-        if (b == 0) std::snprintf(t, sizeof t, "%.0f Hz, Q 1/3", lf[std::max(0, std::min(3, (int)std::lround(v[P_LOWF])))]);
-        else if (b == 4) std::snprintf(t, sizeof t, "%s, Q 1/3", hf[std::max(0, std::min(3, (int)std::lround(v[P_HIF])))]);
+        if (b == 0) std::snprintf(t, sizeof t, "shelf %.0f Hz", lf[std::max(0, std::min(3, (int)std::lround(v[P_LOWF])))]);
+        else if (b == 4) std::snprintf(t, sizeof t, "shelf %s", hf[std::max(0, std::min(3, (int)std::lround(v[P_HIF])))]);
         else { double f = midFreq(b - 1, v[P_M1F + 3 * (b - 1)] / 10), q = midQ(v[P_M1Q + 3 * (b - 1)] / 10); std::snprintf(t, sizeof t, f >= 1000 ? "%.2f kHz, Q %.2f (%.1f oct)" : "%.0f Hz, Q %.2f (%.1f oct)", f >= 1000 ? f / 1000 : f, q, qOct(q)); }
         setrgb(c, 0x9a9ea6); tsw::text(c, bn[b], 250, y + 11, 11.5, true); setrgb(c, v[P_ON] > 0.5 ? 0xcfd1d6 : 0x6c7079); tsw::text(c, t, 310, y + 11, 11.5, false);
         char g[24]; std::snprintf(g, sizeof g, "%+.1f dB", db); tsw::text(c, g, 560, y + 11, 11.5, true, 2); } }
@@ -168,7 +168,7 @@ struct Gui {
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[160]; double ax, ay;
       if (i < NK) { const double *g = WEQKNOB[i]; ax = g[0] * s; ay = (g[1] - g[2] * 1.12) * s; knobText(i, buf, sizeof buf); }
       else if (i >= 40 && i < 45) { const double *B = WEQBTN[i - 40]; ax = B[0] * s; ay = (B[1] - B[3]) * s; const char *nm[5] = {"LOW 60 Hz", "LOW 100 Hz", "HIGH 12 kHz", "HIGH 8 kHz", "EQ ON"};
-        std::snprintf(buf, sizeof buf, i == 44 ? "%s: %s (click: EQ in / out, like the relay bypass)" : "%s: %s (both pressed: %s, none: %s)", nm[i - 40], btnOn(i - 40) ? "pressed" : "released", i < 42 ? "160 Hz" : "4 kHz", i < 42 ? "40 Hz" : "shelf"); }
+        std::snprintf(buf, sizeof buf, i == 44 ? "%s: %s (click: EQ in / out, like the relay bypass)" : "%s: %s (both pressed: %s, none: %s)", nm[i - 40], btnOn(i - 40) ? "pressed" : "released", i < 42 ? "160 Hz" : "4 kHz", i < 42 ? "40 Hz" : "20 kHz"); }
       else { ax = KN_X * u; ay = FH * s + (KN_Y - 30) * u; std::snprintf(buf, sizeof buf, "OUTPUT %s (model, not on the unit)", vo); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }

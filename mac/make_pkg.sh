@@ -118,7 +118,7 @@ cat > "$W/dist.xml" <<X
   <choice id="svtcl" title="AmpFett SVT-CL Bass Amp $SVV" description="Röhren-Bassverstärker (300 W) nach dem Service Manual des Ampeg SVT-CL: Vorstufe mit 12AX7, Klangregelung mit fünfstufiger Mittenfrequenz, ULTRA HI/LO, Phasenumkehr, Treiber mit 12AU7, Endstufe mit sechs 6550 und Ausgangsübertrager (4 oder 2 Ω); ohne Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.svtcl.component"/><pkg-ref id="de.tonestack.svtcl.vst3"/>
   </choice>
-  <choice id="wieneq" title="Wien EQ $WQV" description="Fünfband-Stereo-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205: LOW und HIGH mit je zwei Tasten, drei vollparametrische Mittenbänder, EQ ON, Regelbereich ±6/±12/±20 dB. Audio Unit und VST3.">
+  <choice id="wieneq" title="Wien EQ $WQV" description="Fünfband-Stereo-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205: LOW und HIGH als Kuhschwanzfilter mit je zwei Tasten, drei vollparametrische Mittenbänder, EQ ON, Regelbereich ±6/±12/±20 dB. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.wieneq.component"/><pkg-ref id="de.tonestack.wieneq.vst3"/>
   </choice>
   <choice id="ampfett76" title="AmpFett 76 Limiting Amplifier $U76V" description="FET-Kompressor/Limiter nach dem Schaltplan des UREI 1176LN (Op-Amp-Eingang, Klasse-AB-Ausgang): INPUT, OUTPUT, ATTACK, RELEASE, vier RATIO-Tasten auch gemeinsam, VU-Anzeige. Dazu nach dem Vorbild des Origin Effects Cali76: stufenlose Ratio, DRY, Hochpass in der Seitenkette, zweite Stufe. Audio Unit und VST3.">
