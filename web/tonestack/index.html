@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL; Wien EQ</title>
-<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III und AmpFett SVT-CL, berechnet aus den Schaltplänen; dazu der Wien EQ, ein Fünfband-Equalizer nach den Angaben zum adt-audio TM205.">
+<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL; Wien EQ; AmpFett 76</title>
+<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III und AmpFett SVT-CL, berechnet aus den Schaltplänen; dazu der Wien EQ, ein Fünfband-Equalizer nach den Angaben zum adt-audio TM205, und der AmpFett 76, ein FET-Kompressor nach dem Schaltplan des UREI 1176LN.">
 <meta name="theme-color" content="#EEF1EC">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/yamaha-b100ii-192.png">
 <link rel="preload" href="assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -74,6 +74,10 @@ footer a{color:inherit}
     <img src="assets/icons/wien-eq-192.png" alt="" width="72" height="72">
     <span><b>Wien EQ</b><span>Kein Verstärker, sondern ein Fünfband-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205 (eigener Entwurf, kein Schaltplan): LOW und HIGH mit je zwei Tasten, drei vollparametrische Mittenbänder von 20 Hz bis 25 kHz mit 5 Oktaven bis Terz Bandbreite, EQ ON, Regelbereich ±6/±12/±20 dB.</span></span>
   </a>
+  <a class="card" href="ampfett-76/">
+    <img src="assets/icons/ampfett-76-192.png" alt="" width="72" height="72">
+    <span><b>AmpFett 76</b><span>Kein Verstärker, sondern ein FET-Kompressor: Nachbau des UREI 1176LN nach dem Schaltplan (INPUT, OUTPUT, ATTACK, RELEASE, vier RATIO-Tasten, auch alle zugleich), dazu stufenlose Ratio, DRY, Hochpass in der Seitenkette und eine zweite Stufe nach dem Vorbild des Origin Effects Cali76. Mit Kennlinie und Anzeige der Gain Reduction.</span></span>
+  </a>
   <h2>Für die DAW</h2>
   <div class="card dl">
     <span><b>Laney AOR 50 Preamp als DAW-Plugin</b><span>Derselbe Rechenkern wie der Simulator für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl, Lautsprecher, Umbauideen „Sanft" und „Später", Federhall (ab 3.35; Nichtlinearität des Tanks ab 3.37 mit dem Regler REVERB TANK einstellbar).</span>
@@ -112,15 +116,20 @@ footer a{color:inherit}
   </div>
   <div class="card dl">
     <span><b>Wien EQ als DAW-Plugin</b><span>Der Fünfband-Equalizer wie auf der Web-Seite, in Stereo mit einem Reglersatz für beide Kanäle: Frontplatte mit Knöpfen und Tasten, Regelbereich ±6/±12/±20 dB, OUTPUT, Frequenzgang. Folgt der analogen Kurve auf 0,02 dB.</span>
-      <span class="dls"><a class="dlb" href="download/Wien_EQ_CLAP-1.0.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Wien_EQ_VST3-1.0.zip" download>VST3 herunterladen</a></span>
-      <small>Version 1.0 · Installation wie beim Laney (<code>Wien_EQ.clap</code> bzw. Ordner <code>Wien_EQ.vst3</code>). Gleiche Systemvoraussetzungen. Braucht etwa 2 % eines Prozessorkerns bei 48 kHz in Stereo; bei 44,1 und 48 kHz 63 Abtastwerte Verzögerung (wird dem Host gemeldet), ab 88,2 kHz keine.</small></span>
+      <span class="dls"><a class="dlb" href="download/Wien_EQ_CLAP-1.1.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Wien_EQ_VST3-1.1.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.1 (Wertanzeige am Q-Regler der Mittenbänder zeigt jetzt die richtige Güte; Klang unverändert) · Installation wie beim Laney (<code>Wien_EQ.clap</code> bzw. Ordner <code>Wien_EQ.vst3</code>). Gleiche Systemvoraussetzungen. Braucht etwa 2 % eines Prozessorkerns bei 48 kHz in Stereo; bei 44,1 und 48 kHz 63 Abtastwerte Verzögerung (wird dem Host gemeldet), ab 88,2 kHz keine.</small></span>
   </div>
   <div class="card dl">
-    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL und Wien EQ als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
-      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.41_Yamaha-1.19_B15NF-1.21_GK800RB-1.6_G100-1.10_B100III-1.6_SVTCL-1.8_WienEQ-1.0.pkg" download>Mac-Installer herunterladen</a></span>
-      <small>Laney 3.41 · Yamaha 1.19 · AmpFett B-15NF 1.21 · GK 800RB 1.6 · Yamaha G100-212II 1.10 · Yamaha B100-III 1.6 · AmpFett SVT-CL 1.8 · Wien EQ 1.0 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+    <span><b>AmpFett 76 als DAW-Plugin</b><span>Der FET-Kompressor wie auf der Web-Seite: Frontplatte mit Knöpfen, RATIO- und METER-Tasten und VU-Instrument, darunter die Erweiterungen (stufenlose Ratio, DRY, Hochpass der Seitenkette, zweite Stufe), Anzeige und Verlauf der Gain Reduction. Stereo (beide Kanäle getrennt gerechnet).</span>
+      <span class="dls"><a class="dlb" href="download/AmpFett_76_CLAP-1.0.zip" download>CLAP herunterladen</a><a class="dlb" href="download/AmpFett_76_VST3-1.0.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.0 · Installation wie beim Laney (<code>AmpFett_76.clap</code> bzw. Ordner <code>AmpFett_76.vst3</code>). Gleiche Systemvoraussetzungen. Rechnet die ganze Schaltung in jedem Abtastwert, ohne Überabtastung und ohne Verzögerung: etwa 15 bis 25 % eines Prozessorkerns je Kanal bei 48 kHz, mit zweiter Stufe das Doppelte.</small></span>
   </div>
-  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett B-15NF und SVT-CL), Transistor-, Dioden- und FET-Verzerrung (GK, Yamaha G100) bzw. Endstufenbegrenzung (Yamaha, GK, Yamaha B100-III); der Wien EQ ist ein eigener Entwurf nach Herstellerangaben, „adt-audio“ ist eine Marke ihres Inhabers. Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
+  <div class="card dl">
+    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL, Wien EQ und AmpFett 76 als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
+      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.41_Yamaha-1.19_B15NF-1.21_GK800RB-1.6_G100-1.10_B100III-1.6_SVTCL-1.8_WienEQ-1.1_AmpFett76-1.0.pkg" download>Mac-Installer herunterladen</a></span>
+      <small>Laney 3.41 · Yamaha 1.19 · AmpFett B-15NF 1.21 · GK 800RB 1.6 · Yamaha G100-212II 1.10 · Yamaha B100-III 1.6 · AmpFett SVT-CL 1.8 · Wien EQ 1.1 · AmpFett 76 1.0 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+  </div>
+  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett B-15NF und SVT-CL), Transistor-, Dioden- und FET-Verzerrung (GK, Yamaha G100) bzw. Endstufenbegrenzung (Yamaha, GK, Yamaha B100-III); der Wien EQ ist ein eigener Entwurf nach Herstellerangaben, „adt-audio“ ist eine Marke ihres Inhabers; der AmpFett 76 rechnet den Kompressor nach dem Schaltplan, seine Erweiterungen sind ein eigener Entwurf, „UREI“ und „Cali76“ sind Marken ihrer Inhaber. Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
 </main>
 </body>
 </html>

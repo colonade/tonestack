@@ -20,3 +20,4 @@ pack Yamaha_G100 "$G100" README-G100.txt
 pack Yamaha_B100III "$B100III" README-B100III.txt
 pack AmpFett_SVTCL "$SVTCL" README-SVTCL.txt
 pack Wien_EQ "$WIENEQ" README-WienEQ.txt
+pack AmpFett_76 "$AMPFETT76" README-AmpFett76.txt

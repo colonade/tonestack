@@ -49,7 +49,7 @@ static const char *REFLABEL = "flat (EQ off)";
 // Werte wie im Kern (ohne dessen Header, für mac/test/render.mm)
 inline double gainDb(double p, int range) { const double R[3] = {6, 12, 20}; p = std::max(-1.0, std::min(1.0, p)); double a = std::fabs(p); return (p < 0 ? -1 : 1) * R[std::max(0, std::min(2, range))] * (a + a * a) / 2; }
 inline double midFreq(int k, double x) { const double lo[3] = {20, 60, 250}, hi[3] = {2000, 7000, 25000}; x = std::max(0.0, std::min(1.0, x)); return lo[k] * std::pow(hi[k] / lo[k], x); }
-inline double midQ(double x) { x = std::max(0.0, std::min(1.0, x)); return (1.0 / 3) * std::pow(4.318473046 * 3, x); }
+inline double midQ(double x) { x = std::max(0.0, std::min(1.0, x)); return 0.1824791693 * std::pow(4.318473046 / 0.1824791693, x); }   // 5 Oktaven … Terz (wie weq::midQ; bis 1.0 stand hier noch 1/3)
 inline double qOct(double q) { return 2 * std::asinh(1 / (2 * q)) / std::log(2.0); }   // Bandbreite des Bandpasses in Oktaven (−3 dB)
 
 #ifdef __APPLE__

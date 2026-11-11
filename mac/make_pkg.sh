@@ -6,7 +6,7 @@
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"   # Versionen wie im Release
+eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"   # Versionen wie im Release
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/res"
 # Nachlauf je Plugin (ab 2026-11-03): fasst nur die Dateien des gewählten Plugins an. Vorher lief für jedes Teilpaket dasselbe Skript und
 # verschob von Hand installierte Fassungen aller drei Plugins in den Papierkorb, auch wenn nur eines gewählt war.
@@ -43,7 +43,7 @@ killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
   } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
-post laney Laney_AOR50; post yamaha Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Yamaha_G100; post b100iii Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ
+post laney Laney_AOR50; post yamaha Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Yamaha_G100; post b100iii Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -62,7 +62,8 @@ one Yamaha_G100 g100 "$G1V" component; one Yamaha_G100 g100 "$G1V" vst3
 one Yamaha_B100III b100iii "$B3V" component; one Yamaha_B100III b100iii "$B3V" vst3
 one AmpFett_SVTCL svtcl "$SVV" component; one AmpFett_SVTCL svtcl "$SVV" vst3
 one Wien_EQ wieneq "$WQV" component; one Wien_EQ wieneq "$WQV" vst3
-sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+one AmpFett_76 ampfett76 "$U76V" component; one AmpFett_76 ampfett76 "$U76V" vst3
+sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
@@ -94,6 +95,7 @@ cat > "$W/dist.xml" <<X
     <line choice="b100iii"/>
     <line choice="svtcl"/>
     <line choice="wieneq"/>
+    <line choice="ampfett76"/>
   </choices-outline>
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Federhall, Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
@@ -119,6 +121,9 @@ cat > "$W/dist.xml" <<X
   <choice id="wieneq" title="Wien EQ $WQV" description="Fünfband-Stereo-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205: LOW und HIGH mit je zwei Tasten, drei vollparametrische Mittenbänder, EQ ON, Regelbereich ±6/±12/±20 dB. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.wieneq.component"/><pkg-ref id="de.tonestack.wieneq.vst3"/>
   </choice>
+  <choice id="ampfett76" title="AmpFett 76 Limiting Amplifier $U76V" description="FET-Kompressor/Limiter nach dem Schaltplan des UREI 1176LN (Op-Amp-Eingang, Klasse-AB-Ausgang): INPUT, OUTPUT, ATTACK, RELEASE, vier RATIO-Tasten auch gemeinsam, VU-Anzeige. Dazu nach dem Vorbild des Origin Effects Cali76: stufenlose Ratio, DRY, Hochpass in der Seitenkette, zweite Stufe. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.ampfett76.component"/><pkg-ref id="de.tonestack.ampfett76.vst3"/>
+  </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.laney.vst3" version="$LV">laney-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.yamaha.component" version="$YV">yamaha-component.pkg</pkg-ref>
@@ -135,6 +140,8 @@ cat > "$W/dist.xml" <<X
   <pkg-ref id="de.tonestack.svtcl.vst3" version="$SVV">svtcl-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.wieneq.component" version="$WQV">wieneq-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.wieneq.vst3" version="$WQV">wieneq-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.ampfett76.component" version="$U76V">ampfett76-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.ampfett76.vst3" version="$U76V">ampfett76-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
 P="$OUT/$PKG"

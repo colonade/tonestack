@@ -1,5 +1,5 @@
 Wien EQ (after adt-audio TM205) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   Wien_EQ.clap and Wien_EQ.vst3 contain the same code and sound identical.
@@ -90,3 +90,9 @@ Accuracy and latency
 CPU
   About 2 % of one core at 48 kHz in stereo, 0.3 % at 96 kHz. After 2 s of
   silence at the input the plugin goes idle.
+
+Changes
+  1.1  The value shown while turning a mid band's Q knob used a wrong range
+       (0.33 ... 4.32 instead of 0.18 ... 4.32). The filter itself, the band
+       text in the model strip and the curve were right; sound unchanged.
+  1.0  First version.
