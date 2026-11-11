@@ -31,4 +31,6 @@ docs/b100iii/*
 !docs/b100iii/SCHALTPLAN.md
 docs/svtcl/*
 !docs/svtcl/SCHALTPLAN.md
+docs/wieneq/*
+!docs/wieneq/ENTWURF.md
 *.PDF

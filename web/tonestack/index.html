@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL</title>
-<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III und AmpFett SVT-CL, berechnet aus den Schaltplänen.">
+<title>Verstärker-Simulatoren: Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL; Wien EQ</title>
+<meta name="description" content="Interaktive Verstärker-Simulatoren für Yamaha B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III und AmpFett SVT-CL, berechnet aus den Schaltplänen; dazu der Wien EQ, ein Fünfband-Equalizer nach den Angaben zum adt-audio TM205.">
 <meta name="theme-color" content="#EEF1EC">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/yamaha-b100ii-192.png">
 <link rel="preload" href="assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -70,6 +70,10 @@ footer a{color:inherit}
     <img src="assets/icons/ampfett-svtcl-192.png" alt="" width="72" height="72">
     <span><b>AmpFett SVT-CL</b><span>Der 300-W-Röhren-Bassverstärker nach dem Service Manual des Ampeg SVT-CL: Eingänge 0 dB / −15 dB, Vorstufe mit 12AX7, Klangregelung mit fünfstufiger Mittenfrequenz, ULTRA HI/LO, Phasenumkehr, Treiber mit 12AU7, Endstufe mit sechs 6550, Ausgangsübertrager (4 oder 2 Ω) und Netzteil, alles in einer Rechnung; ohne Lautsprecher. Geprüft gegen die Signalpegel im Plan und die Herstellerangaben.</span></span>
   </a>
+  <a class="card" href="wien-eq/">
+    <img src="assets/icons/wien-eq-192.png" alt="" width="72" height="72">
+    <span><b>Wien EQ</b><span>Kein Verstärker, sondern ein Fünfband-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205 (eigener Entwurf, kein Schaltplan): LOW und HIGH mit je zwei Tasten, drei vollparametrische Mittenbänder von 20 Hz bis 25 kHz mit 5 Oktaven bis Terz Bandbreite, EQ ON, Regelbereich ±6/±12/±20 dB.</span></span>
+  </a>
   <h2>Für die DAW</h2>
   <div class="card dl">
     <span><b>Laney AOR 50 Preamp als DAW-Plugin</b><span>Derselbe Rechenkern wie der Simulator für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor): Frontplatte zum Drehen, Röhrenverzerrung mit bis zu 8-facher Überabtastung, Stereo, Frequenzgang, Röhrenwahl, Lautsprecher, Umbauideen „Sanft" und „Später", Federhall (ab 3.35; Nichtlinearität des Tanks ab 3.37 mit dem Regler REVERB TANK einstellbar).</span>
@@ -107,11 +111,16 @@ footer a{color:inherit}
       <small>Version 1.8 (Schalter ohne Knacks, Drehen an Reglern braucht weniger Rechenzeit; seit 1.7 Kernwechsel und Neustart ohne Knacks; seit 1.5 TUBE MISMATCH; abschaltbar: Netzteil nach Plan mit Gleichrichtern und Brumm, Last des BAL-OUT-Übertragers) · Installation wie beim Laney (<code>AmpFett_SVTCL.clap</code> bzw. Ordner <code>AmpFett_SVTCL.vst3</code>). Gleiche Systemvoraussetzungen. Rechnet die ganze Schaltung in jedem Abtastwert: etwa das 1,5-Fache des AmpFett B-15NF, grob 40 bis 75 % eines Prozessorkerns bei 48 kHz.</small></span>
   </div>
   <div class="card dl">
-    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III und AmpFett SVT-CL als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
-      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.41_Yamaha-1.19_B15NF-1.21_GK800RB-1.6_G100-1.10_B100III-1.6_SVTCL-1.8.pkg" download>Mac-Installer herunterladen</a></span>
-      <small>Laney 3.41 · Yamaha 1.19 · AmpFett B-15NF 1.21 · GK 800RB 1.6 · Yamaha G100-212II 1.10 · Yamaha B100-III 1.6 · AmpFett SVT-CL 1.8 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+    <span><b>Wien EQ als DAW-Plugin</b><span>Der Fünfband-Equalizer wie auf der Web-Seite, in Stereo mit einem Reglersatz für beide Kanäle: Frontplatte mit Knöpfen und Tasten, Regelbereich ±6/±12/±20 dB, OUTPUT, Frequenzgang. Folgt der analogen Kurve auf 0,02 dB.</span>
+      <span class="dls"><a class="dlb" href="download/Wien_EQ_CLAP-1.0.zip" download>CLAP herunterladen</a><a class="dlb" href="download/Wien_EQ_VST3-1.0.zip" download>VST3 herunterladen</a></span>
+      <small>Version 1.0 · Installation wie beim Laney (<code>Wien_EQ.clap</code> bzw. Ordner <code>Wien_EQ.vst3</code>). Gleiche Systemvoraussetzungen. Braucht etwa 2 % eines Prozessorkerns bei 48 kHz in Stereo; bei 44,1 und 48 kHz 63 Abtastwerte Verzögerung (wird dem Host gemeldet), ab 88,2 kHz keine.</small></span>
   </div>
-  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett B-15NF und SVT-CL), Transistor-, Dioden- und FET-Verzerrung (GK, Yamaha G100) bzw. Endstufenbegrenzung (Yamaha, GK, Yamaha B100-III); Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
+  <div class="card dl">
+    <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Yamaha B100-II, AmpFett B-15NF, GK 800RB, Yamaha G100-212II, Yamaha B100-III, AmpFett SVT-CL und Wien EQ als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
+      <span class="dls"><a class="dlb" href="download/tonestack-Plugins-Mac_Laney-3.41_Yamaha-1.19_B15NF-1.21_GK800RB-1.6_G100-1.10_B100III-1.6_SVTCL-1.8_WienEQ-1.0.pkg" download>Mac-Installer herunterladen</a></span>
+      <small>Laney 3.41 · Yamaha 1.19 · AmpFett B-15NF 1.21 · GK 800RB 1.6 · Yamaha G100-212II 1.10 · Yamaha B100-III 1.6 · AmpFett SVT-CL 1.8 · Wien EQ 1.0 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
+  </div>
+  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett B-15NF und SVT-CL), Transistor-, Dioden- und FET-Verzerrung (GK, Yamaha G100) bzw. Endstufenbegrenzung (Yamaha, GK, Yamaha B100-III); der Wien EQ ist ein eigener Entwurf nach Herstellerangaben, „adt-audio“ ist eine Marke ihres Inhabers. Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
 </main>
 </body>
 </html>

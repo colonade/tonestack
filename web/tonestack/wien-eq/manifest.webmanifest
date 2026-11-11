@@ -1,0 +1,29 @@
+{
+  "name": "Wien EQ",
+  "short_name": "Wien EQ",
+  "description": "Wien EQ: Fünfband-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205; LOW und HIGH mit Tasten, drei vollparametrische Mittenbänder, EQ ON; mit Anhören eigener Audiodateien.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#EEF1EC",
+  "icons": [
+    {
+      "src": "../assets/icons/wien-eq-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/wien-eq-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/wien-eq-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

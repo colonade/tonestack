@@ -3,7 +3,7 @@ KLANGREGLER-SIMULATOREN – Installation auf einem Apache-Webserver
 
 Inhalt
 ------
-index.html                     Übersichtsseite mit Links zu allen sieben Simulatoren
+index.html                     Übersichtsseite mit Links zu allen sieben Verstärker-Simulatoren und dem Wien EQ
 yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
 laney-aor50/                   Laney AOR 50 Klangregler-Simulator
 ampfett-b15nf/                 AmpFett B-15NF Simulator, Nachbau des Ampeg B-15NF (ganzer Verstärker; Rechen-Thread b15nf-render.js)
@@ -12,9 +12,10 @@ gk-800rb/                      GK 800RB Simulator, Nachbau nach dem Service-Manu
 yamaha-g100/                   Yamaha G100-212II Simulator, Nachbau nach dem Service Manual (Vorverstärker, Federhall als Schaltung + physikalisches Federmodell, Endstufe; Lautsprecher 2 × Celestion G12T-75 in der offenen Box wahlweise (ab 1.10); Rechen-Thread g100-render.js)
 yamaha-b100iii/                Yamaha B100-III Simulator, Nachbau nach dem Service Manual (Vorverstärker mit Klangregelung und zwei parametrischen Entzerrern, Endstufe; ohne Lautsprecher; Rechen-Thread b3-render.js)
 ampfett-svtcl/                 AmpFett SVT-CL Simulator, Nachbau des Ampeg SVT-CL nach dem Service Manual (ganzer Röhrenverstärker mit Endstufe und Netzteil; ohne Lautsprecher; Rechen-Thread svtcl-render.js)
+wien-eq/                       Wien EQ, Fünfband-Equalizer mit Wien-Brücken nach den Angaben zum adt-audio TM205 (eigener Entwurf; Rechen-Thread weq-render.js)
 assets/fonts/                  Schrift Archivo (lokal, kein Google-Server) + Lizenz
 assets/icons/                  App-Symbole für den Startbildschirm
-download/                      DAW-Plugins zum Herunterladen (Inhalt aus dem GitHub-Release, siehe scripts/pack-web.sh), verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Verstärker) und Mac-Installerpaket (.pkg: Audio Unit und VST3, alle sieben Verstärker)
+download/                      DAW-Plugins zum Herunterladen (Inhalt aus dem GitHub-Release, siehe scripts/pack-web.sh), verlinkt von der Übersichtsseite: Linux (CLAP, VST3, je Plugin) und Mac-Installerpaket (.pkg: Audio Unit und VST3, alle sieben Verstärker und der Wien EQ)
 sw.js                          Service Worker für Offline-Betrieb
 .htaccess                      Apache-Einstellungen (versteckte Datei!)
 
@@ -49,7 +50,7 @@ In allen Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
 berechnete Schaltung abspielen. Die Datei wird nur im Browser verarbeitet,
 nichts wird zum Server übertragen. Die Rechnung läuft im eingebetteten WebAssembly-Kern; Ausweichkerne und
 Audio-Thread stehen in yamaha-b100ii/b100ii-worklet.js, laney-aor50/laney-worklet.js
-bzw. ampfett-b15nf/b15nf-worklet.js und b15nf-render.js, gk-800rb/gk-worklet.js und gk-render.js, yamaha-g100/g100-worklet.js und g100-render.js, yamaha-b100iii/b3-worklet.js und b3-render.js, ampfett-svtcl/svtcl-worklet.js und svtcl-render.js (müssen mit hochgeladen werden).
+bzw. ampfett-b15nf/b15nf-worklet.js und b15nf-render.js, gk-800rb/gk-worklet.js und gk-render.js, yamaha-g100/g100-worklet.js und g100-render.js, yamaha-b100iii/b3-worklet.js und b3-render.js, ampfett-svtcl/svtcl-worklet.js und svtcl-render.js, wien-eq/weq-worklet.js und weq-render.js (müssen mit hochgeladen werden).
 Laney: Standardmäßig ist die geschätzte Röhrenverzerrung eingeschaltet
 (Röhrenmodelle nach N. Koren mit Gitterstrom, Röhrentyp je Fassung wählbar,
 Grundeinstellung 3 x 5751; nicht mit einem echten AOR 50 verglichen); ohne
