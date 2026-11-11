@@ -10,8 +10,29 @@
 #include <algorithm>
 #include <vector>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <chrono>
+#include <sys/stat.h>
 
 namespace tsw {
+// Einstellungen der Oberfläche, die für alle tonestack-Plugins eines Benutzers gelten (nicht je Projekt): Wertanzeige am Knopf, Bandliste des Wien EQ.
+// Datei: Linux $XDG_CONFIG_HOME/tonestack/ui.conf (sonst ~/.config/…), macOS ~/Library/Application Support/tonestack/ui.conf; Zeilen „name=0|1“.
+// Lässt sich die Datei nicht schreiben (abgeschottete Hosts), gilt die Wahl bis zum Ende des Programms. Gelesen wird höchstens einmal je Sekunde,
+// damit offene Fenster anderer Plugins der Wahl folgen.
+struct Prefs { bool tips = true, bands = true; };
+inline std::string prefDir() { const char *h = std::getenv("HOME");
+#ifdef __APPLE__
+  return h ? std::string(h) + "/Library/Application Support/tonestack" : std::string();
+#else
+  const char *x = std::getenv("XDG_CONFIG_HOME"); if (x && *x) return std::string(x) + "/tonestack"; return h ? std::string(h) + "/.config/tonestack" : std::string();
+#endif
+}
+inline Prefs &prefs() { static Prefs p; static bool fileOk = true; static std::chrono::steady_clock::time_point last{}; auto now = std::chrono::steady_clock::now();
+  if (fileOk && (last == std::chrono::steady_clock::time_point{} || now - last > std::chrono::seconds(1))) { last = now; std::string d = prefDir();
+    if (d.empty()) fileOk = false; else if (FILE *f = std::fopen((d + "/ui.conf").c_str(), "r")) { char k[32]; int v; while (std::fscanf(f, " %31[a-z]=%d", k, &v) == 2) { if (std::string(k) == "tips") p.tips = v != 0; else if (std::string(k) == "bands") p.bands = v != 0; } std::fclose(f); } }
+  return p; }
+inline void prefSave() { std::string d = prefDir(); if (d.empty()) return; { size_t k = d.rfind('/'); if (k != std::string::npos && k > 0) ::mkdir(d.substr(0, k).c_str(), 0755); } ::mkdir(d.c_str(), 0755); std::string tmp = d + "/ui.conf.tmp"; if (FILE *f = std::fopen(tmp.c_str(), "w")) { const Prefs &p = prefs(); std::fprintf(f, "tips=%d\nbands=%d\n", p.tips ? 1 : 0, p.bands ? 1 : 0); std::fclose(f); std::rename(tmp.c_str(), (d + "/ui.conf").c_str()); } }
 constexpr double UW = 1200;   // Breite des unteren Bereichs in UI-Einheiten
 constexpr double TPI = 3.14159265358979323846;
 inline void rgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
@@ -88,8 +109,12 @@ inline void smallKnobV(cairo_t *c, double cx, double cy, double u01, const char 
   if (hot) { rgb(c, 0xffd34d); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, cx, cy, 28, 0, 2 * TPI); cairo_stroke(c); }
   rgb(c, dim ? 0x6a6a68 : 0xdcdee2); text(c, name, cx, cy + 42, 13, true, 1); rgb(c, dim ? 0x6a6a68 : 0xcfd1d6); text(c, val, cx, cy + 59, 12, false, 1);
 }
+// Schalter in der Kopfzeile des Modellstreifens: „NAME ON|OFF“ ab (x, y), anklickbar über die Breite w
+inline void prefDraw(cairo_t *c, const char *name, bool on, double x, double y) { rgb(c, 0x6c7079); double w = text(c, name, x, y, 12, false); rgb(c, on ? 0xffd98a : 0x8d919a); text(c, on ? "ON" : "OFF", x + w + 7, y, 12, true); }
+inline bool prefHit(double lx, double ly, double x, double y, double w) { return lx >= x - 6 && lx <= x + w + 6 && ly >= y - 15 && ly <= y + 7; }
 // Werteanzeige (Sprechblase) in Bildschirm-Pixeln: Anker (px, py) = Mitte oberhalb des Bedienelements; u = Pixel je UI-Einheit
 inline void tip(cairo_t *c, const char *t, double px, double py, double u, double winW) {
+  if (!prefs().tips) return;   // „VALUE POPUP OFF“
   cairo_save(c); cairo_identity_matrix(c); cairo_translate(c, 0, 0); font(c, 14 * u, true); cairo_text_extents_t e; cairo_text_extents(c, t, &e);
   double bw = e.width + 18 * u, bh = 26 * u, bx = std::min(std::max(px - bw / 2, 4.0), winW - bw - 4), by = std::max(2.0, py - bh - 4 * u);
   rgb(c, 0xf4efe3); rrect(c, bx, by, bw, bh, 4 * u); cairo_fill(c); rgb(c, 0x111111); cairo_move_to(c, bx + 9 * u - e.x_bearing, by + bh / 2 + e.height / 2); cairo_show_text(c, t); cairo_restore(c);

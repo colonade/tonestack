@@ -2,7 +2,7 @@
 // Umsetzung eigener Entwurf, docs/wieneq/ENTWURF.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Linear; ein Regler-Satz für beide Kanäle wie am Gerät.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "weq_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"

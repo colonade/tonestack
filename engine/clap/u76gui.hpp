@@ -164,7 +164,7 @@ struct Gui {
     const double u = uscale(); bool stk = v[P_STACK] > 0.5, hpf = v[P_HPF] > 0.5; int r = ratio();
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit; Cali76 extensions)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 380, 20, 12, false);
+    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit; Cali76 extensions)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 380, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 570, 20);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *rl[3] = {"BUTTONS", "ALL", "VARIABLE"}; tsw::toggle(c, SW_X[0], R1, 3, r < 4 ? 0 : r == 4 ? 1 : 2, "RATIO", rl, nullptr);
       const char *ol[2] = {"OFF", "ON"}; tsw::toggle(c, SW_X[1], R1, 2, hpf ? 1 : 0, "SC HPF", ol, nullptr); tsw::toggle(c, SW_X[2], R1, 2, stk ? 1 : 0, "STACK", ol, nullptr);
@@ -235,6 +235,7 @@ struct Gui {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int half, sw = hitSwitch(x, y, half); if (sw >= 0) moveSwitch(sw, button == 4 ? -1 : 1); } return true; }
         if (button != 1) return false;
+        { double plx, ply; toLower(x, y, plx, ply); if (tsw::prefHit(plx, ply, 570, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } }   // Schalter der Kopfzeile (für alle Plugins gemeinsam gespeichert)
         if (hitInRef(x, y)) { if (getP(P_INREF) > 0.5) setP(P_INREF, 0); else if (resetPeak) resetPeak(); return true; }
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) setKnob(k, defaultVal(k)); else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }

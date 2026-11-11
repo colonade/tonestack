@@ -1,5 +1,5 @@
 Wien EQ (after adt-audio TM205) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   Wien_EQ.clap and Wien_EQ.vst3 contain the same code and sound identical.
@@ -98,6 +98,12 @@ CPU
   silence at the input the plugin goes idle.
 
 Changes
+  1.3  Two switches in the header line of the model strip: VALUE POPUP (the
+       value display at the knobs) and BAND LIST (the list of all band
+       values) can be switched off. Stored for all tonestack plugins of
+       this user (Linux: ~/.config/tonestack/ui.conf, macOS: ~/Library/
+       Application Support/tonestack/ui.conf), not per project. The list
+       no longer overlaps the version text.
   1.2  LOW and HIGH are shelving filters in every button position (were
        bells with Q 1/3); HIGH without a button is a shelf at 20 kHz. The
        sound of LOW and HIGH changes; projects keep their settings.
