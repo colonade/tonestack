@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-12-4";
+const VERSION = "2026-11-12-5";
 const FILES = [
   "./",
   "index.html",
@@ -73,7 +73,14 @@ const FILES = [
   "ampfett-76/u76-worklet.js",
   "ampfett-76/u76-render.js",
   "assets/icons/ampfett-76-192.png",
-  "assets/icons/ampfett-76-512.png"
+  "assets/icons/ampfett-76-512.png",
+  "loldano-slo100/",
+  "loldano-slo100/index.html",
+  "loldano-slo100/manifest.webmanifest",
+  "loldano-slo100/loldano-worklet.js",
+  "loldano-slo100/loldano-render.js",
+  "assets/icons/loldano-slo100-192.png",
+  "assets/icons/loldano-slo100-512.png"
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -12,7 +12,8 @@ int main() {
   Setting s; Core c = mk(s, &N, 8.0); double y[O_NO + 32]; c.step(0, y); auto V = [&](const char *n) { for (size_t i = 0; i < N.size(); i++) if (N[i] == n) return y[O_NO + i]; return 0.0; };
   std::printf("Knoten %d, Zustände %d, nichtlineare Tore %d\n", c.net.nn, c.run.s.nh, c.run.s.m);
   std::printf("Versorgung (Plan)\n"); chk("B+1 Anoden (497 V)", V("B1"), 497, 3, "V"); chk("B+2 Schirmgitter (495 V)", V("B2"), 495, 3, "V"); chk("B+3 (378 V)", V("B3"), 378, 10, "V"); chk("B+4 (350 V)", V("B4"), 350, 12, "V"); chk("B+5 (359 V)", V("B5"), 359, 12, "V");   /* Summe passt; im Plan sind die beiden Werte vermutlich vertauscht (V1 zieht mehr Strom als V2) */
-  double ia = (V("B1") - V("a5")) / (Parts().ot_rp / 2) / 2 * 1000; chk("Ruhestrom je 6L6GC (35 mA, Annahme)", ia, 35, 1, "mA");
+  double ia = 0; { const int M = (int)(0.2 * FS); for (int i = 0; i < M; i++) { c.step(0, y); ia += V("B1") - V("a5"); } ia = ia / M / (Parts().ot_rp / 2) / 2 * 1000; }   // über 0,2 s gemittelt: die Wicklung zwischen B1 und a5 trägt im Mittel keine Spannung, im Augenblick aber das Rauschen der Vorstufe
+  chk("Ruhestrom je 6L6GC (35 mA, Annahme)", ia, 35, 1, "mA");
   std::printf("Arbeitspunkte (der Plan nennt keine; zur Auskunft)\n");
   for (auto *p : {"p1", "k1", "p2", "k2", "p3", "k3", "pc", "kc", "p4", "k4", "f1", "p5", "k5", "f2", "pa", "pb", "kp", "F", "BIAS"}) std::printf("  %-5s %8.2f V\n", p, V(p));
   std::printf("  Phasenumkehr: Kathoden %.1f V (Robinette: etwa 34 V), Knoten F %.1f V\n", V("kp"), V("F"));

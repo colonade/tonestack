@@ -4,7 +4,7 @@
 #
 #   cmake -S engine/vst3 -B engine/build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release
 #   cmake --build engine/build/vst3
-#   → engine/build/vst3/Laney_AOR50.vst3, Lametta_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Lametta_G100.vst3, Lametta_B100III.vst3, AmpFett_SVTCL.vst3, Wien_EQ.vst3, AmpFett_76.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
+#   → engine/build/vst3/Laney_AOR50.vst3, Lametta_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Lametta_G100.vst3, Lametta_B100III.vst3, AmpFett_SVTCL.vst3, Wien_EQ.vst3, AmpFett_76.vst3, Loldano_SLO100.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
 # macOS (Xcode-Befehlszeilenwerkzeuge, cmake, ninja): dieselben Befehle; gebaut werden VST3 und Audio Unit (AUv2, .component)
 # für Apple Silicon und Intel, mit Frontplatte (NSView + CoreGraphics: clap/macview.mm, clap/cairo_cg.hpp).
 cmake_minimum_required(VERSION 3.21)
@@ -98,7 +98,8 @@ ts_version(b3plugin.cpp B3V)
 ts_version(svtplugin.cpp SVV)
 ts_version(weqplugin.cpp WQV)
 ts_version(u76plugin.cpp U76V)
-message(STATUS "tonestack: Laney ${LV}, Yamaha ${YV}, AmpFett ${BV}, GK ${GV}, G100 ${G1V}, B100-III ${B3V}, SVT-CL ${SVV}, Wien EQ ${WQV}, AmpFett 76 ${U76V}")
+ts_version(sloplugin.cpp LOV)
+message(STATUS "tonestack: Laney ${LV}, Yamaha ${YV}, AmpFett ${BV}, GK ${GV}, G100 ${G1V}, B100-III ${B3V}, SVT-CL ${SVV}, Wien EQ ${WQV}, AmpFett 76 ${U76V}, Loldano ${LOV}")
 tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   ${LV} Lany)
 tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Lametta_B100II de.tonestack.lametta-b100ii.vst3 ${YV} B100)
 tonestack_plugin(b15    b15plugin.cpp b15_entry.cpp AmpFett_B15NF de.tonestack.ampfett-b15nf.vst3  ${BV} AFB1)
@@ -108,3 +109,4 @@ tonestack_plugin(b3     b3plugin.cpp  b3_entry.cpp  Lametta_B100III de.tonestack
 tonestack_plugin(svt    svtplugin.cpp svt_entry.cpp AmpFett_SVTCL de.tonestack.ampfett-svtcl.vst3 ${SVV} AFSV)
 tonestack_plugin(weq    weqplugin.cpp weq_entry.cpp Wien_EQ       de.tonestack.wien-eq.vst3        ${WQV} WEQ5)
 tonestack_plugin(u76    u76plugin.cpp u76_entry.cpp AmpFett_76    de.tonestack.ampfett-76.vst3     ${U76V} AF76)
+tonestack_plugin(slo    sloplugin.cpp slo_entry.cpp Loldano_SLO100 de.tonestack.loldano-slo100.vst3 ${LOV} LSLO)
