@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
       auto src = [&](const char *nm, int j, const std::string &e) { o += std::string(nm) + id + " " + N[Pt(j).a] + " " + N[Pt(j).b] + " I = " + e + "\n"; };
       switch (d.kind) {
         case K_TRI: src("BG", 0, "gi(" + V(0) + ")"); src("BA", 1, "tria(" + V(0) + ", " + V(1) + ")"); break;
-        case K_PEN: src("BG", 0, "gi(" + V(0) + ")"); src("BS", 1, n(d.sc) + " * pig2(" + V(0) + ", " + V(1) + ", " + V(2) + ")"); src("BA", 2, n(d.sc) + " * pia(" + V(0) + ", " + V(1) + ", " + V(2) + ")"); break;
+        case K_PEN: src("BG", 0, n(DEL34.gs) + " * gi(" + V(0) + ")"); src("BS", 1, n(d.sc) + " * pig2(" + V(0) + ", " + V(1) + ", " + V(2) + ")"); src("BA", 2, n(d.sc) + " * pia(" + V(0) + ", " + V(1) + ", " + V(2) + ")"); break;
         case K_SI: src("BD", 0, "rect(" + V(0) + ")"); break;
         default: std::printf("Gerät %d nicht übersetzbar\n", d.kind); std::exit(1); } }
     return o; };

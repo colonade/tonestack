@@ -50,8 +50,8 @@ int main(int argc, char **argv) {
     o += ".func sdio(v) {1e-9 * (exp(min(v / 0.04136, 40)) * (1 + max(v / 0.04136 - 40, 0)) - 1)}\n";
     int k = 0; for (const dk::Dev &d : B.dev) { auto P = [&](int j) { return B.net.P[d.p0 + j]; }; auto V = [&](int j) { return "V(" + N[P(j).a] + "," + N[P(j).b] + ")"; }; std::string id = std::to_string(k++);
       switch (d.kind) {
-        case K_6SL7: o += "BG" + id + " " + N[P(0).a] + " " + N[P(0).b] + " I = gi(" + V(0) + ")\n"; o += "BA" + id + " " + N[P(1).a] + " " + N[P(1).b] + " I = tria(" + V(0) + ", " + V(1) + ")\n"; break;
-        case K_6L6: o += "BG" + id + " " + N[P(0).a] + " " + N[P(0).b] + " I = gi(" + V(0) + ")\n";
+        case K_6SL7: o += "BG" + id + " " + N[P(0).a] + " " + N[P(0).b] + " I = " + n(T6SL7.gs) + " * gi(" + V(0) + ")\n"; o += "BA" + id + " " + N[P(1).a] + " " + N[P(1).b] + " I = tria(" + V(0) + ", " + V(1) + ")\n"; break;
+        case K_6L6: o += "BG" + id + " " + N[P(0).a] + " " + N[P(0).b] + " I = " + n(D6L6.gs) + " * gi(" + V(0) + ")\n";
           o += "BS" + id + " " + N[P(1).a] + " " + N[P(1).b] + " I = " + n(d.sc) + " * pig2(" + V(0) + ", " + V(1) + ", " + V(2) + ")\n";
           o += "BA" + id + " " + N[P(2).a] + " " + N[P(2).b] + " I = " + n(d.sc) + " * pia(" + V(0) + ", " + V(1) + ", " + V(2) + ")\n"; break;
         case K_RECT: o += "BD" + id + " " + N[P(0).a] + " " + N[P(0).b] + " I = vdio(" + V(0) + ")\n"; break;

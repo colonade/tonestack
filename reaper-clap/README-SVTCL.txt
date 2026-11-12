@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.10
+Version 1.11
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -296,3 +296,12 @@ Notes
   - Bias recalibrated to 24 mA per 6550. Level -0.2 dB at the default
     setting, +0.3 dB driven hard; power at 3 % THD with the simple power
     supply 400 W instead of 361 W (specification: at least 300 W).
+
+1.11
+  Grid current scaled per tube type. The law itself was measured on a
+  12AX7 and was used unchanged for every tube. Now: 6L6GC from the RCA data
+  sheet (push-pull AB2, peak grid-input power 140 mW / 270 mW: about half the
+  former current), other tubes by their perveance (measured ratio grid to
+  cathode perveance: 12AX7 0.31, 6922 0.26); 6550 and EL34 scaled from the
+  6L6GC (estimate). Effect on the sound: below 0.15 dB per band even when
+  driven very hard.

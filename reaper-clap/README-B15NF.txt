@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.24
+Version 1.25
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -400,3 +400,12 @@ Notes
   closer to the schematic, clean sound unchanged (-55 dB difference), driven
   hard less than 0.1 dB per band. Checked against ngspice (-64 dB) and by
   halving the time step (-45 dB at full overdrive).
+
+1.25
+  Grid current scaled per tube type. The law itself was measured on a
+  12AX7 and was used unchanged for every tube. Now: 6L6GC from the RCA data
+  sheet (push-pull AB2, peak grid-input power 140 mW / 270 mW: about half the
+  former current), other tubes by their perveance (measured ratio grid to
+  cathode perveance: 12AX7 0.31, 6922 0.26); 6550 and EL34 scaled from the
+  6L6GC (estimate). Effect on the sound: below 0.15 dB per band even when
+  driven very hard.

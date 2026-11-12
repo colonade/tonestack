@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.44
+Version 3.45
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -150,6 +150,15 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.45
+  - Grid current scaled per tube type. The law itself was measured on a
+    12AX7 and was used unchanged for every tube. Now: 6L6GC from the RCA data
+    sheet (push-pull AB2, peak grid-input power 140 mW / 270 mW: about half the
+    former current), other tubes by their perveance (measured ratio grid to
+    cathode perveance: 12AX7 0.31, 6922 0.26); 6550 and EL34 scaled from the
+    6L6GC (estimate). Effect on the sound: below 0.15 dB per band even when
+    driven very hard.
 
 3.44
   - Optional tubes 12AT7, 12AU7 and 12AY7: models with parameters from
