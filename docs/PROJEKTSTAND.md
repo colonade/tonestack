@@ -297,6 +297,12 @@ Nutzer: „ob oversampling so wie es jetzt implementiert ist überhaupt untersch
 - SCHALTPLAN.md berichtigt: R58 speist V1A/V1B der Endstufe, die Vorstufe hängt an R55/+343 V; Kathodenwiderstände 10 Ω auf der Endstufenplatine; SLAVE J2 über die Spitze; Seite B R31 Folgergitter / R30 Schleifer; Weg über FX SEND/RETURN und BAL OUT; Miller-C und Poti-Kennlinie als Schätzung; ULTRA OUT/IN aus S. 32; C26-Fassungen.
 - Entschieden: „1. Schätzen 2. Ja bitte und abschaltbar machen“ → SVT-CL 1.5 (folgender Abschnitt).
 
+## Mac-Paket mit festem Namen (2026-11-12, Web 2026-11-12-7, wirkt ab dem nächsten Release)
+Wunsch des Nutzers: „beim nächste Mac update sollte der name des Pakets angepasst werden. so dass er gleich bleibt egal was drin ist“.
+- Das Installerpaket heißt ab dem nächsten Bau **tonestack-Plugins-Mac.pkg** (scripts/versions.sh: PKG; vorher mit allen Versionen im Namen). Angepasst: versions.sh, plugins.yml (Prüfung „genau ein Paket“), release.sh (Text), LIESMICH-Mac, Link in web/tonestack/index.html.
+- Die Versionen stehen weiter im Release-Tag, im Text der Übersichtsseite und im Installer selbst.
+- Übergang: scripts/pack-web.sh benennt ein Paket mit altem Namen (Release mit Loldano 1.1) beim Packen um; das Web-Zip verlinkt also schon jetzt den festen Namen. Kein neues Release nur dafür.
+
 ## Loldano 1.1: Suche nach unnötiger Rechenlast (2026-11-12, Web 2026-11-12-6)
 Auftrag (Nutzer): „Bitte den code prüfen auf unnötige lastquellen beim loldano“. Gezählt mit callgrind (Befehle je Abtastwert bei 96 kHz Rechentakt), nicht mit der Uhr (die Uhr schwankt hier um ±15 %).
 - **Gefunden und entfernt**: (1) Röhrenkapazitäten der Kathodenfolger V3A/V4A und der zweiten Hälfte der Phasenumkehr (6 Zustände, Frequenzgang ≤ 0,03 dB anders, Zeitverlauf −46 dB); (2) Gleichrichter als nichtlineares Tor – an Gleichspannung leitet er immer, jetzt 0,62 V + 0,5 Ω im Innenwiderstand (1 Tor, 1 Knoten); (3) zweiter BRIGHT-Kondensator (ein Kondensator, dessen Ende der Schalter umlegt). Netz: 72 Knoten, 51 Zustände, 26 Tore (vorher 74/58/27).

@@ -14,7 +14,7 @@ Läuft auf Apple-Silicon- und Intel-Macs ab macOS 11 (Big Sur).
 0. Am einfachsten: das Installerpaket
 --------------------------------------
 
-Gibt es dazu eine Datei  tonestack-Plugins-Mac_….pkg , genügt diese:
+Gibt es dazu eine Datei  tonestack-Plugins-Mac.pkg , genügt diese:
 Logic (und andere Musik-Software) beenden → Doppelklick → durch den
 Installer klicken (Administrator-Passwort) → Logic starten. Schritt 1 und 2
 unten entfallen dann.

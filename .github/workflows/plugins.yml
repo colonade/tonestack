@@ -179,7 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt)
-          n=$(ls mac-art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
+          n=$(ls mac-art/tonestack-Plugins-Mac*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
           cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/b100ii.png rel/mac-b100ii.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png; cp mac-art/b3.png rel/mac-b100iii.png; cp mac-art/svt.png rel/mac-svtcl.png; cp mac-art/weq.png rel/mac-wieneq.png; cp mac-art/u76.png rel/mac-ampfett76.png; cp mac-art/slo.png rel/mac-loldano.png
           (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)
           bash scripts/release.sh rel
