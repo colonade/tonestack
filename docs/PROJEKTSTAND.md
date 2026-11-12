@@ -307,6 +307,8 @@ Auftrag (Nutzer): „Bitte den code prüfen auf unnötige lastquellen beim lolda
 - **Wo die Zeit bleibt** (1.1, übersteuert): Löser in dk.hpp etwa 52 % (solveGroup mit Nachführen von q 20 %, Zerlegung 14 %, Rückwärtseinsetzen 10 %, buildA 8 %), Röhrenkennlinien 23 % (exp, log1p, pow; rund 90 Auswertungen je Abtastwert), lineare Produkte Csr::apply 14 % (in Ruhe 36 %; skalare Schleife, weil ohne -ffast-math nicht vektorisiert). Plugin-Hülle (Überabtastungsfilter, Anzeigen, Glättung) unter 1 %.
 - **Folgerung**: Im Loldano-eigenen Code ist nichts Großes mehr zu holen. Die Hebel liegen im gemeinsamen Code (dk.hpp, b15_core.hpp): Produkte in fester Reihenfolge vektorisieren, Zerlegung sparen, Kennlinien billiger. Das ändert die Binärdateien aller Plugins (neue Versionen, neue Prüfung) – nur auf Wunsch des Nutzers.
 - 1.0 wurde auf GitHub gebaut, aber nicht ausgeliefert; ausgeliefert wird 1.1.
+- **Unbenutzten Kanal weglassen?** (Frage des Nutzers) Probeweise gerechnet: OVERDRIVE ohne V1A +0,3 dB bis 3 kHz, Zeitverlauf −21 dB, 13 % weniger Befehle; NORMAL ohne V2A/V2B +0,1 … +0,8 dB (Höhen), −28 dB, 20 % weniger. Der andere Kanal wirkt im Gerät mit (2,2 MΩ auf den Mischpunkt bzw. Last am Verteilpunkt). **Entschieden (Nutzer): „Dann lassen wir den Kanal drin.“** Kein Schalter, keine Ersatzlast.
+- Der erste Mac-Lauf für 1.1 wurde von GitHub nicht gestartet (kein freier Mac-Rechner); neu angestoßen (zweiter Versuch desselben Laufs).
 
 ## Loldano SLO-100 1.0 = Nachbau Soldano SLO-100 (2026-11-12, Plugin 1.0 / Web 2026-11-12-5)
 Auftrag (Nutzer, 2026-11-12): „Nenn Ihn Loldano und fang mal an bitte.“, dann „Ja bitte weitermachen“ (Plugin, Frontplatte, Webseite, Mac). Anlass: Der Kritiker hat einen Soldano-artigen Verstärker in JFET-Technik in LTspice gerechnet.
