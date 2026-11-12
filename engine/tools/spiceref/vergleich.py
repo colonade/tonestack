@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # Vergleicht die Rechnung des Kerns (kern.txt) mit ngspice (spice.txt) Knoten für Knoten.
-#   vergleich.py ORDNER [t0]      t0: Auswertung ab dieser Zeit (s), Vorgabe 0
+#   vergleich.py ORDNER [t0 [spice-datei]]      t0: Auswertung ab dieser Zeit (s), Vorgabe 0; spice-datei: Vorgabe spice.txt
 # Je Knoten: Ruhespannung zu Beginn (beide), Wechselanteil (effektiv), Abweichung (effektiv und Spitze) absolut und bezogen auf den Wechselanteil in dB.
 import sys, numpy as np
 d = sys.argv[1]; t0 = float(sys.argv[2]) if len(sys.argv) > 2 else 0.0
 def rd(f):
     with open(f) as h: names = h.readline().split()
     a = np.loadtxt(f, skiprows=1); return [n.replace('v(', '').replace(')', '').lower() for n in names], a
-kn, K = rd(d + '/kern.txt'); sn, S = rd(d + '/spice.txt')
+kn, K = rd(d + '/kern.txt'); sn, S = rd(d + '/' + (sys.argv[3] if len(sys.argv) > 3 else 'spice.txt'))
 tk = K[:, 0]; ts = S[:, 0]; m = (tk >= t0) & (tk <= ts[-1]); worst = 0
 print('%-6s %10s %10s %9s | %10s %10s %8s | %9s' % ('Knoten', 'Ruhe Kern', 'Ruhe SPICE', 'Differenz', 'Wechsel V', 'Abw. eff', 'dB', 'Abw. Sp.'))
 for j, n in enumerate(kn[1:], 1):
