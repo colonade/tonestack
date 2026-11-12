@@ -128,7 +128,7 @@ fi
 # Ziel absichern: nie leer, nie das Wurzelverzeichnis, und ersetzt/entfernt wird nur eine Tonestack-Installation
 case "$ZIEL" in ""|/|/var/www|/var/www/html) fehler "Ungültiges Ziel '$ZIEL' – bitte einen eigenen Unterordner angeben (z. B. /var/www/html/tonestack)";; esac
 SICHERUNGSORDNER="/var/backups/tonestack"   # außerhalb des Webverzeichnisses, damit alte Stände nicht öffentlich bleiben
-ist_tonestack() { [ -f "$1/sw.js" ] && [ -d "$1/laney-aor50" ] && [ -d "$1/lametta-b100ii" ]; }
+ist_tonestack() { [ -f "$1/sw.js" ] && [ -d "$1/laney-aor50" ] && { [ -d "$1/lametta-b100ii" ] || [ -d "$1/yamaha-b100ii" ]; }; }   # bis 2026-11-11 hieß der Ordner yamaha-b100ii
 
 # ---------- Deinstallieren ----------
 if [ "$AKTION" = "remove" ]; then

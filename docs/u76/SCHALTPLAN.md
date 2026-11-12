@@ -84,6 +84,18 @@ Code: `engine/src/u76_core.hpp` (Kern), `engine/clap/u76plugin.cpp`, `engine/cla
 - **Aliasing** ohne Überabtastung (7 kHz, schnellste Zeiten): gespiegelte Obertöne unter −61 dB, mit allen Tasten −54 dB.
 - **Rechenlast**: 15–25 % eines Kerns je Kanal bei 48 kHz, mit STACK das Doppelte; im Browser (WebAssembly) etwa 26 % bzw. 53 %.
 
+## Pegelbezug (1.2)
+
+- Datenblatt (1178, zwei 1176 in einem Gerät): Schwelle bei vollem INPUT −30 / −26 / −25 / −24 dB (re 0,775 V) für 4 / 8 / 12 / 20 : 1, Ausgang an der
+  Schwelle +7 / +8 / +9 / +10 dBm; höchster Eingang +20 dB, Verstärkung 45 dB. Modell bei vollem INPUT: −36 / −30,8 / −27,9 / −26,8 dBu (1 dB Stauchung),
+  Ausgang an der Schwelle +0,7 / +5,9 / +8,8 / +9,9 dBu. Bei 12 und 20 : 1 trifft das Modell das Datenblatt; bei 4 : 1 setzt es mit weichem Knie früher ein.
+- Bis 1.1 war die Vorgabe des Eingangspegels 300 mV Spitze (wie bei den Instrumentenverstärkern). Ein Studiogerät sieht +4 dBu Nennpegel, also etwa 20 dB mehr:
+  die Regelung griff erst bei extremen Stellungen (Bass-Spur, 4 : 1: INPUT 5 → 5 dB, INPUT 7 → 11 dB). Ab 1.2: 3 V Spitze, Grundstellung INPUT 2 / OUTPUT 9
+  (dieselbe Spur: INPUT 1 → 4 dB, 2 → 11 dB, 3 → 15 dB, 5 → 21 dB).
+- Pegelsprung +10 dB (1 kHz, 4 : 1, schnellste Zeiten): Ausgang nach 1 ms +3,9 dB, nach 100 ms +3,3 dB, nach 6 s +2,5 dB; zurück nach 100 ms noch −3,9 dB,
+  nach 1 s −0,7 dB. Der langsame Anteil kommt aus R7/R9/C5 am Gate (τ ≈ 1 s): nach lang anhaltender Regelung erholt sich das Gerät langsamer als nach
+  einer kurzen Spitze.
+
 ## Fehler, die bei der Prüfung gefunden wurden (vor 1.0 behoben)
 
 - R37 fehlte im Netz (stand hinter einem Kommentar): C12 hing in der Luft, die Kompensation des Ausgangsverstärkers fehlte.
