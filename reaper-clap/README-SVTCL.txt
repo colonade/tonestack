@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.9
+Version 1.10
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -284,3 +284,15 @@ Notes
   AmpFett is a rebuild of the Ampeg SVT-CL. Ampeg is a trademark of its
   owner (LOUD / Yamaha Guitar Group); this is an independent circuit
   simulation, not affiliated with or endorsed by them.
+
+1.10
+  - 12AU7 (driver and cathode followers of the power amp): model with
+    parameters from a curve-tracer measurement (D. Reefman, uTracer /
+    ExtractModel library). The former fit to two data sheet points was on
+    average 55 % off the measured tube, far more near cut-off.
+  - 6550: knee of a beam tetrode instead of the pentode knee. No measurement
+    of a 6550 is available; the knee shape is taken from the measured 6L6GC
+    (assumption), the level is fitted to the data sheet as before.
+  - Bias recalibrated to 24 mA per 6550. Level -0.2 dB at the default
+    setting, +0.3 dB driven hard; power at 3 % THD with the simple power
+    supply 400 W instead of 361 W (specification: at least 300 W).

@@ -62,10 +62,12 @@ struct Setting {
 struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; int form = 0; double G = 0, C = 0, ga = 0; };   // form 1: Dempwolf (G, C, ga; mu), sonst Koren
 static const TubeModel TUBE_MODELS[5] = {
   {"12AX7 / ECC83", 100,  1.2,   1090.9, 287.3, 300, 1.6e-12, 1.7e-12, true, 1, 2.019059e-3, 2.02928, 1.26},
-  {"12AT7 / ECC81", 60,   1.35,  460,  300, 300, 2.7e-12, 2.2e-12, true, 1, 4.684130e-3, 1.98586, 1.09},
-  {"12AU7 / ECC82", 19.74, 1.3,  1180, 84,  300, 2.5e-12, 2.0e-12, true, 1, 9.627442e-4, 0.350357, 1.5},
+  // Ab 3.44: 12AT7, 12AU7, 12AY7 in der Koren-Form mit Parametern aus Kennlinienmessungen (Reefman, TubeLib.inc; kg1 hier doppelt, weil Ia = 2·E1^ex/kg1).
+  // Die Dempwolf-Anpassungen an zwei Datenblattpunkte (bis 3.43) lagen im Mittel 18 / 55 / 22 % daneben, im Auslauf weit mehr (scripts/tube_compare.py).
+  {"12AT7 / ECC81", 63.24, 1.338, 613.4, 208.5, 2363, 2.7e-12, 2.2e-12, true, 0},
+  {"12AU7 / ECC82", 20.73, 1.350, 1502.6, 85.3, 992, 2.5e-12, 2.0e-12, true, 0},
   {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true, 1, 1.413620e-3, 1.70240, 1.26},
-  {"12AY7",         44,   1.700, 3781, 206, 300, 1.3e-12, 1.3e-12, true, 1, 1.395767e-3, 1.04151, 1.26} };
+  {"12AY7",         47.59, 1.135, 1131.2, 244.2, 3024, 1.3e-12, 1.3e-12, true, 0} };
 constexpr int NTUBES = 5;
 inline bool stockTubes(const Setting &s) { return s.tube[0] == 0 && s.tube[1] == 0 && s.tube[2] == 0; }
 // Kleinsignalwerte eines Triodensystems im Arbeitspunkt (aus dem Gleichstromlöser des Röhrenkerns abgeleitet)

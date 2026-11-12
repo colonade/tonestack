@@ -44,6 +44,22 @@ inline void dempwolf(const TriodeD &T, double vg, double vp, double *out) {
 // Triode (Dempwolf): Tore (g−k, p−k), Ströme (Gitter, Anode), Ableitungen 2×2
 inline void triodeD(const TriodeD &T, const double *v, double *i, double *J) {
   double ig, dg; gridI(v[0], ig, dg); i[0] = ig; J[0] = dg; J[1] = 0; double o[3]; dempwolf(T, v[0], v[1], o); i[1] = o[0]; J[2] = o[1]; J[3] = o[2]; }
+// Triode in der Koren-Form mit Parametern aus Kennlinienmessungen (Reefman, TubeLib.inc; dort „TriodeK“): Ia = E1^ex / kg1,
+// E1 = Ua/kp·ln(1 + exp(kp·(1/mu + Ug/√(kvb + Ua²)))). Für Typen, deren Verstärkungsfaktor sich über die Kennlinie stark ändert (12AU7, 12AT7, 12AY7):
+// die Dempwolf-Form (festes mu) trifft deren gemessene Kurven nur auf 13–16 % (scripts/tube_compare.py). Gitterstrom wie bei triodeD.
+struct TriodeK { double mu, ex, kg1, kp, kvb; };
+inline void triodeK(const TriodeK &T, const double *v, double *i, double *J) {
+  double ig, dg; gridI(v[0], ig, dg); i[0] = ig; J[0] = dg; J[1] = 0; i[1] = 0; J[2] = 0; J[3] = 0;
+  double va = v[1]; if (va <= 0) return;
+  double s = std::sqrt(T.kvb + va * va), q = T.kp * (1 / T.mu + v[0] / s), sp, sig;
+  if (q < -40) return;
+  if (q > 35) { sp = q; sig = 1; } else { double e = std::exp(q); sp = std::log1p(e); sig = e / (1 + e); }
+  double e1 = va / T.kp * sp; if (e1 <= 0) return;
+  double ia = std::exp(T.ex * std::log(e1)) / T.kg1, d = T.ex * ia / e1;
+  i[1] = ia; J[2] = d * va * sig / s; J[3] = d * (sp / T.kp - sig * v[0] * va * va / (s * s * s)); }
+static const TriodeK K12AU7 = {20.73, 1.350, 751.3, 85.3, 992};      // ECC82, vermessen (TubeLib 9.12.2013); Datenblatt 250 V/−8,5 V 10,5 mA: 9,8; 100 V/0 V 11,8 mA: 11,2
+static const TriodeK K12AT7 = {63.24, 1.338, 306.7, 208.5, 2363};    // ECC81, vermessen
+static const TriodeK K12AY7 = {47.59, 1.135, 565.6, 244.2, 3024};    // 12AY7, vermessen (14.6.2015)
 // 6SL7GT: bis 1.5 Koren-Form (mu 70, ex 1,4, kg1 1851,8, kp 281); ab 1.6 Dempwolf-Form mit mu 70 und γ 1,26 fest, G und C an RCA-Datenblatt
 // (250 V, −2 V: 2,3 mA, 1,6 mA/V, 44 kΩ) und die Arbeitspunkte V1A/V1B der Spannungstabelle angepasst (rms-Fehler 0,055 → 0,029)
 static const TriodeD T6SL7 = {1.215197e-3, 1.66175, 70, 1.26};
@@ -67,7 +83,8 @@ inline void pentode(const Pentode &P, const double *v, double *i, double *J) {
 //   Ps = S·Ua·(1 + tanh(−ap·(Ua − (Ug2/λ − ν·Ug1 − w))))  (Sekundäremission; S = 0: aus)
 // Ia + Ig2 ist bei Ua = 0 der volle Kathodenstrom auf dem Schirmgitter; mit steigender Anodenspannung wandert er zur Anode (Knie),
 // darüber steigt Ia nur noch mit A (Innenwiderstand). sa, sg: Maßstab auf die Datenblatt-Ruhewerte.
-struct PentodeD { double mu, ex, kg1, kp, kvb, kg2, A, be, als, S, ap, w, nu, lam, sa, sg; };
+// knee: 0 = echte Pentode, f = 1/(1 + β·Ua); 1 = Strahltetrode, f = exp(−(β·Ua)^1,5) (virtuelle Kathode vor der Anode, scharfes Knie; EM4 Theory Anhang B.2, Gl. 97)
+struct PentodeD { double mu, ex, kg1, kp, kvb, kg2, A, be, als, S, ap, w, nu, lam, sa, sg; int knee = 0; };
 inline void pentodeD(const PentodeD &P, const double *v, double *i, double *J) {
   for (int k = 0; k < 9; k++) J[k] = 0;
   double g1 = v[0], g2 = std::max(v[1], 1.0), ig, dg; gridI(g1, ig, dg); i[0] = ig; J[0] = dg; bool g2on = v[1] > 1.0;
@@ -76,7 +93,8 @@ inline void pentodeD(const PentodeD &P, const double *v, double *i, double *J) {
   if (q > 35) { sp = q; sig = 1; } else { double e = std::exp(q); sp = std::log1p(e); sig = e / (1 + e); }
   double e1 = g2 / P.kp * sp, ip = std::exp(P.ex * std::log(e1)), dip = P.ex * ip / e1;
   double de1g1 = g2 * sig / s, de1g2 = g2on ? sp / P.kp - sig * g1 * g2 * g2 / (s * s * s) : 0;
-  bool von = v[2] > 0; double va = von ? v[2] : 0, f = 1 / (1 + P.be * va), df = von ? -P.be * f * f : 0;
+  bool von = v[2] > 0; double va = von ? v[2] : 0, f, df;
+  if (P.knee) { double x = P.be * va, sx = std::sqrt(x); f = std::exp(-x * sx); df = von ? -1.5 * P.be * sx * f : 0; } else { f = 1 / (1 + P.be * va); df = von ? -P.be * f * f : 0; }
   double ps = 0, pv = 0, p1 = 0, p2 = 0;
   if (P.S != 0) { double t = std::tanh(-P.ap * (va - (g2 / P.lam - P.nu * g1 - P.w))), u = P.S * va * (1 - t * t) * P.ap;
     ps = P.S * va * (1 + t); pv = von ? P.S * (1 + t) - u : 0; p1 = -u * P.nu; p2 = g2on ? u / P.lam : 0; }
@@ -88,7 +106,11 @@ inline void pentodeD(const PentodeD &P, const double *v, double *i, double *J) {
 // 6L6GC ab AmpFett 1.10: Derk-Form ohne Sekundäremission (Strahltetrode), an das Datenblatt angepasst (engine/tools/tube_fits.py): fünf Ruhepunkte
 // mit Ia, Ig2, S, ri, zwei AB1-Ruhepunkte und sechs Gegentakt-Vollaussteuerungen (mittlere Ia, Ig2, Ausgangsleistung); αs = 10 fest.
 // Das bisherige Koren-Modell (atan-Knie, kvb 54,5) hatte ein viel zu weiches Knie: bei Ug1 0 und 50 V Anode 94 statt jetzt 136 mA, Gegentakt-Leistungen bis 26 % zu klein (AB2 47 W: Koren 34,9 W, Derk 42,9 W).
-static const PentodeD D6L6 = {8.281661842, 1.562959483, 1150.834177, 36.84207058, 300, 26080.39458, 4.751966359e-4, 0.06717976054, 10, 0, 0, 0, 0, 1, 1, 1};
+// Ab AmpFett 1.24: Knie der Strahltetrode (knee 1) und Sekundäremission von einer vermessenen 6L6GC (uTracer, Reefman, TubeLib.inc: β 0,069, αs 8,10, S 0,031,
+// ap 0,017, w −5, ν 3,08, λ 14,66, kvb 3205); die sechs Pegel-Parameter neu an dieselben Datenblattwerte angepasst (engine/tools/tube_fit_6l6.py, rms 0,074 wie vorher 0,071).
+// Gegenüber 1.10–1.23 (Knie 1/(1 + β·Ua), zu weich): Ug1 0, Ug2 250 V: bei 20 V Anode 119 statt 100 mA, bei 50 V 150 statt 136 mA; Gegentakt AB2 45,9 statt 42,9 W
+// (Datenblatt 47), Schirmgitterstrom dabei 17 statt 21 mA (Datenblatt 16). Bis 1.23: {8.281661842, 1.562959483, 1150.834177, 36.84207058, 300, 26080.39458, 4.751966359e-4, 0.06717976054, 10, 0, 0, 0, 0, 1, 1, 1}
+static const PentodeD D6L6 = {8.227709818, 1.606514837, 1447.297704, 38.95452056, 3205.1, 20571.06154, 0.00064963321, 0.069, 8.1, 0.031, 0.017, -5, 3.08, 14.66, 1, 1, 1};
 // 5AR4/GZ34 (Vakuumdiode): i = k·v^1,5 (17 V bei 225 mA je Anode), sanfter Einsatz unter 0,5 V
 inline void vdiode(const double *v, double *i, double *J) { const double k = 3.21e-3, w = 0.5;
   double x = v[0] / w, sp, sg; if (x > 35) { sp = x; sg = 1; } else if (x < -40) { i[0] = 0; J[0] = 0; return; } else { double e = std::exp(x); sp = std::log1p(e); sg = e / (1 + e); }

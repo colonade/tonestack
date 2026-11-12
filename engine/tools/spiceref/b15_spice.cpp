@@ -42,9 +42,10 @@ int main(int argc, char **argv) {
     { const PentodeD &P = D6L6;   // E1 = g2/kp·sp(kp·(1/mu + g1/√(kvb + g2²))), IP = E1^ex, f = 1/(1 + β·va)
       o += ".func pe1(g1, g2) {g2 / " + n(P.kp) + " * sp(" + n(P.kp) + " * (1 / " + n(P.mu) + " + g1 / sqrt(" + n(P.kvb) + " + g2 * g2)))}\n";
       o += ".func pip(g1, g2) {pwr(pe1(g1, max(g2, 1)), " + n(P.ex) + ")}\n";
-      o += ".func pf(va) {1 / (1 + " + n(P.be) + " * pos(va))}\n";
-      o += ".func pig2(g1, g2, va) {" + n(P.sg) + " * pip(g1, g2) * (1 + " + n(P.als) + " * pf(va)) / " + n(P.kg2) + "}\n";
-      o += ".func pia(g1, g2, va) {" + n(P.sa) + " * pip(g1, g2) * ((1 / " + n(P.kg1) + " - 1 / " + n(P.kg2) + ") * (1 - pf(va)) + " + n(P.A) + " * pos(va) / " + n(P.kg1) + ")}\n"; }
+      o += P.knee ? ".func pf(va) {exp(-pwr(" + n(P.be) + " * pos(va), 1.5))}\n" : ".func pf(va) {1 / (1 + " + n(P.be) + " * pos(va))}\n";
+      o += ".func pps(g1, g2, va) {" + n(P.S) + " * pos(va) * (1 + tanh(-" + n(P.ap) + " * (pos(va) - ((1 + pos(g2 - 1)) / " + n(P.lam) + " - " + n(P.nu) + " * g1 - " + n(P.w) + "))))}\n";
+      o += ".func pig2(g1, g2, va) {" + n(P.sg) + " * pip(g1, g2) * (1 + " + n(P.als) + " * pf(va) + pps(g1, g2, va)) / " + n(P.kg2) + "}\n";
+      o += ".func pia(g1, g2, va) {" + n(P.sa) + " * pip(g1, g2) * ((1 / " + n(P.kg1) + " - 1 / " + n(P.kg2) + ") * (1 - pf(va)) + " + n(P.A) + " * pos(va) / " + n(P.kg1) + " - pps(g1, g2, va) / " + n(P.kg2) + ")}\n"; }
     o += ".func vdio(v) {3.21e-3 * pwr(0.5 * sp(v / 0.5), 1.5)}\n";
     o += ".func sdio(v) {1e-9 * (exp(min(v / 0.04136, 40)) * (1 + max(v / 0.04136 - 40, 0)) - 1)}\n";
     int k = 0; for (const dk::Dev &d : B.dev) { auto P = [&](int j) { return B.net.P[d.p0 + j]; }; auto V = [&](int j) { return "V(" + N[P(j).a] + "," + N[P(j).b] + ")"; }; std::string id = std::to_string(k++);
