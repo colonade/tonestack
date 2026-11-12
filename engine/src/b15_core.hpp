@@ -145,6 +145,7 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double spk_r2 = 20;   // geschätzt: Wirbelstromverluste der Schwingspule (20 Ω parallel zu Le, Impedanz bei 10 kHz etwa 25 Ω statt 64 Ω)
   double spk_re = 6.3, spk_le = 1.0e-3, spk_fs = 40, spk_qms = 5, spk_qes = 0.55, spk_vas = 280, spk_vb = 85;
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
+  bool ot_sat = true;   // Kernsättigung und Hysterese des Ausgangsübertragers; false nur für den Vergleich mit SPICE (tools/spiceref), dort nicht nachgebildet
 };
 // Buchsen: 0 = Kanal 1 "Bass" (ohne Teiler), 1 = Kanal 1 "Guitar" (mit 120 k + 100 k der leeren Bass-Buchse), 2 = Kanal 2
 struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; bool stby = false; int taper = 0; };   // taper: Kennlinie der Volume-Potis (1 MΩ log): 0 log 15 % in Mittelstellung, 1 log 10 %, 2 linear   // stby: STANDBY (Mittelanzapfung offen)   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
@@ -191,7 +192,7 @@ inline Built build(const Parts &v, const Setting &s) {
   o.c("pA", "c5", v.cc3); o.r("c5", "BIAS", v.rgl); o.r("c5", "g5", v.rgs);
   o.c("pB", "c4", v.cc3); o.r("c4", "BIAS", v.rgl); o.r("c4", "g4", v.rgs);
   B.mon[3] = (int)o.P.size(); pen("g5", "B2", "a5", "0"); dev.back().sc = 1 + s.mis / 2; B.mon[4] = (int)o.P.size(); pen("g4", "B2", "a4", "0"); dev.back().sc = 1 - s.mis / 2;
-  { int p = o.port("a5w", "a4w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; hystSetup(d, OT_SAT); dev.push_back(d); }   // Kernsättigung (Fluss über der ganzen Primärwicklung)
+  if (v.ot_sat) { int p = o.port("a5w", "a4w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; hystSetup(d, OT_SAT); dev.push_back(d); }   // Kernsättigung (Fluss über der ganzen Primärwicklung)
   mark(); G = 3;
   // --- Ausgangsübertrager: zwei Primärhälften, Sekundär 0–8 Ω–16 Ω; Gleichstromwiderstände als Reihenwiderstände ---
   { double np = 1, n8 = std::sqrt(8 / v.ot_zp), n16 = std::sqrt(16 / v.ot_zp);   // Windungen relativ zur ganzen Primärwicklung
