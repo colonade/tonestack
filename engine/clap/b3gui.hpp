@@ -1,4 +1,4 @@
-// Oberfläche des Yamaha-B100-III-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
+// Oberfläche des Lametta-B100-III-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
 // Oben die nachgezeichnete Frontplatte (engine/tools/b3_panel.py, kein Foto, kein Logo; ab 1.1 schwarz mit farbigen Knopfkappen wie am Gerät) mit Zeigern und den Anzeigen PARAMETRIC EQ 1 / 2 (Klick schaltet
 // den Entzerrer wie der Fußschalter), darunter der Modellstreifen (Überabtastung, Endstufe, Poti-Kennlinie, Aussteuerung, Instrument/Ausgangspegel)
 // und der Frequenzgang. Die Frequenzweiche ist gezeichnet, aber ohne Wirkung (abgeblendet).

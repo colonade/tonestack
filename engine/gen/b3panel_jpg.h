@@ -1,4 +1,4 @@
-// erzeugt von engine/tools/b3_panel.py: gezeichnete Frontplatte Yamaha B100-III (JPEG)
+// erzeugt von engine/tools/b3_panel.py: gezeichnete Frontplatte Lametta B100-III (JPEG)
 static const unsigned char B3PANEL_JPG[] = {
 255,216,255,224,0,16,74,70,73,70,0,1,1,0,0,1,0,1,0,0,255,219,0,67,
 0,3,2,2,3,2,2,3,3,3,3,4,3,3,4,5,8,5,5,4,4,5,10,7,

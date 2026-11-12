@@ -1,4 +1,4 @@
-// Yamaha G100-212II: Audio-Thread. Gerechnet wird im Rechen-Thread (g100-render.js, WebAssembly-Kern des ganzen Vorverstärkers samt Endstufe);
+// Lametta G100-212II: Audio-Thread. Gerechnet wird im Rechen-Thread (g100-render.js, WebAssembly-Kern des ganzen Vorverstärkers samt Endstufe);
 // der Audio-Thread schickt jeden Eingangsblock dorthin und spielt das Ergebnis mit Vorlauf ab (Bypass mit Pegelangleich wie bei den anderen Seiten).
 // Ohne Rechen-Thread (sehr alte Browser) rechnet der Audio-Thread selbst.
 (() => {

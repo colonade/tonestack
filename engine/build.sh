@@ -15,25 +15,25 @@ if [ "${U76PANEL:-0}" = 1 ]; then python3 tools/u76_panel.py "$R" >/dev/null; fi
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Yamaha_B100II.clap $(pkg-config --cflags --libs cairo x11)
+    -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Lametta_B100II.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/AmpFett_B15NF.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/gkplugin.cpp -o build/GK_800RB.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/g100plugin.cpp -o build/Yamaha_G100.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+    -Isrc -Igen -Ithird_party clap/g100plugin.cpp -o build/Lametta_G100.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/b3plugin.cpp -o build/Yamaha_B100III.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+    -Isrc -Igen -Ithird_party clap/b3plugin.cpp -o build/Lametta_B100III.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/svtplugin.cpp -o build/AmpFett_SVTCL.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/weqplugin.cpp -o build/Wien_EQ.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/u76plugin.cpp -o build/AmpFett_76.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-echo "CLAP: build/Laney_AOR50.clap, build/Yamaha_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap, build/Yamaha_G100.clap, build/Yamaha_B100III.clap, build/AmpFett_SVTCL.clap, build/Wien_EQ.clap, build/AmpFett_76.clap"
+echo "CLAP: build/Laney_AOR50.clap, build/Lametta_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap, build/Lametta_G100.clap, build/Lametta_B100III.clap, build/AmpFett_SVTCL.clap, build/Wien_EQ.clap, build/AmpFett_76.clap"
 if [ "${VST3:-0}" = 1 ]; then
   cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
-  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Yamaha_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3, build/vst3/Yamaha_G100.vst3, build/vst3/Yamaha_B100III.vst3, build/vst3/AmpFett_SVTCL.vst3, build/vst3/Wien_EQ.vst3, build/vst3/AmpFett_76.vst3"
+  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Lametta_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3, build/vst3/Lametta_G100.vst3, build/vst3/Lametta_B100III.vst3, build/vst3/AmpFett_SVTCL.vst3, build/vst3/Wien_EQ.vst3, build/vst3/AmpFett_76.vst3"
 fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"

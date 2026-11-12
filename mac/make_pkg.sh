@@ -18,9 +18,9 @@ post() {   # post <id> <Name> [weitere Namen]
 S
     echo "NAMES=\"$names\""
     cat <<'S'
-OLD=""; for n in $NAMES; do [ "$n" = Ampeg_B15NF ] && OLD=1; done
-# Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF: alte systemweite Fassung entfernen, sonst stünden beide in Logic
-if [ -n "$OLD" ]; then rm -rf "/Library/Audio/Plug-Ins/Components/Ampeg_B15NF.component" "/Library/Audio/Plug-Ins/VST3/Ampeg_B15NF.vst3"; fi
+# Frühere Namen (Ampeg_B15NF heißt seit 1.1 AmpFett_B15NF; Yamaha_B100II, Yamaha_G100, Yamaha_B100III heißen seit 2026-11-12 Lametta_…):
+# alte systemweite Fassung entfernen, sonst stünden beide in Logic
+for n in $NAMES; do case "$n" in Ampeg_*|Yamaha_*) rm -rf "/Library/Audio/Plug-Ins/Components/$n.component" "/Library/Audio/Plug-Ins/VST3/$n.vst3";; esac; done
 # Früher von Hand (ZIP) im Benutzerordner installierte Fassungen: dieselbe Audio-Unit-Kennung zweimal, und Logic nimmt womöglich die alte.
 # In den Papierkorb des angemeldeten Benutzers verschieben (wiederherstellbar), nicht löschen; geht das nicht (Papierkorb gesperrt),
 # in ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen (dort sucht kein Host).
@@ -43,7 +43,7 @@ killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
   } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
-post laney Laney_AOR50; post yamaha Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Yamaha_G100; post b100iii Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76
+post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -55,11 +55,11 @@ one() {   # one <Name> <id> <Version> <component|vst3>
   pkgbuild --root "$R" --component-plist "$W/$ID-$KIND.plist" --identifier "de.tonestack.$ID.$KIND" --version "$V" --install-location / ${SC[@]+"${SC[@]}"} "$W/pkgs/$ID-$KIND.pkg"
 }
 one Laney_AOR50 laney "$LV" component; one Laney_AOR50 laney "$LV" vst3
-one Yamaha_B100II yamaha "$YV" component; one Yamaha_B100II yamaha "$YV" vst3
+one Lametta_B100II yamaha "$YV" component; one Lametta_B100II yamaha "$YV" vst3
 one AmpFett_B15NF b15nf "$BV" component; one AmpFett_B15NF b15nf "$BV" vst3
 one GK_800RB gk800rb "$GV" component; one GK_800RB gk800rb "$GV" vst3
-one Yamaha_G100 g100 "$G1V" component; one Yamaha_G100 g100 "$G1V" vst3
-one Yamaha_B100III b100iii "$B3V" component; one Yamaha_B100III b100iii "$B3V" vst3
+one Lametta_G100 g100 "$G1V" component; one Lametta_G100 g100 "$G1V" vst3
+one Lametta_B100III b100iii "$B3V" component; one Lametta_B100III b100iii "$B3V" vst3
 one AmpFett_SVTCL svtcl "$SVV" component; one AmpFett_SVTCL svtcl "$SVV" vst3
 one Wien_EQ wieneq "$WQV" component; one Wien_EQ wieneq "$WQV" vst3
 one AmpFett_76 ampfett76 "$U76V" component; one AmpFett_76 ampfett76 "$U76V" vst3
@@ -100,7 +100,7 @@ cat > "$W/dist.xml" <<X
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Federhall, Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
   </choice>
-  <choice id="yamaha" title="Yamaha B100-II Bass Amp $YV" description="Transistor-Bassverstärker mit 5-Band-EQ, Endstufe und Lautsprecher. Audio Unit und VST3.">
+  <choice id="yamaha" title="Lametta B100-II Bass Amp $YV" description="Transistor-Bassverstärker mit 5-Band-EQ, Endstufe und Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.yamaha.component"/><pkg-ref id="de.tonestack.yamaha.vst3"/>
   </choice>
   <choice id="b15nf" title="AmpFett B-15NF Bass Amp $BV" description="Röhren-Bassverstärker nach dem Werksschaltplan (6SL7, 6L6GC, 5AR4) mit Netzteil, Gegenkopplung und Lautsprecher. Audio Unit und VST3.">
@@ -109,10 +109,10 @@ cat > "$W/dist.xml" <<X
   <choice id="gk800rb" title="GK 800RB Bass Amp $GV" description="Transistor-Bassverstärker nach dem Service-Manual 1991: Vorstufe als Schaltung (4-Band-EQ, Filter, Boost mit J113), Bi-Amp-Weiche, zwei Endstufen, Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.gk800rb.component"/><pkg-ref id="de.tonestack.gk800rb.vst3"/>
   </choice>
-  <choice id="g100" title="Yamaha G100-212II Guitar Amp $G1V" description="Transistor-Gitarrenverstärker nach dem Service Manual 1979: zwei Kanäle (A sauber, B mit Diodenbegrenzer und FET-Stufe), Zugschalter FAT/BRIGHT, parametrischer EQ, Federhall, 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
+  <choice id="g100" title="Lametta G100-212II Guitar Amp $G1V" description="Transistor-Gitarrenverstärker nach dem Service Manual 1979: zwei Kanäle (A sauber, B mit Diodenbegrenzer und FET-Stufe), Zugschalter FAT/BRIGHT, parametrischer EQ, Federhall, 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.g100.component"/><pkg-ref id="de.tonestack.g100.vst3"/>
   </choice>
-  <choice id="b100iii" title="Yamaha B100-III Bass Amp $B3V" description="Transistor-Bassverstärker nach dem Service Manual 1984: aktive Klangregelung, zwei parametrische Entzerrer mit PRESET LEVEL (ein/aus wie mit dem Fußschalter), 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
+  <choice id="b100iii" title="Lametta B100-III Bass Amp $B3V" description="Transistor-Bassverstärker nach dem Service Manual 1984: aktive Klangregelung, zwei parametrische Entzerrer mit PRESET LEVEL (ein/aus wie mit dem Fußschalter), 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.b100iii.component"/><pkg-ref id="de.tonestack.b100iii.vst3"/>
   </choice>
   <choice id="svtcl" title="AmpFett SVT-CL Bass Amp $SVV" description="Röhren-Bassverstärker (300 W) nach dem Service Manual des Ampeg SVT-CL: Vorstufe mit 12AX7, Klangregelung mit fünfstufiger Mittenfrequenz, ULTRA HI/LO, Phasenumkehr, Treiber mit 12AU7, Endstufe mit sechs 6550 und Ausgangsübertrager (4 oder 2 Ω); ohne Lautsprecher. Audio Unit und VST3.">

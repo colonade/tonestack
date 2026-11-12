@@ -1,4 +1,4 @@
-// C-Schnittstelle des Yamaha-B100-III-Kerns für WebAssembly: Verstärker (Wiedergabe) und eine zweite Instanz nur für den Frequenzgang
+// C-Schnittstelle des Lametta-B100-III-Kerns für WebAssembly: Verstärker (Wiedergabe) und eine zweite Instanz nur für den Frequenzgang
 #include "b3_core.hpp"
 using namespace b3;
 static Amp *A = nullptr; static Core *P = nullptr; static float bufB[8192]; static double tgtB[24], peakB[8], freqB[512], respB[512];

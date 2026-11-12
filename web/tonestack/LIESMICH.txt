@@ -4,13 +4,14 @@ KLANGREGLER-SIMULATOREN – Installation auf einem Apache-Webserver
 Inhalt
 ------
 index.html                     Übersichtsseite mit Links zu allen sieben Verstärker-Simulatoren, dem Wien EQ und dem AmpFett 76
-yamaha-b100ii/                 Yamaha B100-II Klangregler-Simulator
+lametta-b100ii/                 Lametta B100-II Klangregler-Simulator
 laney-aor50/                   Laney AOR 50 Klangregler-Simulator
 ampfett-b15nf/                 AmpFett B-15NF Simulator, Nachbau des Ampeg B-15NF (ganzer Verstärker; Rechen-Thread b15nf-render.js)
 ampeg-b15nf/                   Weiterleitung auf ampfett-b15nf/ (alter Name)
+yamaha-b100ii/ yamaha-g100/ yamaha-b100iii/   Weiterleitungen auf lametta-…/ (alte Namen, bis 2026-11-11)
 gk-800rb/                      GK 800RB Simulator, Nachbau nach dem Service-Manual (Vorstufe, Endstufen; Rechen-Thread gk-render.js)
-yamaha-g100/                   Yamaha G100-212II Simulator, Nachbau nach dem Service Manual (Vorverstärker, Federhall als Schaltung + physikalisches Federmodell, Endstufe; Lautsprecher 2 × Celestion G12T-75 in der offenen Box wahlweise (ab 1.10); Rechen-Thread g100-render.js)
-yamaha-b100iii/                Yamaha B100-III Simulator, Nachbau nach dem Service Manual (Vorverstärker mit Klangregelung und zwei parametrischen Entzerrern, Endstufe; ohne Lautsprecher; Rechen-Thread b3-render.js)
+lametta-g100/                  Lametta G100-212II Simulator, Nachbau des Yamaha G100-212II nach dem Service Manual (Vorverstärker, Federhall als Schaltung + physikalisches Federmodell, Endstufe; Lautsprecher 2 × Celestion G12T-75 in der offenen Box wahlweise (ab 1.10); Rechen-Thread g100-render.js)
+lametta-b100iii/               Lametta B100-III Simulator, Nachbau des Yamaha B100-112III/115III nach dem Service Manual (Vorverstärker mit Klangregelung und zwei parametrischen Entzerrern, Endstufe; ohne Lautsprecher; Rechen-Thread b3-render.js)
 ampfett-svtcl/                 AmpFett SVT-CL Simulator, Nachbau des Ampeg SVT-CL nach dem Service Manual (ganzer Röhrenverstärker mit Endstufe und Netzteil; ohne Lautsprecher; Rechen-Thread svtcl-render.js)
 wien-eq/                       Wien EQ, Fünfband-Equalizer mit Wien-Brücken nach den Angaben zum adt-audio TM205 (eigener Entwurf; Rechen-Thread weq-render.js)
 ampfett-76/                    AmpFett 76, FET-Kompressor nach dem Schaltplan des UREI 1176LN mit Erweiterungen nach dem Vorbild des Cali76 (Rechen-Thread u76-render.js, auch für die Kennlinie)
@@ -50,8 +51,8 @@ Anhören eigener Audiodateien (alle Simulatoren)
 In allen Simulatoren lässt sich eine Audiodatei laden und im Loop durch die
 berechnete Schaltung abspielen. Die Datei wird nur im Browser verarbeitet,
 nichts wird zum Server übertragen. Die Rechnung läuft im eingebetteten WebAssembly-Kern; Ausweichkerne und
-Audio-Thread stehen in yamaha-b100ii/b100ii-worklet.js, laney-aor50/laney-worklet.js
-bzw. ampfett-b15nf/b15nf-worklet.js und b15nf-render.js, gk-800rb/gk-worklet.js und gk-render.js, yamaha-g100/g100-worklet.js und g100-render.js, yamaha-b100iii/b3-worklet.js und b3-render.js, ampfett-svtcl/svtcl-worklet.js und svtcl-render.js, wien-eq/weq-worklet.js und weq-render.js, ampfett-76/u76-worklet.js und u76-render.js (müssen mit hochgeladen werden).
+Audio-Thread stehen in lametta-b100ii/b100ii-worklet.js, laney-aor50/laney-worklet.js
+bzw. ampfett-b15nf/b15nf-worklet.js und b15nf-render.js, gk-800rb/gk-worklet.js und gk-render.js, lametta-g100/g100-worklet.js und g100-render.js, lametta-b100iii/b3-worklet.js und b3-render.js, ampfett-svtcl/svtcl-worklet.js und svtcl-render.js, wien-eq/weq-worklet.js und weq-render.js, ampfett-76/u76-worklet.js und u76-render.js (müssen mit hochgeladen werden).
 Laney: Standardmäßig ist die geschätzte Röhrenverzerrung eingeschaltet
 (Röhrenmodelle nach N. Koren mit Gitterstrom, Röhrentyp je Fassung wählbar,
 Grundeinstellung 3 x 5751; nicht mit einem echten AOR 50 verglichen); ohne

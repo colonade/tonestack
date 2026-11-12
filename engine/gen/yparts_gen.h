@@ -1,4 +1,4 @@
-// erzeugt von engine/tools/extract.js aus web/tonestack/yamaha-b100ii/index.html (Yamaha B100-II): Bauteilschlüssel in Übergabe-Reihenfolge, Standardwerte (SI) für das Plugin
+// erzeugt von engine/tools/extract.js aus web/tonestack/lametta-b100ii/index.html (Lametta B100-II): Bauteilschlüssel in Übergabe-Reihenfolge, Standardwerte (SI) für das Plugin
 #define YPARTS_LIST(X) \
   X(rs) \
   X(rsl) \

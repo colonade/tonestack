@@ -1,8 +1,8 @@
-Yamaha B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.7
+Lametta B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.8
 
 Two formats, one engine
-  Yamaha_B100III.clap and Yamaha_B100III.vst3 contain the same code and
+  Lametta_B100III.clap and Lametta_B100III.vst3 contain the same code and
   sound identical. Use whichever your DAW prefers. CLAP is the native
   format, the VST3 is built from it with clap-wrapper (free-audio, MIT) and
   the VST3 SDK 3.8 (Steinberg, MIT). A project saved with one format does
@@ -16,17 +16,17 @@ Updating
   plugin file in place.
 
 Installation (CLAP)
-  mkdir -p ~/.clap && cp Yamaha_B100III.clap ~/.clap/
+  mkdir -p ~/.clap && cp Lametta_B100III.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
   path if it is not there and press "Re-scan". The plugin then appears in
-  the FX browser under CLAP as "Yamaha B100-III Bass Amp".
+  the FX browser under CLAP as "Lametta B100-III Bass Amp".
 
 Installation (VST3)
-  mkdir -p ~/.vst3 && cp -r Yamaha_B100III.vst3 ~/.vst3/
-  (Yamaha_B100III.vst3 is a folder - copy it as a whole.) Then "Re-scan".
+  mkdir -p ~/.vst3 && cp -r Lametta_B100III.vst3 ~/.vst3/
+  (Lametta_B100III.vst3 is a folder - copy it as a whole.) Then "Re-scan".
 
 What it is
-  A rebuild of the Yamaha B100-112III / B100-115III bass amplifier after the
+  Lametta B100-III is a rebuild of the Yamaha B100-112III / B100-115III bass amplifier after the
   service manual (1984: schematic, specifications) and the owner's manual.
   The whole preamp is solved sample by sample as one circuit (nodal DK
   method, like the other tonestack amps), from the input jack to the gate
@@ -212,3 +212,13 @@ Notes
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
   Yamaha is a trademark of Yamaha Corporation; this is an independent
   circuit simulation, not affiliated with or endorsed by them.
+
+NEW NAME (1.8)
+  The plugin is now called Lametta B100-III (before: Yamaha B100-III). It is a
+  rebuild of the Yamaha B100-112III / B100-115III bass amplifier after its service manual; Yamaha is a
+  trademark of Yamaha Corporation, this is an independent simulation.
+  No change in sound. File names and the plugin ID changed (Lametta_B100III.clap / .vst3,
+  de.tonestack.lametta-b100iii): projects that used the old plugin do not find it any more;
+  insert the new one and set the controls again. Remove the old files
+  Yamaha_*.clap / Yamaha_*.vst3 by hand if you installed them yourself
+  (the update script and the Mac installer do it).

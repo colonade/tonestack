@@ -1,4 +1,4 @@
-# Yamaha G100-212II: Schaltung, wie sie gerechnet wird
+# Lametta G100-212II: Schaltung, wie sie gerechnet wird
 
 Quelle (nicht im Repository): Yamaha Service Manual **YAMU-02234** „G50-112II, G100-112, G100-115II, G100-210, G100-212II“ (19 Seiten, '79.10):
 Seite 1 Frontplatten, Seite 3 Technische Daten, Seiten 4–6 Einstell- und Prüfanweisungen (Tabellen 1–11), Seite 7 Frequenzgangdiagramme,

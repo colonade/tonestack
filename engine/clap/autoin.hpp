@@ -28,7 +28,7 @@ struct AutoIn {
     for (uint32_t i = 0; i < n; i++) { double a = std::fabs((double)m[i]); if (m2) a = std::max(a, std::fabs((double)m2[i]));
       if (std::isfinite(a) && a > p) p = std::min(a, 1e3); double g = 1 / std::max(p, FLOOR); m[i] = (float)(m[i] * g); if (m2) m2[i] = (float)(m2[i] * g); }
     pk.store(p); }
-  // nur lernen (Yamaha B100-II: dort wirkt der Pegel nur im Endstufenpfad, als vin des Kerns): Spitze des Blocks übernehmen, gemerkte Spitze zurück
+  // nur lernen (Lametta B100-II: dort wirkt der Pegel nur im Endstufenpfad, als vin des Kerns): Spitze des Blocks übernehmen, gemerkte Spitze zurück
   double learn(double blockPeak) { if (reset.exchange(false)) pk.store(0); double p = pk.load(); if (std::isfinite(blockPeak) && blockPeak > p) { p = std::min(blockPeak, 1e3); pk.store(p); } return p; }
 };
 inline double pkDb(double pk) { return pk > 0 ? 20 * std::log10(pk) : -999; }   // −999: noch nichts gehört

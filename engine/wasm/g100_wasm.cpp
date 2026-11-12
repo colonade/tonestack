@@ -1,4 +1,4 @@
-// C-Schnittstelle des Yamaha-G100-212II-Kerns für WebAssembly: Verstärker (Wiedergabe) und eine zweite Instanz nur für den Frequenzgang
+// C-Schnittstelle des Lametta-G100-212II-Kerns für WebAssembly: Verstärker (Wiedergabe) und eine zweite Instanz nur für den Frequenzgang
 #include "g100_core.hpp"
 using namespace g100;
 static Amp *A = nullptr; static Core *P = nullptr; static float bufB[8192]; static double tgtB[24], peakB[8], freqB[512], respB[512];

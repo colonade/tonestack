@@ -1,6 +1,6 @@
-// Yamaha B100-112III / B100-115III (Service Manual 006594, 1984: Vorverstärker als Schaltung, Endstufe nach der Spezifikation geeicht; ohne Lautsprecher, Frequenzweiche, symmetrischen Ausgang) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
+// Lametta B100-III = Nachbau des Yamaha B100-112III / B100-115III (Service Manual 006594, 1984: Vorverstärker als Schaltung, Endstufe nach der Spezifikation geeicht; ohne Lautsprecher, Frequenzweiche, symmetrischen Ausgang) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.7"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b3_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -90,7 +90,7 @@ static uint32_t par_count(const clap_plugin_t *) { return P_COUNT; }
 static bool par_info(const clap_plugin_t *, uint32_t i, clap_param_info_t *info) {
   if (i >= P_COUNT) return false; const PDef &d = PD[i]; std::memset(info, 0, sizeof *info); info->id = i;
   info->flags = CLAP_PARAM_IS_AUTOMATABLE | (d.names ? CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM : 0);
-  info->min_value = d.lo; info->max_value = d.hi; info->default_value = d.def; std::snprintf(info->name, sizeof info->name, "%s", d.name); std::snprintf(info->module, sizeof info->module, "%s", "Yamaha B100-III"); return true; }
+  info->min_value = d.lo; info->max_value = d.hi; info->default_value = d.def; std::snprintf(info->name, sizeof info->name, "%s", d.name); std::snprintf(info->module, sizeof info->module, "%s", "Lametta B100-III"); return true; }
 static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id >= P_COUNT) return false; *out = P(p)->val[id]; return true; }
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
@@ -326,7 +326,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.yamaha-b100iii", "Yamaha B100-III Bass Amp", "tonestack", "", "", "", TS_VERSION, "Solid-state bass amp after the 1984 service manual (B100-112III/115III): input stage, active treble/middle/bass, two fully parametric EQs with preset level, 100 W power amp; no speaker, crossover or DI output", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.lametta-b100iii", "Lametta B100-III Bass Amp", "tonestack", "", "", "", TS_VERSION, "Solid-state bass amp after the 1984 service manual (B100-112III/115III): input stage, active treble/middle/bass, two fully parametric EQs with preset level, 100 W power amp; no speaker, crossover or DI output", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

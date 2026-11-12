@@ -1,8 +1,8 @@
-Yamaha B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.20
+Lametta B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.21
 
 Two formats, one engine
-  Yamaha_B100II.clap and Yamaha_B100II.vst3 contain the same code and sound identical
+  Lametta_B100II.clap and Lametta_B100II.vst3 contain the same code and sound identical
   (checked sample by sample). Use whichever your DAW prefers; REAPER
   handles both. CLAP is the native format, the VST3 is built from it with
   clap-wrapper (free-audio, MIT) and the VST3 SDK 3.8 (Steinberg, MIT) and
@@ -17,20 +17,20 @@ Updating
   plugin file in place.
 
 Installation (CLAP)
-  mkdir -p ~/.clap && cp Yamaha_B100II.clap ~/.clap/
+  mkdir -p ~/.clap && cp Lametta_B100II.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
   path if it is not there and press "Re-scan". The plugin then appears in
-  the FX browser under CLAP as "Yamaha B100-II Bass Amp".
+  the FX browser under CLAP as "Lametta B100-II Bass Amp".
 
 Installation (VST3)
-  mkdir -p ~/.vst3 && cp -r Yamaha_B100II.vst3 ~/.vst3/
-  (Yamaha_B100II.vst3 is a folder - copy it as a whole.) REAPER searches ~/.vst3
+  mkdir -p ~/.vst3 && cp -r Lametta_B100II.vst3 ~/.vst3/
+  (Lametta_B100II.vst3 is a folder - copy it as a whole.) REAPER searches ~/.vst3
   by default; otherwise add it under Options > Preferences > Plug-ins >
-  VST, then "Re-scan". The plugin appears under VST3 as "Yamaha B100-II Bass Amp".
+  VST, then "Re-scan". The plugin appears under VST3 as "Lametta B100-II Bass Amp".
 
 What it is
   The same engine as the web simulator (https://borg.fluxstatus.de/tonestack/
-  yamaha-b100ii/), translated to C++: the whole PA board of the B100-115II
+  lametta-b100ii/), translated to C++: the whole PA board of the B100-115II
   from the 1979 service manual - TR101 source follower input, tone controls
   (treble, middle, bass), TR102, volume, TR103/TR104, TR105 with the five
   gyrator EQ bands (60, 150, 320, 640, 1250 Hz) - as a linear network solved
@@ -285,3 +285,13 @@ Notes
   True stereo: left and right are processed by two independent engines. A
   mono input is sent to both channels.
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
+
+NEW NAME (1.21)
+  The plugin is now called Lametta B100-II (before: Yamaha B100-II). It is a
+  rebuild of the Yamaha B100-115II bass combo after its service manual; Yamaha is a
+  trademark of Yamaha Corporation, this is an independent simulation.
+  No change in sound. File names and the plugin ID changed (Lametta_B100II.clap / .vst3,
+  de.tonestack.lametta-b100ii): projects that used the old plugin do not find it any more;
+  insert the new one and set the controls again. Remove the old files
+  Yamaha_*.clap / Yamaha_*.vst3 by hand if you installed them yourself
+  (the update script and the Mac installer do it).

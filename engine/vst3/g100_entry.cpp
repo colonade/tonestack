@@ -1,4 +1,4 @@
-// Einstieg des Yamaha-G100-212II-Plugins für clap-wrapper (VST3): verweist auf die Funktionen aus engine/clap/g100plugin.cpp
+// Einstieg des Lametta-G100-212II-Plugins für clap-wrapper (VST3): verweist auf die Funktionen aus engine/clap/g100plugin.cpp
 #include <clap/clap.h>
 extern "C" {
 bool g100_entry_init(const char *path);

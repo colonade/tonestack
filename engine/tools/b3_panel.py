@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Zeichnet die Frontplatte des Yamaha-B100-III-Simulators nach der Zeichnung auf Seite 2 des Service Manuals (B100-115III): INPUT; VOLUME,
+# Zeichnet die Frontplatte des Lametta-B100-III-Simulators nach der Zeichnung auf Seite 2 des Service Manuals (B100-115III): INPUT; VOLUME,
 # TREBLE, MIDDLE, BASS; PARAMETRIC EQ 1 (Anzeige, LEVEL, Q, FREQUENCY, PRESET LEVEL); PARAMETRIC EQ 2; CROSSOVER (LPF LEVEL, FREQUENCY,
 # HPF LEVEL – im Simulator ohne Wirkung); PHONES, FOOT SW, POWER-Anzeige und -Taste. Ab Plugin 1.1 Farben wie am Gerät (nach einem Foto der
 # Frontplatte, das der Nutzer geschickt hat; das Foto selbst ist nicht im Repository): schwarze Platte mit heller Schrift, schwarze Riffelknöpfe mit farbiger
@@ -8,7 +8,7 @@
 #   engine/gen/b3panel.jpg   Bild 2000 × 240 (Knöpfe ohne Zeiger; Zeiger und Anzeigen zeichnen Seite und Plugin)
 #   engine/gen/b3geo.json    Lage von Knöpfen, Anzeigen und Buchsen in Bildpunkten
 #   engine/gen/b3panel_jpg.h, engine/gen/b3geo_gen.h   für das Plugin
-#   web/tonestack/assets/icons/yamaha-b100iii-{180,192,512,maskable-512}.png   Ausschnitt um VOLUME als Seitensymbol
+#   web/tonestack/assets/icons/lametta-b100iii-{180,192,512,maskable-512}.png   Ausschnitt um VOLUME als Seitensymbol
 #   python3 engine/tools/b3_panel.py [repo]
 import json, os, sys, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -109,7 +109,7 @@ def main():
     json.dump(geo, open(os.path.join(GEN, 'b3geo.json'), 'w'))
     data = open(jp, 'rb').read()
     with open(os.path.join(GEN, 'b3panel_jpg.h'), 'w') as f:
-        f.write('// erzeugt von engine/tools/b3_panel.py: gezeichnete Frontplatte Yamaha B100-III (JPEG)\nstatic const unsigned char B3PANEL_JPG[] = {\n')
+        f.write('// erzeugt von engine/tools/b3_panel.py: gezeichnete Frontplatte Lametta B100-III (JPEG)\nstatic const unsigned char B3PANEL_JPG[] = {\n')
         for i in range(0, len(data), 24): f.write(','.join(str(b) for b in data[i:i + 24]) + ',\n')
         f.write('};\nstatic const unsigned int B3PANEL_JPG_LEN = %d;\n' % len(data))
     with open(os.path.join(GEN, 'b3geo_gen.h'), 'w') as f:
@@ -122,6 +122,6 @@ def main():
     print('b3panel.jpg', len(data), 'Bytes')
     S4 = 4; big = draw(S4); x0 = KNOBS[0][1] - 84; crop = big.crop((x0 * S4, 40 * S4, (x0 + 172) * S4, 212 * S4))
     ICO = os.path.join(R, 'web', 'tonestack', 'assets', 'icons'); os.makedirs(ICO, exist_ok=True)
-    for n in (180, 192, 512): crop.resize((n, n), Image.LANCZOS).save(os.path.join(ICO, 'yamaha-b100iii-%d.png' % n), optimize=True)
-    m = Image.new('RGB', (512, 512), PANEL); m.paste(crop.resize((410, 410), Image.LANCZOS), (51, 51)); m.save(os.path.join(ICO, 'yamaha-b100iii-maskable-512.png'), optimize=True)
+    for n in (180, 192, 512): crop.resize((n, n), Image.LANCZOS).save(os.path.join(ICO, 'lametta-b100iii-%d.png' % n), optimize=True)
+    m = Image.new('RGB', (512, 512), PANEL); m.paste(crop.resize((410, 410), Image.LANCZOS), (51, 51)); m.save(os.path.join(ICO, 'lametta-b100iii-maskable-512.png'), optimize=True)
 if __name__ == '__main__': main()

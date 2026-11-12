@@ -95,7 +95,7 @@ if teil plugins; then
       printf '%s\t%s\n' "$v" "$f"
     done | sort -V -k1,1 | tail -n1 | cut -f2-
   }
-  for AMP in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do
+  for AMP in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
     GEF=1; NAME="$(basename "$PZ" .zip)"
@@ -138,12 +138,16 @@ if teil plugins; then
     rm -rf "$T"
    done
   done
-  # umbenannt: Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF. Die alte Fassung erst wegräumen, wenn die neue im selben Format da ist
-  for PAAR in "$CLAPDIR/Ampeg_B15NF.clap:$CLAPDIR/AmpFett_B15NF.clap" "$VST3DIR/Ampeg_B15NF.vst3:$VST3DIR/AmpFett_B15NF.vst3"; do
+  # umbenannt: Ampeg_B15NF (1.0) heißt seit 1.1 AmpFett_B15NF; Yamaha_B100II, Yamaha_G100, Yamaha_B100III heißen seit 2026-11-12 Lametta_….
+  # Die alte Fassung erst wegräumen, wenn die neue im selben Format da ist
+  for PAAR in "$CLAPDIR/Ampeg_B15NF.clap:$CLAPDIR/AmpFett_B15NF.clap" "$VST3DIR/Ampeg_B15NF.vst3:$VST3DIR/AmpFett_B15NF.vst3" \
+              "$CLAPDIR/Yamaha_B100II.clap:$CLAPDIR/Lametta_B100II.clap" "$VST3DIR/Yamaha_B100II.vst3:$VST3DIR/Lametta_B100II.vst3" \
+              "$CLAPDIR/Yamaha_G100.clap:$CLAPDIR/Lametta_G100.clap" "$VST3DIR/Yamaha_G100.vst3:$VST3DIR/Lametta_G100.vst3" \
+              "$CLAPDIR/Yamaha_B100III.clap:$CLAPDIR/Lametta_B100III.clap" "$VST3DIR/Yamaha_B100III.vst3:$VST3DIR/Lametta_B100III.vst3"; do
     VORHER="${PAAR%%:*}"; NEUES="${PAAR#*:}"
     [ -e "$VORHER" ] && [ -e "$NEUES" ] || continue
     SICH="$(dirname "$VORHER")/../.tonestack-sicherungen"; mkdir -p "$SICH"; SICH="$(cd "$SICH" && pwd)"
-    if mv "$VORHER" "$SICH/$(basename "$VORHER").$(date +%Y%m%d-%H%M%S)"; then info "alte Fassung $(basename "$VORHER") nach $SICH verschoben (heißt jetzt AmpFett_B15NF)"; merke "$(basename "$VORHER"): weggeräumt (umbenannt)"
+    if mv "$VORHER" "$SICH/$(basename "$VORHER").$(date +%Y%m%d-%H%M%S)"; then info "alte Fassung $(basename "$VORHER") nach $SICH verschoben (heißt jetzt $(basename "$NEUES"))"; merke "$(basename "$VORHER"): weggeräumt (umbenannt)"
     else rot "  $(basename "$VORHER") ließ sich nicht verschieben – bitte von Hand löschen"; merke "$(basename "$VORHER"): FEHLER beim Wegräumen"; fi
   done
   [ $GEF -eq 1 ] && info "In REAPER: Options > Preferences > Plug-ins > CLAP bzw. VST > Re-scan (REAPER hält geladene Plugins bis zum Neustart)."
