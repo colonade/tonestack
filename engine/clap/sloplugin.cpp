@@ -1,6 +1,6 @@
 // Loldano SLO-100, Nachbau des Soldano SLO-100 Super Lead Overdrive (nach dem beschrifteten Gesamtplan von R. Robinette; alle Röhren gerechnet, src/slo_core.hpp) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "slo_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"

@@ -36,7 +36,7 @@ Schreibweise: „A“ am Poti = logarithmisch, „B“/„lin.“ = linear (amer
   Gitter- und Schirmgitterwiderstand halbiert); Schirmgitter 470 Ω je Röhre an B+2; Kathoden an Masse.
 - Ausgangsübertrager 2,2 kΩ Anode–Anode auf 8 Ω; 4-Ω-Abgriff = 0,707 × Spannung der 8-Ω-Wicklung (für die Gegenkopplung).
 ### Netzteil
-- Gleichspannung hinter Innenwiderstand und Diode (statt Netztrafo und Brückengleichrichter) → 200 µ (B+1, Anoden) → Drossel → 100 µ (B+2, Schirmgitter)
+- Gleichspannung hinter Innenwiderstand (statt Netztrafo und Brückengleichrichter; der Gleichrichter leitet an Gleichspannung immer und steckt als 0,62 V und 0,5 Ω im Innenwiderstand) → 200 µ (B+1, Anoden) → Drossel → 100 µ (B+2, Schirmgitter)
   → 10 k → 40 µ (B+3) → 15 k → 10 µ (B+4) und 15 k → 10 µ (B+5).
 - Vorspannung: Gleichspannung hinter 15 k mit 10 µ (statt 50-V-Wicklung, Diode, Teiler und Trimmer).
 
@@ -48,7 +48,7 @@ Schreibweise: „A“ am Poti = logarithmisch, „B“/„lin.“ = linear (amer
 | B+3 | 378 V | 379,7 V |
 | B+4 | 350 V | 361,3 V |
 | B+5 | 359 V | 352,8 V |
-| Leistung bei 5 % Klirr (NORMAL, 1 kHz) | 100 W Nennleistung | 102 W |
+| Leistung bei 5 % Klirr (NORMAL, 1 kHz) | 100 W Nennleistung | 101 W |
 | Ruhestrom je 6L6GC | – | 35,0 mA (Annahme, darauf geeicht) |
 
 B+4 und B+5 sind im Plan vermutlich vertauscht: V1 (an B+5) zieht mehr Strom als V2 (an B+4), die Summe passt.
@@ -63,7 +63,8 @@ NORMAL (Clean), PREAMP 5, MASTER 3: Verstärkung 34,4 dB bei 1 kHz; 82 Hz −5,2
 - Netzteil: Leerlaufspannung 510,45 V hinter 80 Ω (so, dass B+1 in Ruhe 497 V hat), Drossel 10 H / 100 Ω.
 - Vorspannung −58,1 V (so, dass jede 6L6GC in Ruhe 35 mA zieht; der Plan nennt keinen Ruhestrom).
 - Fotowiderstände VTL5C1: leitend 600 Ω, gesperrt 50 MΩ (Datenblatt), ohne ihre Trägheit (Umschalten im Plugin mit kurzem Aus- und Einblenden).
-- Röhrenkapazitäten 12AX7 nach Datenblatt: 1,6 pF Gitter–Kathode, 1,7 pF Gitter–Anode, als echte Kapazitäten zwischen den Elektroden.
+- Röhrenkapazitäten 12AX7 nach Datenblatt: 1,6 pF Gitter–Kathode, 1,7 pF Gitter–Anode, als echte Kapazitäten zwischen den Elektroden – bei den sechs Verstärkerstufen und dem Eingang der Phasenumkehr.
+  Bei den Kathodenfolgern V3A/V4A und der zweiten Hälfte der Phasenumkehr weggelassen (ab 1.1): Frequenzgang bis 20 kHz höchstens 0,03 dB anders. Ohne die Gitter–Kathoden-Kapazitäten der Verstärkerstufen wären es 0,2 dB bei 10 kHz, daher bleiben sie.
 - Lautsprecher: Schwingspule 6,4 Ω, 0,6 mH mit 30 Ω parallel, Resonanz 110 Hz (Qms 6, Qes 1) – vier 12-Zoll-Lautsprecher in geschlossener Box als 8-Ω-Last.
 - Logarithmische Potis: 15 % in Mittelstellung.
 - Röhrenmodelle: 12AX7 nach Dempwolf (wie im Laney), Gitterstrom gemessen; 6L6GC Strahltetroden-Modell aus uTracer-Messungen (D. Reefman), Gitterstrom nach RCA-Datenblatt.
@@ -72,8 +73,21 @@ NORMAL (Clean), PREAMP 5, MASTER 3: Verstärkung 34,4 dB bei 1 kHz; 82 Hz −5,2
 Rauschen und Brummen, Trägheit der Fotowiderstände, Geräte im Effektweg, SLAVE-Ausgang, Impedanzwahl (immer 8 Ω), DEPTH (das Original hat keinen), STANDBY/POWER.
 
 ## Rechnung
-Ein Netz für die ganze Schaltung (74 Knoten, 58 Zustände, 27 nichtlineare Tore), Trapezregel, Newton. Gelöst in drei Gruppen: die ganze Vorstufe (acht Trioden) gemeinsam,
+Ein Netz für die ganze Schaltung (72 Knoten, 51 Zustände, 26 nichtlineare Tore), Trapezregel, Newton. Gelöst in drei Gruppen: die ganze Vorstufe (acht Trioden) gemeinsam,
 Phasenumkehr mit Endstufe, Netzteil. Je Stufe einzeln gelöst brauchte das Verfahren bei Übersteuerung bis zu sechs Durchgänge (das Gitter der nächsten Stufe belastet die
-Anode der vorigen), und der OVERDRIVE-Kanal verstärkte den Rest der Rechnung mit: Ruherauschen bei allen Reglern auf 10 −51 dBFS, gemeinsam gelöst −96 dBFS.
+Anode der vorigen), und der OVERDRIVE-Kanal verstärkte den Rest der Rechnung mit: Ruherauschen bei allen Reglern auf 10 −51 dBFS, gemeinsam gelöst −91 dBFS.
 Ausgabe: 100 V = 0 dBFS. Überabtastung 1x/2x/4x; Aliasing bei 48 kHz, 1,3-kHz-Ton, OVERDRIVE, PREAMP 6: −18 / −37 / −47 dB.
 Rechenlast: in Ruhe etwa wie der AmpFett SVT-CL je Rechentakt, bei kräftiger Übersteuerung bis zum Doppelten (mehr Newton-Schritte); 2x kostet das Doppelte von 1x.
+
+## Rechenlast (1.1, Befehle je Abtastwert bei 96 kHz Rechentakt, gezählt mit callgrind)
+| | 1.0 | 1.1 |
+|---|---|---|
+| OVERDRIVE, kräftige Anschläge (PREAMP 8, MASTER 6) | 185,9 Tsd. | 173,8 Tsd. |
+| NORMAL/CRUNCH, kräftige Anschläge | 169,0 Tsd. | 157,5 Tsd. |
+| Ruhe | 78,6 Tsd. | 69,8 Tsd. |
+
+Entfallen: sechs Röhrenkapazitäten, ein BRIGHT-Kondensator, das nichtlineare Tor des Gleichrichters. Offene Schalterkontakte 100 GΩ statt 1 GΩ (mit 1 GΩ sprach das ungeteilte
+Signal am CLEAN-Abschwächer vorbei um 0,05 dB über). Ohne Wirkung und verworfen: Röhren des nicht gewählten Kanals als eigene Gruppe (±5 %), Zerlegung über Abtastwerte
+weiterverwenden (Ruhe −24 %, übersteuert +9 %), dünne Produkte (+12 … +29 %).
+Verteilung bei 1.1, übersteuert: Newton-Löser etwa die Hälfte (Aufbau der Matrix, Zerlegung, Rückwärtseinsetzen, Nachführen der Ströme), Röhrenkennlinien ein Viertel
+(exp, log, pow), lineare Produkte ein Achtel. Diese Teile (dk.hpp, b15_core.hpp) teilen sich alle Verstärker; sie schneller zu machen ändert alle Plugins.

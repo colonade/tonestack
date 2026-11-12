@@ -17,15 +17,12 @@
 namespace slo {
 using b15::PI;
 static const b15::TriodeD T12AX7 = {2.019059e-3, 2.02928, 100, 1.26};   // wie im Laney (an Datenblatt und Plan-Spannungen angepasst), Gitterstrom gemessen (Dempwolf)
-enum Kind { K_TRI = 0, K_PEN = 1, K_SI = 2 };
-inline void rect(const double *v, double *i, double *J) { const double U0 = 0.62, W = 0.025, R = 0.5; double x = (v[0] - U0) / W;
-  if (x > 35) { i[0] = (v[0] - U0) / R; J[0] = 1 / R; return; } if (x < -40) { i[0] = 0; J[0] = 0; return; }
-  double e = std::exp(x); i[0] = W / R * std::log1p(e); J[0] = e / (1 + e) / R; }
+enum Kind { K_TRI = 0, K_PEN = 1 };
+constexpr double SI_U = 0.62, SI_R = 0.5;   // Gleichrichterdiode: Schwellspannung und Bahnwiderstand
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
   switch (d.kind) {
     case K_TRI: b15::triodeD(T12AX7, v, i, J); break;
-    case K_PEN: b15::pentodeD(b15::D6L6, v, i, J); for (int k = 0; k < 3; k++) i[k] *= d.sc; for (int k = 0; k < 9; k++) J[k] *= d.sc; break;   // zwei 6L6GC je Seite: sc = 2
-    default: rect(v, i, J); } }
+    default: b15::pentodeD(b15::D6L6, v, i, J); for (int k = 0; k < 3; k++) i[k] *= d.sc; for (int k = 0; k < 9; k++) J[k] *= d.sc; } }   // zwei 6L6GC je Seite: sc = 2
 inline double taperA(double x) { const double s = 1 / 0.15 - 1, b = s * s; return (std::pow(b, x) - 1) / (b - 1); }   // „A“ im Plan = logarithmisch (15 % in der Mitte, Annahme)
 
 struct Parts {
@@ -41,6 +38,8 @@ struct Parts {
   // Endstufe: je Seite zwei 6L6GC parallel (Gitter 2,2 k und Schirm 470 Ω je Röhre → für das Paar halbiert)
   double cco = 0.047e-6, rgl2 = 220e3, rgs = 2.2e3 / 2, rscr = 470.0 / 2;
   // Röhrenkapazitäten 12AX7 (Datenblatt): hier als echte Kapazitäten zwischen den Elektroden (Miller-Effekt entsteht in der Rechnung)
+  // Ohne die Kapazitäten der beiden Kathodenfolger (V3A, V4A) und der zweiten Hälfte der Phasenumkehr (Gitter für Wechselspannung an Masse): sechs Zustände weniger,
+  // Frequenzgang bis 20 kHz um höchstens 0,03 dB anders (gemessen gegen die Fassung mit allen zwanzig).
   double cgk = 1.6e-12, cga = 1.7e-12;
   // Fotowiderstände (Datenblatt VTL5C1)
   double ldr_on = 600, ldr_off = 50e6;
@@ -63,8 +62,10 @@ struct Built { dk::Net net; std::vector<dk::Dev> dev; std::vector<int> grp; int 
 // Gruppen des Lösers: die ganze Vorstufe gemeinsam, Phasenumkehr mit Endstufe, Netzteil. Je Stufe einzeln (wie zuerst) brauchte Block-Gauß-Seidel bei
 // Übersteuerung bis zu sechs Durchgänge (das Gitter der nächsten Stufe belastet die Anode der vorigen über den Koppelkondensator) und fiel dabei
 // öfter in den Notweg; gemessen bei kräftigen Anschlägen (PREAMP 8, MASTER 6): 46 → 18 Newton-Schritte je Abtastwert, 89 → 0 Fehlversuche.
-// Außerdem verstärkte der OVERDRIVE-Kanal den Rest der einzeln gelösten Stufen mit: Ruherauschen bei allen Reglern auf 10 −51 dBFS, gemeinsam gelöst −96 dBFS.
-static const int GRP[9] = {0, 0, 0, 0, 0, 0, 1, 2, 3};   // V1B, V2A, V2B, V1A, V3, V4 | Phasenumkehr + Endstufe | (Lautsprecher: keine Geräte) | Netzteil
+// Außerdem verstärkte der OVERDRIVE-Kanal den Rest der einzeln gelösten Stufen mit: Ruherauschen bei allen Reglern auf 10 −51 dBFS, gemeinsam gelöst −91 dBFS.
+// Versucht und verworfen (1.1, Befehle je Abtastwert gezählt): die Röhren des nicht gewählten Kanals als eigene kleine Gruppe (±5 %), reuseJ über Abtastwerte
+// (Ruhe −24 %, übersteuert +9 %), dünne statt dichter Produkte (+12 … +29 %).
+static const int GRP[9] = {0, 0, 0, 0, 0, 0, 1, 2, 3};   // V1B, V2A, V2B, V1A, V3, V4 | Phasenumkehr + Endstufe | (Lautsprecher, Netzteil: keine Geräte)
 inline Built build(const Parts &v, const Setting &s, const std::vector<std::string> *dbg = nullptr) {
   Built B; dk::Net &o = B.net; auto &dev = B.dev; int G = 0;
   auto mark = [&]() { while (B.grp.size() < dev.size()) B.grp.push_back(G); G++; };
@@ -84,24 +85,24 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   tri("g3", "p3", "k3"); o.r("B4", "p3", v.ra3); o.c("B4", "p3", v.ca3); o.r("k3", "0", v.rk3); o.c("p3", "n3", v.cc3); o.r("n3", "0", v.rpop); ldr("n3", "M", s.od);   // LDR2
   mark();
   // NORMAL: Crunch/Clean-Abschwächer, GAIN mit Bright, V1A, 2,2 M ∥ 120 pF auf den Knoten M
-  // Schalter als Widerstände (1 Ω / 1 GΩ), damit das Netz in jeder Stellung dieselben Kondensatoren hat und die Zustände beim Umschalten erhalten bleiben:
+  // Schalter als Widerstände (1 Ω / 100 GΩ), damit das Netz in jeder Stellung dieselben Kondensatoren hat und die Zustände beim Umschalten erhalten bleiben:
   // Clean: n1 –470 k– nc, nc –39 k– Masse, nc –470 k– nt (Bright 470 pF darüber). Crunch: n1 –470 k– nt (39 k abgetrennt, zweite 470 k überbrückt; Bright über den 470 k).
-  { const double ON = 1.0, OFF = 1e9; o.r("n1", "nc", v.rcl1); o.r("nc", "ncg", s.crunch ? OFF : ON); o.r("ncg", "0", v.rcl2); o.r("nc", "nt", s.crunch ? ON : v.rcl3);
-    o.c("nc", "nb1", v.cnbr); o.r("nb1", "nt", (s.bright && !s.crunch) ? ON : OFF); o.c("n1", "nb2", v.cnbr); o.r("nb2", "nt", (s.bright && s.crunch) ? ON : OFF); }
+  { const double ON = 1.0, OFF = 1e11;   /* offen: 100 GΩ; mit 1 GΩ sprach das ungeteilte Signal in der Stellung CLEAN um 0,05 dB über */ o.r("n1", "nc", v.rcl1); o.r("nc", "ncg", s.crunch ? OFF : ON); o.r("ncg", "0", v.rcl2); o.r("nc", "nt", s.crunch ? ON : v.rcl3);
+    o.c("nb", "nt", v.cnbr); o.r("nb", "nc", (s.bright && !s.crunch) ? ON : OFF); o.r("nb", "n1", (s.bright && s.crunch) ? ON : OFF); }   // ein Kondensator, dessen freies Ende der Schalter umlegt
   pot("nt", "gc", "0", v.pngain, s.ngain); B.mon[M_V1A] = tri("gc", "pc", "kc"); o.r("B5", "pc", v.rac); o.r("kc", "0", v.rkc); o.c("pc", "nm", v.ccc); o.r("nm", "M", v.rcm); o.c("nm", "M", v.ccm); o.r("M", "0", v.rgm);
   mark();
   // V3B und Kathodenfolger V3A, Effektweg (100 k / 1 k), V4B und Kathodenfolger V4A
   o.r("M", "g4", v.rgs4); B.mon[M_V3B] = tri("g4", "p4", "k4"); o.r("B3", "p4", v.ra4); o.r("k4", "0", v.rk4); o.c("k4", "0", v.ck4);
-  tri("p4", "B3", "f1"); o.r("f1", "fx", v.rcf1); o.r("fx", "0", v.rfx); o.c("fx", "send", v.cfx); o.r("send", "0", v.rret);
+  tri("p4", "B3", "f1", false); o.r("f1", "fx", v.rcf1); o.r("fx", "0", v.rfx); o.c("fx", "send", v.cfx); o.r("send", "0", v.rret);
   mark();
-  B.mon[M_V4B] = tri("send", "p5", "k5"); o.r("B3", "p5", v.ra5); o.r("k5", "0", v.rk5); o.c("k5", "0", v.ck5); tri("p5", "B3", "f2"); o.r("f2", "0", v.rcf2);
+  B.mon[M_V4B] = tri("send", "p5", "k5"); o.r("B3", "p5", v.ra5); o.r("k5", "0", v.rk5); o.c("k5", "0", v.ck5); tri("p5", "B3", "f2", false); o.r("f2", "0", v.rcf2);
   mark();
   // Klangregelung (Treble 250 k lin, Bass 1 M log als Stellwiderstand, Middle 25 k lin mit dem Mitten-Kondensator am Schleifer), beide Master am Treble-Schleifer
   o.c("f2", "tt", v.ct); o.r("f2", "ts", v.rsl); o.c("ts", "tb", v.cb); o.c("ts", "tm", v.cm);
   pot("tt", "tw", "tb", v.ptreb, s.treb); o.r("tb", "tbb", std::max(v.pbass * taperA(s.bass), 1.0)); pot("tbb", "tm", "0", v.pmid, s.mid);
   pot("tw", "mo", "0", v.pmv, taperA(s.master)); pot("tw", "mn", "0", v.pmv, taperA(s.nmaster)); ldr("mo", "mv", s.od); ldr("mn", "mv", !s.od);   // LDR3, LDR4
   // Phasenumkehr V5 (Schwanz 10 k auf den Gegenkopplungsknoten F: 4,7 k gegen Masse, 39 k vom 4-Ω-Abgriff, PRESENCE 25 k lin hinter 0,1 µF)
-  o.c("mv", "ga", v.cpi); o.r("ga", "T", v.rgl); o.r("gb", "T", v.rgl); B.mon[M_INV] = tri("ga", "pa", "kp"); tri("gb", "pb", "kp"); o.r("kp", "T", v.rkpi); o.r("T", "F", v.rtail);
+  o.c("mv", "ga", v.cpi); o.r("ga", "T", v.rgl); o.r("gb", "T", v.rgl); B.mon[M_INV] = tri("ga", "pa", "kp"); tri("gb", "pb", "kp", false); o.r("kp", "T", v.rkpi); o.r("T", "F", v.rtail);
   o.r("F", "0", v.rnt); o.c("gb", "F", v.cac); o.c("F", "px", v.cpr); o.r("px", "0", std::max(v.ppres * (1 - s.pres), 1.0));
   o.r("B3", "pa", v.rpa); o.r("B3", "pb", v.rpb); o.c("pa", "pb", v.csn);
   o.vccs("0", "s4", "s8", "0", std::sqrt(0.5)); o.r("s4", "0", 1.0); o.r("s4", "F", v.rnfb);   // 4-Ω-Abgriff = 0,707 × Spannung an der 8-Ω-Wicklung
@@ -118,7 +119,8 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
     o.r("s8", "sl", v.spk_re); dk::Mat Le(1, 1); Le(0, 0) = v.spk_le; o.coupled({{"sl", "sm"}}, Le); o.r("sl", "sm", v.spk_r2);
     o.r("sm", "0", res); o.c("sm", "0", cmes); dk::Mat Lc(1, 1); Lc(0, 0) = lces; o.coupled({{"sm", "0"}}, Lc); }
   // Netzteil und Vorspannung
-  { o.src("ha", v.dc_r, 1); int p = o.port("ha", "B1"); dev.push_back({K_SI, p, 1, nullptr}); o.c("B1", "0", v.c_b1);
+  // Gleichrichter: an der Gleichspannungsquelle leitet er immer; statt als nichtlineares Tor daher als Schwellspannung und Bahnwiderstand im Innenwiderstand (Core::step)
+  { o.src("B1", v.dc_r + SI_R, 1); o.c("B1", "0", v.c_b1);
     dk::Mat L(1, 1); L(0, 0) = v.ch_l; o.coupled({{"B1", "chk"}}, L); o.r("chk", "B2", v.ch_r); o.c("B2", "0", v.c_b2);
     o.r("B2", "B3", v.r_b3); o.c("B3", "0", v.c_b3); o.r("B3", "B4", v.r_b4); o.c("B4", "0", v.c_b4); o.r("B3", "B5", v.r_b5); o.c("B5", "0", v.c_b5);
     o.src("BIAS", v.bias_r, 2); o.c("BIAS", "0", v.c_bias); }
@@ -134,12 +136,12 @@ struct Core {
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); run.dampFull = true; run.reuseStep = true; run.reuseRho = 0.1; apply(s);   // gemeinsamer Solve gleich gedämpft, Zerlegung innerhalb eines Abtastwerts weiterverwenden (wie SVT-CL)
    
     // Startwerte: eingeschwungene Ruhespannungen aller Knoten (mit diesem Kern nach 40 s gerechnet; die Siebkette braucht sonst mehrere Sekunden)
-    std::map<std::string, double> g = {{"B1", 496.997}, {"B2", 495.054}, {"B3", 379.673}, {"B4", 361.286}, {"B5", 352.776}, {"BIAS", -58.103}, {"F", 12.306}, {"T", 41.645}, {"a5", 495.246}, {"a5w", 496.996}, {"a6", 495.248}, {"a6w", 496.998}, {"c5", -58.103}, {"c6", -58.103}, {"chk", 496.997}, {"f1", 189.164}, {"f2", 203.924}, {"fx", 1.873}, {"g5", -58.103}, {"g6", -58.103}, {"ga", 41.645}, {"gb", 41.645}, {"ha", 497.695}, {"k1", 1.465}, {"k2", 2.012}, {"k3", 4.210}, {"k4", 1.567}, {"k5", 1.766}, {"kc", 2.154}, {"kp", 43.024}, {"p1", 173.665}, {"p2", 249.505}, {"p3", 350.492}, {"p4", 188.123}, {"p5", 203.106}, {"pa", 251.866}, {"pb", 242.149}, {"pc", 254.882}, {"s5", 494.126}, {"s6", 494.127}, {"ts", 203.924}};
+    std::map<std::string, double> g = {{"B1", 496.996}, {"B2", 495.053}, {"B3", 379.672}, {"B4", 361.286}, {"B5", 352.776}, {"BIAS", -58.103}, {"F", 12.306}, {"T", 41.645}, {"a5", 495.248}, {"a5w", 496.998}, {"a6", 495.244}, {"a6w", 496.994}, {"c5", -58.103}, {"c6", -58.103}, {"chk", 496.996}, {"f1", 189.163}, {"f2", 203.924}, {"fx", 1.873}, {"g5", -58.103}, {"g6", -58.103}, {"ga", 41.645}, {"gb", 41.645}, {"k1", 1.465}, {"k2", 2.012}, {"k3", 4.210}, {"k4", 1.567}, {"k5", 1.766}, {"kc", 2.154}, {"kp", 43.024}, {"p1", 173.664}, {"p2", 249.505}, {"p3", 350.491}, {"p4", 188.121}, {"p5", 203.107}, {"pa", 251.865}, {"pb", 242.148}, {"pc", 254.882}, {"s5", 494.126}, {"s6", 494.126}, {"ts", 203.924}};
     std::vector<double> V(net.nn + 1, 0.0); for (auto &kv : net.idx) { auto it = g.find(kv.first); if (it != g.end()) V[kv.second] = it->second; }
     for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V[net.C[k].a] - V[net.C[k].b]);
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; }
-  void step(double x, double *y) { double u[3] = {x, v.dc_v, v.bias_v}; run.step(u, y); }
+  void step(double x, double *y) { double u[3] = {x, v.dc_v - SI_U, v.bias_v}; run.step(u, y); }
   double step(double x) { double y[O_NO + 32]; step(x, y); return y[O_SPK]; }
   int nout() const { return (int)net.O.size(); }
   void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { long n = (long)(seconds * fs); double y[O_NO + 32]; for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); } }

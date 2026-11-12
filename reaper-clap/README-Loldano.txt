@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -29,7 +29,7 @@ What it is
   Loldano SLO-100 is a rebuild of the Soldano SLO-100 (Super Lead
   Overdrive), the 100 W two-channel tube guitar head, after its schematic.
   The whole amp is solved sample by sample as one circuit (nodal DK method,
-  like the other tonestack amps; 74 nodes, 58 states, 27 nonlinear ports),
+  like the other tonestack amps; 72 nodes, 51 states, 26 nonlinear ports),
   from the input jack to a speaker as the load:
     - input stage V1B (12AX7)
     - OVERDRIVE channel: PREAMP OVERDRIVE (500 k linear), V2A, the "cold"
@@ -54,11 +54,13 @@ What it is
       not a cabinet simulation
   The 12AX7 capacitances (1.6 pF grid-cathode, 1.7 pF grid-plate) are real
   capacitors between the electrodes, so the Miller effect comes out of the
-  circuit.
+  circuit (left out at the two cathode followers and the second half of
+  the phase inverter, where they change the response by less than
+  0.03 dB).
   Checked against the schematic (engine/tests/slotest.cpp): supply
   voltages B+1 497.0 V (schematic 497; calibrated), B+2 495.1 V (495),
   B+3 379.7 V (378), B+4 361.3 V (350), B+5 352.8 V (359; B+4 and B+5 are
-  probably swapped in the schematic); power at 5 % THD 102 W (a 100 W
+  probably swapped in the schematic); power at 5 % THD 101 W (a 100 W
   amp). The schematic gives no operating points, gains or frequency
   responses, and no measurement of a real amp was available: the model
   follows the part values; a comparison with the sound of a real SLO-100
@@ -167,4 +169,25 @@ Notes
   endorsed by them.
 
 1.0
-  First version.
+  First version (built, not distributed).
+
+1.1
+  Looked for avoidable load, counted in instructions per sample: 7 % less
+  when driven hard, 11 % less when idle.
+  - The tube capacitances of the two cathode followers and of the second
+    half of the phase inverter are gone (six states; response changes by
+    at most 0.03 dB up to 20 kHz, the six gain stages and the phase
+    inverter input keep theirs: without those the response would change
+    by 0.2 dB at 10 kHz).
+  - The rectifier is no longer a nonlinear element: behind a DC source it
+    always conducts, so it is a threshold voltage and a resistance now.
+  - BRIGHT uses one capacitor that the switch moves instead of two.
+  - Open switch contacts are 100 Gohm instead of 1 Gohm: with 1 Gohm the
+    undivided signal leaked past the CLEAN attenuator by 0.05 dB.
+  Tried and dropped because they did not help: solving the tubes of the
+  channel that is not selected separately, reusing the solver matrix
+  across samples, sparse matrix products.
+  Where the time goes now (driven hard): about half in the Newton solver
+  (matrix build, factorisation, updates), a quarter in the tube curves,
+  an eighth in the linear part. These parts are shared with the other
+  tonestack amps; making them faster is a change to all of them.
