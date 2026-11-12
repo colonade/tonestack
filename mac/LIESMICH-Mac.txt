@@ -88,7 +88,8 @@ paar Sekunden). Dann in einer Audiospur:
                                               Lametta B100-III Bass Amp,
                                               AmpFett SVT-CL Bass Amp,
                                               Wien EQ (after adt-audio TM205),
-                                              AmpFett 76 (after UREI 1176LN))
+                                              AmpFett 76 (after UREI 1176LN),
+                                              Loldano SLO-100 Guitar Amp)
 
 Die Plugins laufen auf Mono- und Stereospuren (ab Laney 3.22 / B100-II 1.10 /
 AmpFett 1.7; vorher nur Stereo, auf Mono-Spuren erschienen sie nicht). Auf
@@ -108,6 +109,7 @@ Kontrolle im Terminal (sollte mit „AU VALIDATION SUCCEEDED“ enden):
     auval -v aufx AFSV Tnst      (AmpFett SVT-CL)
     auval -v aufx WEQ5 Tnst      (Wien EQ)
     auval -v aufx AF76 Tnst      (AmpFett 76)
+    auval -v aufx LSLO Tnst      (Loldano SLO-100)
 
 
 4. Über Waves StudioRack (VST3)
@@ -164,7 +166,9 @@ etwa das 1,5-Fache des AmpFett B-15NF (unter Linux grob 40 bis 75 % eines
 Kerns bei 48 kHz; ab 1.1 nur noch ohne Überabtastung); Wien EQ (gemessen unter
 Linux) etwa 2 % bei 48 kHz in Stereo; AmpFett 76 (gemessen unter Linux)
 etwa 15 bis 25 % je Kanal bei 48 kHz, mit zweiter Stufe das Doppelte, bei
-96 kHz das Doppelte (rechnet ohne Überabtastung, keine Latenz). Beim Umschalten
+96 kHz das Doppelte (rechnet ohne Überabtastung, keine Latenz); Loldano SLO-100
+(gemessen unter Linux) bei 48 kHz und 1x etwa wie der AmpFett SVT-CL, bei 2x
+(Grundstellung) das Doppelte bis knapp Dreifache; 4x ist für das Rendern gedacht. Beim Umschalten
 von DISTORTION, Überabtastung, Röhren oder Kanal rechnet der Laney für etwa
 0,2 s die neue Schaltung mit, das kostet in dieser Zeit rund das Dreifache
 (bis 3.32 bis zum Fünffachen). Das offene Plugin-Fenster kostet 1 bis 7 %
@@ -190,8 +194,8 @@ Wenn Logic überlastet meldet oder es knackt:
 
 Logic beenden, dann im Terminal:
 
-    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76}.component
-    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76}.vst3
+    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76,Loldano_SLO100}.component
+    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76,Loldano_SLO100}.vst3
     for p in laney yamaha b15nf gk800rb g100 b100iii svtcl wieneq ampfett76; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
 
 Falls vorhanden, auch den Ordner ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen

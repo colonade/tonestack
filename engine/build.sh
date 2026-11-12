@@ -12,6 +12,7 @@ if [ "${B15PANEL:-0}" = 1 ]; then python3 tools/b15_panel.py "$R" >/dev/null; fi
 if [ "${SVTPANEL:-0}" = 1 ]; then python3 tools/svt_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte AmpFett SVT-CL (Bild, Geometrie, Seitensymbole)
 if [ "${WEQPANEL:-0}" = 1 ]; then python3 tools/weq_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte Wien-EQ
 if [ "${U76PANEL:-0}" = 1 ]; then python3 tools/u76_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte AmpFett 76
+if [ "${SLOPANEL:-0}" = 1 ]; then python3 tools/slo_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte Loldano SLO-100
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
@@ -30,10 +31,12 @@ g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libs
     -Isrc -Igen -Ithird_party clap/weqplugin.cpp -o build/Wien_EQ.clap $(pkg-config --cflags --libs cairo x11) -lpthread
 g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
     -Isrc -Igen -Ithird_party clap/u76plugin.cpp -o build/AmpFett_76.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-echo "CLAP: build/Laney_AOR50.clap, build/Lametta_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap, build/Lametta_G100.clap, build/Lametta_B100III.clap, build/AmpFett_SVTCL.clap, build/Wien_EQ.clap, build/AmpFett_76.clap"
+g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
+    -Isrc -Igen -Ithird_party clap/sloplugin.cpp -o build/Loldano_SLO100.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+echo "CLAP: build/Laney_AOR50.clap, build/Lametta_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap, build/Lametta_G100.clap, build/Lametta_B100III.clap, build/AmpFett_SVTCL.clap, build/Wien_EQ.clap, build/AmpFett_76.clap, build/Loldano_SLO100.clap"
 if [ "${VST3:-0}" = 1 ]; then
   cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
-  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Lametta_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3, build/vst3/Lametta_G100.vst3, build/vst3/Lametta_B100III.vst3, build/vst3/AmpFett_SVTCL.vst3, build/vst3/Wien_EQ.vst3, build/vst3/AmpFett_76.vst3"
+  echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Lametta_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3, build/vst3/Lametta_G100.vst3, build/vst3/Lametta_B100III.vst3, build/vst3/AmpFett_SVTCL.vst3, build/vst3/Wien_EQ.vst3, build/vst3/AmpFett_76.vst3, build/vst3/Loldano_SLO100.vst3"
 fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
@@ -55,7 +58,9 @@ if [ -x "$WASI/bin/clang++" ]; then
      -Wl,--export=weq_latency -Wl,--export=weq_process -Wl,--export=weq_plot -Wl,--initial-memory=4194304 wasm/weq_wasm.cpp -o build/wieneq-core.wasm
   $W -Wl,--export=u7_buffer -Wl,--export=u7_target_buffer -Wl,--export=u7_peaks_buffer -Wl,--export=u7_level_buffer -Wl,--export=u7_resp_buffer -Wl,--export=u7_init \
      -Wl,--export=u7_latency -Wl,--export=u7_set_target -Wl,--export=u7_process -Wl,--export=u7_take_peaks -Wl,--export=u7_plot_init -Wl,--export=u7_plot -Wl,--initial-memory=16777216 wasm/u76_wasm.cpp -o build/ampfett76-core.wasm
-  echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm, build/b15nf-core.wasm, build/gk800rb-core.wasm, build/g100-core.wasm, build/b100iii-core.wasm, build/svtcl-core.wasm, build/wieneq-core.wasm, build/ampfett76-core.wasm"
+  $W -Wl,--export=lo_buffer -Wl,--export=lo_target_buffer -Wl,--export=lo_peaks_buffer -Wl,--export=lo_freq_buffer -Wl,--export=lo_resp_buffer -Wl,--export=lo_init \
+     -Wl,--export=lo_latency -Wl,--export=lo_set_target -Wl,--export=lo_process -Wl,--export=lo_take_peaks -Wl,--export=lo_plot_init -Wl,--export=lo_plot -Wl,--initial-memory=16777216 wasm/slo_wasm.cpp -o build/loldano-core.wasm
+  echo "WebAssembly: build/laney-core.wasm, build/b100ii-core.wasm, build/b15nf-core.wasm, build/gk800rb-core.wasm, build/g100-core.wasm, build/b100iii-core.wasm, build/svtcl-core.wasm, build/wieneq-core.wasm, build/ampfett76-core.wasm, build/loldano-core.wasm"
 else echo "wasi-sdk nicht gefunden ($WASI): WebAssembly übersprungen"; fi
 g++ -O3 -std=c++17 -Isrc -Igen tests/harness.cpp -o build/harness
 g++ -O2 -std=c++17 -Ithird_party tests/hosttest.cpp -ldl -o build/hosttest
@@ -72,6 +77,7 @@ g++ -O2 -std=c++17 -Ithird_party tests/b3guitest.cpp -ldl $(pkg-config --cflags 
 g++ -O2 -std=c++17 -Ithird_party tests/svtguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/svtguitest
 g++ -O2 -std=c++17 -Ithird_party tests/weqguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/weqguitest
 g++ -O2 -std=c++17 -Ithird_party tests/u76guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/u76guitest
+g++ -O2 -std=c++17 -Ithird_party tests/sloguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/sloguitest
 g++ -O3 -std=c++17 -Isrc -Igen tests/b15test.cpp -o build/b15test; g++ -O3 -std=c++17 -Isrc -Igen tests/b15amp.cpp -o build/b15amp
 g++ -O3 -std=c++17 -Isrc -Igen tests/gktest.cpp -o build/gktest
 g++ -O3 -std=c++17 -Isrc -Igen tests/g100test.cpp -o build/g100test
@@ -79,6 +85,7 @@ g++ -O3 -std=c++17 -Isrc -Igen tests/b3test.cpp -o build/b3test
 g++ -O3 -std=c++17 -Isrc tests/svttest.cpp -o build/svttest
 g++ -O3 -std=c++17 -Isrc tests/weqtest.cpp -o build/weqtest
 g++ -O3 -std=c++17 -Isrc -Igen tests/u76test.cpp -o build/u76test -lpthread
+g++ -O3 -std=c++17 -Isrc -Igen tests/slotest.cpp -o build/slotest -lpthread
 g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
 g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
 echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/g100guitest, build/b3guitest, build/svtguitest, build/weqguitest, build/u76guitest, build/b15test, build/b15amp, build/gktest, build/g100test, build/b3test, build/svttest, build/weqtest, build/u76test, build/clapstress, build/switchtest"

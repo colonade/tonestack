@@ -1,0 +1,16 @@
+{
+  "name": "Loldano SLO-100 Simulator",
+  "short_name": "Loldano",
+  "description": "Loldano SLO-100: Nachbau des Röhren-Gitarrenverstärkers Soldano SLO-100 (100 W) nach dem Schaltplan: NORMAL- und OVERDRIVE-Kanal, Klangregelung, Phasenumkehr, vier 6L6GC, Ausgangsübertrager, Lautsprecherlast; mit Anhören eigener Audiodateien.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#EEF1EC",
+  "icons": [
+    { "src": "../assets/icons/loldano-slo100-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../assets/icons/loldano-slo100-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "../assets/icons/loldano-slo100-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

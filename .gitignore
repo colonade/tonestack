@@ -35,4 +35,6 @@ docs/wieneq/*
 !docs/wieneq/ENTWURF.md
 docs/u76/*
 !docs/u76/SCHALTPLAN.md
+docs/loldano/*
+!docs/loldano/SCHALTPLAN.md
 *.PDF
