@@ -189,7 +189,9 @@ inline Built build(const Parts &v, const Setting &s) {
   Built B; dk::Net &o = B.net; std::vector<dk::Dev> &dev = B.dev; int G = 0;
   auto mark = [&]() { while (B.grp.size() < dev.size()) B.grp.push_back(G); };
   auto tri = [&](const std::string &g, const std::string &p, const std::string &k) { int a = o.port(g, k); o.port(p, k); dev.push_back({K_6SL7, a, 2, nullptr}); B.lastTri = a;
-    o.c(g, p, 2.8e-12); };   // 6SL7: Cgp 2,8 pF (RCA; wirkt als Miller-Kapazität). Cgk 3,0 pF und Cpk 3,8 pF weggelassen: Grenzfrequenzen über 80 kHz
+    o.c(g, p, 2.8e-12); o.c(g, k, 3.2e-12); o.c(p, k, 3.5e-12); };   // 6SL7GT (RCA RC-15): Gitter–Anode 2,8 pF (wirkt als Miller-Kapazität), Gitter–Kathode 3,0 / 3,4 pF und
+  // Anode–Kathode 3,8 / 3,2 pF (System 1 / System 2; hier der Mittelwert, welches System wo sitzt, ist nicht berücksichtigt). Die beiden letzten fehlten bis 1.25 („Grenzfrequenzen
+  // über 80 kHz“): einzeln stimmt das, über die Stufen summiert fehlten 0,14 … 0,25 dB bei 10 kHz und 0,4 … 0,5 dB bei 20 kHz (gefunden beim Loldano, dort dasselbe Bild).
   auto pen = [&](const std::string &g1, const std::string &g2, const std::string &a, const std::string &k) { int p0 = o.port(g1, k); o.port(g2, k); o.port(a, k); dev.push_back({K_6L6, p0, 3, nullptr});
     };   // 6L6GC: Kapazitäten (Eingang 10 pF hinter 1 kΩ, g1−a 0,6 pF, Ausgang 6,5 pF) wirken erst weit über 100 kHz, weggelassen
   auto pot = [&](const std::string &a, const std::string &w, const std::string &b, double R, double x) { o.r(a, w, std::max(R * (1 - x), 1.0)); o.r(w, b, std::max(R * x, 1.0)); };
