@@ -54,7 +54,7 @@ struct Fixed {   // Werte aus dem Plan bzw. Schätzungen
   // Vorstufenschienen: R26, R14, R4 je 10 k, C106/C102 50 µF, C an 240 V geschätzt 47 µF; Ruhelast nach den Röhrenströmen im Plan (geschätzt)
   double r26 = 10e3, r14 = 10e3, r4 = 10e3, c106 = 50e-6, c102 = 50e-6, c240 = 47e-6, l260 = 100e3, l252 = 252e3, l240 = 400e3;
   double bias_rms = 86, bias_r = 50, r46 = 22e3, c24 = 22e-6, r45 = 15e3, c23 = 10e-6, r44 = 45e3;      // Vorspannungswicklung auf −36 V abgeglichen, C23 geschätzt
-  int flip = 0, nofb = 0;
+  int flip = 0, nofb = 0, sat = 1;   // sat = 0: Übertrager ohne Kernsättigung/Hysterese (nur für die Gegenrechnung mit SPICE, tools/spiceref)
   // Netzteil ab 3.27 (dc = 1): Hochspannung dc_v hinter dc_r (aus dem Trafomodell: B1 400,5 V in Ruhe, 4 V Abfall bei 40 mA Zusatzlast → 97 Ω), Vorspannung bias_v hinter bias_r
   int dc = 1; double dc_v = 408.9, dc_r = 97, bias_v = -65.87;   // Prüfzwecke: Wicklungssinn der Sekundärseite, Gegenkopplung aus
   double spk_re = 6.15, spk_le = 0.33e-3, spk_r2 = 20, spk_fs = 34.2, spk_qms = 5, spk_qes = 0.365, spk_vas = 336, spk_vb = 78, spk_fb = 50, spk_ql = 7;
@@ -87,7 +87,7 @@ inline Built build(const Fixed &f, const Vals &v) {
     o.r("a5", "a5w", f.ot_rp / 2); o.r("a6", "a6w", f.ot_rp / 2); o.r("s8w", "s8", f.ot_rs);
     if (f.flip) o.coupled({{"a5w", "B1"}, {"B1", "a6w"}, {"0", "s8w"}}, L); else o.coupled({{"a5w", "B1"}, {"B1", "a6w"}, {"s8w", "0"}}, L);
     o.c("a5w", "a6w", f.ot_cpp); o.r("a5w", "a6w", f.ot_rc);
-    int p = o.port("a5w", "a6w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; b15::hystSetup(d, OT_SAT); dev.push_back(d); }
+    if (f.sat) { int p = o.port("a5w", "a6w"); dk::Dev d{K_SAT, p, 1, &OT_SAT}; b15::hystSetup(d, OT_SAT); dev.push_back(d); } }
   mark(); G = 1;
   // Lautsprecher als Last: Re, Le (mit Wirbelstromverlust), Bewegung als Parallelkreis, Bassreflex als Reihenkreis (Box-Nachgiebigkeit, Kanalmasse)
   { double w = 2 * PI * f.spk_fs, res = f.spk_re * f.spk_qms / f.spk_qes, cmes = f.spk_qes / (w * f.spk_re), lces = 1 / (w * w * cmes);
