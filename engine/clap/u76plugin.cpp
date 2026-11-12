@@ -1,7 +1,7 @@
 // AmpFett 76, Nachbau des UREI 1176LN (Schaltplan ab Seriennummer-Endung K; alle Transistoren und der FET gerechnet) mit Erweiterungen nach Origin Effects Cali76,
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Jeder Kanal ist ein eigenes Gerät (zweikanalig, nicht gekoppelt).
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "u76_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -36,12 +36,15 @@ enum { P_IN, P_OUTK, P_ATT, P_REL, P_RATIO, P_RVAR, P_METER, P_DRY, P_HPF, P_HPF
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_RATIO[] = {"4:1", "8:1", "12:1", "20:1", "All buttons", "Variable (Cali76)"}; static const char *N_METER[] = {"GR", "+8", "+4", "Off"};
 static const char *N_TAP[] = {"Log 15 %", "Log 10 %", "Linear"};
+// Input level: Das Gerät ist ein Studiogerät für Leitungspegel (+4 dBu Nennpegel, höchstens +20 dBu; Schwelle laut Datenblatt bei vollem INPUT −30 … −24 dBu).
+// Bis 1.1 war die Vorgabe 300 mV Spitze wie bei den Instrumentenverstärkern: etwa 20 dB zu wenig, die Regelung setzte erst bei extremen Stellungen hörbar ein.
+// Ab 1.2: 3 V Spitze (etwa +9 dBu); dazu INPUT 2 und OUTPUT 9 als Grundstellung (am Bass etwa 11 dB Regelung bei etwa gleichem Pegel).
 static const PDef PD[P_COUNT] = {
-  {"Input", 0, 10, 5, 0, 0}, {"Output", 0, 10, 5, 0, 0}, {"Attack (0 = off, 1 slow ... 7 fast)", 0, 7, 4, 0, 0}, {"Release (1 slow ... 7 fast)", 1, 7, 4, 0, 0},
+  {"Input", 0, 10, 2, 0, 0}, {"Output", 0, 10, 9, 0, 0},   /* Grundstellung ab 1.2 für Studiopegel (siehe Input level) */ {"Attack (0 = off, 1 slow ... 7 fast)", 0, 7, 4, 0, 0}, {"Release (1 slow ... 7 fast)", 1, 7, 4, 0, 0},
   {"Ratio", 0, 5, 0, N_RATIO, 6}, {"Variable ratio (Cali76)", 4, 20, 8, 0, 0}, {"Meter", 0, 3, 0, N_METER, 4}, {"Dry (Cali76)", 0, 10, 0, 0, 0},
   {"Sidechain HPF (Cali76 Bass)", 0, 1, 0, N_ONOFF, 2}, {"Sidechain HPF frequency (Hz)", 20, 600, 100, 0, 0},
   {"Stack (second stage, Cali76)", 0, 1, 0, N_ONOFF, 2}, {"Thru (stage 2 input)", 0, 10, 5, 0, 0}, {"Attack 2", 0, 7, 4, 0, 0}, {"Release 2", 1, 7, 4, 0, 0}, {"Output 2", 0, 10, 5, 0, 0},
-  {"Input level (mV peak)", 10, 10000, 300, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (input, output)", 0, 2, 0, N_TAP, 3} };
+  {"Input level (mV peak)", 10, 10000, 3000, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (input, output)", 0, 2, 0, N_TAP, 3} };
 static const uint32_t LATENCY = 0;   // keine Überabtastung (wie SVT-CL ab 1.1: Aliasing der FET-Regelung und der Transistoren unter −80 dB, siehe docs/u76/SCHALTPLAN.md)
 static int osFactor(int) { return 1; }
 // Knöpfe → Kern: ATTACK 0 = OFF (S9), 1 … 7 → Schleifer 0 … 1 (rechts schnell); RELEASE 1 … 7 → 0 … 1; stufenlose Ratio 4/8/12/20 → 0, 1/3, 2/3, 1 (stückweise linear)

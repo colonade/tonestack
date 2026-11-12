@@ -1,5 +1,5 @@
 AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   AmpFett_76.clap and AmpFett_76.vst3 contain the same code and sound
@@ -57,7 +57,8 @@ Parameters
       input), Attack 2, Release 2, Output 2. Ratio and HPF are shared.
     Input level (mV peak) and Input reference: the plugin converts the
       signal into volts. With "Peak of your playing (auto)" the loudest
-      peak it has heard corresponds to the chosen voltage (default 300 mV);
+      peak it has heard corresponds to the chosen voltage (default 3 V, studio
+      line level; 300 mV until 1.1);
       click the line under the INPUT knob of the strip to forget the peak.
       With the fixed reference 0 dBFS corresponds to that voltage. The
       output is converted back by the same factor, so unity gain through
@@ -65,9 +66,11 @@ Parameters
     Output level (dB): plain gain after the circuit.
     Pot taper of INPUT and OUTPUT (log 15 % as in the unit, log 10 %,
       linear).
-  Defaults: Input 5, Output 5, Attack 4, Release 4, 4:1, meter GR, all
-  extensions off, 300 mV. With these the loudest peaks get about 10 dB of
-  gain reduction at roughly unchanged level.
+  Defaults (since 1.2): Input 2, Output 9, Attack 4, Release 4, 4:1, meter
+  GR, all extensions off, 3 V. With these a bass track gets about 11 dB of
+  gain reduction at roughly unchanged level. As on the unit with studio
+  levels, INPUT is used in its lower third; every step up adds a few dB of
+  gain reduction (3: about 15 dB, 5: about 21 dB).
 
 User interface
   Own panel design (no photo, no logo): knobs to turn (drag vertically,
@@ -125,6 +128,14 @@ CPU and latency
   goes idle.
 
 Changes
+  1.2  Input level default 3 V instead of 300 mV, defaults Input 2 and
+       Output 9. The unit is a studio device for line level (+4 dBu nominal,
+       threshold -30 ... -24 dBu at full INPUT according to the data sheet).
+       With the instrument level of the amp plugins it was driven about
+       20 dB too low, so gain reduction only became audible at extreme
+       settings. The circuit itself is unchanged: thresholds referred to the
+       output match the data sheet (20:1: +9.9 dBu, data sheet +10 dBm).
+       Projects saved earlier keep their values.
   1.1  VALUE POPUP ON / OFF in the header line of the model strip switches
        the value display at the knobs. Stored for all tonestack plugins of
        this user (Linux: ~/.config/tonestack/ui.conf, macOS: ~/Library/
