@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     while (std::getline(p2, kv, ',')) { size_t e = kv.find('='); evs.push_back({t, atoi(kv.substr(0, e).c_str()), atof(kv.substr(e + 1).c_str())}); } }
   Engine eng(fs);
   auto target = [&]() { Target t; t.v = sl[12] > 0.5 ? Parts::umbau() : Parts::orig(); t.taper = (int)sl[14];
-    t.s.v1 = sl[2]/10; t.s.v2 = sl[3]/10; t.s.pl = sl[4]/10; t.s.t = sl[5]/10; t.s.m = taper(sl[6]/10, t.taper); t.s.b = sl[7]/10; t.s.mv = sl[8]/10; t.s.pres = taper(sl[19]/10, t.taper);
+    { int tp = t.taper; t.s.v1 = taper(sl[2]/10, tp); t.s.v2 = taper(sl[3]/10, tp); t.s.pl = taper(sl[4]/10, tp); t.s.t = taper(sl[5]/10, tp); t.s.m = sl[6]/10; t.s.b = taper(sl[7]/10, tp); t.s.mv = taper(sl[8]/10, tp); t.s.pres = sl[19]/10; }
     t.s.mid = sl[9] > 0.5; t.s.top = sl[10] > 0.5; t.s.bass = sl[11] > 0.5; t.s.ch1 = sl[1] < 0.5 ? 1 : 0; t.s.low = sl[0] > 0.5; t.pa = sl[13] > 0.5; t.nl = sl[16] > 0.5;
     t.vin = t.nl ? sl[17] / 1000 : 1; int o = (int)std::lround(sl[18]); t.os = o == 0 ? 1 : o == 1 ? 2 : o == 2 ? 4 : 8; for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(sl[20 + i]))); return t; };
   const int B = 128; std::vector<float> out(n); double outg = 1;

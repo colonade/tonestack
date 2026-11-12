@@ -3,11 +3,11 @@ import base64, os, re, sys
 R = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', '..')
 B = os.path.join(R, 'engine', 'build')
 targets = {'laney-core.wasm': ['web/tonestack/laney-aor50/index.html'],
-           'b100ii-core.wasm': ['web/tonestack/yamaha-b100ii/index.html'],
+           'b100ii-core.wasm': ['web/tonestack/lametta-b100ii/index.html'],
            'b15nf-core.wasm': ['web/tonestack/ampfett-b15nf/index.html'],
            'gk800rb-core.wasm': ['web/tonestack/gk-800rb/index.html'],
-           'g100-core.wasm': ['web/tonestack/yamaha-g100/index.html'],
-           'b100iii-core.wasm': ['web/tonestack/yamaha-b100iii/index.html'],
+           'g100-core.wasm': ['web/tonestack/lametta-g100/index.html'],
+           'b100iii-core.wasm': ['web/tonestack/lametta-b100iii/index.html'],
            'svtcl-core.wasm': ['web/tonestack/ampfett-svtcl/index.html'],
            'wieneq-core.wasm': ['web/tonestack/wien-eq/index.html'],
            'ampfett76-core.wasm': ['web/tonestack/ampfett-76/index.html']}

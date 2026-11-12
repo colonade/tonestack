@@ -1,4 +1,4 @@
-// Oberfläche des Yamaha-G100-212II-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
+// Oberfläche des Lametta-G100-212II-Plugins, gezeichnet mit Cairo (drawTo): unter Linux im X11-Fenster (im Host eingebettet), auf dem Mac über cairo_cg.hpp/macview.mm.
 // Oben die nachgezeichnete Frontplatte (engine/tools/g100_panel.py, kein Foto, kein Logo) mit Zeigern, Zugschaltern (PULL FAT / PULL BRIGHT),
 // A/B-Taste mit Anzeige und Eingangsbuchsen (HIGH / LOW), darunter der Modellstreifen (Überabtastung, Endstufe, Poti-Kennlinie, Aussteuerung,
 // Instrument/Ausgangspegel) und der Frequenzgang.

@@ -19,13 +19,13 @@ const fmt = x => String(x);
   const w = fs.readFileSync(path.join(R, 'web/tonestack/laney-aor50/laney-worklet.js'), 'utf8'); const po = JSON.parse(w.match(/const PORDER = (\[[^\]]*\]);/)[1]);
   console.log('Laney: ' + Object.keys(v).length + ' Bauteile, Reihenfolge wie im Worklet: ' + (JSON.stringify(po) === JSON.stringify(Object.keys(v)))); }
 // Yamaha: PARTS aus der Seite
-{ const js = scriptOf(path.join(R, 'web/tonestack/yamaha-b100ii/index.html'));
+{ const js = scriptOf(path.join(R, 'web/tonestack/lametta-b100ii/index.html'));
   const i = js.indexOf('const PARTS = ['); const PARTS = vm.runInNewContext(js.slice(i + 14, js.indexOf('];', i) + 1));
   const keys = PARTS.map(p => p[0]);
-  fs.writeFileSync(path.join(OUT, 'yparts_gen.h'), '// erzeugt von engine/tools/extract.js aus web/tonestack/yamaha-b100ii/index.html (Yamaha B100-II): Bauteilschlüssel in Übergabe-Reihenfolge, Standardwerte (SI) für das Plugin\n#define YPARTS_LIST(X) \\\n' + keys.map(k => '  X(' + k + ') \\\n').join('') + '\n'
+  fs.writeFileSync(path.join(OUT, 'yparts_gen.h'), '// erzeugt von engine/tools/extract.js aus web/tonestack/lametta-b100ii/index.html (Lametta B100-II): Bauteilschlüssel in Übergabe-Reihenfolge, Standardwerte (SI) für das Plugin\n#define YPARTS_LIST(X) \\\n' + keys.map(k => '  X(' + k + ') \\\n').join('') + '\n'
     + '#define YPARTS_DEFAULTS(X) \\\n' + PARTS.map(p => '  X(' + p[0] + ', ' + fmt(p[4] * p[3]) + ') \\\n').join('') + '\n');
   const ym = js.match(/const FRONT = (\{.*?\});\n/), yj = js.match(/const JACKS = (\{.*?\}), FJACK/);   // Frontplatte (Foto 1800 x 227): Kappen und Buchsen
   fs.writeFileSync(path.join(OUT, 'ygeo.json'), JSON.stringify({front: vm.runInNewContext('(' + ym[1] + ')'), jacks: vm.runInNewContext('(' + yj[1] + ')')}));
-  const yh = fs.readFileSync(path.join(R, 'web/tonestack/yamaha-b100ii/index.html'), 'utf8'); fs.writeFileSync(path.join(OUT, 'ypanel.jpg'), Buffer.from(yh.match(/data:image\/jpeg;base64,([A-Za-z0-9+/=]+)/)[1], 'base64'));
-  const w = fs.readFileSync(path.join(R, 'web/tonestack/yamaha-b100ii/b100ii-worklet.js'), 'utf8'); const po = JSON.parse(w.match(/const PORDER = (\[[^\]]*\]);/)[1]);
+  const yh = fs.readFileSync(path.join(R, 'web/tonestack/lametta-b100ii/index.html'), 'utf8'); fs.writeFileSync(path.join(OUT, 'ypanel.jpg'), Buffer.from(yh.match(/data:image\/jpeg;base64,([A-Za-z0-9+/=]+)/)[1], 'base64'));
+  const w = fs.readFileSync(path.join(R, 'web/tonestack/lametta-b100ii/b100ii-worklet.js'), 'utf8'); const po = JSON.parse(w.match(/const PORDER = (\[[^\]]*\]);/)[1]);
   console.log('Yamaha: ' + keys.length + ' Bauteile, Reihenfolge wie im Worklet: ' + (JSON.stringify(po) === JSON.stringify(keys))); }

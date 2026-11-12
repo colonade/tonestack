@@ -1,10 +1,10 @@
-// Yamaha B100-II (PA-Board, Endstufe, Lautsprecher) als Zeitbereichs-Schaltungssimulation (Trapezregel wie SPICE), linear (Kleinsignal).
+// Lametta B100-II (PA-Board, Endstufe, Lautsprecher) als Zeitbereichs-Schaltungssimulation (Trapezregel wie SPICE), linear (Kleinsignal).
 // Zustand: je Kondensator der "Verlaufsstrom" Ih. Pro Abtastwert: vc = K·Ih + k·u,  Ih' = 2G·vc − Ih,  y = c·Ih + d·u.
 // K, k, c, d werden bei Regler-/Schalteränderung aus der Knotenmatrix neu berechnet (LU-Zerlegung).
 (() => {
   const VT = 0.02585;
   const BANDCFG = [['cs0','cq0'],['cs1','cq1'],['cs2','cq2'],['cs3','cq3'],['cs4','cq4']];
-  // Yamaha B100-II, PA-Board: Klangregler, TR102, Volume, TR103/104, TR105 + fünf EQ-Bänder, Ausgang
+  // Lametta B100-II, PA-Board: Klangregler, TR102, Volume, TR103/104, TR105 + fünf EQ-Bänder, Ausgang
   function build(v, s, fs) {
     const idx = {}; let n = 0;
     const N = k => k === '0' ? -1 : (k in idx ? idx[k] : (idx[k] = n++));

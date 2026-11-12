@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.22
+Version 1.23
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -384,3 +384,8 @@ Notes
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
   Ampeg and Portaflex are trademarks of their owners; this is an independent
   circuit simulation, not affiliated with or endorsed by them.
+
+1.23
+  Internal change only (the output transformer's core saturation can be
+  switched off for check calculations against SPICE; always on in the
+  plugin). Sound and controls as 1.22.

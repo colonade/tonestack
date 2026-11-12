@@ -5,7 +5,7 @@ set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"   # absoluter Pfad (auch wenn ein absoluter oder relativer übergeben wird)
 ver() { grep -o '#define TS_VERSION "[^"]*"' "$ROOT/engine/clap/$1" | cut -d'"' -f2; }
-for spec in "Laney_AOR50 plugin.cpp Lany" "Yamaha_B100II yplugin.cpp B100" "AmpFett_B15NF b15plugin.cpp AFB1" "GK_800RB gkplugin.cpp GK8R" "Yamaha_G100 g100plugin.cpp YG10" "Yamaha_B100III b3plugin.cpp YB3A" "AmpFett_SVTCL svtplugin.cpp AFSV" "Wien_EQ weqplugin.cpp WEQ5" "AmpFett_76 u76plugin.cpp AF76"; do
+for spec in "Laney_AOR50 plugin.cpp Lany" "Lametta_B100II yplugin.cpp B100" "AmpFett_B15NF b15plugin.cpp AFB1" "GK_800RB gkplugin.cpp GK8R" "Lametta_G100 g100plugin.cpp YG10" "Lametta_B100III b3plugin.cpp YB3A" "AmpFett_SVTCL svtplugin.cpp AFSV" "Wien_EQ weqplugin.cpp WEQ5" "AmpFett_76 u76plugin.cpp AF76"; do
   set -- $spec; NAME="$1"; V="$(ver "$2")"; SUB="$3"
   VST="$(find "$B" -maxdepth 3 -name "$NAME.vst3" -type d | head -1)"; AU="$(find "$B" -maxdepth 3 -name "$NAME.component" -type d | head -1)"
   [ -n "$VST" ] && [ -n "$AU" ] || { echo "FEHLER: $NAME.vst3 oder $NAME.component fehlt"; find "$B" -maxdepth 3 -name "*.vst3" -o -maxdepth 3 -name "*.component"; exit 1; }

@@ -1,5 +1,5 @@
-// GUI-Test (Yamaha B100-III): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
-//   b3guitest Yamaha_B100III.clap bild.png
+// GUI-Test (Lametta B100-III): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
+//   b3guitest Lametta_B100III.clap bild.png
 // Prüft: TREBLE ziehen, Anzeigen EQ 1 / EQ 2 (schalten), Mausrad auf EQ-1-LEVEL, FREQUENCY ziehen, Weiche ohne Wirkung, Überabtastung 4x (Kernwechsel im Hilfsfaden), POWER AMP, Kennlinie, INPUT-Knopf.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>

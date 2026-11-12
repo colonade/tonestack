@@ -1,4 +1,4 @@
-# Yamaha B100-III: Schaltung, wie sie gerechnet wird
+# Lametta B100-III: Schaltung, wie sie gerechnet wird
 
 Quellen (nicht im Repository): Yamaha Service Manual „B100-112III / B100-115III“ (1984): Seite 1 Technische Daten (Spezifikation),
 Seiten 13/14 Schaltplan (Scan mit 600 dpi ausgewertet), Bestückungspläne; dazu die Bedienungsanleitung (englisch) mit Frontplatte und Grundeinstellungen.

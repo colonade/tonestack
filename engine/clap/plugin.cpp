@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.42"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.43"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #include "core.hpp"
 #include "platform.hpp"
@@ -37,12 +37,12 @@ static const char *N_TAP[] = {"Log 15 %", "Log 10 %", "Linear"}; static const ch
 static const char *N_TUBE[] = {"12AX7 / ECC83 (stock)", "12AT7 / ECC81", "12AU7 / ECC82", "5751", "12AY7"};
 static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 1, 0, N_INP, 2}, {"Channel", 0, 1, 0, N_CH, 2},
-  {"Preamp 1 Volume", 0, 10, 2, 0, 0}, {"Preamp 2 Volume", 0, 10, 2, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 2, 0, 0},
-  {"Treble", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Master Volume", 0, 10, 5, 0, 0},
+  {"Preamp 1 Volume", 0, 10, 5.5, 0, 0}, {"Preamp 2 Volume", 0, 10, 5.5, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 5.5, 0, 0},   // Grundstellungen ab 3.43 für die neuen Kennlinien (klingt etwa wie die Grundstellung bis 3.42); gespeicherte Projekte werden nicht umgerechnet (Nutzer, 2026-11-12)
+  {"Treble", 0, 10, 8, 0, 0}, {"Middle", 0, 10, 1.5, 0, 0}, {"Bass", 0, 10, 8, 0, 0}, {"Master Volume", 0, 10, 8, 0, 0},
   {"Mid Boost (S105)", 0, 1, 1, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 1, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 1, N_ONOFF, 2},
-  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Middle/Presence/Reverb pot taper", 0, 2, 0, N_TAP, 3},
+  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Volume/Treble/Bass pot taper", 0, 2, 0, N_TAP, 3},
   {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level (mV peak)", 1, 1000, 100, 0, 0},
-  {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Presence", 0, 10, 5, 0, 0},
+  {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Presence", 0, 10, 1.5, 0, 0},
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
   {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2},
@@ -69,13 +69,13 @@ struct Plugin {
   std::vector<float> mono; double outg = 1, outCur = -1;   /* outCur: geglättete Ausgangsverstärkung (20 ms), −1 = noch nicht gesetzt */
   aorgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; /* gm: Oberfläche/X-Verbindung, Host-Aufrufe und Timer nie gleichzeitig (VST3: Timer evtl. aus Hilfs-Thread) */ struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; /* kind: 0 Wert, 1 Gestenbeginn, 2 Gestenende; gestId: Parameter, der gerade gezogen wird */ double guiW = 1200, guiH = 0; std::string diagTxt, diagMode; int diagCnt = 0;
   Target target() const { Target t; t.v = Parts::orig(); t.s.bmod = val[P_UMBAU] > 0.5 ? 1 : 0;   /* BASS MOD und SOFT ab 3.30 gleitend (Setting), nicht als Bauteilwechsel */ t.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER])));   /* Kennlinie der log-Potis Middle/Presence (22KA): 0 log 15 %, 1 log 10 %, 2 linear; 3.27–3.33 fest log 15 % */
-    t.s.v1 = val[P_V1]/10; t.s.v2 = val[P_V2]/10; t.s.pl = val[P_PL]/10; t.s.t = val[P_T]/10; t.s.m = taper(val[P_M]/10, t.taper); t.s.b = val[P_B]/10; t.s.mv = val[P_MV]/10;
-    t.s.pres = taper(val[P_PRES]/10, t.taper); t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
+    { int tp = t.taper; t.s.v1 = taper(val[P_V1]/10, tp); t.s.v2 = taper(val[P_V2]/10, tp); t.s.pl = taper(val[P_PL]/10, tp); t.s.t = taper(val[P_T]/10, tp); t.s.m = val[P_M]/10; t.s.b = taper(val[P_B]/10, tp); t.s.mv = taper(val[P_MV]/10, tp); }   // ab 3.43: B-Potis log, A-Potis (Middle, Presence, Reverb) linear
+    t.s.pres = val[P_PRES]/10; t.s.mid = val[P_MID] > 0.5; t.s.top = val[P_TOP] > 0.5; t.s.bass = val[P_BASS] > 0.5;
     t.s.ch1 = val[P_CH] < 0.5 ? 1 : 0; t.s.low = val[P_INP] > 0.5; t.pa = val[P_PA] > 0.5; t.nl = val[P_NL] > 0.5;
     t.vin = val[P_VIN] / 1000; int o = (int)std::lround(val[P_OS]); t.os = o <= 0 ? 1 : o == 1 ? 2 : 4; t.eco = val[P_ECO] > 0.5;
     for (int i = 0; i < 3; i++) t.s.tube[i] = std::max(0, std::min(NTUBES - 1, (int)std::lround(val[P_TUBE1 + i]))); t.spk = val[P_SPK] > 0.5;
     t.mis = val[P_MIS] / 100;   // Streuung der Endröhren (Ruhestrom-Unterschied), nur Röhrenmodus mit Endstufe
-    t.rev = taper(val[P_REV]/10, t.taper); t.tankAmt = val[P_TANK]; t.tankLin = val[P_TANK] <= 0;   // REVERB VR201 22 kA (ab 3.35)
+    t.rev = val[P_REV]/10; t.tankAmt = val[P_TANK]; t.tankLin = val[P_TANK] <= 0;   // REVERB VR201 22 kA (ab 3.35)
     t.s.soft = val[P_SOFT] > 0.5 ? 1 : 0; t.v.rpad = 2.2e6; t.s.late = val[P_PAD] > 0.5 ? 1 : 0;   // Umbauideen wie im Web: „Sanft“ = C3 an V101B ab, „Später“ = 2,2 MΩ vor Preamp 2 Volume (nur HIGH-Eingang)
     return t; }
 };
@@ -275,7 +275,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
         auto g = [&](double f) { double m = std::abs(responseAt(o, f, "W3")); if (pa) m *= std::abs(dkPa.response(f)); if (t.spk) m *= spkMag(f); return m; };
         double r = g(1000); out.resize(aorgui::NF); for (int i = 0; i < aorgui::NF; i++) out[i] = 20 * std::log10(std::max(1e-12, g(aorgui::freqAt(i)) / r)); };
       curveOf(t.v, t.s, t.pa, cur);
-      Setting rs; rs.v1 = rs.v2 = rs.t = rs.b = rs.mv = rs.pl = 0.5; rs.m = taper(0.5, t.taper); rs.pres = taper(0.5, t.taper); rs.ch1 = t.s.ch1; rs.low = t.s.low; curveOf(Parts::orig(), rs, t.pa, ref); }; }
+      Setting rs; rs.v1 = rs.v2 = rs.t = rs.b = rs.mv = rs.pl = taper(0.5, t.taper); rs.m = 0.5; rs.pres = 0.5; rs.ch1 = t.s.ch1; rs.low = t.s.low; curveOf(Parts::orig(), rs, t.pa, ref); }; }
   pl->guiH = pl->guiW * aorgui::TOTALH / FW;
   }   // Timer außerhalb der Sperre anmelden (der Host kann darin schon einen Takt auslösen)
 #ifdef __APPLE__

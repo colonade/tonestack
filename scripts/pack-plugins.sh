@@ -13,11 +13,11 @@ pack() {   # $1 Name, $2 Version, $3 README
   echo "$D/$1_CLAP-$2.zip, $D/$1_VST3-$2.zip"
 }
 pack Laney_AOR50 "$LANEY" README.txt
-pack Yamaha_B100II "$YAMAHA" README-Yamaha.txt
+pack Lametta_B100II "$YAMAHA" README-B100II.txt
 pack AmpFett_B15NF "$B15" README-B15NF.txt
 pack GK_800RB "$GK" README-GK.txt
-pack Yamaha_G100 "$G100" README-G100.txt
-pack Yamaha_B100III "$B100III" README-B100III.txt
+pack Lametta_G100 "$G100" README-G100.txt
+pack Lametta_B100III "$B100III" README-B100III.txt
 pack AmpFett_SVTCL "$SVTCL" README-SVTCL.txt
 pack Wien_EQ "$WIENEQ" README-WienEQ.txt
 pack AmpFett_76 "$AMPFETT76" README-AmpFett76.txt

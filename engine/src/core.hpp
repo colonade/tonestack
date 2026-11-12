@@ -73,6 +73,8 @@ struct TriSS { double gm, rp, cgk, cga; };
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.v1,&s.v2,&s.t,&s.b,&s.m,&s.mv,&s.pl,&s.mid,&s.top,&s.bass,&s.late,&s.soft,&s.bmod}; return *f[i]; }
 constexpr int NSFIELD = 13;
 
+// Poti-Kennlinien. Der Plan (DRG 1054) kennzeichnet britisch/europäisch wie in den 1980ern üblich: B = logarithmisch (VR101–VR106: Lautstärken, Level,
+// Master, Treble, Bass), A = linear (VR107 Middle, VR108 Presence, VR201 Reverb). Bis 3.42 war es umgekehrt gelesen (B linear, A log); ab 3.43 so.
 inline double taper(double x, int type) {     // 0: log 15 % in Mittelstellung, 1: log 10 %, 2: linear
   if (type == 2) return x;
   double mid = type == 1 ? 0.10 : 0.15, s = 1 / mid - 1, b = s * s;
@@ -673,7 +675,7 @@ inline double spkMag(double f, const SpkModel &m = SpkModel()) {
   double lo = (w*w*w*w*Ts*Ts*Tb*Tb) / std::hypot(dr, di), le = 1 / std::hypot(1.0, w * m.Le / m.Re), w0 = 2 * PI * m.fc, cone = w0*w0 / std::hypot(w0*w0 - w*w, w0*w/m.Qc);
   return lo * le * cone; }
 // ---------- Zielzustand und Glättung (gemeinsam für linear und Röhre) ----------
-struct Target { Parts v; Setting s; bool pa = false; int taper = 0; double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; AOR_RV(double rev = 0; bool tankLin = false; double tankAmt = 5;) };   // rev: REVERB-Schleifer 0…1 (mit Kennlinie, ab 3.35), tankLin: Federtank linear   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
+struct Target { Parts v; Setting s; bool pa = false; int taper = 0;   /* Kennlinie der B-Potis (log), nur zur Auskunft: die Werte in s sind schon umgerechnet */ double vin = 0.1; bool nl = false; int os = 2; bool spk = false; double mis = 0; bool eco = false; AOR_RV(double rev = 0; bool tankLin = false; double tankAmt = 5;) };   // rev: REVERB-Schleifer 0…1 (mit Kennlinie, ab 3.35), tankLin: Federtank linear   // eco: Endstufe bei 2x mit Grundrate (spart etwa ein Drittel Rechenzeit)   // spk: Lautsprecher am Ausgang; mis: Streuung der Endröhren (nur Röhrenmodus)
 
 struct CoreBase { virtual ~CoreBase() {} virtual void setTarget(const Target &t) = 0; virtual void tick() = 0; virtual double step(double u) = 0;
   std::vector<double> dl; int dpos = 0; void prepDelay(int n) { dl.assign(n, 0.0); dpos = 0; } double delayed(double y) { if (dl.empty()) return y; double o = dl[dpos]; dl[dpos] = y; if (++dpos >= (int)dl.size()) dpos = 0; return o; } virtual bool isNl() const = 0; virtual int osOf() const = 0; virtual bool lowOf() const = 0; virtual int chOf() const = 0; virtual bool ecoOf() const { return false; } double peaks[5] = {0,0,0,0,0};

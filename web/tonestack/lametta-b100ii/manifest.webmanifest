@@ -1,5 +1,5 @@
 {
-  "name": "Yamaha B100-II Klangregler",
+  "name": "Lametta B100-II Klangregler",
   "short_name": "B100-II",
   "description": "Treble, Middle, Bass des Transistor-Bass-Combos, geprüft gegen die Werkskurve, mit Anhören eigener Audiodateien.",
   "lang": "de",
@@ -10,17 +10,17 @@
   "theme_color": "#EEF1EC",
   "icons": [
     {
-      "src": "../assets/icons/yamaha-b100ii-192.png",
+      "src": "../assets/icons/lametta-b100ii-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "../assets/icons/yamaha-b100ii-512.png",
+      "src": "../assets/icons/lametta-b100ii-512.png",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "../assets/icons/yamaha-b100ii-maskable-512.png",
+      "src": "../assets/icons/lametta-b100ii-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

@@ -1,4 +1,4 @@
-// Einstieg des Yamaha-B100-III-Plugins für clap-wrapper (VST3): verweist auf die Funktionen aus engine/clap/b3plugin.cpp
+// Einstieg des Lametta-B100-III-Plugins für clap-wrapper (VST3): verweist auf die Funktionen aus engine/clap/b3plugin.cpp
 #include <clap/clap.h>
 extern "C" {
 bool b3_entry_init(const char *path);

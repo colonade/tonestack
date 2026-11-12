@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.42
+Version 3.43
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -49,13 +49,14 @@ Parameters
   Tube distortion, Instrument level, Input reference, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
   Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
-  3.20), Middle/Presence/Reverb pot taper (log 15 % = original 22KA, log
-  10 %, linear; POT TAPER toggle in the model strip), Reverb (0 ... 10,
+  3.20), Volume/Treble/Bass pot taper (law of the log pots, see 3.43: log 15 %,
+  log 10 %, linear; POT TAPER toggle in the model strip), Reverb (0 ... 10,
   active with "FX loop + power amp", 3.35), Reverb tank nonlinearity
   (0 ... 10, 0 = linear, 5 = as 3.36; field in the TUBES row: drag,
   wheel, double-click = 5; 3.37).
-  Defaults: Preamp 1, HIGH, both preamp volumes and Preamp 1 Level at 2, the
-  other controls at 5 (12 o'clock), all pull switches on, tube distortion on,
+  Defaults (since 3.43): Preamp 1, HIGH, both preamp volumes and Preamp 1
+  Level at 5.5, Treble, Bass and Master at 8, Middle and Presence at 1.5,
+  all pull switches on, tube distortion on,
   2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
   on, Late and speaker off, tube mismatch 8 %, reverb 0, reverb tank 5.
 
@@ -150,6 +151,22 @@ Input level (INPUT, since 3.40)
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
 
+3.43
+  - Pot tapers corrected. The schematic marks the pots in the old European
+    way: "B" = logarithmic, "A" = linear. Until 3.42 it was read the other
+    way round. Now Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level, Master
+    Volume, Treble and Bass (100KB, 1MB, 220KB) are log pots; Middle, Presence
+    and Reverb (22KA) are linear. With the old reading the volumes were far
+    too hot at usual knob positions (everything at 5: 76 W from a 50 W amp
+    with a 100 mV guitar signal, now about 4 W).
+  - The same knob position now sounds different. Stored projects are NOT
+    converted. New defaults that sound about like the old ones: Preamp 1
+    Volume, Preamp 2 Volume and Preamp 1 Level 5.5, Treble, Bass and Master 8,
+    Middle and Presence 1.5.
+  - POT TAPER (model strip) now selects the law of the log pots (volumes,
+    level, master, treble, bass): LOG 15 % (default), LOG 10 %, LINEAR
+    (= the behaviour of these pots until 3.42).
+
 3.42
   - In the header line of the model strip, "VALUE POPUP ON / OFF" switches the
     small value display that appears at a knob while the mouse is over it or
@@ -192,7 +209,7 @@ Input level (INPUT, since 3.40)
 
 3.37
   - REVERB TANK is a control 0 ... 10 instead of a button (same model as
-    Yamaha G100 1.4): 0 = linear, 5 = as 3.36, 10 = very strong. Measured
+    Lametta G100 1.4): 0 = linear, 5 = as 3.36, 10 = very strong. Measured
     in the plugin (defaults, REVERB 10): difference to linear relative to
     the reverb -23 dB at 1, -10 dB at 2.5, +1.4 dB at 5; the reverb gets
     quieter with higher settings (-0.3 / -1.1 / -4.1 / -8.7 / -12.4 dB at
@@ -202,7 +219,7 @@ Input level (INPUT, since 3.40)
     Projects saved with 3.35/3.36 (button values 0/1) load as 0 or 1.
 
 3.36
-  - Nonlinear reverb tank stronger (same change as Yamaha G100 1.3): the
+  - Nonlinear reverb tank stronger (same change as Lametta G100 1.3): the
     scale of bead displacement and spring twist is now the tank's rated
     peak current (19 mA instead of 80 mA). With the defaults and REVERB 10
     the physical tank now differs from the linear one about as much as the
@@ -222,7 +239,7 @@ Input level (INPUT, since 3.40)
     (+-12 V rails). The tank type is not in the schematic (Laney part
     5564): assumed input B (150 ohm, as for the G100: two LF353 in parallel
     can drive that, not an 8-ohm coil) and output B, the same spring model
-    as the Yamaha G100 1.2 including the nonlinear tank (switch REVERB
+    as the Lametta G100 1.2 including the nonlinear tank (switch REVERB
     TANK: PHYSICAL / LINEAR, button in the TUBES row). Tank transfer 1 V/A
     (typical 6.5 mV out at the B input's rated 6.5 mA, sound-au.com), so
     IC201 stays below its limit at the nominal FX level of about 500 mV.

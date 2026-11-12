@@ -1,4 +1,4 @@
-# Klangregler-Simulatoren (Yamaha B100-II, Laney AOR 50)
+# Klangregler-Simulatoren (Lametta B100-II, Laney AOR 50)
 
 Vollständige Quellen: Web, Plugins (CLAP, VST3, Audio Unit für den Mac), C++-Rechenkerne, Skripte. Fertige Plugins stehen nicht im Repo, sondern im [GitHub-Release](https://github.com/colonade/tonestack/releases/latest) (nur die neueste Fassung; ältere lassen sich aus dem jeweiligen Commit neu bauen). Projektstand, Versionen und offene Punkte: `docs/PROJEKTSTAND.md`.
 
@@ -6,7 +6,7 @@ Vollständige Quellen: Web, Plugins (CLAP, VST3, Audio Unit für den Mac), C++-R
 
 | Ordner | Inhalt | bearbeitbar als |
 |---|---|---|
-| `web/tonestack/` | Apache-Fassung (Übersicht, Yamaha, Laney) wie auf borg.fluxstatus.de; `download/` wird erst beim Packen (`scripts/pack-web.sh`) mit den Release-Dateien gefüllt; `LIESMICH.txt` beschreibt die Dateien | HTML/JS direkt; Rechenkerne als `*-worklet.js`, WebAssembly-Kerne als Base64 in den `index.html` eingebettet |
+| `web/tonestack/` | Apache-Fassung (Übersicht, Lametta, Laney) wie auf borg.fluxstatus.de; `download/` wird erst beim Packen (`scripts/pack-web.sh`) mit den Release-Dateien gefüllt; `LIESMICH.txt` beschreibt die Dateien | HTML/JS direkt; Rechenkerne als `*-worklet.js`, WebAssembly-Kerne als Base64 in den `index.html` eingebettet |
 | `reaper-clap/` | READMEs der Plugins (gelten für CLAP, VST3 und Mac; kommen als `README.txt` in die ZIPs) und `THIRD-PARTY-LICENSES.txt`; Quellen in `engine/` | Text |
 | `mac/` | Mac-Bau (läuft auf GitHub Actions, `.github/workflows/plugins.yml`): `package.sh`, `make_pkg.sh` (Installerpaket), `LIESMICH-Mac.txt`, Prüfbilder (`test/`) | Shell |
 | `scripts/` | `install-tonestack.sh` (Apache), `update-tonestack.sh` (Web, Plugins), `pack-plugins.sh`, `release.sh`, `pack-web.sh`, `versions.sh` | Shell |
@@ -18,11 +18,11 @@ Ein gemeinsamer C++-Kern für alle Fassungen: CLAP-Plugins (nativ, daraus VST3 u
 
 | Pfad | Inhalt |
 |---|---|
-| `engine/src/core.hpp` | Laney: lineares Netz, Röhrenkern (Koren-Modelle, Newton), Endstufe mit Presence, Überabtastung, Überblendung; Lautsprechermodell (auch vom Yamaha genutzt) |
-| `engine/src/yamaha_core.hpp` | Yamaha B100-II: PA-Board als lineares Netz (Transistoren, Gyrator-Bänder), Endstufe (MA-Board) mit Begrenzung |
-| `engine/clap/` | CLAP-Plugins: Laney `plugin.cpp` + `gui.hpp`, Yamaha `yplugin.cpp` + `ygui.hpp` (Oberflächen mit Cairo gezeichnet: unter Linux im X11-Fenster, auf dem Mac über `cairo_cg.hpp` mit CoreGraphics in `macview.mm`), gemeinsame Bedienelemente `widgets.hpp`, X11-Absicherung `x11safe.hpp`, `platform.hpp` |
+| `engine/src/core.hpp` | Laney: lineares Netz, Röhrenkern (Koren-Modelle, Newton), Endstufe mit Presence, Überabtastung, Überblendung; Lautsprechermodell (auch vom Lametta B100-II genutzt) |
+| `engine/src/yamaha_core.hpp` | Lametta B100-II: PA-Board als lineares Netz (Transistoren, Gyrator-Bänder), Endstufe (MA-Board) mit Begrenzung |
+| `engine/clap/` | CLAP-Plugins: Laney `plugin.cpp` + `gui.hpp`, Lametta B100-II `yplugin.cpp` + `ygui.hpp` (Oberflächen mit Cairo gezeichnet: unter Linux im X11-Fenster, auf dem Mac über `cairo_cg.hpp` mit CoreGraphics in `macview.mm`), gemeinsame Bedienelemente `widgets.hpp`, X11-Absicherung `x11safe.hpp`, `platform.hpp` |
 | `engine/vst3/` | VST3- und (auf dem Mac) Audio-Unit-Bau: `CMakeLists.txt` holt clap-wrapper (fester Commit), VST3-SDK 3.8 (MIT) und AudioUnitSDK (Apache-2.0), baut die Plugin-Quellen als statische Bibliothek; Einstiegsdateien, `exports.map` |
-| `engine/wasm/` | C-Schnittstellen für WebAssembly (`wasm_api.cpp` Laney, `yamaha_wasm.cpp` Yamaha) |
+| `engine/wasm/` | C-Schnittstellen für WebAssembly (`wasm_api.cpp` Laney, `yamaha_wasm.cpp` Lametta B100-II) |
 | `engine/tools/` | `extract.js` (Bauteile, Geometrie, Fotos aus den Web-Seiten), `gen_geo.py`, `embed_wasm.py` |
 | `engine/gen/` | erzeugte Dateien (nicht von Hand ändern; Quelle sind die Web-Seiten; werden von `build.sh` neu erzeugt und mit eingecheckt) |
 | `engine/tests/` | `harness` (Kern), `hosttest` (CLAP-Host), `defaults`, `guitest`/`yguitest` (Oberflächen unter Xvfb), `clapstress` (Belastung wie in REAPER), `switchtest` (Moduswechsel, mit AddressSanitizer), `wasmcompare.js`/`ywasmcompare.js` |
@@ -40,7 +40,7 @@ Voraussetzungen: g++ 13 (C++17), node, python3, pkg-config, libcairo2-dev, libx1
 Neue Plugin-Fassung ausliefern:
 1. Version `TS_VERSION` in `engine/clap/plugin.cpp` bzw. `yplugin.cpp`, in `engine/vst3/CMakeLists.txt` und im README (`reaper-clap/`) anheben; Links und Versionen in `web/tonestack/index.html`, `VERSION` in `web/tonestack/sw.js`.
 2. Lokal prüfen: `VST3=1 bash engine/build.sh`, `bash scripts/pack-plugins.sh` (→ `dist/`), `bash engine/verify.sh`.
-3. Committen und pushen. Der Bau auf GitHub (`.github/workflows/plugins.yml`) baut Linux (CLAP, VST3) und Mac (Audio Unit, VST3, Installerpaket), prüft und veröffentlicht alles als Release `laney-<V>_yamaha-<V>`; ältere Releases werden gelöscht (`scripts/release.sh`).
+3. Committen und pushen. Der Bau auf GitHub (`.github/workflows/plugins.yml`) baut Linux (CLAP, VST3) und Mac (Audio Unit, VST3, Installerpaket), prüft und veröffentlicht alles als Release `laney-<V>_b100ii-<V>_…`; ältere Releases werden gelöscht (`scripts/release.sh`).
 4. `bash scripts/pack-web.sh` → `web/tonestack-apache.zip` (Seiten plus Release-Dateien in `download/`).
 
 Installation beim Nutzer: `update-tonestack.sh --nur plugins` (CLAP nach `~/.clap`, VST3 nach `~/.vst3`).

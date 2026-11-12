@@ -1,5 +1,5 @@
-// GUI-Test (Yamaha G100-212II): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
-//   g100guitest Yamaha_G100.clap bild.png
+// GUI-Test (Lametta G100-212II): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
+//   g100guitest Lametta_G100.clap bild.png
 // Prüft: PULL FAT A, Treble A ziehen, A/B-Taste, Buchse LOW, PULL BRIGHT B, Überabtastung 4x (Kernwechsel im Hilfsfaden), POWER AMP linear, Mausrad auf LEVEL, REVERB ziehen (ab 1.1), Regler REVERB TANK (ab 1.4), INPUT-Knopf.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>

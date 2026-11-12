@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# Zeichnet die Frontplatte des Yamaha-G100-212II-Simulators nach der Zeichnung auf Seite 1 des Service Manuals (Anordnung: Kanal A VOLUME (PULL FAT),
+# Zeichnet die Frontplatte des Lametta-G100-212II-Simulators nach der Zeichnung auf Seite 1 des Service Manuals (Anordnung: Kanal A VOLUME (PULL FAT),
 # TREBLE (PULL BRIGHT), MIDDLE, BASS; A/B-Taste mit Anzeige; INPUT HIGH/LOW; Kanal B GAIN (PULL FAT), MASTER VOL, TREBLE (PULL BRIGHT), MIDDLE, BASS;
 # PARAMETRIC EQ LEVEL / Q / FREQUENCY; REVERB; POWER). Kein Foto, kein Logo, nur die Typbezeichnung in normaler Schrift. Schreibt
 #   engine/gen/g100panel.jpg   Bild 1800 × 260 (Knöpfe ohne Zeiger; Zeiger, Stecker, Anzeigen zeichnen Seite und Plugin)
 #   engine/gen/g100geo.json    Lage von Knöpfen, Zugschaltern, Buchsen, Taste und Anzeigen in Bildpunkten
 #   engine/gen/g100panel_jpg.h, engine/gen/g100geo_gen.h   für das Plugin
-#   web/tonestack/assets/icons/yamaha-g100-{180,192,512,maskable-512}.png   Ausschnitt um VOLUME als Seitensymbol
+#   web/tonestack/assets/icons/lametta-g100-{180,192,512,maskable-512}.png   Ausschnitt um VOLUME als Seitensymbol
 #   python3 engine/tools/g100_panel.py [repo]
 import json, os, sys, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -101,7 +101,7 @@ def main():
     json.dump(geo, open(os.path.join(GEN, 'g100geo.json'), 'w'))
     data = open(jp, 'rb').read()
     with open(os.path.join(GEN, 'g100panel_jpg.h'), 'w') as f:
-        f.write('// erzeugt von engine/tools/g100_panel.py: gezeichnete Frontplatte Yamaha G100-212II (JPEG)\nstatic const unsigned char G100PANEL_JPG[] = {\n')
+        f.write('// erzeugt von engine/tools/g100_panel.py: gezeichnete Frontplatte Lametta G100-212II (JPEG)\nstatic const unsigned char G100PANEL_JPG[] = {\n')
         for i in range(0, len(data), 24): f.write(','.join(str(b) for b in data[i:i + 24]) + ',\n')
         f.write('};\nstatic const unsigned int G100PANEL_JPG_LEN = %d;\n' % len(data))
     with open(os.path.join(GEN, 'g100geo_gen.h'), 'w') as f:
@@ -115,6 +115,6 @@ def main():
     # Seitensymbole: quadratischer Ausschnitt um VOLUME, in 4-facher Auflösung gezeichnet
     S4 = 4; big = draw(S4); x0 = KNOBS[0][1] - 80; crop = big.crop((x0 * S4, 52 * S4, (x0 + 168) * S4, 220 * S4))
     ICO = os.path.join(R, 'web', 'tonestack', 'assets', 'icons'); os.makedirs(ICO, exist_ok=True)
-    for n in (180, 192, 512): crop.resize((n, n), Image.LANCZOS).save(os.path.join(ICO, 'yamaha-g100-%d.png' % n), optimize=True)
-    m = Image.new('RGB', (512, 512), (24, 24, 25)); m.paste(crop.resize((410, 410), Image.LANCZOS), (51, 51)); m.save(os.path.join(ICO, 'yamaha-g100-maskable-512.png'), optimize=True)
+    for n in (180, 192, 512): crop.resize((n, n), Image.LANCZOS).save(os.path.join(ICO, 'lametta-g100-%d.png' % n), optimize=True)
+    m = Image.new('RGB', (512, 512), (24, 24, 25)); m.paste(crop.resize((410, 410), Image.LANCZOS), (51, 51)); m.save(os.path.join(ICO, 'lametta-g100-maskable-512.png'), optimize=True)
 if __name__ == '__main__': main()

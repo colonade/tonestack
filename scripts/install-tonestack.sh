@@ -78,24 +78,27 @@ seiten_pruefen() {
     else rot "  FEHLT $3: Status $code – $BASIS$1"; PROBLEME=$((PROBLEME+1)); fi
   }
   pruefe "/" "laney-aor50/" "Übersicht"
-  pruefe "/yamaha-b100ii/" "B100-II" "Yamaha B100-II"
+  pruefe "/lametta-b100ii/" "B100-II" "Lametta B100-II"
   pruefe "/laney-aor50/" "AOR 50" "Laney AOR 50"
-  pruefe "/yamaha-b100ii/b100ii-worklet.js" "registerProcessor" "Yamaha-Rechenkern"
+  pruefe "/lametta-b100ii/b100ii-worklet.js" "registerProcessor" "B100-II-Rechenkern"
   pruefe "/laney-aor50/laney-worklet.js" "registerProcessor" "Laney-Rechenkern"
   pruefe "/laney-aor50/laney-render.js" "importScripts" "Laney-Rechen-Thread"
   pruefe "/ampfett-b15nf/" "B-15NF" "AmpFett B-15NF"
   pruefe "/ampfett-b15nf/b15nf-worklet.js" "registerProcessor" "B-15NF-Audio-Thread"
   pruefe "/ampfett-b15nf/b15nf-render.js" "importScripts" "B-15NF-Rechen-Thread"
   pruefe "/ampeg-b15nf/" "ampfett-b15nf/" "Weiterleitung alter Name"
+  pruefe "/yamaha-b100ii/" "lametta-b100ii/" "Weiterleitung alter Name B100-II"
+  pruefe "/yamaha-g100/" "lametta-g100/" "Weiterleitung alter Name G100"
+  pruefe "/yamaha-b100iii/" "lametta-b100iii/" "Weiterleitung alter Name B100-III"
   pruefe "/gk-800rb/" "800RB" "GK 800RB"
   pruefe "/gk-800rb/gk-worklet.js" "registerProcessor" "GK-800RB-Audio-Thread"
   pruefe "/gk-800rb/gk-render.js" "importScripts" "GK-800RB-Rechen-Thread"
-  pruefe "/yamaha-g100/" "G100-212" "Yamaha G100-212II"
-  pruefe "/yamaha-g100/g100-worklet.js" "registerProcessor" "G100-Audio-Thread"
-  pruefe "/yamaha-g100/g100-render.js" "importScripts" "G100-Rechen-Thread"
-  pruefe "/yamaha-b100iii/" "B100-III" "Yamaha B100-III"
-  pruefe "/yamaha-b100iii/b3-worklet.js" "registerProcessor" "B100-III-Audio-Thread"
-  pruefe "/yamaha-b100iii/b3-render.js" "importScripts" "B100-III-Rechen-Thread"
+  pruefe "/lametta-g100/" "G100-212" "Lametta G100-212II"
+  pruefe "/lametta-g100/g100-worklet.js" "registerProcessor" "G100-Audio-Thread"
+  pruefe "/lametta-g100/g100-render.js" "importScripts" "G100-Rechen-Thread"
+  pruefe "/lametta-b100iii/" "B100-III" "Lametta B100-III"
+  pruefe "/lametta-b100iii/b3-worklet.js" "registerProcessor" "B100-III-Audio-Thread"
+  pruefe "/lametta-b100iii/b3-render.js" "importScripts" "B100-III-Rechen-Thread"
   pruefe "/ampfett-svtcl/" "SVT-CL" "AmpFett SVT-CL"
   pruefe "/ampfett-svtcl/svtcl-worklet.js" "registerProcessor" "SVT-CL-Audio-Thread"
   pruefe "/ampfett-svtcl/svtcl-render.js" "importScripts" "SVT-CL-Rechen-Thread"
@@ -107,7 +110,7 @@ seiten_pruefen() {
   pruefe "/ampfett-76/u76-render.js" "importScripts" "AmpFett-76-Rechen-Thread"
   code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASIS/.htaccess" 2>/dev/null || true)"
   if [ "$code" = "403" ] || [ "$code" = "404" ]; then info "ok   .htaccess nicht abrufbar ($code)"; else rot "  .htaccess ist öffentlich abrufbar (Status $code)"; PROBLEME=$((PROBLEME+1)); fi
-  typ="$("${CURL[@]}" -o /dev/null -w '%{content_type}' "$BASIS/yamaha-b100ii/b100ii-worklet.js" 2>/dev/null || true)"
+  typ="$("${CURL[@]}" -o /dev/null -w '%{content_type}' "$BASIS/lametta-b100ii/b100ii-worklet.js" 2>/dev/null || true)"
   case "$typ" in text/javascript*) info "ok   Rechenkern als JavaScript ausgeliefert" ;;
     *) rot "  Rechenkern hat Dateityp '${typ:-?}' statt text/javascript – Audio-Thread würde nicht starten"; PROBLEME=$((PROBLEME+1)) ;; esac
   kopf="$("${CURL[@]}" -D - -o /dev/null "$BASIS/" 2>/dev/null || true)"
@@ -125,7 +128,7 @@ fi
 # Ziel absichern: nie leer, nie das Wurzelverzeichnis, und ersetzt/entfernt wird nur eine Tonestack-Installation
 case "$ZIEL" in ""|/|/var/www|/var/www/html) fehler "Ungültiges Ziel '$ZIEL' – bitte einen eigenen Unterordner angeben (z. B. /var/www/html/tonestack)";; esac
 SICHERUNGSORDNER="/var/backups/tonestack"   # außerhalb des Webverzeichnisses, damit alte Stände nicht öffentlich bleiben
-ist_tonestack() { [ -f "$1/sw.js" ] && [ -d "$1/laney-aor50" ] && [ -d "$1/yamaha-b100ii" ]; }
+ist_tonestack() { [ -f "$1/sw.js" ] && [ -d "$1/laney-aor50" ] && [ -d "$1/lametta-b100ii" ]; }
 
 # ---------- Deinstallieren ----------
 if [ "$AKTION" = "remove" ]; then
@@ -152,7 +155,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 if command -v unzip >/dev/null; then unzip -q "$ZIP" -d "$TMP"
 else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$ZIP" "$TMP"; fi
 NEU="$TMP/tonestack"
-for f in index.html sw.js .htaccess ampfett-b15nf/index.html ampfett-b15nf/b15nf-worklet.js ampfett-b15nf/b15nf-render.js gk-800rb/index.html gk-800rb/gk-worklet.js gk-800rb/gk-render.js yamaha-g100/index.html yamaha-g100/g100-worklet.js yamaha-g100/g100-render.js yamaha-b100iii/index.html yamaha-b100iii/b3-worklet.js yamaha-b100iii/b3-render.js ampfett-svtcl/index.html ampfett-svtcl/svtcl-worklet.js ampfett-svtcl/svtcl-render.js wien-eq/index.html wien-eq/weq-worklet.js wien-eq/weq-render.js ampfett-76/index.html ampfett-76/u76-worklet.js ampfett-76/u76-render.js yamaha-b100ii/index.html yamaha-b100ii/b100ii-worklet.js laney-aor50/index.html laney-aor50/laney-worklet.js laney-aor50/laney-render.js assets/fonts/archivo-latin.woff2; do
+for f in index.html sw.js .htaccess ampfett-b15nf/index.html ampfett-b15nf/b15nf-worklet.js ampfett-b15nf/b15nf-render.js gk-800rb/index.html gk-800rb/gk-worklet.js gk-800rb/gk-render.js lametta-g100/index.html lametta-g100/g100-worklet.js lametta-g100/g100-render.js lametta-b100iii/index.html lametta-b100iii/b3-worklet.js lametta-b100iii/b3-render.js ampfett-svtcl/index.html ampfett-svtcl/svtcl-worklet.js ampfett-svtcl/svtcl-render.js wien-eq/index.html wien-eq/weq-worklet.js wien-eq/weq-render.js ampfett-76/index.html ampfett-76/u76-worklet.js ampfett-76/u76-render.js lametta-b100ii/index.html lametta-b100ii/b100ii-worklet.js laney-aor50/index.html laney-aor50/laney-worklet.js laney-aor50/laney-render.js assets/fonts/archivo-latin.woff2; do
   [ -f "$NEU/$f" ] || fehler "Im ZIP fehlt tonestack/$f – ist es das richtige Paket?"
 done
 ls "$NEU"/download/*.zip >/dev/null 2>&1 || info "Hinweis: im ZIP liegt kein download/*.zip (Plugin-Downloads der Übersichtsseite)"

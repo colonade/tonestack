@@ -1,6 +1,6 @@
 # Plugins bauen und veröffentlichen: Linux (CLAP, VST3; Ubuntu 24.04) und Mac (Audio Unit für Logic, VST3; macOS 15).
 # Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
-# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_yamaha-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V> (ältere werden gelöscht).
+# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V> (ältere werden gelöscht).
 # Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
 # Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
 name: Plugins
@@ -29,7 +29,7 @@ jobs:
       - name: Prüfen
         run: |
           set -euo pipefail
-          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
           ./engine/build/b15test | tail -3
           ./engine/build/gktest | head -8
           ./engine/build/g100test | grep -E "Abweichung|ABWEICHUNG|Knoten"
@@ -38,7 +38,7 @@ jobs:
           ./engine/build/weqtest
           ./engine/build/u76test | grep -E "ABWEICHUNG|bestanden|Verhältnis|Schwelle|Dämpfung, |Attack|Release"
           ./engine/build/switchtest | tail -1
-          for p in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
+          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
       - name: Packen
         run: |
           set -euo pipefail
@@ -82,7 +82,7 @@ jobs:
             clang++ -O2 -std=c++17 -arch arm64 -arch x86_64 -Iengine/third_party engine/tests/rtcheck.cpp -o /tmp/rtcheck
             clang++ -O2 -std=c++17 -fobjc-arc -arch arm64 -arch x86_64 -Iengine/third_party mac/test/guicheck.mm -framework Cocoa -o /tmp/guicheck
             echo "== $(sysctl -n machdep.cpu.brand_string) · $(sysctl -n hw.ncpu) Kerne · Rosetta: $(arch -x86_64 /usr/bin/true 2>/dev/null && echo ja || echo nein)"
-            for NAME in Laney_AOR50 Yamaha_B100II AmpFett_B15NF GK_800RB Yamaha_G100 Yamaha_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do
+            for NAME in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76; do
               CL="$(find build-mac -maxdepth 3 -name "$NAME.clap" -type d | head -1)"; BIN="$CL/Contents/MacOS/$NAME"; lipo -info "$BIN"
               for A in arm64 x86_64; do
                 echo "== $NAME $A rtcheck"; SPIKELOG=12 arch -$A /tmp/rtcheck "$BIN" 8 128
@@ -112,7 +112,7 @@ jobs:
         run: |
           set -o pipefail
           { set -e; bash mac/make_pkg.sh build-mac out
-            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100II.component ~/Library/Audio/Plug-Ins/Components/AmpFett_B15NF.component ~/Library/Audio/Plug-Ins/Components/GK_800RB.component ~/Library/Audio/Plug-Ins/Components/Yamaha_G100.component ~/Library/Audio/Plug-Ins/Components/Yamaha_B100III.component ~/Library/Audio/Plug-Ins/Components/AmpFett_SVTCL.component ~/Library/Audio/Plug-Ins/Components/Wien_EQ.component ~/Library/Audio/Plug-Ins/Components/AmpFett_76.component
+            rm -rf ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component ~/Library/Audio/Plug-Ins/Components/Lametta_B100II.component ~/Library/Audio/Plug-Ins/Components/AmpFett_B15NF.component ~/Library/Audio/Plug-Ins/Components/GK_800RB.component ~/Library/Audio/Plug-Ins/Components/Lametta_G100.component ~/Library/Audio/Plug-Ins/Components/Lametta_B100III.component ~/Library/Audio/Plug-Ins/Components/AmpFett_SVTCL.component ~/Library/Audio/Plug-Ins/Components/Wien_EQ.component ~/Library/Audio/Plug-Ins/Components/AmpFett_76.component
             mkdir -p ~/Library/Audio/Plug-Ins/VST3/AmpFett_B15NF.vst3   # Attrappe einer alten Handinstallation: soll im Papierkorb landen
             echo "::notice title=Konsolenbenutzer::$(stat -f%Su /dev/console) / $(whoami)"
             sudo installer -pkg out/*.pkg -target /
@@ -179,6 +179,6 @@ jobs:
           set -euo pipefail
           (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt)
           n=$(ls mac-art/tonestack-Plugins-Mac_*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
-          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/yamaha.png rel/mac-yamaha.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png; cp mac-art/b3.png rel/mac-b100iii.png; cp mac-art/svt.png rel/mac-svtcl.png; cp mac-art/weq.png rel/mac-wieneq.png; cp mac-art/u76.png rel/mac-ampfett76.png
+          cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/b100ii.png rel/mac-b100ii.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png; cp mac-art/b3.png rel/mac-b100iii.png; cp mac-art/svt.png rel/mac-svtcl.png; cp mac-art/weq.png rel/mac-wieneq.png; cp mac-art/u76.png rel/mac-ampfett76.png
           (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)
           bash scripts/release.sh rel

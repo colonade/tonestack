@@ -1,8 +1,8 @@
-Yamaha G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.11
+Lametta G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.12
 
 Two formats, one engine
-  Yamaha_G100.clap and Yamaha_G100.vst3 contain the same code and sound
+  Lametta_G100.clap and Lametta_G100.vst3 contain the same code and sound
   identical. Use whichever your DAW prefers. CLAP is the native format, the
   VST3 is built from it with clap-wrapper (free-audio, MIT) and the VST3 SDK
   3.8 (Steinberg, MIT). A project saved with one format does not load its
@@ -16,17 +16,17 @@ Updating
   plugin file in place.
 
 Installation (CLAP)
-  mkdir -p ~/.clap && cp Yamaha_G100.clap ~/.clap/
+  mkdir -p ~/.clap && cp Lametta_G100.clap ~/.clap/
   In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
   path if it is not there and press "Re-scan". The plugin then appears in
-  the FX browser under CLAP as "Yamaha G100-212II Guitar Amp".
+  the FX browser under CLAP as "Lametta G100-212II Guitar Amp".
 
 Installation (VST3)
-  mkdir -p ~/.vst3 && cp -r Yamaha_G100.vst3 ~/.vst3/
-  (Yamaha_G100.vst3 is a folder - copy it as a whole.) Then "Re-scan".
+  mkdir -p ~/.vst3 && cp -r Lametta_G100.vst3 ~/.vst3/
+  (Lametta_G100.vst3 is a folder - copy it as a whole.) Then "Re-scan".
 
 What it is
-  A rebuild of the Yamaha G100-212II guitar amplifier after the service
+  Lametta G100-212II is a rebuild of the Yamaha G100-212II guitar amplifier after the service
   manual (YAMU-02234, 1979: preamp schematic of the G100-115II/210/212II,
   power amp schematic, adjustment and performance-check tables). The whole
   preamp is solved sample by sample as one circuit (nodal DK method, like the
@@ -299,3 +299,13 @@ Notes
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
   Yamaha is a trademark of Yamaha Corporation; this is an independent
   circuit simulation, not affiliated with or endorsed by them.
+
+NEW NAME (1.12)
+  The plugin is now called Lametta G100-212II (before: Yamaha G100-212II). It is a
+  rebuild of the Yamaha G100-212II guitar amplifier after its service manual; Yamaha is a
+  trademark of Yamaha Corporation, this is an independent simulation.
+  No change in sound. File names and the plugin ID changed (Lametta_G100.clap / .vst3,
+  de.tonestack.lametta-g100): projects that used the old plugin do not find it any more;
+  insert the new one and set the controls again. Remove the old files
+  Yamaha_*.clap / Yamaha_*.vst3 by hand if you installed them yourself
+  (the update script and the Mac installer do it).

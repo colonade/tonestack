@@ -66,7 +66,7 @@ Für die VST3 entsprechend:
 Das Plugin ist nicht bei Apple beglaubigt (das kostet eine Jahresgebühr).
 macOS sperrt es deshalb nach dem Herunterladen. Die Sperre einmal aufheben:
 Programm „Terminal“ öffnen (Programme → Dienstprogramme) und eingeben
-(für den Laney; beim Yamaha den Namen Yamaha_B100II einsetzen):
+(für den Laney; beim Lametta B100-II den Namen Lametta_B100II einsetzen):
 
     xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Laney_AOR50.component
     xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Laney_AOR50.vst3
@@ -81,16 +81,16 @@ Logic starten. Beim ersten Start prüft Logic neue Audio Units (dauert ein
 paar Sekunden). Dann in einer Audiospur:
 
     Audio-FX-Platz → Audio Units → tonestack → Laney AOR 50 Preamp
-                                             (bzw. Yamaha B100-II Bass Amp,
+                                             (bzw. Lametta B100-II Bass Amp,
                                               AmpFett B-15NF Bass Amp,
                                               GK 800RB Bass Amp,
-                                              Yamaha G100-212II Guitar Amp,
-                                              Yamaha B100-III Bass Amp,
+                                              Lametta G100-212II Guitar Amp,
+                                              Lametta B100-III Bass Amp,
                                               AmpFett SVT-CL Bass Amp,
                                               Wien EQ (after adt-audio TM205),
                                               AmpFett 76 (after UREI 1176LN))
 
-Die Plugins laufen auf Mono- und Stereospuren (ab Laney 3.22 / Yamaha 1.10 /
+Die Plugins laufen auf Mono- und Stereospuren (ab Laney 3.22 / B100-II 1.10 /
 AmpFett 1.7; vorher nur Stereo, auf Mono-Spuren erschienen sie nicht). Auf
 einer Mono-Spur stehen sie unter „Mono“ (Ausgang mono) bzw. „Mono → Stereo“.
 
@@ -100,11 +100,11 @@ Plugin unter „tonestack“ suchen → „Zurücksetzen & erneut prüfen“.
 Kontrolle im Terminal (sollte mit „AU VALIDATION SUCCEEDED“ enden):
 
     auval -v aufx Lany Tnst      (Laney)
-    auval -v aufx B100 Tnst      (Yamaha)
+    auval -v aufx B100 Tnst      (Lametta B100-II)
     auval -v aufx AFB1 Tnst      (AmpFett)
     auval -v aufx GK8R Tnst      (GK 800RB)
-    auval -v aufx YG10 Tnst      (Yamaha G100-212II)
-    auval -v aufx YB3A Tnst      (Yamaha B100-III)
+    auval -v aufx YG10 Tnst      (Lametta G100-212II)
+    auval -v aufx YB3A Tnst      (Lametta B100-III)
     auval -v aufx AFSV Tnst      (AmpFett SVT-CL)
     auval -v aufx WEQ5 Tnst      (Wien EQ)
     auval -v aufx AF76 Tnst      (AmpFett 76)
@@ -155,10 +155,10 @@ einer Spur läuft in Logic immer auf einem Kern; Logic verteilt nur
 verschiedene Spuren auf verschiedene Kerne. Gemessen auf einem M1 (48 kHz,
 Puffer 128, ein Kanal): Laney in der Grundstellung etwa 40 % eines Kerns,
 unter Rosetta etwa 60 %; AmpFett etwa 28 % mit vollem Netzteil, ab 1.15 mit dem
-einfachen (Grundstellung) etwa ein Fünftel weniger; Yamaha etwa 5 %; GK 800RB
-(gemessen unter Linux) etwa 8 % bei 1x, 18 % bei 2x (Grundstellung); Yamaha G100-212II
+einfachen (Grundstellung) etwa ein Fünftel weniger; Lametta B100-II etwa 5 %; GK 800RB
+(gemessen unter Linux) etwa 8 % bei 1x, 18 % bei 2x (Grundstellung); Lametta G100-212II
 (gemessen unter Linux) etwa 10 % bei 1x, 25 % bei 2x, ab 1.1 mit Hall knapp
-das Doppelte; Yamaha B100-III (gemessen unter Linux) etwa ein Drittel bis
+das Doppelte; Lametta B100-III (gemessen unter Linux) etwa ein Drittel bis
 die Hälfte bei 2x (Grundstellung; 1x gibt es dort nicht); AmpFett SVT-CL
 etwa das 1,5-Fache des AmpFett B-15NF (unter Linux grob 40 bis 75 % eines
 Kerns bei 48 kHz; ab 1.1 nur noch ohne Überabtastung); Wien EQ (gemessen unter
@@ -190,8 +190,8 @@ Wenn Logic überlastet meldet oder es knackt:
 
 Logic beenden, dann im Terminal:
 
-    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF,GK_800RB,Yamaha_G100,Yamaha_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76}.component
-    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Yamaha_B100II,AmpFett_B15NF,GK_800RB,Yamaha_G100,Yamaha_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76}.vst3
+    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76}.component
+    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76}.vst3
     for p in laney yamaha b15nf gk800rb g100 b100iii svtcl wieneq ampfett76; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
 
 Falls vorhanden, auch den Ordner ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen

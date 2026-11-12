@@ -42,7 +42,7 @@ static const double TOTALH = FH + (STRIPU + TUBEU + PLOTU) * FW / tsw::UW;   // 
 constexpr double SW_Y = 88;     // Mittelpunkt der Schalter und kleinen Regler
 static const double SW_X[6] = {56, 168, 280, 392, 726, 838};   // BASS MOD, FX LOOP, DISTORTION, SPEAKER, SOFT, LATE
 static const int SW_P[6] = {P_UMBAU, P_PA, P_NL, P_SPK, P_SOFT, P_PAD};
-constexpr double OS_X = 506, TAP_X = 614;   // Überabtastung (Drehwahlschalter), Kennlinie der log-Potis Middle/Presence (Kippschalter, 3 Stellungen; 3.27–3.33 entfallen, ab 3.34 wieder da)
+constexpr double OS_X = 506, TAP_X = 614;   // Überabtastung (Drehwahlschalter), Kennlinie der log-Potis (ab 3.43: Lautstärken, Level, Master, Treble, Bass; vorher Middle/Presence) (Kippschalter, 3 Stellungen; 3.27–3.33 entfallen, ab 3.34 wieder da)
 // Stellung des Überabtastungs-Wahlschalters: 1x, eco (2x mit Endstufe in Grundrate), 2x, 4x (Parameter Oversampling und Eco; 8x ab 3.28 entfernt)
 inline int osIdx(double os, double eco) { int o = std::max(0, std::min(2, (int)std::lround(os))); return o == 0 ? 0 : o == 1 ? (eco > 0.5 ? 1 : 2) : o + 1; }
 static const double REF_X = 985;   // Zeile „at your peak“ zwischen INPUT und OUTPUT (unter INPUT stieße sie an die Beschriftung von LATE)
@@ -176,7 +176,7 @@ struct Gui {
       const char *tt[6] = {"BASS MOD", "FX LOOP", "DISTORTION", "SPEAKER", "SOFT", "LATE"}, *ts[6] = {"bass capacitors", "+ power amp", "tube model", "15\" CB158, 78 l", "mod: C3 off", "mod: 2.2 M pad"};
       for (int k = 0; k < 6; k++) tsw::toggle(c, SW_X[k], SW_Y, 2, v[SW_P[k]] > 0.5 ? 0 : 1, tt[k], oo, ts[k], k == 5 && low);   // LATE wirkt nur am HIGH-Eingang
       tsw::rotarySel(c, OS_X, SW_Y + 6, 4, osv, "OVERSAMPLING", osl, osv == 1 ? "eco: 2x, amp 1x" : "distortion only", !nl);
-      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; tsw::toggle(c, TAP_X, SW_Y, 3, tp, "POT TAPER", tl, "mid, pres., reverb"); }
+      const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; tsw::toggle(c, TAP_X, SW_Y, 3, tp, "POT TAPER", tl, "volumes, treble, bass"); }
     // kleine Regler: Instrument (log) und Ausgang
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, (i == 0 && !nl) || (i == 2 && (!nl || !pa))); }   // MISMATCH: Endröhren-Streuung, nur Röhrenmodus mit Endstufe

@@ -1,4 +1,4 @@
-// erzeugt aus ygeo.json (Foto der Frontplatte des Yamaha B100-II, 1800 x 227)
+// erzeugt aus ygeo.json (Foto der Frontplatte des Lametta B100-II, 1800 x 227)
 static const double YFW = 1800, YFH = 227, YPW = 4.44, YPIN = 0.19, YPOUT = 0.82;
 struct YKnobGeo { const char *key; double x, y, r; };
 static const YKnobGeo YKG[9] = {

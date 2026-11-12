@@ -1,4 +1,4 @@
-// Yamaha B100-III: Audio-Thread. Gerechnet wird im Rechen-Thread (b3-render.js, WebAssembly-Kern des ganzen Vorverstärkers samt Endstufe);
+// Lametta B100-III: Audio-Thread. Gerechnet wird im Rechen-Thread (b3-render.js, WebAssembly-Kern des ganzen Vorverstärkers samt Endstufe);
 // der Audio-Thread schickt jeden Eingangsblock dorthin und spielt das Ergebnis mit Vorlauf ab (Bypass mit Pegelangleich wie bei den anderen Seiten).
 // Ohne Rechen-Thread (sehr alte Browser) rechnet der Audio-Thread selbst.
 (() => {

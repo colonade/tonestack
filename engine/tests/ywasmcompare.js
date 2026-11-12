@@ -1,6 +1,6 @@
 // Vergleicht zwei Yamaha-WebAssembly-Kerne im Klang: node ywasmcompare.js a.wasm b.wasm (Bauteilwerte aus der Web-Seite)
 const fs = require('fs'), path = require('path'), vm = require('vm');
-const R = path.join(__dirname, '..', '..'); const h = fs.readFileSync(path.join(R, 'web/tonestack/yamaha-b100ii/index.html'), 'utf8');
+const R = path.join(__dirname, '..', '..'); const h = fs.readFileSync(path.join(R, 'web/tonestack/lametta-b100ii/index.html'), 'utf8');
 const js = h.split('<script>').slice(1).map(p => p.split('</script>')[0]).sort((a, b) => b.length - a.length)[0];
 const i = js.indexOf('const PARTS = ['); const PARTS = vm.runInNewContext(js.slice(i + 14, js.indexOf('];', i) + 1)); const parts = PARTS.map(p => p[4] * p[3]);
 const load = f => { const x = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(f)), { wasi_snapshot_preview1: { fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, proc_exit: () => {} } }).exports; if (x._initialize) x._initialize(); return x; };

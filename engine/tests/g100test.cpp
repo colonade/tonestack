@@ -1,4 +1,4 @@
-// Prüfstand Yamaha-G100-212II-Kern gegen das Service Manual (Seiten 4–7): Tabelle 3 (Verstärkung A HIGH / A LOW / B HIGH bei Tabelle-1-Stellung),
+// Prüfstand G100-212II-Kern gegen das Yamaha-Service-Manual (Seiten 4–7): Tabelle 3 (Verstärkung A HIGH / A LOW / B HIGH bei Tabelle-1-Stellung),
 // Tabelle 6 (Frequenzgang 70 / 400 / 7 kHz), Tabelle 7 (Regelumfang TREBLE/MIDDLE/BASS), Tabellen 8/9 (FAT, BRIGHT), Tabelle 10 (parametrischer EQ),
 // Fig. 1-2 (Frequenzgang), Begrenzung (Tabelle 5), Arbeitspunkt TR101, Rechenzeit, Übersteuerung.   g100test [fs]
 #include "g100_core.hpp"

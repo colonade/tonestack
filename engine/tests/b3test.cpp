@@ -1,4 +1,4 @@
-// Prüfstand Yamaha-B100-III-Kern gegen die Spezifikation des Service Manuals (Seite 1): Verstärkung INPUT → PRE AMP OUT 20 dB,
+// Prüfstand Lametta-B100-III-Kern gegen die Spezifikation des Service Manuals (Seite 1): Verstärkung INPUT → PRE AMP OUT 20 dB,
 // INPUT → SPEAKER OUT 64 dB, POWER AMP IN → SPEAKER OUT 41 dB; Parametrik LEVEL ±15 dB, Q 0,35 … 3, FREQUENCY 50 Hz … 2,5 kHz, PRESET LEVEL ±10 dB;
 // dazu: Mittelstellung linear, Klangregelung, Ein/Aus der Entzerrer, Rechenzeit, Übersteuerung.   b3test [fs]
 #include "b3_core.hpp"
