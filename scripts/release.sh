@@ -14,7 +14,7 @@ esac; done
 NOTES="Laney AOR 50 Preamp $LANEY · Lametta B100-II Bass Amp $YAMAHA · AmpFett B-15NF Bass Amp $B15 · GK 800RB Bass Amp $GK · Lametta G100-212II Guitar Amp $G100 · Lametta B100-III Bass Amp $B100III · AmpFett SVT-CL Bass Amp $SVTCL · Wien EQ $WIENEQ · AmpFett 76 Limiting Amplifier $AMPFETT76 · Loldano SLO-100 Guitar Amp $LOLDANO
 
 - Linux (x86-64): je Plugin CLAP und VST3 als ZIP, mit Anleitung (README.txt).
-- Mac (Audio Unit für Logic, VST3; Apple Silicon und Intel ab macOS 11): Installerpaket tonestack-Plugins-Mac_….pkg. Nicht bei Apple beglaubigt: beim ersten Öffnen Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen“.
+- Mac (Audio Unit für Logic, VST3; Apple Silicon und Intel ab macOS 11): Installerpaket tonestack-Plugins-Mac.pkg. Nicht bei Apple beglaubigt: beim ersten Öffnen Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen“.
 - Prüfbilder der Mac-Oberfläche (mac-*.png), SHA-256-Summen.
 
 Gebaut auf GitHub aus Commit $SHA. Änderungen: README.txt in den ZIPs."

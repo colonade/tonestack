@@ -12,6 +12,8 @@ else   # über die REST-Schnittstelle (gh api), nur .zip und .pkg
   gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name | test("\\.(zip|pkg)$")) | "\(.id) \(.name)"' | while read -r id name; do
     gh api -H "Accept: application/octet-stream" "repos/$REPO/releases/assets/$id" > "$T/tonestack/download/$name"; done
 fi
+# Mac-Paket: fester Name (ab 2026-11-12). Releases davor trugen die Versionen im Namen; ein solches Paket wird hier umbenannt.
+for p in "$T/tonestack/download"/tonestack-Plugins-Mac_*.pkg; do [ -f "$p" ] && mv "$p" "$T/tonestack/download/tonestack-Plugins-Mac.pkg"; done
 for f in $(grep -o 'href="download/[^"]*"' web/tonestack/index.html | cut -d'"' -f2); do
   [ -f "$T/tonestack/$f" ] || { echo "FEHLER: index.html verlinkt $f, im Release nicht vorhanden" >&2; exit 1; }; done
 chmod -R u=rwX,go=rX "$T/tonestack"; rm -f web/tonestack-apache.zip; (cd "$T" && zip -qr9 "$R/web/tonestack-apache.zip" tonestack)
