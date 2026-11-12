@@ -303,7 +303,8 @@ Anlass (Nutzer, 2026-11-12): „Ich habe das gefühl der ist sehr weit weg von o
 - Ursache: Pegelbezug. Vorgabe war 300 mV Spitze wie bei den Instrumentenverstärkern; das Gerät arbeitet mit Leitungspegel (+4 dBu Nennpegel, Schwelle −30 … −24 dBu bei vollem INPUT). Etwa 20 dB zu wenig. Bass-Spur, 4 : 1: bisher INPUT 5 → 5 dB, 7 → 11 dB.
 - Ab 1.2: Input level 3000 mV, Grundstellung INPUT 2, OUTPUT 9 (dieselbe Spur: INPUT 1 → 4 dB, 2 → 11 dB bei −4 dB Pegel, 3 → 15 dB, 5 → 21 dB). Seite: Regler INPUT (Modell) 3162 mV, Speicherschlüssel `ampfett76-v2`. Gespeicherte Projekte behalten ihre Werte. Einzelheiten docs/u76/SCHALTPLAN.md, Abschnitt Pegelbezug.
 - install-tonestack.sh: erkannte nach der Umbenennung die bestehende Installation nicht mehr (prüfte auf `lametta-b100ii`, auf dem Server lag noch `yamaha-b100ii`) → erkennt beide. Vom Nutzer bestätigt („hat geklappt“).
-- Veröffentlicht 2026-11-12: Release laney-3.43_b100ii-1.21_b15nf-1.23_gk800rb-1.7_g100-1.12_b100iii-1.8_svtcl-1.9_wieneq-1.3_ampfett76-1.1 (Lauf 43175558009), alle 30 Dateien geprüft, Linux-Plugins und WebAssembly Byte für Byte gleich mit dem Bau hier.
+- Veröffentlicht 2026-11-12: Release …_ampfett76-1.2 (Lauf 43185976868): 30 Dateien gegen Digest und SHA256SUMS geprüft, 18 Linux-Plugins und neun WebAssembly-Kerne Byte für Byte gleich mit dem Bau hier, Mac-Validierungen bestanden.
+- Davor am selben Tag: Release laney-3.43_b100ii-1.21_b15nf-1.23_gk800rb-1.7_g100-1.12_b100iii-1.8_svtcl-1.9_wieneq-1.3_ampfett76-1.1 (Lauf 43175558009), alle 30 Dateien geprüft, Linux-Plugins und WebAssembly Byte für Byte gleich mit dem Bau hier.
 
 ## Laney 3.43: Poti-Kennlinien berichtigt; Yamaha heißt Lametta (2026-11-12, Web 2026-11-12-1)
 Auftrag (Nutzer, 2026-11-12): „Potikennlinien bitte ändern. Und bitte die Hersteller Namen von Yamaha auf Lametta ändern.“ und „alte Projekte bitte nicht umrechnen. Es gibt keine alten Projekte und wenn doch ist es egal“.
