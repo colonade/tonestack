@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.25
+Version 1.26
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -409,3 +409,14 @@ Notes
   cathode perveance: 12AX7 0.31, 6922 0.26); 6550 and EL34 scaled from the
   6L6GC (estimate). Effect on the sound: below 0.15 dB per band even when
   driven very hard.
+
+1.26
+  The 6SL7 capacitances grid to cathode (3.0 / 3.4 pF) and plate to cathode
+  (3.8 / 3.2 pF, RCA data; the mean of both units is used) are now part of
+  the circuit, next to grid to plate (2.8 pF), which was there before. They
+  had been left out because each one alone only matters above 80 kHz. Over
+  the stages they add up: the amp is now slightly darker at the top, by
+  0.05 to 0.1 dB at 5 kHz, 0.14 to 0.25 dB at 10 kHz and 0.4 to 0.55 dB at
+  20 kHz (more with VOLUME turned up); below 1 kHz nothing changes
+  (0.01 dB). Found while building the Loldano, where the same omission
+  showed up. Twelve more states in the circuit, so somewhat more CPU.

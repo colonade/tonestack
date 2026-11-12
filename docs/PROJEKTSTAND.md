@@ -297,6 +297,12 @@ Nutzer: „ob oversampling so wie es jetzt implementiert ist überhaupt untersch
 - SCHALTPLAN.md berichtigt: R58 speist V1A/V1B der Endstufe, die Vorstufe hängt an R55/+343 V; Kathodenwiderstände 10 Ω auf der Endstufenplatine; SLAVE J2 über die Spitze; Seite B R31 Folgergitter / R30 Schleifer; Weg über FX SEND/RETURN und BAL OUT; Miller-C und Poti-Kennlinie als Schätzung; ULTRA OUT/IN aus S. 32; C26-Fassungen.
 - Entschieden: „1. Schätzen 2. Ja bitte und abschaltbar machen“ → SVT-CL 1.5 (folgender Abschnitt).
 
+## AmpFett B-15NF 1.26 nur Linux/Web, auf Zweig b15-1.26 (2026-11-12, Web 2026-11-12-8)
+Frage des Nutzers: „können die erkenntnisse aus dem Soldano auch in den B15 einfließen? oder den Laney?“ – Antwort: B-15NF braucht die Löser-Änderungen nicht (1,8 Durchgänge, 0 Fehlversuche, Ruherauschen µV), hat aber die fehlenden Röhrenkapazitäten; der Laney bräuchte den ganzen Umbau der Vorstufe (Vorlage: Loldano-Kern). Entscheidung: „erst den b15. dann schauen wir ob das gut wird“ und „auch erstmal nur als linux bzw web version. dann sparen wir mac builds“.
+- 6SL7: zusätzlich Gitter–Kathode 3,2 pF und Anode–Kathode 3,5 pF (Mittel der beiden Systeme, RCA RC-15). Wirkung siehe docs/b15nf/SCHALTPLAN.md: −0,2 dB bei 10 kHz, −0,5 dB bei 20 kHz, unter 1 kHz 0,01 dB. Netz 47 statt 35 Zustände.
+- Geprüft: ngspice −58 … −87 dB je Knoten; b15test unverändert (41,9 dB bei 1 kHz, 25 mA); b15guitest 10 Punkte ohne Abweichung; rtcheck ohne nicht endliche Werte; clapstress; alle anderen Plugins und Rechenkerne bytegleich mit dem Release. Rechenlast +12 % übersteuert, +18 % in Ruhe (Befehle); plugtest im Mittel 18 % → 20 %.
+- **Auf Zweig `b15-1.26`, nicht auf main**: der GitHub-Bau startet nur bei Pushes auf main, so entsteht kein Mac-Bau. Ausgeliefert: Linux-Pakete und Web-Zip aus dem Bau hier (kein Release). Die Übersichtsseite auf dem Zweig sagt, dass das Mac-Paket noch 1.25 enthält. Wenn der Nutzer 1.26 für gut befindet: Zweig nach main übernehmen → Release mit Mac.
+
 ## Mac-Paket mit festem Namen (2026-11-12, Web 2026-11-12-7, wirkt ab dem nächsten Release)
 Wunsch des Nutzers: „beim nächste Mac update sollte der name des Pakets angepasst werden. so dass er gleich bleibt egal was drin ist“.
 - Das Installerpaket heißt ab dem nächsten Bau **tonestack-Plugins-Mac.pkg** (scripts/versions.sh: PKG; vorher mit allen Versionen im Namen). Angepasst: versions.sh, plugins.yml (Prüfung „genau ein Paket“), release.sh (Text), LIESMICH-Mac, Link in web/tonestack/index.html.
