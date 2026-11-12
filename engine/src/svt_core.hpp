@@ -23,7 +23,7 @@ static const b15::TriodeD T12AU7 = {9.627442e-4, 0.350357, 19.74, 1.5};  // wie 
 // Ab 1.10: Knie der Strahltetrode (knee 1); β, αs, kvb und der Exponent von der vermessenen 6L6GC übernommen (Annahme: für die 6550 liegt keine Messung vor),
 // Pegel-Parameter neu an dieselben Datenblattwerte angepasst (rms 0,039, vorher 0,044). Ug2 345 V, Ug1 0: bei 20 V Anode 407 statt 318 mA.
 // Bis 1.9: {7.584690749, 1.562959483, 671.7245705, 200, 300, 12377.82231, 0.0002564468176, 0.06717976054, 10, 0, 0, 0, 0, 1, 1, 1}
-static const b15::PentodeD D6550 = {7.707309858, 1.606514837, 819.3385653, 299.9999313, 3205.1, 9484.117311, 0.0004977818974, 0.069, 8.1, 0, 0, 0, 0, 1, 1, 1, 1};
+static const b15::PentodeD D6550 = {7.707309858, 1.606514837, 819.3385653, 299.9999313, 3205.1, 9484.117311, 0.0004977818974, 0.069, 8.1, 0, 0, 0, 0, 1, 1, 1, 1, 0.920};
 static const b15::Sat OT_SAT = {30, 6.0, 0.15};   // Ausgangsübertrager: Lp 30 H, Sättigungsfluss 6 V·s, Hysterese wie AmpFett (alles geschätzt)
 enum Kind { K_AX7 = 0, K_AU7 = 1, K_6550 = 2, K_SAT = 4, K_CLAMP = 5, K_RECT = 6 };
 // 1N3070 (Eingangsbegrenzung der Endstufe): Shockley, Is 2 nA, n 1,9 (geschätzt aus dem Datenblatt: 0,8 V bei 100 mA)

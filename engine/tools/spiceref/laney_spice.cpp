@@ -33,7 +33,7 @@ struct Cir { std::string s; int k = 0; bool koren = false;
   void rcs(const std::string &a, const std::string &b, double rr, double cc) { std::string m = "rc" + std::to_string(k); r(a, m, rr); c(m, b, cc); }
   void tri(int t, const std::string &g, const std::string &p, const std::string &kk) { std::string id = std::to_string(k++), T = std::to_string(t);
     if (koren) { s += "RG" + id + " " + g + " gx" + id + " 2000\nDG" + id + " gx" + id + " " + kk + " DX\nBA" + id + " " + p + " " + kk + " I = kor(V(" + g + "," + kk + "), V(" + p + "," + kk + "))\n"; c(p, kk, 0.9e-12); return; }
-    s += "BG" + id + " " + g + " " + kk + " I = gi(V(" + g + "," + kk + "))\n"; s += "BA" + id + " " + p + " " + kk + " I = tria" + T + "(V(" + g + "," + kk + "), V(" + p + "," + kk + "))\n"; } };
+    s += "BG" + id + " " + g + " " + kk + " I = " + n(TUBE_MODELS[t].gs) + " * gi(V(" + g + "," + kk + "))\n"; s += "BA" + id + " " + p + " " + kk + " I = tria" + T + "(V(" + g + "," + kk + "), V(" + p + "," + kk + "))\n"; } };
 
 // die ganze Vorstufe als ein Netz; miller: Ersatzkapazitäten wie im Kern, sonst Cgk/Cga an jeder Röhre
 // koren: 12AX7 nach Koren (1996) so, wie das Modell in LTspice-Bibliotheken verbreitet ist (Gitter: Diode hinter 2 kΩ; Cgk 2,3 pF, Cga 2,4 pF, Cak 0,9 pF)

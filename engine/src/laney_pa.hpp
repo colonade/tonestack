@@ -20,7 +20,7 @@ static const b15::Pentode PEL34 = {11, 1.35, 737.1, 3674.9, 60, 24, 1.0};
 // EL34 ab 3.25: Derk-Strahltetrode mit Sekundäremission, Parameter aus der uTracer-Messung einer EL34 (Reefman, ExtractModel, TubeLib.inc 2013),
 // Ströme auf denselben Datenblattpunkt skaliert (Ia ×1,1854, Ig2 ×1,2193). bei Ug1 0, Ug2 250 V: 20 V Anode 193 mA, 50 V 247 mA (Koren 207 mA); ri 20 kΩ (Datenblatt 15–20 kΩ, Koren 39 kΩ); Ruhe im Laney 31,2 mA (Koren 31,4)
 static const b15::PentodeD DEL34 = {12.5, 1.363, 217.7, 50.5, 1282.7, 1950.2, 1.6e-6 * 217.7, 0.105, 6.09, 0.022, 0.033, 64, 2.91, 4.23,
-                                    1.1853654250061119, 1.2192711945050816};
+                                    1.1853654250061119, 1.2192711945050816, 0, 0.882};   // knee 0 (echte Pentode), Gitterstrom-Maßstab 0,882 (siehe b15::gridI)
 // Übertrager-Kernsättigung: φs = 2,0 V·s über der ganzen Primärwicklung (wie das bisherige Modell: 0,09 V·s an 8 Ω); Einsatz bei Vollaussteuerung unterhalb etwa 50 Hz
 static const b15::Sat OT_SAT = {40, 2.0, 0.15};   // Hysterese wie beim AmpFett geschätzt (Schleifenbreite 15 % bei φs/2)
 #ifndef LPA_OUT_SCALE

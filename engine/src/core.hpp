@@ -59,15 +59,15 @@ struct Setting {
 // 12AX7 (ab 3.20): an RCA-Datenblatt (100 V/−1 V: 0,5 mA, 1,25 mA/V, 80 kΩ; 250 V/−2 V: 1,2 mA, 1,6 mA/V, 62,5 kΩ) und die fünf Vorstufen-Arbeitspunkte
 // des Laney-Plans (V101A/B, V102A/B, V103B) angepasst, mu 100 fest. Koren 1996 (ex 1,4, kg1 1060, kp 600) traf bei 100 V/−1 V nur 0,1 mA statt 0,5 mA und
 // lag in den Laney-Stufen 10–25 % zu niedrig (Anoden 6–10 V zu hoch); jetzt Anoden auf 1–6 V am Plan, Rechnung: engine/tools/tube_fits.py.
-struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; int form = 0; double G = 0, C = 0, ga = 0; };   // form 1: Dempwolf (G, C, ga; mu), sonst Koren
+struct TubeModel { const char *name; double mu, ex, kg1, kp, kvb, cgk, cga; bool fitted; int form = 0; double G = 0, C = 0, ga = 0, gs = 1; };   // gs: Maßstab des Gitterstroms (b15::gridI), ab 3.45   // form 1: Dempwolf (G, C, ga; mu), sonst Koren
 static const TubeModel TUBE_MODELS[5] = {
   {"12AX7 / ECC83", 100,  1.2,   1090.9, 287.3, 300, 1.6e-12, 1.7e-12, true, 1, 2.019059e-3, 2.02928, 1.26},
   // Ab 3.44: 12AT7, 12AU7, 12AY7 in der Koren-Form mit Parametern aus Kennlinienmessungen (Reefman, TubeLib.inc; kg1 hier doppelt, weil Ia = 2·E1^ex/kg1).
   // Die Dempwolf-Anpassungen an zwei Datenblattpunkte (bis 3.43) lagen im Mittel 18 / 55 / 22 % daneben, im Auslauf weit mehr (scripts/tube_compare.py).
-  {"12AT7 / ECC81", 63.24, 1.338, 613.4, 208.5, 2363, 2.7e-12, 2.2e-12, true, 0},
-  {"12AU7 / ECC82", 20.73, 1.350, 1502.6, 85.3, 992, 2.5e-12, 2.0e-12, true, 0},
-  {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true, 1, 1.413620e-3, 1.70240, 1.26},
-  {"12AY7",         47.59, 1.135, 1131.2, 244.2, 3024, 1.3e-12, 1.3e-12, true, 0} };
+  {"12AT7 / ECC81", 63.24, 1.338, 613.4, 208.5, 2363, 2.7e-12, 2.2e-12, true, 0, 0, 0, 0, 1.52},
+  {"12AU7 / ECC82", 20.73, 1.350, 1502.6, 85.3, 992, 2.5e-12, 2.0e-12, true, 0, 0, 0, 0, 0.53},
+  {"5751",          70,   1.170, 1420, 377, 300, 1.6e-12, 1.4e-12, true, 1, 1.413620e-3, 1.70240, 1.26, 0.70},
+  {"12AY7",         47.59, 1.135, 1131.2, 244.2, 3024, 1.3e-12, 1.3e-12, true, 0, 0, 0, 0, 0.67} };
 constexpr int NTUBES = 5;
 inline bool stockTubes(const Setting &s) { return s.tube[0] == 0 && s.tube[1] == 0 && s.tube[2] == 0; }
 // Kleinsignalwerte eines Triodensystems im Arbeitspunkt (aus dem Gleichstromlöser des Röhrenkerns abgeleitet)
@@ -338,7 +338,7 @@ struct Tube {
   int type = 0;   // Anodenstrom immer aus der Formel: eine bilinear interpolierte Tabelle (bis 3.18) erzeugte bei leisem Spiel unechte Oberwellen (H4…H6 um −80 dB) und brauchte mehr Newton-Schritte
   int form = 0; b15::TriodeD D{0, 1, 100, 1};   // form 1: Dempwolf-Form (12AX7 ab 3.21)
   const Tube *mixT = nullptr; double mixA = 0;    // nur für die Fortsetzung beim Arbeitspunkt: Strom = (1 − a)·eigener + a·mixT
-  void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; form = m.form; D = {m.G, m.C, m.mu, m.ga}; }
+  void setModel(int t) { const TubeModel &m = TUBE_MODELS[t]; type = t; MU = m.mu; EX = m.ex; KG1 = m.kg1; KP = m.kp; KVB = m.kvb; form = m.form; D = {m.G, m.C, m.mu, m.ga}; gs = m.gs; }
   void tube(double vgk, double vpk, double *out) const {
     if (mixT) { double o2[3]; own(vgk, vpk, out); mixT->tube(vgk, vpk, o2); for (int k = 0; k < 3; k++) out[k] += mixA * (o2[k] - out[k]); return; }
     own(vgk, vpk, out); }
@@ -354,6 +354,7 @@ struct Tube {
   }
   // Gitterstrom nach Dempwolf/Zölzer (2011), an gemessenen 12AX7 angepasst: setzt etwa 0,3…0,5 V vor 0 V allmählich ein (Potenz 1,314)
   // statt als scharfe Diode bei 0 V (bis 3.14: weiche Diode mit 20 mV Knie und 2 kΩ); rundet den Übersteuerungseinsatz ab
+  double gs = 1; double gsEff() const { return mixT ? gs + mixA * (mixT->gs - gs) : gs; }   // Maßstab des Gitterstroms je Typ (beim Überblenden zweier Typen gemischt)
   static constexpr double GG = 6.177e-4, CG = 9.901, XI = 1.314;
   static void grid(double v, double *out) { double x = CG * v, sp, sg;
     if (x < -30) { out[0] = 0; out[1] = 0; return; }   // unter −3 V: kleiner als 1e-20 A
@@ -500,22 +501,23 @@ struct Amp {
     double *pv = C.pv.data(), *J = C.J.data(), *F = C.F.data(), *I = C.I.data(), *dV = C.dV.data(); int nu = C.nu, k = C.k;
     for (int q = 0; q < nu * nu; q++) J[q] = 0; for (int u = 0; u < nu; u++) J[u * nu + u] = 1;
     double a1, a2, a3;
-    if (k == 0) { Tube::grid(pv[0] - vkPrev[0], gb); F[0] = I[0] - gb[0]; J[0] -= gb[1] * dV[0]; return; }
+    auto gridS = [&](const Tube *T, double v) { Tube::grid(v, gb); double g = T->gsEff(); gb[0] *= g; gb[1] *= g; };
+    if (k == 0) { gridS(tubes[0], pv[0] - vkPrev[0]); F[0] = I[0] - gb[0]; J[0] -= gb[1] * dV[0]; return; }
     if (k <= 3) {
       tubeAt(tubes[k <= 2 ? 0 : 1], vg - pv[1], pv[0] - pv[1]); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];   // k=1,2: V101; k=3: V102A
       for (int q = 0; q < 2; q++) J[q] -= a1 * dV[q] + a2 * dV[2 + q];
-      Tube::grid(pv[2] - vkPrev[k], gb); F[1] = I[1] - gb[0];
+      gridS(tubes[k == 1 ? 0 : 1], pv[2] - vkPrev[k]); F[1] = I[1] - gb[0];   // Gitter der Folgestufe: k=1 V101B, k=2 V102A, k=3 V102B
       for (int q = 0; q < 2; q++) J[2 + q] -= gb[1] * dV[4 + q];
       return; }
     tubeAt(tubes[1], vg - pv[1], pv[0] - pv[1]); F[0] = I[0] - tb[0]; a1 = tb[2]; a2 = -tb[1] - tb[2];   // V102B
     for (int q = 0; q < 5; q++) J[q] -= a1 * dV[q] + a2 * dV[5 + q];
     tubeAt(tubes[2], pv[0] - pv[2], ub[3] - pv[2]); F[1] = I[1] - tb[0]; a1 = tb[1]; a2 = -tb[1] - tb[2];   // V103A (Kathodenfolger)
     for (int q = 0; q < 5; q++) J[5 + q] -= a1 * dV[q] + a2 * dV[10 + q];
-    Tube::grid(pv[0] - pv[2], gb); F[2] = I[2] - gb[0];
+    gridS(tubes[2], pv[0] - pv[2]); F[2] = I[2] - gb[0];
     for (int q = 0; q < 5; q++) J[10 + q] -= gb[1] * (dV[q] - dV[10 + q]);
     tubeAt(tubes[2], pv[3] - pv[5], pv[4] - pv[5]); F[3] = I[3] - tb[0]; a1 = tb[1]; a2 = tb[2]; a3 = -tb[1] - tb[2];   // V103B
     for (int q = 0; q < 5; q++) J[15 + q] -= a1 * dV[15 + q] + a2 * dV[20 + q] + a3 * dV[25 + q];
-    Tube::grid(pv[3] - pv[5], gb); F[4] = I[4] - gb[0];
+    gridS(tubes[2], pv[3] - pv[5]); F[4] = I[4] - gb[0];
     for (int q = 0; q < 5; q++) J[20 + q] -= gb[1] * (dV[15 + q] - dV[25 + q]);
   }
   double evalF(Sec &C, double vg) {
