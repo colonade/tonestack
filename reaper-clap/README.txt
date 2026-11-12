@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.43
+Version 3.44
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -150,6 +150,14 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.44
+  - Optional tubes 12AT7, 12AU7 and 12AY7: models with parameters from
+    curve-tracer measurements (D. Reefman, uTracer / ExtractModel library).
+    The former fits to one or two data sheet points were 18 / 55 / 22 % off
+    on average. With three 12AU7 the level drops by about 0.6 dB. 12AX7 and
+    5751 are unchanged (the 12AX7 model matches the schematic voltages as
+    well as a measured tube); with the default tubes the sound is identical.
 
 3.43
   - Pot tapers corrected. The schematic marks the pots in the old European

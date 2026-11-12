@@ -20,7 +20,10 @@ static const b15::TriodeD T12AX7 = {2.019059e-3, 2.02928, 100, 1.26};    // wie 
 static const b15::TriodeD T12AU7 = {9.627442e-4, 0.350357, 19.74, 1.5};  // wie TUBE_MODELS[2] in core.hpp
 // 6550: Derk-Form (wie D6L6), an Datenblattwerte angepasst (Tung-Sol/GE: 250/250/−14 V 140 mA, Ig2 12 mA, 11 mA/V, 15 kΩ; 400/225/−16,5 V 85–87 mA, Ig2 4–9 mA),
 // Knie-Parameter (ex, β, αs) wie 6L6GC; engine/tools/tube_fits.py
-static const b15::PentodeD D6550 = {7.584690749, 1.562959483, 671.7245705, 200, 300, 12377.82231, 0.0002564468176, 0.06717976054, 10, 0, 0, 0, 0, 1, 1, 1};
+// Ab 1.10: Knie der Strahltetrode (knee 1); β, αs, kvb und der Exponent von der vermessenen 6L6GC übernommen (Annahme: für die 6550 liegt keine Messung vor),
+// Pegel-Parameter neu an dieselben Datenblattwerte angepasst (rms 0,039, vorher 0,044). Ug2 345 V, Ug1 0: bei 20 V Anode 407 statt 318 mA.
+// Bis 1.9: {7.584690749, 1.562959483, 671.7245705, 200, 300, 12377.82231, 0.0002564468176, 0.06717976054, 10, 0, 0, 0, 0, 1, 1, 1}
+static const b15::PentodeD D6550 = {7.707309858, 1.606514837, 819.3385653, 299.9999313, 3205.1, 9484.117311, 0.0004977818974, 0.069, 8.1, 0, 0, 0, 0, 1, 1, 1, 1};
 static const b15::Sat OT_SAT = {30, 6.0, 0.15};   // Ausgangsübertrager: Lp 30 H, Sättigungsfluss 6 V·s, Hysterese wie AmpFett (alles geschätzt)
 enum Kind { K_AX7 = 0, K_AU7 = 1, K_6550 = 2, K_SAT = 4, K_CLAMP = 5, K_RECT = 6 };
 // 1N3070 (Eingangsbegrenzung der Endstufe): Shockley, Is 2 nA, n 1,9 (geschätzt aus dem Datenblatt: 0,8 V bei 100 mA)
@@ -34,7 +37,7 @@ inline void rectD(const double *v, double *i, double *J) { const double Is = 7e-
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
   switch (d.kind) {
     case K_AX7: b15::triodeD(T12AX7, v, i, J); break;
-    case K_AU7: b15::triodeD(T12AU7, v, i, J); break;
+    case K_AU7: b15::triodeK(b15::K12AU7, v, i, J); break;   // ab 1.10: Koren-Form mit Messparametern (vorher triodeD(T12AU7): Auslauf viel zu weich, im Mittel +55 % gegen die vermessene Röhre)
     case K_6550: b15::pentodeD(D6550, v, i, J); for (int k = 0; k < 3; k++) i[k] *= d.sc; for (int k = 0; k < 9; k++) J[k] *= d.sc; break;   // sc: drei Röhren parallel
     case K_SAT: b15::satI(d, *(const b15::Sat *)d.model, v[0], i, J); break;
     case K_RECT: rectD(v, i, J); break;
@@ -45,7 +48,7 @@ inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {
 #define HV_PK_DEFAULT 694.12
 #define SC_PK_DEFAULT 358.74
 #define NEG_PK_DEFAULT 192.0
-#define BIAS_X_DEFAULT 0.2053
+#define BIAS_X_DEFAULT 0.2646   /* bis 1.9: 0.2053; mit den Röhrenmodellen ab 1.10 neu auf 24 mA geeicht */
 struct Parts {   // Werte laut Plan (Ω, F); geschätzt markiert
   // Vorverstärker 07S519-12
   double r1 = 22e3, r3 = 100e3, r4 = 3.3e6, r6 = 4.7e3, c1 = 10e-6, r7 = 100e3, r8 = 1.5e3, c2 = 22e-6, c3 = 0.1e-6, c4 = 56e-12;
@@ -63,7 +66,7 @@ struct Parts {   // Werte laut Plan (Ω, F); geschätzt markiert
   double pc8 = 0.1e-6, pr19 = 470e3, pr20 = 1.8e3, pr21 = 47e3, pc10 = 0.047e-6, pr22 = 150e3, pr23 = 150e3, pr26 = 47e3;
   double rg = 47e3, rscr = 22, rk = 10;   // Röhrenplatine je 6550: Gitter 47 k, Schirmgitter 22 Ω, Kathode 10 Ω
   double bias_rth = 54e3;   // Innenwiderstand am BIAS-Schleifer (120 k / 50 k / 68 k bei etwa −62 V)
-  double v_neg = -180, v_bias = -59.384;   // −180 V; Schleifer so, dass jede 6550 in Ruhe 24 mA zieht (0,24 V an 10 Ω, Plan) – in svttest geeicht
+  double v_neg = -180, v_bias = -61.6788;   /* bis 1.9: −59,384 */   // −180 V; Schleifer so, dass jede 6550 in Ruhe 24 mA zieht (0,24 V an 10 Ω, Plan) – in svttest geeicht
   // Übertrager 94-602-12: 1850 Ω Anode–Anode (aus 372 V Anodenspannung bei 300 W an 4 Ω, Plan); 2-/4-Ω-Abgriff; Rest geschätzt
   double ot_zp = 1850, ot_rp = 40, ot_rs2 = 0.03, ot_rs4 = 0.02, ot_lp = 30, ot_kps = 0.9995, ot_kpp = 0.9998, ot_cpp = 1e-9, ot_rc = 50e3;   // Streuung/Kapazität so, dass
   // der ganze Verstärker bei 15 kHz −3 dB hat wie in der Spezifikation (mit 0,9985 Kopplung: Überhöhung +5 dB bei 24 kHz)

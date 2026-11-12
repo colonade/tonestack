@@ -53,7 +53,7 @@ int main() {
   printf("Leistung (1 kHz, GAIN und MASTER Maximum; Spez. 300 W an 2 oder 4 Ω bei < 3 %% Klirr, 0,4 V Eingang)\n");
   for (int tap = 0; tap < 2; tap++) { Setting s; s.gain = 1; s.master = 1; s.tap = tap; double lo = 0.004, hi = 0.02, w = 0, thd = 0; bool fin;
     for (int it = 0; it < 12; it++) { double m = std::sqrt(lo * hi); Core c = mk(s); sine(c, m, 1000, w, thd, fin); if (thd < 3) lo = m; else hi = m; }
-    Core c = mk(s); sine(c, lo, 1000, w, thd, fin); char b[80]; std::snprintf(b, sizeof b, "Leistung bei 3 %% Klirr an %d Ω (≥ 300 W; Netzteil geschätzt)", tap ? 2 : 4); chk(b, w, 350, 50, "W");
+    Core c = mk(s); sine(c, lo, 1000, w, thd, fin); char b[80]; std::snprintf(b, sizeof b, "Leistung bei 3 %% Klirr an %d Ω (≥ 300 W; Netzteil geschätzt)", tap ? 2 : 4); chk(b, w, 360, 60, "W");   /* ab 1.10 (Knie der Strahltetrode): 400 W am geschätzten Netzteil; Spezifikation nur „≥ 300 W“, Fenster deshalb 300 … 420 W */
     std::vector<std::string> N = {"PO"}; Core c2 = mk(s, &N); double y[O_NO + 2], sq = 0; long n = 9600; for (long i = 0; i < 48000 + n; i++) { c2.step(lo * std::sqrt(2.0) * std::sin(2 * PI * 1000 * i / FS), y); if (i >= 48000) sq += y[O_NO] * y[O_NO]; }
     std::snprintf(b, sizeof b, "  Vorverstärker-Ausgang dabei (Spez. 0,4 V für 300 W)"); chk(b, std::sqrt(sq / n), 0.4, 0.05, "V", true); }
   printf("Netzteil nach Plan (Gleichrichter, Siebkette R54/R55/R58; Grundstellung, Mittel über 0,2 s)\n");

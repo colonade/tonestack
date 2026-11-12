@@ -45,7 +45,8 @@ static std::string circuit(const Parts &v, const Setting &s, bool miller, const 
   std::string head = "* " + ttl + "\n";
   head += ".func sp(x) {ln(1 + exp(max(min(x, 35), -60))) + max(x - 35, 0)}\n";
   head += ".func gi(v) {" + n(Tube::GG) + " * pwr(sp(" + n(Tube::CG) + " * v) / " + n(Tube::CG) + ", " + n(Tube::XI) + ")}\n";
-  for (int t = 0; t < NTUBES; t++) { const TubeModel &T = TUBE_MODELS[t]; if (T.form != 1) { std::printf("Röhre %d nicht in Dempwolf-Form\n", t); std::exit(1); }
+  for (int t = 0; t < NTUBES; t++) { const TubeModel &T = TUBE_MODELS[t];
+    if (T.form != 1) { head += ".func tria" + std::to_string(t) + "(vg, vp) {2 * pwr(max(vp, 0) / " + n(T.kp) + " * sp(" + n(T.kp) + " * (1 / " + n(T.mu) + " + vg / sqrt(" + n(T.kvb) + " + vp * vp))), " + n(T.ex) + ") / " + n(T.kg1) + "}\n"; continue; }   // Koren-Form (ab 3.44: 12AT7, 12AU7, 12AY7)
     head += ".func tria" + std::to_string(t) + "(vg, vp) {" + n(T.G) + " * pwr(sp(" + n(T.C) + " * (vp / " + n(T.mu) + " + vg)) / " + n(T.C) + ", " + n(T.ga) + ") * (1 - exp(-max(vp, 0)))}\n"; }
   head += ".func kor(vg, vp) {2 * pwr(max(vp / 600 * sp(600 * (1 / 100 + vg / sqrt(300 + vp * vp))), 0), 1.4) / 1060}\n.model DX D(IS=1n RS=1 CJO=10p TT=1n)\n";
   head += "VIN src 0 " + pwl + "\nVB1 B1 0 DC " + n(UB[0]) + "\nVB2 B2 0 DC " + n(UB[1]) + "\nVB3 B3 0 DC " + n(UB[2]) + "\nVB4 B4 0 DC " + n(UB[3]) + "\n";

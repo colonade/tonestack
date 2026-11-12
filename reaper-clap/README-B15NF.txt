@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.23
+Version 1.24
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -389,3 +389,14 @@ Notes
   Internal change only (the output transformer's core saturation can be
   switched off for check calculations against SPICE; always on in the
   plugin). Sound and controls as 1.22.
+
+1.24
+  6L6GC model with the sharp knee of a beam tetrode. Knee and secondary
+  emission come from a 6L6GC measured with a curve tracer (D. Reefman,
+  uTracer / ExtractModel library); the level parameters were refitted to the
+  same data sheet values as before (same fit error). Data sheet push-pull
+  AB2: 45.9 W instead of 42.9 W (data sheet 47 W); screen current at full
+  power 17 instead of 21 mA (data sheet 16). In the amp: supply voltages 2 V
+  closer to the schematic, clean sound unchanged (-55 dB difference), driven
+  hard less than 0.1 dB per band. Checked against ngspice (-64 dB) and by
+  halving the time step (-45 dB at full overdrive).
