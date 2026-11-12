@@ -297,6 +297,17 @@ Nutzer: „ob oversampling so wie es jetzt implementiert ist überhaupt untersch
 - SCHALTPLAN.md berichtigt: R58 speist V1A/V1B der Endstufe, die Vorstufe hängt an R55/+343 V; Kathodenwiderstände 10 Ω auf der Endstufenplatine; SLAVE J2 über die Spitze; Seite B R31 Folgergitter / R30 Schleifer; Weg über FX SEND/RETURN und BAL OUT; Miller-C und Poti-Kennlinie als Schätzung; ULTRA OUT/IN aus S. 32; C26-Fassungen.
 - Entschieden: „1. Schätzen 2. Ja bitte und abschaltbar machen“ → SVT-CL 1.5 (folgender Abschnitt).
 
+## Loldano 1.1: Suche nach unnötiger Rechenlast (2026-11-12, Web 2026-11-12-6)
+Auftrag (Nutzer): „Bitte den code prüfen auf unnötige lastquellen beim loldano“. Gezählt mit callgrind (Befehle je Abtastwert bei 96 kHz Rechentakt), nicht mit der Uhr (die Uhr schwankt hier um ±15 %).
+- **Gefunden und entfernt**: (1) Röhrenkapazitäten der Kathodenfolger V3A/V4A und der zweiten Hälfte der Phasenumkehr (6 Zustände, Frequenzgang ≤ 0,03 dB anders, Zeitverlauf −46 dB); (2) Gleichrichter als nichtlineares Tor – an Gleichspannung leitet er immer, jetzt 0,62 V + 0,5 Ω im Innenwiderstand (1 Tor, 1 Knoten); (3) zweiter BRIGHT-Kondensator (ein Kondensator, dessen Ende der Schalter umlegt). Netz: 72 Knoten, 51 Zustände, 26 Tore (vorher 74/58/27).
+- **Nebenbefund (Fehler)**: offene Schalterkontakte waren 1 GΩ; am CLEAN-Abschwächer sprach das ungeteilte Signal darüber um 0,05 dB über. Jetzt 100 GΩ.
+- **Nicht entfernt**: die Gitter–Kathoden-Kapazitäten der Verstärkerstufen. Ohne sie 13 Zustände weniger, aber 0,2 dB bei 10 kHz – das ist keine vernachlässigbare Größe.
+- **Ergebnis**: OVERDRIVE übersteuert 185,9 → 173,8 Tsd. Befehle (−7 %), NORMAL übersteuert 169,0 → 157,5 (−7 %), Ruhe 78,6 → 69,8 (−11 %). Mit der Uhr (plugtest perf, 2x): 1.0 im Mittel 76 %, 1.1 71 %.
+- **Versucht, ohne Gewinn**: Röhren des nicht gewählten Kanals als eigene Gruppe (±5 %, teils mehr Durchgänge), reuseJ (Ruhe −24 %, übersteuert +9 % – die Spitze zählt), dünne Produkte (+12 … +29 %), andere Gruppenteilungen.
+- **Wo die Zeit bleibt** (1.1, übersteuert): Löser in dk.hpp etwa 52 % (solveGroup mit Nachführen von q 20 %, Zerlegung 14 %, Rückwärtseinsetzen 10 %, buildA 8 %), Röhrenkennlinien 23 % (exp, log1p, pow; rund 90 Auswertungen je Abtastwert), lineare Produkte Csr::apply 14 % (in Ruhe 36 %; skalare Schleife, weil ohne -ffast-math nicht vektorisiert). Plugin-Hülle (Überabtastungsfilter, Anzeigen, Glättung) unter 1 %.
+- **Folgerung**: Im Loldano-eigenen Code ist nichts Großes mehr zu holen. Die Hebel liegen im gemeinsamen Code (dk.hpp, b15_core.hpp): Produkte in fester Reihenfolge vektorisieren, Zerlegung sparen, Kennlinien billiger. Das ändert die Binärdateien aller Plugins (neue Versionen, neue Prüfung) – nur auf Wunsch des Nutzers.
+- 1.0 wurde auf GitHub gebaut, aber nicht ausgeliefert; ausgeliefert wird 1.1.
+
 ## Loldano SLO-100 1.0 = Nachbau Soldano SLO-100 (2026-11-12, Plugin 1.0 / Web 2026-11-12-5)
 Auftrag (Nutzer, 2026-11-12): „Nenn Ihn Loldano und fang mal an bitte.“, dann „Ja bitte weitermachen“ (Plugin, Frontplatte, Webseite, Mac). Anlass: Der Kritiker hat einen Soldano-artigen Verstärker in JFET-Technik in LTspice gerechnet.
 - **Quelle**: beschrifteter Gesamtplan von Rob Robinette („Annotated Soldano SLO-100 Schematic“, V1.6k) – eine Nachzeichnung, kein Werksplan; vom Nutzer mit einem Ladeskript geholt (soldano-daten.zip, nicht im Repo). Dazu Kuehnels Analyse (ampbooks) und die Bedienungsanleitung. Abschrift: `docs/loldano/SCHALTPLAN.md`.
