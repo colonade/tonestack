@@ -301,7 +301,8 @@ Nutzer: „ob oversampling so wie es jetzt implementiert ist überhaupt untersch
 Wunsch des Nutzers: „beim nächste Mac update sollte der name des Pakets angepasst werden. so dass er gleich bleibt egal was drin ist“.
 - Das Installerpaket heißt ab dem nächsten Bau **tonestack-Plugins-Mac.pkg** (scripts/versions.sh: PKG; vorher mit allen Versionen im Namen). Angepasst: versions.sh, plugins.yml (Prüfung „genau ein Paket“), release.sh (Text), LIESMICH-Mac, Link in web/tonestack/index.html.
 - Die Versionen stehen weiter im Release-Tag, im Text der Übersichtsseite und im Installer selbst.
-- Übergang: scripts/pack-web.sh benennt ein Paket mit altem Namen (Release mit Loldano 1.1) beim Packen um; das Web-Zip verlinkt also schon jetzt den festen Namen. Kein neues Release nur dafür.
+- Übergang: scripts/pack-web.sh benennt ein Paket mit altem Namen beim Packen um.
+- Der Push hat (wegen plugins.yml) doch einen Bau ausgelöst (Lauf 43286572401, gleiche Versionen): Release jetzt mit tonestack-Plugins-Mac.pkg. Geprüft: 34 Dateien (Digest, Größe), SHA256SUMS 21 von 21, Linux-Plugins und WebAssembly bytegleich mit dem Bau hier; das Mac-Paket ist neu gebaut (andere Bytes, gleicher Inhalt). **Im Release liegt noch das Paket mit dem alten langen Namen** (wird beim Hochladen nicht ersetzt); löschen darf diese Sitzung keine Release-Dateien (HTTP 403) – verschwindet mit dem nächsten Release (neuer Tag, altes Release wird gelöscht) oder von Hand durch den Nutzer.
 
 ## Loldano 1.1: Suche nach unnötiger Rechenlast (2026-11-12, Web 2026-11-12-6)
 Auftrag (Nutzer): „Bitte den code prüfen auf unnötige lastquellen beim loldano“. Gezählt mit callgrind (Befehle je Abtastwert bei 96 kHz Rechentakt), nicht mit der Uhr (die Uhr schwankt hier um ±15 %).
