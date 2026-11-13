@@ -302,6 +302,7 @@ Frage des Nutzers: „können die erkenntnisse aus dem Soldano auch in den B15 e
 - 6SL7: zusätzlich Gitter–Kathode 3,2 pF und Anode–Kathode 3,5 pF (Mittel der beiden Systeme, RCA RC-15). Wirkung siehe docs/b15nf/SCHALTPLAN.md: −0,2 dB bei 10 kHz, −0,5 dB bei 20 kHz, unter 1 kHz 0,01 dB. Netz 47 statt 35 Zustände.
 - Geprüft: ngspice −58 … −87 dB je Knoten; b15test unverändert (41,9 dB bei 1 kHz, 25 mA); b15guitest 10 Punkte ohne Abweichung; rtcheck ohne nicht endliche Werte; clapstress; alle anderen Plugins und Rechenkerne bytegleich mit dem Release. Rechenlast +12 % übersteuert, +18 % in Ruhe (Befehle); plugtest im Mittel 18 % → 20 %.
 - **Auf Zweig `b15-1.26`, nicht auf main**: der GitHub-Bau startet nur bei Pushes auf main, so entsteht kein Mac-Bau. Ausgeliefert: Linux-Pakete und Web-Zip aus dem Bau hier (kein Release). Die Übersichtsseite auf dem Zweig sagt, dass das Mac-Paket noch 1.25 enthält. Wenn der Nutzer 1.26 für gut befindet: Zweig nach main übernehmen → Release mit Mac.
+- 2026-11-13: Nutzer: „ok danke, bitte mac bauen“ → Zweig per Schnellvorlauf nach main übernommen, Hinweis „Mac-Paket enthält noch 1.25“ entfernt, Paketliste auf 1.26, Web 2026-11-13-1; Release mit Mac-Bau angestoßen.
 
 ## Mac-Paket mit festem Namen (2026-11-12, Web 2026-11-12-7, wirkt ab dem nächsten Release)
 Wunsch des Nutzers: „beim nächste Mac update sollte der name des Pakets angepasst werden. so dass er gleich bleibt egal was drin ist“.
