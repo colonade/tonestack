@@ -44,6 +44,13 @@ Nutzer zum Vorschlag „Endstufe intern höher abtasten“: „Top so machen“.
 - Prüfungen: verify (alle anderen Plugins bytegleich zum Release), Pegel 1x/2x/4x gleich (nach dem ersten Moment; Umschalten auf 4x in der ersten Sekunde nach dem Laden startet die Endstufe kalt, jetzt mit richtigen Schienen), Latenz 4x = 2x, rtcheck ohne nicht endliche Werte (Werte wie 3.45, Uhr hier stark schwankend), switchtest 285 Umschaltungen ohne Fehler, guitest (Version 3.46). Web-Kern 3.46 im node: Burst 50 ms und 2 s nach dem Start gleich.
 - Ausgeliefert: Laney_AOR50_CLAP/VST3-3.46.zip und Web-Zip aus dem Bau hier (dist bleibt auf dem Release-Stand). Übersicht: „3.46 für Linux, das Mac-Paket enthält noch 3.45“, Überabtastung „bis zu 4-fach“ (stand noch 8-fach). Loldano: Endstufe rechnet schon mit der vollen Überabtastung (ein Netz), dort nichts geändert.
 
+## Röhrenmodelle aus dem Netz gegen unser Modell (2026-11-14)
+Nutzer: „Gibt es spice Modelle im Netz die Röhren emulieren … Machen die etwas besser?“ Laney-Vorstufe als ein Netz in ngspice (laney_spice, Burst 400 Hz, 50 mV, alles 5, 12AX7), alle sechs Systeme getauscht:
+- Koren 2003 (normankoren.com, wörtlich: MU 100, EX 1,4, KG1 1060, KP 600, KVB 300, Gitter Diode DX hinter 2 kΩ) = Variante `laney_k`: gleiche Kurvenform an allen Knoten (Rechteck an V102B, Sägezahn hinter dem Klangregler), Ruhespannungen 3–8 V höher, 2. Harmonische am Ausgang −23 statt −34 dB. Gegen RCA: 250 V/−2 V 0,95 mA (RCA 1,2; unser 1,18), 100 V/−1 V 0,10 mA (RCA 0,5; unser 0,52).
+- Hagerman 1993 (Diodenmodell, wörtlich aus SpiceModels.txt, ohne eigene Kapazitäten): Anode V102B schwingt auf −250 V, physikalisch unmöglich; 100 V/−1 V 0 mA.
+- Ayumi (laut Forenvergleich am nächsten an einer Messung) nicht beschaffbar: diyaudio sperrt den Abruf, die Datei bei duncanamps kam nur binär. Duncan-Modell (GitHub aempirei) braucht eine nicht enthaltene Grund-Teilschaltung.
+- Ergebnis: kein Modell ändert die Form; unseres trifft die Datenblattpunkte am besten. Bild: Vergleich in scratchpad (nicht im Repo).
+
 ## Vorgemerkte Änderungen
 - erledigt (SVT-CL 1.5): TUBE MISMATCH im SVT-CL (Nutzer, 2026-11-07: „In den svt soll auch der Tube missmatch eingebaut werden“).
 - Vorgemerkt (Plan B Punkt 2, nicht beauftragt): Grundlast allgemein senken.
