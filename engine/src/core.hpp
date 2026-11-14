@@ -270,7 +270,10 @@ struct PaDk {
     if (c.size() >= lim) { for (auto it = c.begin(); it != c.end();) { if (it->second.cur.mis != 0) it = c.erase(it); else ++it; } if (c.size() >= lim) c.clear(); }
     c[key] = k; }
   static bool has(double fs, const lpa::Vals &v) { Lock lk; return cache().count(keyOf(fs, v)) > 0; }
-  void mark() { for (int i = 0; i < 3; i++) { vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; rail0[i] = c.rail[i]; } }
+  // ab 3.46: kalt gestartete Endstufe (nicht aus dem Speicher, noch kein Schritt) hat noch keine Schienenspannungen; bis 3.45 galt dann 0 V als Ruhe
+  // und die Vorstufe lief dauerhaft mit etwa 260 V zu viel (Webseite immer, Plugin ohne vorab eingeschwungenen Zustand). Jetzt die Planwerte als Ruhe.
+  void mark() { if (c.rail[0] == 0 && c.rail[1] == 0 && c.rail[2] == 0) { c.rail[0] = 255; c.rail[1] = 265; c.rail[2] = 280; }
+    for (int i = 0; i < 3; i++) { vgk0[i] = i < 2 ? c.vgk(i) : c.run.vp[0]; rail0[i] = c.rail[i]; } }
   double railDev(int k) const { return c.rail[k] - rail0[k]; }   // Änderung der Vorstufenschiene k (240/252/260 V) gegen die Ruhe
   void setTarget(const Parts &pv, double pres, double mis) { lpa::Vals n = valsOf(pv, pres, mis);
     if (!hasV) { c = settled(fs, n, false); if (!(c.cur == n)) c.apply(n); hasV = true; tgt = n; mark(); return; }
@@ -470,7 +473,7 @@ struct Amp {
   // Endstufe (ab 3.21) im Takt der Überabtastung: pa != nullptr (von NlCore je Aufruf gesetzt) → step liefert den Endstufen-Ausgang.
   // Bei 1x und 2x rechnet sie jeden Teilschritt, bei 4x und 8x jeden zweiten mit dem Mittel aus zwei (Rechenrate 2x bzw. 4x); die Ausgabe gilt bis zur nächsten Gruppe.
   // Die Vorstufe rechnet mit den Schienenspannungen ub (Ruhe UB plus Änderung aus dem Netzteil der Endstufe) und meldet ihre Stromänderungen zurück.
-  static int paGroup(int os, bool on, bool eco = false) { return on && (os > 2 || (eco && os == 2)) ? 2 : 1; }   // Teilschritte je Endstufen-Schritt; ECO (ab 3.26): bei 2x rechnet die Endstufe mit der Grundrate
+  static int paGroup(int os, bool on, bool eco = false) { return on && eco && os == 2 ? 2 : 1; }   // Teilschritte je Endstufen-Schritt; ECO (ab 3.26): bei 2x rechnet die Endstufe mit der Grundrate. Ab 3.46 rechnet die Endstufe bei 4x mit 4x (vorher 2x: Spiegelfrequenzen der Endstufe bei starker Aussteuerung, 4x half kaum)
   bool eco = false;
   AOR_RV(lrev::Rev *rv = nullptr;)   // Federhall im Effektweg (ab 3.35; nur mit Endstufe, von NlCore je Aufruf gesetzt)
   PaDk *pa = nullptr; double ub[4] = {UB[0], UB[1], UB[2], UB[3]}, i0[3] = {0, 0, 0}, paAcc = 0, paHold = 0; int paCnt = 0;
@@ -626,7 +629,7 @@ struct Amp {
     xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x;
     // Laufzeit: Interpolation + Dezimation (symmetrische Filter) ergeben 31 − 1/os Abtastwerte (gemessen); die Dezimation wird deshalb
     // nach der vorletzten Teilphase abgegriffen (+1/os), so ist die Latenz in jeder Überabtastung genau 31 (= Engine::pad, gemeldete Plugin-Latenz).
-    // Mit Endstufe bei 4x/8x verzögert die Zweiergruppe um einen Teilschritt; der Abgriff rückt dafür einen Teilschritt später (letzte Teilphase).
+    // Rechnet die Endstufe in Zweiergruppen (nur noch ECO bei 2x), verzögert das um einen Teilschritt; der Abgriff rückt dafür einen Teilschritt später.
     const int m = paGroup(os, pa != nullptr, eco), tap = os - 2 + (m - 1);
     double out = 0;
     for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
