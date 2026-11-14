@@ -27,6 +27,11 @@ void aor_set_target() {
   T.s.mid = tgtG[8]; T.s.top = tgtG[9]; T.s.bass = tgtG[10]; T.s.ch1 = tgtG[11]; T.s.low = tgtG[12]; T.pa = tgtG[13] > 0.5; T.vin = tgtG[14]; T.nl = tgtG[15] > 0.5; { int o = std::isfinite(tgtG[16]) ? (int)tgtG[16] : 2; T.os = (o == 1 || o == 2 || o == 4 || o == 8) ? o : 2; } for (int i = 0; i < 3; i++) { int t = (int)tgtG[17 + i]; T.s.tube[i] = (t >= 0 && t < NTUBES) ? t : 0; } T.spk = tgtG[20] > 0.5; T.mis = std::isfinite(tgtG[21]) ? std::min(0.1, std::max(0.0, tgtG[21])) : 0; T.eco = tgtG[22] > 0.5; T.rev = std::isfinite(tgtG[23]) ? std::min(1.0, std::max(0.0, tgtG[23])) : 0; T.tankAmt = std::isfinite(tgtG[24]) ? std::min(10.0, std::max(0.0, tgtG[24])) : 5; T.tankLin = T.tankAmt <= 0;   /* ab 3.35: REVERB (mit Kennlinie), Federtank linear */ T.s.late = p.rpad > 0 ? 1 : 0; T.v.rpad = 2.2e6; { const Parts O = Parts::orig(), U = Parts::umbau(); auto eq = [](double a, double b) { return std::fabs(a - b) <= 1e-6 * std::fabs(b); };   // Bass-Umbau und „Sanft“ der Seite als gleitende Schalter (wie Plugin 3.30), nur bei Plan- bzw. Umbauwerten
     bool soft = T.v.c3 <= 1.0001e-9, bm = eq(T.v.c2, U.c2) && eq(T.v.c14, U.c14) && (soft || eq(T.v.c3, U.c3)), bo = eq(T.v.c2, O.c2) && eq(T.v.c14, O.c14) && (soft || eq(T.v.c3, O.c3));
     if (bm || bo) { T.s.bmod = bm ? 1 : 0; T.s.soft = soft ? 1 : 0; T.v.c2 = O.c2; T.v.c14 = O.c14; T.v.c3 = O.c3; } }   // „Später“ ab 3.29 gleitend (Setting.late) statt Bauteilwechsel
+  // ab 3.46: Endstufe vor dem ersten Gebrauch je Abtastrate eingeschwungen (wie das Plugin beim Aktivieren). Bis 3.45 startete sie auf der Webseite immer
+  // kalt: Einschwingvorgang am Anfang und dauerhaft falsche Vorstufenschienen (siehe lpa::Core::init). Läuft im Rechen-Thread (laney-render.js), einmal je Rate
+  // und Bauteilsatz (ohne Streuung; mit Streuung übernimmt PaDk::settled diesen Zustand); etwa eine Sekunde beim ersten Ton bzw. Umschalten der Überabtastung.
+  if (T.pa) { int os = T.nl ? T.os : 1; double r = T.nl ? fsG * os / Amp::paGroup(os, true, T.eco && os == 2) : fsG; lpa::Vals z = PaDk::valsOf(T.v, 0.5, 0.0);
+    if (!PaDk::has(r, z)) PaDk::settled(r, z); }
   E->setTarget(T); haveT = true;
 }
 void aor_process(int n) { if (n < 0) return; if (n > 8192) n = 8192;   // Puffergrenze

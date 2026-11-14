@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.45"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.46"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #include "core.hpp"
 #include "platform.hpp"
@@ -169,9 +169,9 @@ static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t ma
   { int o = (int)std::lround(pl->val[P_OS]), os = o <= 0 ? 1 : o == 1 ? 2 : 4;   // Grundrate (1x, linear) und Rate der gewählten Überabtastung
     for (double m : {0.0, pl->val[P_MIS] / 100}) for (double r : {sr, sr * os / Amp::paGroup(os, true, pl->val[P_ECO] > 0.5)}) PaDk::settled(r, PaDk::valsOf(Parts::orig(), 0.5, m));
     // die übrigen Raten (Umschalten der Überabtastung im Betrieb) im Hintergrund; bis dahin startet eine neue Endstufe aus den Planspannungen (3.26: Sekunden im Audio-Thread)
-    // Endstufe rechnet höchstens mit der doppelten Grundrate (2x, 4x mit Zweiergruppe; bis 3.32 wurde zusätzlich die vierfache gerechnet, die nichts mehr nutzt)
+    // Endstufe rechnet mit der Grundrate (1x, ECO), der doppelten (2x) und ab 3.46 wieder der vierfachen (4x; 3.33 bis 3.45 bei 4x in Zweiergruppen mit der doppelten)
     double mis = pl->val[P_MIS] / 100; std::atomic<bool> *stop = &pl->stopJobs;
-    try { pl->warm = std::thread([sr, mis, stop]() { DenormGuard dg; for (double m : {0.0, mis}) for (double r : {sr, 2 * sr}) { if (*stop) return; lpa::Vals v = PaDk::valsOf(Parts::orig(), 0.5, m); if (!PaDk::has(r, v)) PaDk::settled(r, v, true, stop); } }); } catch (...) {} }
+    try { pl->warm = std::thread([sr, mis, stop]() { DenormGuard dg; for (double m : {0.0, mis}) for (double r : {sr, 2 * sr, 4 * sr}) { if (*stop) return; lpa::Vals v = PaDk::valsOf(Parts::orig(), 0.5, m); if (!PaDk::has(r, v)) PaDk::settled(r, v, true, stop); } }); } catch (...) {} }
   delete pl->eng; delete pl->eng2; pl->eng = new Engine(sr); pl->eng2 = new Engine(sr); pl->eng->pad = pl->eng2->pad = LATENCY; pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->dirty = true; pl->eng2Has = false; pl->monoOK = true; pl->eng2Stale = true; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); stopJobs(pl); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }

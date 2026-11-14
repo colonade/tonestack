@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.45
+Version 3.46
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -150,6 +150,21 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.46
+  - Power amp start fixed. When the power amp started without its stored
+    rest state (always on the web pages; in the plugin only right after
+    switching the oversampling, or after the stored states were dropped), the
+    preamp supply rails were taken as 0 V at rest and the preamp then ran with
+    about 260 V too much: 3 to 6 dB louder, different distortion, and the
+    first few tens of milliseconds after the start were smeared (a sine burst
+    lost its first periods). Now the rails start at the schematic voltages.
+  - 4x oversampling now also runs the power amp at 4x (3.33 to 3.45: power amp
+    at 2x in pairs of sub-steps). Hard-driven, the power amp produced aliasing
+    (non-harmonic tones) that 4x could not reduce: Preamp 1, all controls 10,
+    12AX7, 1.3 kHz: non-harmonic part -24 dB at 2x, -32 dB at 4x (3.45: -24 dB);
+    default settings 1.3 kHz -58 dB at 2x, -75 dB at 4x. For heavy distortion
+    choose 4x. CPU at 4x about +37 %; 1x and 2x unchanged.
 
 3.45
   - Grid current scaled per tube type. The law itself was measured on a
