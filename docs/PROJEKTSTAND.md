@@ -51,6 +51,12 @@ Nutzer: „Gibt es spice Modelle im Netz die Röhren emulieren … Machen die et
 - Ayumi (laut Forenvergleich am nächsten an einer Messung) nicht beschaffbar: diyaudio sperrt den Abruf, die Datei bei duncanamps kam nur binär. Duncan-Modell (GitHub aempirei) braucht eine nicht enthaltene Grund-Teilschaltung.
 - Ergebnis: kein Modell ändert die Form; unseres trifft die Datenblattpunkte am besten. Bild: Vergleich in scratchpad (nicht im Repo).
 
+## Startfehler wie beim Laney auch in den anderen Verstärkern? (2026-11-14)
+Nutzer: „Ist der fehler evtl auch in den anderen Amps?“ – Nein.
+- Code: nur der Laney merkte sich Ruhewerte (`PaDk::mark`) von einer womöglich nicht eingeschwungenen Endstufe. B-15NF, B100-III, G100, GK, Loldano, SVT-CL und AmpFett 76 schwingen in `Amp::init` immer auf den übergebenen Stellungen ein (0,3–1,5 s), bevor sie Ruhewerte lesen (`vgk0`, `readBias`); die Web-Kerne rufen `init` mit den aktuellen Stellungen (`fromT()`). B100-II und Wien EQ ohne solchen Zustand.
+- Messung Plugins (hosttest, Burst 400 Hz, 20 Perioden, 0 dBFS, Grundstellung): Burst bei 2 s gegen 10 s −50…−170 dB bei allen. Bei 50 ms: GK −43, B100-III −42, Loldano −42, G100 −31, Laney −31 dB; B-15NF, SVT-CL, AmpFett 76 je −6 dB, weil sie beim ersten Start 150 ms einblenden (Ruhezustand beim Aktivieren auf `Setting()`, gleitet dann auf die Stellungen; so gewollt, nur beim ersten Start nach dem Laden).
+- Messung Web-Kerne (nativ übersetzt, Stellungen der Vorgabe): Pegel wie im Plugin (B-15NF −14,6, SVT −11,3, G100 −16,6, GK −5,2, B100-III −15,2 dBFS); kein dauerhafter Fehler. SVT schwingt nach dem Start noch nach: einzelner Burst gegen 20 s −20/−30/−41/−52 dB bei 0,05/0,5/1/2 s (B-15NF −40/−43/−45/−51). Mögliche Verbesserung: längeres Einschwingen beim Laden (nicht beauftragt).
+
 ## Vorgemerkte Änderungen
 - erledigt (SVT-CL 1.5): TUBE MISMATCH im SVT-CL (Nutzer, 2026-11-07: „In den svt soll auch der Tube missmatch eingebaut werden“).
 - Vorgemerkt (Plan B Punkt 2, nicht beauftragt): Grundlast allgemein senken.
