@@ -22,3 +22,4 @@ pack AmpFett_SVTCL "$SVTCL" README-SVTCL.txt
 pack Wien_EQ "$WIENEQ" README-WienEQ.txt
 pack AmpFett_76 "$AMPFETT76" README-AmpFett76.txt
 pack Loldano_SLO100 "$LOLDANO" README-Loldano.txt
+pack Kaiserin_Reverb "$KAISERIN" README-Kaiserin.txt

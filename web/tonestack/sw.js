@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-15-9";
+const VERSION = "2026-11-15-10";
 // Eigener Speichername je Version und Installationsort (ab 2026-11-15-8): beim Aktualisieren werden nur die eigenen alten Speicher gelöscht,
 // nicht die anderer Web-Apps auf derselben Domain (bis 2026-11-15-7 wurden alle Speicher der Domain außer dem aktuellen gelöscht).
 const CACHE = "tonestack-" + VERSION + "@" + self.registration.scope;
@@ -73,6 +73,13 @@ const FILES = [
   "wien-eq/weq-render.js",
   "assets/icons/wien-eq-192.png",
   "assets/icons/wien-eq-512.png",
+  "kaiserin-reverb/",
+  "kaiserin-reverb/index.html",
+  "kaiserin-reverb/manifest.webmanifest",
+  "kaiserin-reverb/kai-worklet.js",
+  "kaiserin-reverb/kai-render.js",
+  "assets/icons/kaiserin-reverb-192.png",
+  "assets/icons/kaiserin-reverb-512.png",
   "ampfett-76/",
   "ampfett-76/index.html",
   "ampfett-76/manifest.webmanifest",
