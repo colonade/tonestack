@@ -361,6 +361,9 @@ struct Tube {
   static constexpr double GG = 6.177e-4, CG = 9.901, XI = 1.314;
   static void grid(double v, double *out) { double x = CG * v, sp, sg;
     if (x < -30) { out[0] = 0; out[1] = 0; return; }   // unter −3 V: kleiner als 1e-20 A
+#ifdef B15_TAB   // ab 3.47: Tabelle wie b15::gridI0 (genauer als die Näherung darunter)
+    if (x <= 35) { static const double K = GG * std::pow(CG, -XI); double f, df; b15::tabGrid().eval(x, f, df); out[0] = K * f; out[1] = K * CG * df; return; }
+#endif
     if (x < -8) { const double K = GG * std::pow(CG, -XI); double i = K * std::exp(XI * x); out[0] = i; out[1] = XI * CG * i; return; }   // Sperrbereich (Arbeitspunkt): ln(1+eˣ) ≈ eˣ, eine Exponentialfunktion statt drei
     if (x > 35) { sp = x; sg = 1; } else { double e = std::exp(x); sp = std::log1p(e); sg = e / (1 + e); }
     double s = sp / CG, p = std::pow(s, XI - 1); out[0] = GG * p * s; out[1] = GG * XI * p * sg; }

@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.46
+Version 3.47
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -150,6 +150,23 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.47
+  Less CPU, same sound (measured against a reference computed with a
+  1,000,000 times tighter solver tolerance: the deviation stays where it
+  was, -144 dBFS and lower).
+  - Tube curves from a table: the 12AX7/5751 curve and the grid current
+    depend on one variable each; they are now read from a table (step
+    1/32, cubic, exact values and slopes at the points; error below 1e-8
+    relative) instead of computing exp, log1p and pow every time. Other
+    tube types are computed as before.
+  - Power amp: the solver matrix is factorised once per sample and reused
+    by the Newton steps of that sample (up to 3.46: in every step).
+    Keeping it across samples was tried and dropped: with the output
+    transformer's hysteresis Newton once landed on another solution
+    (-56 dB).
+  Measured (instructions, 0.5 s): driven 2x -15 %, 4x -11 %, quiet -7 to
+  -15 %, silence -6 %; time on the build machine driven 2x -18 %, 4x -25 %.
 
 3.46
   - Power amp start fixed. When the power amp started without its stored

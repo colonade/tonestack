@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.3
+Version 1.4
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -257,3 +257,19 @@ Notes
     tolerance).
   - Rendering at 8x and 16x keeps the whole circuit (the split with a
     slower power amp would raise its aliasing at high MASTER).
+
+1.4
+  - Fix: with OVERSAMPLING 4X (1.3) the circuit started with a thump of up
+    to -5 dBFS lasting about 150 ms, at load and at every switch to 4X: the
+    power amp part settled with 0 V instead of the cathode voltage of V4A
+    and the filter between the two parts started empty. Now silent
+    (-132 dBFS in the first 100 ms, as in 1.2).
+  - Tube curves from a table (12AX7 and grid current, also in the 6L6GC
+    grid; step 1/32, cubic, error below 1e-8 relative).
+  - The solver keeps its factorised matrix across samples while the
+    circuit is quiet (each part converged in one Newton step).
+  Measured against 1.3 (instructions, 0.5 s): driven 2x -12 %, 4x -13 %,
+  plucked note 2x -27 %, 4x -38 %, silence 2x -31 %, 4x -40 %; time on the
+  build machine driven 2x -19 %, 4x -22 % (4x now in real time there).
+  Deviation from a reference with a much tighter solver tolerance: at
+  most -106 dBFS, as before.

@@ -1,5 +1,7 @@
 // C-Schnittstelle des Rechenkerns für WebAssembly (AudioWorklet)
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
+#define LPA_REUSE   // ab 3.47: Laney-Endstufe mit wiederverwendeter Zerlegung innerhalb eines Abtastwerts (laney_pa.hpp); vor dem ersten Einbinden
+#define B15_TAB     // ab 3.47: Röhrenkennlinien (Dempwolf, Gitterstrom) als Tabelle (b15_core.hpp)
 #include "core.hpp"
 using namespace aor;
 static Engine *E = nullptr; static double fsG = 48000; static Target T; static bool haveT = false;

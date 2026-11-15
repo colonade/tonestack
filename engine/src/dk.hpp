@@ -302,8 +302,14 @@ struct Runner {
     z.assign((size_t)s.nh + s.nu + s.m, 0.0); kq.assign(s.m, 0.0);
     luA.assign(ng + 1, {}); luP.assign(ng + 1, {}); luOK.assign(ng + 1, 0); for (int G = 0; G <= ng; G++) { luA[G].assign(grpPort[G].size() * grpPort[G].size(), 0.0); luP[G].assign(grpPort[G].size(), 0); }
     grpBlk.assign(ng + 1, {}); for (int G = 0; G <= ng; G++) for (int dk_ : grpDev[G]) grpBlk[G].push_back({dev[dk_].p0, dev[dk_].np});
+#ifdef DK_KEEPLU
+    nDevGrp = 0; for (int G = 0; G < ng; G++) if (!grpPort[G].empty()) nDevGrp++;
+#endif
   }
   std::vector<int> memDev;   // Geräte mit Gedächtnis (Fluss), nach jedem Abtastwert fortgeschrieben
+#ifdef DK_KEEPLU
+  int nDevGrp = 1;   // Gruppen mit Toren (ohne die Sammelgruppe)
+#endif
   // Gedächtnis aus einem früheren Geräteverzeichnis übernehmen (nach Neuaufbau des Netzes, gleiche Reihenfolge)
   static void keepMem(std::vector<Dev> &nw, const std::vector<Dev> &old) { for (size_t k = 0; k < nw.size() && k < old.size(); k++) if (nw[k].mem && old[k].mem) { nw[k].st = old[k].st; nw[k].vl = old[k].vl; for (int j = 0; j < 8; j++) nw[k].hs[j] = old[k].hs[j]; } }
   // Gerät k auswerten: Ströme nach ip, Ableitungsblock nach Jd[p0*16 ...] (Zeilen je Tor, bis 16 Spalten; Geräte also höchstens 4 Tore)
@@ -371,7 +377,13 @@ struct Runner {
     return first; }
   void step(const double *u, double *y) {
     const int m = s.m, nh = s.nh, nu = s.nu;
+#ifdef DK_KEEPLU   // nur wo definiert (Loldano ab 1.4): die Zerlegung bleibt über Abtastwerte stehen, solange der vorige Abtastwert
+    // mit einem Newton-Schritt je Gruppe auskam (ruhige Stellen, leises Spiel); sonst wie reuseStep je Abtastwert neu. Zieht sie nicht mehr, baut solveGroupR sie ohnehin neu.
+    // Nicht für Netze mit Hysterese (Laney-Endstufe: Übertragerkern): dort landete Newton mit der alten Matrix einmal auf einer anderen Lösung (−56 dB, gemessen).
+    if (reuseStep && lastIt > nDevGrp) std::fill(luOK.begin(), luOK.end(), (char)0);
+#else
     if (reuseStep) std::fill(luOK.begin(), luOK.end(), (char)0);
+#endif
     double *zz = z.data(); for (int j = 0; j < nh; j++) zz[j] = h[j]; for (int j = 0; j < nu; j++) zz[nh + j] = u[j];
     s.cP.apply(zz, p.data());
     for (int k = 0; k < m; k++) { double v0 = vp[k]; vp[k] = 2 * v0 - vp1[k]; vp1[k] = v0; }   // Startwert: lineare Vorhersage aus den letzten beiden Abtastwerten

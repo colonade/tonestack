@@ -23,6 +23,21 @@ static const Pentode P6L6 = {8.753, 1.358, 1499.6, 26600, 38.93, 54.50, 1.0};
 // gs = 0,306·G/6,177e-4 (G: Perveanz auf die wirksame Spannung Ug + Ua/mu bezogen). 6L6GC aus dem Datenblatt (RCA, Gegentakt AB2, „Peak Grid-Input Power“
 // 140 mW bei +8 V und 270 mW bei +13,5 V Gitterspitze → 5,4 und 7,5 mA): Gg im Mittel 3,0e-4, gs = 0,486 (das 12AX7-Gesetz gäbe 9,5 und 18,9 mA).
 // 6550 und EL34: wie 6L6GC, mit dem Kathodenstrom bei 0/250/250 V skaliert (Schätzung).
+#ifdef B15_TAB
+// Kennlinien als Tabelle (nur wo definiert: Loldano ab 1.4, Laney ab 3.47). Dempwolf-Triode und Gitterstrom hängen je von einer einzigen Größe x ab:
+// Φ(x) = ln(1 + eˣ)^γ (γ = 1,26 für 12AX7 und 5751, 1,314 für den Gitterstrom). Statt exp, log1p, log, exp je Aufruf eine kubische Hermite-Interpolation
+// mit den genauen Werten und Ableitungen an Stützstellen im Abstand 1/32; Wert und Ableitung kommen aus demselben Polynom (für Newton zueinander passend).
+// Fehler (gemessen, siehe PROJEKTSTAND): relativ unter 1e-8.
+struct Tab1 { double x0, ih; int n; std::vector<double> f, d;
+  template <class F> Tab1(double a, double b, double ih_, F fn) : x0(a), ih(ih_) { n = (int)std::lround((b - a) * ih) + 1; f.resize(n); d.resize(n); for (int k = 0; k < n; k++) fn(a + k / ih, f[k], d[k]); }
+  void eval(double x, double &v, double &dv) const { double u = (x - x0) * ih; int k = (int)u; if (k > n - 2) k = n - 2; if (k < 0) k = 0; const double t = u - k, h = 1 / ih;
+    const double f0 = f[k], f1 = f[k + 1], m0 = d[k] * h, m1 = d[k + 1] * h, t2 = t * t, t3 = t2 * t;
+    v = (2 * t3 - 3 * t2 + 1) * f0 + (t3 - 2 * t2 + t) * m0 + (3 * t2 - 2 * t3) * f1 + (t3 - t2) * m1;
+    dv = ((6 * t2 - 6 * t) * (f0 - f1) + (3 * t2 - 4 * t + 1) * m0 + (3 * t2 - 2 * t) * m1) * ih; } };
+inline void softpowExact(double x, double ga, double &v, double &dv) { double e = std::exp(x), sp = std::log1p(e), sig = e / (1 + e), p = std::pow(sp, ga - 1); v = p * sp; dv = ga * p * sig; }
+inline const Tab1 &tabPhi126() { static const Tab1 t(-40, 35, 32, [](double x, double &v, double &dv) { softpowExact(x, 1.26, v, dv); }); return t; }
+inline const Tab1 &tabGrid() { static const Tab1 t(-30, 35, 32, [](double x, double &v, double &dv) { softpowExact(x, 1.314, v, dv); }); return t; }
+#endif
 inline void gridI0(double v, double &i, double &d);
 inline void gridI(double v, double &i, double &d, double gs = 1) { gridI0(v, i, d); i *= gs; d *= gs; }
 inline void gridI0(double v, double &i, double &d) { const double GG = 6.177e-4, CG = 9.901, XI = 1.314; double x = CG * v;
@@ -30,6 +45,9 @@ inline void gridI0(double v, double &i, double &d) { const double GG = 6.177e-4,
   if (x < -20) { i = 0; d = 0; return; }
 #else
   if (x < -30) { i = 0; d = 0; return; }
+#endif
+#ifdef B15_TAB   // Tabelle (siehe Tab1): i = GG·CG^−XI·Φ(x)
+  if (x <= 35) { static const double K = GG * std::pow(CG, -XI); double f, df; tabGrid().eval(x, f, df); i = K * f; d = K * CG * df; return; }
 #endif
   double sp, sg; if (x > 35) { sp = x; sg = 1; } else { double e = std::exp(x); sp = std::log1p(e); sg = e / (1 + e); }
   double s = sp / CG, p = std::pow(s, XI - 1); i = GG * p * s; d = GG * XI * p * sg; }
@@ -43,13 +61,23 @@ inline void triode(const Triode &T, const double *v, double *i, double *J) {
   i[1] = I; J[2] = dI * vp * sig / s; J[3] = dI * (sp / T.kp - sig * vg * vp * vp / (s * s * s)); }
 // Triode nach Dempwolf/Zölzer (2011): I = G·(ln(1 + e^(C·(Ua/mu + Ug)))/C)^γ, mal (1 − e^(−Ua/1 V)), damit bei Ua → 0 kein Strom fließt.
 // Gegenüber Koren konstante Weichheit des Einsatzes; trifft die Datenblatt- und Schaltungspunkte enger (engine/tools/tube_fits.py).
-struct TriodeD { double G, C, mu, ga; double gs = 1; };   // gs: Maßstab des Gitterstroms (siehe gridI)
+#ifdef B15_TAB
+struct TriodeD { double G, C, mu, ga; double gs = 1; double kC = G * std::pow(C, -ga); };   // kC: G·C^−γ für die Tabelle (aus den ersten Feldern)
+#else
+struct TriodeD { double G, C, mu, ga; double gs = 1; };
+#endif   // gs: Maßstab des Gitterstroms (siehe gridI)
 // Ergebnis: out[0] = Anodenstrom, out[1] = ∂I/∂Ugk, out[2] = ∂I/∂Uak
 inline void dempwolf(const TriodeD &T, double vg, double vp, double *out) {
   if (vp <= 0) { out[0] = out[1] = out[2] = 0; return; }
   double x = T.C * (vp / T.mu + vg); if (x < -40) { out[0] = out[1] = out[2] = 0; return; }
+#ifdef B15_TAB   // Tabelle (siehe Tab1): Ik = G·C^−γ·Φ(x), für γ = 1,26 (12AX7, 5751); andere γ rechnen wie bisher
+  double Ik, dIk; if (T.ga == 1.26 && x <= 35) { double f, df; tabPhi126().eval(x, f, df); Ik = T.kC * f; dIk = T.kC * T.C * df; }
+  else { double sp, sig; if (x > 35) { sp = x; sig = 1; } else { double e = std::exp(x); sp = std::log1p(e); sig = e / (1 + e); }
+    double base = sp / T.C, pw = std::exp((T.ga - 1) * std::log(base)); Ik = T.G * pw * base; dIk = T.G * T.ga * pw * sig; }
+#else
   double sp, sig; if (x > 35) { sp = x; sig = 1; } else { double e = std::exp(x); sp = std::log1p(e); sig = e / (1 + e); }
   double base = sp / T.C, pw = std::exp((T.ga - 1) * std::log(base)), Ik = T.G * pw * base, dIk = T.G * T.ga * pw * sig;   // dIk = ∂Ik/∂(Ua/mu + Ug)
+#endif
 #ifdef B15_FAST   // nur wo definiert (Loldano ab 1.3): ab 38 V ist exp(−Ua) < 2^−54, 1 − ex also genau 1 – Rechnung sparen (Ergebnis dort bitgleich)
   double ex = vp > 38 ? 0.0 : std::exp(-vp), fv = 1 - ex;
 #else
