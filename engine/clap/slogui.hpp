@@ -32,7 +32,7 @@
 namespace lgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES, P_OD, P_CRUNCH, P_BRIGHT, P_VIN, P_OS, P_OUT, P_INREF, P_COUNT };
+enum { P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES, P_OD, P_CRUNCH, P_BRIGHT, P_VIN, P_OS, P_OUT, P_INREF, P_ROS, P_COUNT };
 constexpr int NK = 8;
 static const int KPARAM[NK] = {P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES};   // Knopf (Reihenfolge SLOKNOB) → Parameter
 static const char *KNAME[NK] = {"PREAMP NORMAL", "PREAMP OVERDRIVE", "BASS", "MIDDLE", "TREBLE", "MASTER NORMAL", "MASTER OVERDRIVE", "PRESENCE"};
@@ -44,9 +44,9 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-constexpr int NSW = 1;
-static const double SW_X[NSW] = {90};   // OVERSAMPLING
-static const int SW_P[NSW] = {P_OS};
+constexpr int NSW = 2;
+static const double SW_X[NSW] = {90, 300};   // OVERSAMPLING, RENDER (ab 1.2)
+static const int SW_P[NSW] = {P_OS, P_ROS};
 static const double KN_X[2] = {1010, 1120}; // INPUT, OUTPUT (Index 9, 10)
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
@@ -66,6 +66,7 @@ struct Gui {
   double inPk = -999; std::function<void()> resetPeak;   // Eingangsbezug: gemerkte Spitze (dBFS, −999 = nichts gehört), Klick setzt sie zurück (autoin.hpp)
   double meter[7] = {0, 0, 0, 0, 0, 0, 0}; bool meterOn = false;   // Aussteuerung V1B, V2A/V1A, V3B, V4B, Phasenumkehr, 6L6GC (1 = Gitter erreicht die Kathode), Leistung (W an 8 Ω)
   int osActive = 0;   // Überabtastung, mit der der Kern gerade rechnet (Umschalten dauert einen Augenblick)
+  bool rendering = false;   // Host rendert offline (ab 1.2)
   std::function<void(std::vector<double>&, std::vector<double>&)> computeCurves;
   std::vector<double> curve, refCurve; std::string curveKey; double curveTime = 0; bool curveStale = false;
   ~Gui() { if (img) cairo_surface_destroy(img); if (base) cairo_surface_destroy(base); }
@@ -149,7 +150,8 @@ struct Gui {
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 410, 20);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const char *to[3] = {"1X", "2X", "4X"}; tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", to, osActive != os ? "switching ..." : os == 2 ? "for rendering" : "less aliasing"); }
+    { const char *to[3] = {"1X", "2X", "4X"}; tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", to, osActive != os ? "switching ..." : os == 2 ? "needs > 1 core" : "while playing", rendering); }
+    { int r = std::max(0, std::min(2, (int)std::lround(v[P_ROS]))); const char *tr[3] = {"AS LIVE", "8X", "16X"}; tsw::toggle(c, SW_X[1], SW_Y, 3, r, "RENDER", tr, rendering ? "rendering now" : "offline bounce"); }
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht die Kathodenspannung, Strich), Leistung = Effektivspannung² / 8 Ω (Strich = 100 W; übersteuert liefert die Endstufe mehr)
     { const char *tn[7] = {"V1B input", v[P_OD] > 0.5 ? "V2A overdrive" : "V1A normal", "V3B", "V4B fx return", "V5 inverter", "6L6GC grid", "power"};
       double lx = 580, bx = 690, bw = 120, bh = 11, y0 = 30, dy = 16; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 24, 13, true);
@@ -189,7 +191,7 @@ struct Gui {
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J = SLOJACK[0]; double dx = x - J[0], dy = y - J[1]; return dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14) ? 0 : -1; }
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < NPS; k++) if (std::fabs(x - SLOSW[k][0]) <= 32 && std::fabs(y - SLOSW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
-  void moveSwitch(int p, int dir) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }   // OVERSAMPLING: drei Stellungen
+  void moveSwitch(int p, int dir) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }   // OVERSAMPLING, RENDER: je drei Stellungen
   void togglePanel(int k) { int p = SWPARAM[k]; setP(p, getP(p) > 0.5 ? 0 : 1); }
   int knobParam(int i) const { return i < NK ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
   double knobVal(int i) const { if (i < NK) return getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
@@ -230,7 +232,7 @@ struct Gui {
   std::string lastSig;
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i)); sapp(b, sizeof b, n, "%.1f|", inPk);
     for (int i = 0; i < 7; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + std::min(std::max(meter[i], 0.0), 999.0)) * 60));   /* nur sichtbare Änderungen neu zeichnen */
-    sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d", meterOn ? 1 : 0, osActive, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
+    sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d|%d", rendering ? 1 : 0, meterOn ? 1 : 0, osActive, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
 #ifndef __APPLE__
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
   void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }

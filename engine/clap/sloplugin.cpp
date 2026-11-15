@@ -1,6 +1,6 @@
 // Loldano SLO-100, Nachbau des Soldano SLO-100 Super Lead Overdrive (nach dem beschrifteten Gesamtplan von R. Robinette; alle Röhren gerechnet, src/slo_core.hpp) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "slo_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -31,16 +31,18 @@ namespace lgui { struct Gui; }
 #endif
 using namespace slo;
 
-enum { P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES, P_OD, P_CRUNCH, P_BRIGHT, P_VIN, P_OS, P_OUT, P_INREF, P_COUNT };
+enum { P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES, P_OD, P_CRUNCH, P_BRIGHT, P_VIN, P_OS, P_OUT, P_INREF, P_ROS, P_COUNT };   // P_ROS ab 1.2 (hinten: alte Projekte behalten ihre Kennungen)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
-static const char *N_CH[] = {"Normal", "Overdrive"}; static const char *N_CR[] = {"Clean", "Crunch"}; static const char *N_BR[] = {"Normal", "Bright"}; static const char *N_OS[] = {"1x", "2x", "4x (rendering)"};
+static const char *N_CH[] = {"Normal", "Overdrive"}; static const char *N_CR[] = {"Clean", "Crunch"}; static const char *N_BR[] = {"Normal", "Bright"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_ROS[] = {"Same as live", "8x", "16x"};
 static const PDef PD[P_COUNT] = {
   {"Preamp Normal", 0, 10, 5, 0, 0}, {"Preamp Overdrive", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0},
   {"Master Normal", 0, 10, 3, 0, 0}, {"Master Overdrive", 0, 10, 3, 0, 0}, {"Presence", 0, 10, 5, 0, 0},
   {"Channel", 0, 1, 1, N_CH, 2}, {"Normal channel: Clean/Crunch", 0, 1, 0, N_CR, 2}, {"Normal channel: Bright", 0, 1, 0, N_BR, 2},
-  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };
-static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
-static int osFactor(int i) { return i <= 0 ? 1 : i == 1 ? 2 : 4; }   // 4x braucht mehr als einen Rechenkern in Echtzeit: für das Rendern gedacht
+  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
+  {"Oversampling when rendering offline", 0, 2, 1, N_ROS, 3} };   // ab 1.2: meldet der Host Offline-Rendern (CLAP render, VST3 kOffline), rechnet der Kern mit 8x/16x
+static const uint32_t LATENCY = slo::Amp::LAT;   // fest: Überabtastungsfilter (ab 1.2: 50 Abtastwerte, vorher 31); bei 1x verzögert das Plugin selbst um so viel, damit die Latenz nicht mit dem Modus wechselt
+static int osFactor(int i) { return i <= 0 ? 1 : i == 1 ? 2 : 4; }   // 4x braucht mehr als einen Rechenkern in Echtzeit
+static int rosFactor(int i) { return i <= 0 ? 0 : i == 1 ? 8 : 16; }   // Rendern: 0 = wie live
 
 // Eingeschwungener Verstärker je Abtastrate und Überabtastung (Netzteil und Arbeitspunkte brauchen 1,5 s Rechenzeit): einmal rechnen, dann kopieren
 static std::mutex g_protoM;
@@ -57,14 +59,14 @@ struct Plugin {
   tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   tsfx::Trash<Pend> trash; Pend *swapQ = nullptr; tsfx::Fade fade;
   double swSeen[P_COUNT] = {}; bool swHold = false;   // Schalter ohne Knacks (swapfade.hpp): zuletzt übernommene Stellungen, Umschalten wartet aufs Ausblenden
-  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_INREF; }   // stufige Parameter; Überabtastung/Netzteil laufen über den Kernwechsel
+  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_INREF && id != P_ROS; }   // stufige Parameter; Überabtastung/Netzteil laufen über den Kernwechsel
   bool swDiff() const { for (int i = 0; i < P_COUNT; i++) if (swIs(i) && val[i].load() != swSeen[i]) return true; return false; }
   void swTake() { for (int i = 0; i < P_COUNT; i++) swSeen[i] = val[i].load(); }   // vor applyTo: eine Änderung danach fällt beim nächsten Block auf
   // Ruhezustand auf den aktuellen Stellungen (ab AmpFett 1.20 / SVT-CL 1.7): proto ist der Startpunkt nach jeder Pause (Play, FX an). Bisher stand er auf der
   // Grundstellung; beim Neubeginn sprangen die Regler dann auf die Projektstellung, und die Schaltung schwang hörbar ein (SVT bis −31 dBFS „Plopp“).
   // Ändern sich die Stellungen und bleiben 0,5 s stehen, schwingt ein Hilfsfaden einen neuen proto ein (1,5 s Rechenzeit im Hintergrund).
   std::array<double, P_COUNT> protoVals{}, seenVals{}; bool protoValsOK = false; long seenFor = 0; std::atomic<bool> resettleReq{false}, resettling{false}; std::atomic<Pend*> protoNew{nullptr};
-  std::array<double, P_COUNT> circuitVals() const { std::array<double, P_COUNT> v{}; for (int i = 0; i < P_COUNT; i++) v[i] = (i == P_OUT || i == P_VIN || i == P_INREF) ? 0 : val[i].load(); return v; }   // Kernwechsel: Papierkorb (Hauptfaden löscht), wartender neuer Kern, Aus-/Einblenden (swapfade.hpp)
+  std::array<double, P_COUNT> circuitVals() const { std::array<double, P_COUNT> v{}; for (int i = 0; i < P_COUNT; i++) v[i] = (i == P_OUT || i == P_VIN || i == P_INREF || i == P_ROS) ? 0 : val[i].load(); return v; }   // Kernwechsel: Papierkorb (Hauptfaden löscht), wartender neuer Kern, Aus-/Einblenden (swapfade.hpp)
   PortCfg ports;   // Kanalzahl Eingang/Ausgang (mono oder stereo)
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; Amp *eng = nullptr, *eng2 = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true};
   std::atomic<double> load{0}; std::atomic<double> pk[7] = {}; int pkCnt = 0; std::vector<float> mono, mono2; double outg = 1, outCur = -1; bool monoOK = true, eng2Stale = true;
@@ -78,7 +80,11 @@ struct Plugin {
   // ab 1.14: der eingeschwungene 1x-Kern für das Diagramm entsteht im Hintergrund (vorher bis zu Sekunden im Hauptfaden beim ersten Öffnen bei 2x/4x)
   std::thread plotJob; std::atomic<bool> plotBusy{false}, plotRedo{false}, plotStop{false}, cancelJobs{false}; std::mutex plotM; std::unique_ptr<Core> plotReady; double plotReadyFs = 0;
   // Aufbau des Kerns: Überabtastung; ein Wechsel braucht einen neu eingeschwungenen Kern (Hilfsfaden)
-  int cfgWant() const { return osFactor((int)std::lround(val[P_OS])); }   // cfg = Überabtastung
+  // Offline-Rendern (ab 1.2): der Host meldet es über render.set (VST3: setupProcessing mit kOffline). Dann gilt die Render-Überabtastung.
+  // Umschalten offline im Audio-Faden ohne Blende und ohne Hilfsfaden (blockieren ist dort erlaubt); der Live-Kern wird geparkt und danach zurückgeholt.
+  std::atomic<bool> offline{false}; Amp *parkE = nullptr, *parkE2 = nullptr, *parkP = nullptr; std::atomic<Amp*> dead[3] = {}; std::array<double, P_COUNT> parkVals{}; bool parkValsOK = false;   // dead: vom Audio-Faden abgelegt, der Hauptfaden löscht
+  int cfgLive() const { return osFactor((int)std::lround(val[P_OS])); }
+  int cfgWant() const { int r = rosFactor((int)std::lround(val[P_ROS])); return offline && r > 0 ? r : cfgLive(); }   // cfg = Überabtastung
   static int ix(double v, int hi) { return std::max(0, std::min(hi, (int)std::lround(v))); }
   Setting setting(double ng, double g, double b, double m, double t, double nm, double ms, double pr) const { Setting s; s.ngain = ng / 10; s.gain = g / 10; s.bass = b / 10; s.mid = m / 10; s.treb = t / 10; s.nmaster = nm / 10; s.master = ms / 10; s.pres = pr / 10;
     s.od = val[P_OD] > 0.5; s.crunch = val[P_CRUNCH] > 0.5; s.bright = val[P_BRIGHT] > 0.5; return s; }
@@ -144,6 +150,7 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 // ---- Plugin ----
 // Hauptfaden (activate): Kerne aus dem eingeschwungenen Vorrat; reset im Audio-Faden kopiert nur noch proto
 static void newEngines(Plugin *pl, int cfg) { delete pl->eng; delete pl->eng2; delete pl->proto; pl->proto = newAmp(pl->fs, cfg); pl->eng = new Amp(*pl->proto); pl->eng2 = new Amp(*pl->proto); pl->cfgAct = cfg; pl->dirty = true; pl->monoOK = true; pl->eng2Stale = true; pl->d1 = Dly(); pl->d2 = Dly(); pl->quiet = 0; pl->sleeping = false; pl->fresh = true; pl->lastEnd = {}; }
+static void dropPark(Plugin *pl) { delete pl->parkE; delete pl->parkE2; delete pl->parkP; pl->parkE = pl->parkE2 = pl->parkP = nullptr; for (auto &d : pl->dead) delete d.exchange(nullptr); }
 static bool pl_init(const clap_plugin_t *) { return true; }
 static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); pl->joinWorker(); pl->plotStop = true; if (pl->plotJob.joinable()) pl->plotJob.join();
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
@@ -156,13 +163,27 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); pl->joinWork
 #endif
   }
 #endif
-  delete pl->eng; delete pl->eng2; delete pl->proto; delete pl; }
-static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->joinWorker(); pl->fs = sr; newEngines(pl, pl->cfgWant()); pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->active = true; return true; }
-static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); pl->active = false; pl->joinWorker(); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; delete pl->proto; pl->proto = nullptr; }
+  delete pl->eng; delete pl->eng2; delete pl->proto; dropPark(pl); delete pl; }
+static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->joinWorker(); dropPark(pl); pl->fs = sr; newEngines(pl, pl->cfgWant()); pl->mono.assign(maxf + 16, 0); pl->mono2.assign(maxf + 16, 0); pl->active = true; return true; }
+static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); pl->active = false; pl->joinWorker(); delete pl->eng; pl->eng = nullptr; delete pl->eng2; pl->eng2 = nullptr; delete pl->proto; pl->proto = nullptr; dropPark(pl); }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }   // REAPER: FX wieder eingeschaltet
 static void pl_stop(const clap_plugin_t *) {}
 static void pl_reset(const clap_plugin_t *p) { P(p)->fresh = true; }   // Audio-Faden: Neubeginn beim nächsten process
 static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->audio_outputs_count; k++) { clap_audio_buffer_t &o = pr->audio_outputs[k]; for (uint32_t c = 0; c < o.channel_count; c++) { if (o.data32) std::memset(o.data32[c], 0, pr->frames_count * sizeof(float)); else if (o.data64) std::memset(o.data64[c], 0, pr->frames_count * sizeof(double)); } } }
+// Offline-Rendern (ab 1.2), Audio-Faden: Kern mit der gewünschten Überabtastung sofort bereitstellen, eingeschwungen auf den aktuellen Stellungen.
+// Hin (offline): Live-Kern parken, Render-Kern bauen (blockiert einige Sekunden; offline erlaubt). Zurück (Echtzeit): geparkten Kern zurückholen,
+// den Render-Kern löscht der Hauptfaden (dead), damit im Echtzeitbetrieb nichts freigegeben wird.
+static void offlineSwitch(Plugin *pl) { int want = pl->cfgWant(); if (want == pl->cfgAct) return;
+  if (!pl->offline) { if (!pl->parkP || pl->parkP->cfg != want || pl->building) return;   // zurück nur ohne laufenden Hilfsfaden
+    Amp *old[3] = {pl->eng, pl->eng2, pl->proto}; for (int k = 0; k < 3; k++) if (Amp *d = pl->dead[k].exchange(old[k])) delete d;   // (sollte leer sein)
+    pl->eng = pl->parkE; pl->eng2 = pl->parkE2; pl->proto = pl->parkP; pl->protoVals = pl->parkVals; pl->protoValsOK = pl->parkValsOK; pl->parkE = pl->parkE2 = pl->parkP = nullptr; ask_main(pl); }
+  else { { std::lock_guard<std::mutex> lk(pl->wm); pl->cancelJobs = true; if (pl->worker.joinable()) pl->worker.join(); pl->cancelJobs = false; }
+    for (Pend *q : {pl->pending.exchange(nullptr), pl->protoNew.exchange(nullptr), pl->swapQ}) if (q) { delete q->a; delete q->proto; delete q; }
+    pl->swapQ = nullptr; pl->building = false; pl->resettling = false; pl->resettleReq = false;
+    if (!pl->parkP && pl->cfgAct == pl->cfgLive()) { pl->parkE = pl->eng; pl->parkE2 = pl->eng2; pl->parkP = pl->proto; pl->parkVals = pl->protoVals; pl->parkValsOK = pl->protoValsOK; }
+    else { delete pl->eng; delete pl->eng2; delete pl->proto; }
+    Amp *a = newAmp(pl->fs, want); pl->applyTo(a); a->resettle(SETTLE); pl->proto = a; pl->eng = new Amp(*a); pl->eng2 = new Amp(*a); pl->protoVals = pl->circuitVals(); pl->protoValsOK = true; }
+  pl->cfgAct = want; pl->fresh = true; pl->fade = tsfx::Fade(); pl->swHold = false; pl->dirty = true; pl->monoOK = true; pl->eng2Stale = true; pl->d1 = Dly(); pl->d2 = Dly(); pl->quiet = 0; pl->sleeping = false; }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
   if (!pl->eng) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
@@ -171,6 +192,7 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   const clap_audio_buffer_t &in = pr->audio_inputs[0]; clap_audio_buffer_t &out = pr->audio_outputs[0];
   if (pl->mono.size() < n) { pl->mono.assign(n + 16, 0); pl->mono2.assign(n + 16, 0); }
   float *m = pl->mono.data(), *m2 = pl->mono2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
+  if (pl->cfgWant() != pl->cfgAct && (pl->offline || (pl->parkP && pl->parkP->cfg == pl->cfgWant()))) offlineSwitch(pl);   // Offline-Rendern hin/zurück (ab 1.2)
   // fertig eingeschwungener Kern mit neuer Überabtastung
   // fertig eingeschwungener Kern (neue Überabtastung/Schaltung): alter Kern 3 ms ausblenden, dann tauschen und einblenden; der alte geht in den Papierkorb (swapfade.hpp)
   if (!pl->swapQ && !pl->swHold) if (Pend *q = pl->pending.exchange(nullptr)) { if (q->a->cfg == pl->cfgWant()) { pl->swapQ = q; pl->fade.start(-1, pl->fs); } else { pl->trash.push(q); pl->building = false; ask_main(pl); } }   // inzwischen anders gewählt: weg damit, neu anstoßen
@@ -185,7 +207,8 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   // steady_time taugt dafür nicht: clap-wrapper (VST3, AU) liefert dort die Projektposition, die bei stehendem Transport steht und bei Schleifen springt.
   { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
     if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs) && !pl->sleeping) pl->fresh = true; }   // große Puffer: erst ab dreifacher Blockdauer; im Schlaf darf der Host aussetzen (ab 1.14 wie Laney: kein Neubeginn)
-  if (pl->fresh.exchange(false) && pl->proto) { *pl->eng = *pl->proto; bool at = Amp::sameAll(pl->proto->c.cur, pl->target()); pl->applyTo(pl->eng, !at); pl->dirty = false; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); if (!at) pl->fade.start(1, pl->fs, 0.15);   // Ruhezustand noch nicht auf diesen Stellungen: Einschwingen 150 ms einblenden   // nur der erste Kern; der zweite wird bei Bedarf von ihm kopiert (eng2Stale)
+  if (pl->fresh.exchange(false) && pl->proto) { if (pl->offline && !Amp::sameAll(pl->proto->c.cur, pl->target())) { pl->applyTo(pl->proto); pl->proto->resettle(SETTLE); pl->protoVals = pl->circuitVals(); pl->protoValsOK = true; }   // offline (ab 1.2): auf den Stellungen einschwingen statt 150 ms einblenden
+    *pl->eng = *pl->proto; bool at = Amp::sameAll(pl->proto->c.cur, pl->target()); pl->applyTo(pl->eng, !at); pl->dirty = false; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); if (!at) pl->fade.start(1, pl->fs, 0.15);   // Ruhezustand noch nicht auf diesen Stellungen: Einschwingen 150 ms einblenden   // nur der erste Kern; der zweite wird bei Bedarf von ihm kopiert (eng2Stale)
     pl->d1 = Dly(); pl->d2 = Dly(); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->outCur = -1; }
   // Schalter umgelegt (läuft, kein anderes Blenden): erst 3 ms ausblenden, umgeschaltet wird im Block an der Stelle, an der es still ist
   if (pl->dirty.exchange(false)) { if (!pl->swHold && pl->fade.dir == 0 && pl->outCur >= 0 && !pl->sleeping && pl->swDiff()) { pl->swHold = true; pl->fade.start(-1, pl->fs); }
@@ -233,7 +256,7 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
   return r; }
 // Hauptfaden (vom Host nach request_callback): neuen Kern für die gewählte Überabtastung im Hilfsfaden einschwingen lassen
 // Sperre wm: pl_main kann vom Host und von der Oberfläche kommen (VST3: Timer evtl. aus einem Hilfsfaden), nie zwei Hilfsfäden zugleich
-static void pl_main(const clap_plugin_t *p) { Plugin *pl = P(p); pl->cbAsked = false; pl->trash.freeAll(); std::lock_guard<std::mutex> lk(pl->wm); if (!pl->active) return; int want = pl->cfgWant();
+static void pl_main(const clap_plugin_t *p) { Plugin *pl = P(p); pl->cbAsked = false; pl->trash.freeAll(); for (auto &d : pl->dead) delete d.exchange(nullptr); std::lock_guard<std::mutex> lk(pl->wm); if (!pl->active) return; int want = pl->cfgWant();
   if (pl->building) return; if (want == pl->cfgAct) { if (!pl->resettleReq.exchange(false)) return;   // nur Ruhezustand auf den aktuellen Stellungen neu einschwingen
     if (pl->worker.joinable()) pl->worker.join(); pl->building = true; double fs = pl->fs;
     try { pl->worker = std::thread([pl, fs, want]() { DenormGuard dg; Amp *a = nullptr;
@@ -303,7 +326,7 @@ static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if
 static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU %.0f %% of one core · %.0f Hz%s", pl->load.load() * 100, pl->fs, pl->sleeping ? " · idle (silent input)" : ""); { const char *m = std::strstr(b, " · "); std::string mode = m ? m : "";   // CPU-Wert höchstens zweimal je Sekunde neu (jede Änderung zeichnet das Fenster neu), Modus sofort
     if (++pl->diagCnt < 15 && mode == pl->diagMode && !pl->diagTxt.empty()) return; pl->diagCnt = 0; pl->diagMode = mode; pl->diagTxt = b; } }
 static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; pl->gui->inPk = tsin::pkDb(pl->ain.pk.load()); if (pl->plotRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl);
-  pl->gui->meterOn = pl->active && !pl->sleeping; int oa = pl->cfgAct; pl->gui->osActive = oa == 1 ? 0 : oa == 2 ? 1 : 2;
+  pl->gui->meterOn = pl->active && !pl->sleeping; int oa = pl->cfgAct; bool rn = pl->offline; pl->gui->rendering = rn; pl->gui->osActive = rn ? (int)std::lround(pl->val[P_OS].load()) : oa == 1 ? 0 : oa == 2 ? 1 : 2;   // beim Rendern keine „switching“-Anzeige
   for (int i = 0; i < 7; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
@@ -324,6 +347,10 @@ static bool g_hide(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; std::
 static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_destroy, g_set_scale, g_get_size, g_can_resize, g_resize_hints, g_adjust_size, g_set_size, g_set_parent, g_set_transient, g_suggest_title, g_show, g_hide};
 #endif
 static uint32_t g_latency(const clap_plugin_t *) { return LATENCY; }
+// Render-Modus (ab 1.2), Hauptfaden: nur merken; der Audio-Faden (bzw. activate) stellt den Kern um
+static bool rn_hard(const clap_plugin_t *) { return false; }
+static bool rn_set(const clap_plugin_t *p, clap_plugin_render_mode mode) { P(p)->offline = mode == CLAP_RENDER_OFFLINE; return true; }
+static const clap_plugin_render_t EXT_RENDER = {rn_hard, rn_set};
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
@@ -338,7 +365,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
   if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &EXT_TIMER;
 #endif
-  if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
+  if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; if (!std::strcmp(id, CLAP_EXT_RENDER)) return &EXT_RENDER; return nullptr; }
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DISTORTION, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
 static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.loldano-slo100", "Loldano SLO-100 Guitar Amp", "tonestack", "", "", "", TS_VERSION, "Tube guitar amp after the Soldano SLO-100 schematic: five 12AX7 with normal and overdrive channel, tone stack, phase inverter, four 6L6GC with output transformer, feedback and presence, 100 W into a speaker load; no cabinet simulation", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
