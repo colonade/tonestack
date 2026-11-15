@@ -2,7 +2,7 @@
 // Umsetzung eigener Entwurf, docs/wieneq/ENTWURF.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Linear; ein Regler-Satz für beide Kanäle wie am Gerät.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "weq_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -31,8 +31,8 @@ namespace weqgui { struct Gui; }
 enum { P_LOWG, P_LOWF, P_M1G, P_M1Q, P_M1F, P_M2G, P_M2Q, P_M2F, P_M3G, P_M3Q, P_M3F, P_HIG, P_HIF, P_ON, P_RANGE, P_OUT, P_COUNT };
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_ONOFF[] = {"Off (bypass)", "On"};
-static const char *N_LOWF[] = {"40 Hz (no button)", "60 Hz", "100 Hz", "160 Hz (both buttons)"};
-static const char *N_HIF[] = {"20 kHz (no button)", "12 kHz", "8 kHz", "4 kHz (both buttons)"};
+static const char *N_LOWF[] = {"40 Hz bell (no button)", "60 Hz bell", "100 Hz bell", "160 Hz bell (both buttons)"};
+static const char *N_HIF[] = {"20 kHz shelf (no button)", "12 kHz bell", "8 kHz bell", "4 kHz bell (both buttons)"};
 static const char *N_RANGE[] = {"+/-6 dB", "+/-12 dB", "+/-20 dB"};
 static const PDef PD[P_COUNT] = {
   {"Low: Gain", -5, 5, 0, 0, 0}, {"Low: Frequency", 0, 3, 0, N_LOWF, 4},

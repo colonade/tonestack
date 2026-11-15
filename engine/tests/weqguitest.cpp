@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
   // Parameter: 0 LOW GAIN, 1 LOW FREQ, 2 MID1 GAIN, 3 MID1 Q, 4 MID1 FREQ, 5 MID2 GAIN, 8 MID3 GAIN, 10 MID3 FREQ, 11 HIGH GAIN, 12 HIGH FREQ, 13 EQ ON, 14 RANGE, 15 OUTPUT
   send(ButtonPress, kx(452), kx(140), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(452), kx(140) - i * 8, 0); tick(); } send(ButtonRelease, kx(452), kx(60), 1); tick(); printf("MID 1 GAIN: %g (erwartet > 0)\n", pv(2));
   send(ButtonPress, kx(812), kx(140), 1); send(MotionNotify, kx(812), kx(138), 0); tick(); send(ButtonRelease, kx(812), kx(138), 1); tick(); printf("MID 2 GAIN kaum bewegt: %g (erwartet 0, Rastung)\n", pv(5));
-  click(kx(322), kx(108)); printf("LOW-Taste 60: %g (erwartet 1 = 60 Hz)\n", pv(1)); click(kx(322), kx(166)); printf("LOW-Taste 100 dazu: %g (erwartet 3 = 160 Hz)\n", pv(1)); click(kx(322), kx(108)); printf("LOW 60 wieder raus: %g (erwartet 2 = 100 Hz)\n", pv(1));
-  click(kx(1630), kx(166)); printf("HIGH-Taste 8k: %g (erwartet 2)\n", pv(12));
+  click(kx(294), kx(150)); printf("LOW-Taste 60 (links): %g (erwartet 1 = 60 Hz)\n", pv(1)); click(kx(348), kx(150)); printf("LOW-Taste 100 (rechts) dazu: %g (erwartet 3 = 160 Hz)\n", pv(1)); click(kx(294), kx(150)); printf("LOW 60 wieder raus: %g (erwartet 2 = 100 Hz)\n", pv(1));
+  click(kx(1600), kx(150)); printf("HIGH-Taste 8k (links): %g (erwartet 2)\n", pv(12)); click(kx(1652), kx(150)); printf("HIGH-Taste 12k (rechts) dazu: %g (erwartet 3 = 4 kHz)\n", pv(12)); click(kx(1600), kx(150)); printf("HIGH 8k wieder raus: %g (erwartet 1 = 12 kHz)\n", pv(12));
   click(kx(1772), kx(166)); printf("EQ ON: %g (erwartet 0 = aus)\n", pv(13)); click(kx(1772), kx(104)); printf("EQ ON über die Anzeige: %g (erwartet 1)\n", pv(13));
   send(ButtonPress, kx(1376), kx(140), 4); pv(10); send(ButtonPress, kx(1376), kx(140), 4); tick(); printf("MID 3 FREQ: %g (erwartet 5.4)\n", pv(10));
   send(ButtonPress, kx(552), kx(140), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(552), kx(140) + i * 8, 0); tick(); } send(ButtonRelease, kx(552), kx(220), 1); tick(); printf("MID 1 Q: %g (erwartet < 5)\n", pv(3));

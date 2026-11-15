@@ -18,6 +18,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "weq_laws.hpp"
 #include <functional>
 #include <chrono>
 #include "weqgeo_gen.h"
@@ -46,10 +47,10 @@ constexpr double KN_X = 1130, KN_Y = 72;   // OUTPUT
 constexpr int NF = 160;
 inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1)); }
 static const char *REFLABEL = "flat (EQ off)";
-// Werte wie im Kern (ohne dessen Header, für mac/test/render.mm)
-inline double gainDb(double p, int range) { const double R[3] = {6, 12, 20}; p = std::max(-1.0, std::min(1.0, p)); double a = std::fabs(p); return (p < 0 ? -1 : 1) * R[std::max(0, std::min(2, range))] * (a + a * a) / 2; }
-inline double midFreq(int k, double x) { const double lo[3] = {20, 60, 250}, hi[3] = {2000, 7000, 25000}; x = std::max(0.0, std::min(1.0, x)); return lo[k] * std::pow(hi[k] / lo[k], x); }
-inline double midQ(double x) { x = std::max(0.0, std::min(1.0, x)); return 0.1824791693 * std::pow(4.318473046 / 0.1824791693, x); }   // 5 Oktaven … Terz (wie weq::midQ; bis 1.0 stand hier noch 1/3)
+// Werte wie im Kern (Reglerkennlinien aus weq_laws.hpp, ohne den übrigen Kern; für mac/test/render.mm)
+inline double gainDb(double p, int range) { return weq::gainDb(p, range); }   // ab 1.4 aus weq_laws.hpp (Skala wie ADT), nicht mehr doppelt
+inline double midFreq(int k, double x) { return weq::midFreq(k, x); }
+inline double midQ(double x) { return weq::midQ(x); }
 inline double qOct(double q) { return 2 * std::asinh(1 / (2 * q)) / std::log(2.0); }   // Bandbreite des Bandpasses in Oktaven (−3 dB)
 
 #ifdef __APPLE__
@@ -150,8 +151,8 @@ struct Gui {
     // Bänder als Text: Frequenz, Güte, dB
     if (tsw::prefs().bands) { setrgb(c, 0xdcdee2); tsw::text(c, "BANDS", 250, 46, 13, true); const char *bn[5] = {"LOW", "MID 1", "MID 2", "MID 3", "HIGH"}; const double lf[4] = {40, 60, 100, 160}; const char *hf[4] = {"20 kHz", "12 kHz", "8 kHz", "4 kHz"};
       for (int b = 0; b < 5; b++) { double y = 58 + b * 17; char t[96]; double db = gainDb(v[b == 0 ? P_LOWG : b == 4 ? P_HIG : P_M1G + 3 * (b - 1)] / 5, range());
-        if (b == 0) std::snprintf(t, sizeof t, "shelf %.0f Hz", lf[std::max(0, std::min(3, (int)std::lround(v[P_LOWF])))]);
-        else if (b == 4) std::snprintf(t, sizeof t, "shelf %s", hf[std::max(0, std::min(3, (int)std::lround(v[P_HIF])))]);
+        if (b == 0) std::snprintf(t, sizeof t, "bell %.0f Hz", lf[std::max(0, std::min(3, (int)std::lround(v[P_LOWF])))]);
+        else if (b == 4) { int hs = std::max(0, std::min(3, (int)std::lround(v[P_HIF]))); std::snprintf(t, sizeof t, "%s %s", hs == 0 ? "shelf" : "bell", hf[hs]); }
         else { double f = midFreq(b - 1, v[P_M1F + 3 * (b - 1)] / 10), q = midQ(v[P_M1Q + 3 * (b - 1)] / 10); std::snprintf(t, sizeof t, f >= 1000 ? "%.2f kHz, Q %.2f (%.1f oct)" : "%.0f Hz, Q %.2f (%.1f oct)", f >= 1000 ? f / 1000 : f, q, qOct(q)); }
         setrgb(c, 0x9a9ea6); tsw::text(c, bn[b], 250, y + 11, 11.5, true); setrgb(c, v[P_ON] > 0.5 ? 0xcfd1d6 : 0x6c7079); tsw::text(c, t, 310, y + 11, 11.5, false);
         char g[24]; std::snprintf(g, sizeof g, "%+.1f dB", db); tsw::text(c, g, 560, y + 11, 11.5, true, 2); } }

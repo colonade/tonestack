@@ -1,16 +1,21 @@
 // Wien-Brücken-Equalizer nach den veröffentlichten Angaben zum adt-audio ToolMod TM205 (5-Band-Stereo-Mastering-EQ). Kein Schaltplan veröffentlicht:
 // das Prinzip (aktive Wien-Robinson-Brücke) und die Bedienung stammen von ADT, die Umsetzung ist eigener Entwurf (docs/wieneq/ENTWURF.md).
-//  - MID 1/2/3 vollparametrisch: Mittenfrequenz 20 Hz–2 kHz, 60 Hz–7 kHz, 250 Hz–25 kHz (negativ logarithmisch, 1 : 100), Güte wie bei ADT
-//    angegeben von etwa 5 Oktaven (Q = 0,18) bis zur Terz (Q = 4,32), Bandbreite jeweils an den −3-dB-Punkten des Bandpasses gemessen,
-//    Q-Regler logarithmisch; Anheben/Absenken mit Rastung bei 0 dB.
-//  - LOW: Kuhschwanzfilter 1. Ordnung (6 dB/Oktave) bei 40 / 60 / 100 / 160 Hz (zwei Tasten).
-//  - HIGH: Kuhschwanzfilter 1. Ordnung bei 20 kHz (keine Taste) oder 12 / 8 / 4 kHz (zwei Tasten). Auf Wunsch des Nutzers seit 1.2 in allen
-//    Stellungen Kuhschwanz; ADT beschreibt für die Tastenstellungen von HIGH ein schwach ausgeprägtes Maximum (bis 1.1: Glocken mit Q 1/3).
-//    Die genannte Frequenz ist die Mitte der Flanke: dort wirkt die halbe Anhebung in dB.
+//  - MID 1/2/3 vollparametrisch: Mittenfrequenz 20 Hz–2 kHz, 60 Hz–7 kHz, 250 Hz–25 kHz, Güte wie bei ADT angegeben von etwa 5 Oktaven
+//    (Q = 0,18) bis zur Terz (Q = 4,32), Bandbreite jeweils an den −3-dB-Punkten des Bandpasses gemessen, Q-Regler logarithmisch.
+//    Frequenzregler ab 1.4 nach der Skala der ADT-Frontplatte (sieben Striche in gleichen Winkeln; MID 1 20/30/50/120/240/600/2000 Hz,
+//    MID 2 60/100/150/400/700/2000/7000 Hz): gemeinsamer Verlauf aus MID 1 und MID 2 (ADT: die drei Bänder sind bis auf den Bereich gleich),
+//    zwischen den Strichen monoton kubisch (Fritsch–Carlson). In der Mitte 123 Hz / 391 Hz / 1,53 kHz. Bis 1.3 rein logarithmisch (200 / 648 / 2500 Hz).
+//    Die gedruckte MID-3-Skala (1 kHz in der Mitte) passt nicht zu MID 1/2; sie weicht bis 0,6 Oktaven vom gemeinsamen Verlauf ab.
+//  - Anheben/Absenken mit Rastung bei 0 dB; Kennlinie ab 1.4 nach der ADT-Skala (±12-dB-Ausführung: 4 / 9 / 12 dB am 1./2./3. Strich).
+//  - LOW: weiche Glocke (aktives RC-Filter, höchstens 6 dB/Oktave) bei 40 / 60 / 100 / 160 Hz (zwei Tasten).
+//  - HIGH: ohne Taste Kuhschwanz 1. Ordnung bei 20 kHz (Mitte der Flanke), mit Taste weiche Glocke bei 12 / 8 / 4 kHz (beide Tasten 4 kHz).
+//    Glocken von LOW/HIGH: Bandpass 2. Ordnung mit Q = 1/3 (passives RC-Glied mit gleichen Bauteilen, Flanken 6 dB/Oktave). ADT nennt keine
+//    Güte; dass sich die Bandbreite mit der Taste ändert, ist nicht bezifferbar und deshalb nicht nachgebildet. 1.2 und 1.3 hatten auf Wunsch
+//    überall Kuhschwanz (bis 1.1: Glocken Q 1/3 wie jetzt, HIGH ohne Taste aber ebenfalls Glocke).
 //  - MID: Anheben H = 1 + G·B(s), Absenken H = 1 / (1 + G·B(s)) (Bandpass in der Gegenkopplung), G = 10^(|dB|/20) − 1, B Bandpass mit Spitze 1.
 //  - LOW/HIGH: g = 10^(|dB|/20); Tiefen H = (s + ω√g)/(s + ω/√g), Höhen H = (√g·s + ω)/(s/√g + ω); Absenken ist der Kehrwert.
-//  - Regelbereich ±6 / ±12 / ±20 dB (Ausführungen des TM205; Standard ±12), Reglerkennlinie um 0 dB gespreizt: dB = R·(|p| + p²)/2.
-// Linear (Aussteuerungsreserve +30 dBu). Digital: je Band ein Abschnitt (MID 2. Ordnung mit angepasstem Betrag nach Vicanek 2016, LOW/HIGH 1. Ordnung), unter 80 kHz Abtastrate
+//  - Regelbereich ±6 / ±12 / ±20 dB (Ausführungen des TM205; Standard ±12), Kennlinie für alle gleich geformt (bis 1.3: dB = R·(|p| + p²)/2).
+// Linear (Aussteuerungsreserve +30 dBu). Digital: je Band ein Abschnitt (Glocken 2. Ordnung mit angepasstem Betrag nach Vicanek 2016, HIGH-Kuhschwanz 1. Ordnung), unter 80 kHz Abtastrate
 // doppelt so schnell gerechnet (eigenes Halbbandfilter, bis 20 kHz flach), damit MID 3 bis 25 kHz und HIGH im Hörbereich wie analog verlaufen.
 #pragma once
 #include <cmath>
@@ -18,30 +23,25 @@
 #include <vector>
 #include <algorithm>
 #include <cstring>
+#include "weq_laws.hpp"
 
 namespace weq {
 constexpr double PI = 3.14159265358979323846;
 constexpr int NB = 5;   // LOW, MID 1, MID 2, MID 3, HIGH
-static const double MID_LO[3] = {20, 60, 250}, MID_HI[3] = {2000, 7000, 25000};
 static const double LOW_F[4] = {40, 60, 100, 160};          // keine Taste, Taste 60, Taste 100, beide
 static const double HIGH_F[4] = {20000, 12000, 8000, 4000};  // keine Taste, Taste 12k, Taste 8k, beide
-static const double RANGE_DB[3] = {6, 12, 20};
-constexpr double QMIN = 0.1824791693, QMAX = 4.318473046;   // N Oktaven: Q = 1 / (2 sinh(N ln 2 / 2)); 5 Oktaven bzw. Terz (N = 1/3)
-enum { BELL = 0, LOSHELF = 1, HISHELF = 2 };
+enum { BELL = 0, LOSHELF = 1, HISHELF = 2 };   // LOSHELF seit 1.4 ungenutzt (Prüfstand)
 struct Setting {
   double gain[NB] = {0, 0, 0, 0, 0};   // Reglerstellung −1 … +1 (0 = Rastung)
   double q[3] = {0.5, 0.5, 0.5};       // 0 = breit … 1 = Terz
   double f[3] = {0.5, 0.5, 0.5};       // 0 … 1 über den Bereich des Bandes
   int lowSel = 0, highSel = 0, range = 1; bool on = true;
 };
-inline double gainDb(double p, int range) { p = std::max(-1.0, std::min(1.0, p)); double a = std::fabs(p); return (p < 0 ? -1 : 1) * RANGE_DB[std::max(0, std::min(2, range))] * (a + a * a) / 2; }
-inline double midFreq(int k, double x) { x = std::max(0.0, std::min(1.0, x)); return MID_LO[k] * std::pow(MID_HI[k] / MID_LO[k], x); }
-inline double midQ(double x) { x = std::max(0.0, std::min(1.0, x)); return QMIN * std::pow(QMAX / QMIN, x); }
 struct Band { double f, q, db; int kind = BELL; };   // q nur für BELL
 inline void bands(const Setting &s, Band *b) {
-  b[0] = {LOW_F[std::max(0, std::min(3, s.lowSel))], 1, gainDb(s.gain[0], s.range), LOSHELF};
+  b[0] = {LOW_F[std::max(0, std::min(3, s.lowSel))], QLH, gainDb(s.gain[0], s.range), BELL};
   for (int k = 0; k < 3; k++) b[1 + k] = {midFreq(k, s.f[k]), midQ(s.q[k]), gainDb(s.gain[1 + k], s.range)};
-  b[4] = {HIGH_F[std::max(0, std::min(3, s.highSel))], 1, gainDb(s.gain[4], s.range), HISHELF}; }
+  int hs = std::max(0, std::min(3, s.highSel)); b[4] = hs == 0 ? Band{HIGH_F[0], 1, gainDb(s.gain[4], s.range), HISHELF} : Band{HIGH_F[hs], QLH, gainDb(s.gain[4], s.range), BELL}; }
 // analoges Band (s = jω)
 inline std::complex<double> bandS(std::complex<double> s, const Band &b) {
   if (b.kind != BELL) { std::complex<double> x = s / (2 * PI * b.f); double r = std::pow(10.0, std::fabs(b.db) / 40); std::complex<double> h = b.kind == LOSHELF ? (x + r) / (x + 1 / r) : (r * x + 1.0) / (x / r + 1.0); return b.db >= 0 ? h : 1.0 / h; }
@@ -114,26 +114,35 @@ inline const std::vector<double> &halfband() { static std::vector<double> h = []
     double sum = 0; for (int n = 0; n < HB_N; n++) { double m = n - M, r = m / M, w = I0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / I0(beta), sinc = m == 0 ? 0.5 : std::sin(PI * m / 2) / (PI * m); c[n] = sinc * w; sum += c[n]; }
     for (auto &x : c) x /= sum; return c; }(); return h; }
 
-// Ein Kanal: Glättung der Reglerwerte (20 ms), Koeffizienten alle 16 Abtastwerte neu; Schalter (Tasten, Bereich) gleiten mit; EQ ein/aus blendet 20 ms über (Smoothstep)
+// Ein Kanal: Glättung der Reglerwerte (20 ms), Koeffizienten alle 16 Abtastwerte neu; Schalter (Tasten, Bereich) gleiten mit; EQ ein/aus blendet 20 ms über (Smoothstep).
+// HIGH (ab 1.4): zwei Abschnitte (bqH) laufen beide; eine Taste setzt den ruhenden auf die neue Stellung (Kuhschwanz 20 kHz oder Glocke 12/8/4 kHz)
+// und blendet 20 ms zu ihm über (hw: Anteil von bqH[1]); kommt währenddessen eine weitere Taste, folgt sie nach dem Überblenden. Gleitende
+// Frequenz zwischen den Glocken knackte bei +20 dB mit −63 dB über 4 kHz (200-Hz-Sinus), so −83 dB. LOW gleitet wie die Mittenbänder (−91 dB).
 struct Channel {
   double fs = 48000, fsI = 96000; int os = 2; Biquad bq[NB]; std::vector<double> ub, db, dry; int ui = 0, di = 0, ri = 0;
   double cur[NB][3]; bool init = false;   // geglättet: ln f, ln Q, dB
+  Biquad bqH[2]; Band hc[2]; double hw = 0; int hdir = 0;   // HIGH: zwei Abschnitte, ihre Stellung (f, q, Art; dB aus cur[4][2]), Anteil von bqH[1]
   double mix = 1; int cnt = 0;
-  void setup(double fs_) { fs = fs_; os = fs < 80000 ? 2 : 1; fsI = fs * os; ub.assign(2 * HB_N, 0); db.assign(2 * HB_N, 0); dry.assign(latency() + 1, 0); ui = di = ri = 0; for (auto &b : bq) b.reset(); init = false; cnt = 0; }
+  void setup(double fs_) { fs = fs_; os = fs < 80000 ? 2 : 1; fsI = fs * os; ub.assign(2 * HB_N, 0); db.assign(2 * HB_N, 0); dry.assign(latency() + 1, 0); ui = di = ri = 0; for (auto &b : bq) b.reset(); for (auto &b : bqH) b.reset(); init = false; cnt = 0; }
   int latency() const { return os == 2 ? HB_LAT : 0; }
-  void targets(const Setting &s, double t[NB][3]) const { Band b[NB]; bands(s, b); for (int i = 0; i < NB; i++) { t[i][0] = std::log(b[i].f); t[i][1] = std::log(b[i].q); t[i][2] = b[i].db; } }
-  void redesign(int i) { design(bq[i], Band{std::exp(cur[i][0]), std::exp(cur[i][1]), cur[i][2], i == 0 ? LOSHELF : i == NB - 1 ? HISHELF : BELL}, fsI); }
+  void targets(const Setting &s, double t[NB][3], Band &th) const { Band b[NB]; bands(s, b); th = b[4]; for (int i = 0; i < NB; i++) { t[i][0] = std::log(b[i].f); t[i][1] = std::log(b[i].q); t[i][2] = b[i].db; } }
+  static bool same(const Band &a, const Band &b) { return a.f == b.f && a.q == b.q && a.kind == b.kind; }
+  void redesignH(int j) { Band b = hc[j]; b.db = cur[NB - 1][2]; design(bqH[j], b, fsI); }
+  void redesign(int i) { if (i == NB - 1) { redesignH(0); redesignH(1); return; } design(bq[i], Band{std::exp(cur[i][0]), std::exp(cur[i][1]), cur[i][2], BELL}, fsI); }
   void redesign() { for (int i = 0; i < NB; i++) redesign(i); }
-  void snap(const Setting &s) { targets(s, cur); mix = s.on ? 1 : 0; redesign(); init = true; }
-  void reset() { for (auto &b : bq) b.reset(); std::fill(ub.begin(), ub.end(), 0.0); std::fill(db.begin(), db.end(), 0.0); std::fill(dry.begin(), dry.end(), 0.0); }
-  double eq(double x) { for (auto &b : bq) x = b.step(x); return x; }
+  void snap(const Setting &s) { Band th; targets(s, cur, th); hc[0] = hc[1] = th; hw = 0; mix = s.on ? 1 : 0; redesign(); init = true; }
+  void reset() { for (auto &b : bq) b.reset(); for (auto &b : bqH) b.reset(); std::fill(ub.begin(), ub.end(), 0.0); std::fill(db.begin(), db.end(), 0.0); std::fill(dry.begin(), dry.end(), 0.0); }
+  double eq(double x) { for (int b = 0; b < NB - 1; b++) x = bq[b].step(x); double y0 = bqH[0].step(x), y1 = bqH[1].step(x); return hw <= 0 ? y0 : hw >= 1 ? y1 : y0 + hw * (y1 - y0); }
   // n Abtastwerte an Ort und Stelle
   void process(float *buf, int n, const Setting &s) {
     if (!init) snap(s);
-    double t[NB][3]; targets(s, t); const double k = 1 - std::exp(-16.0 / (0.02 * fsI * 1.0)), mt = s.on ? 1 : 0, ms = 1.0 / (0.02 * fs);
+    double t[NB][3]; Band th; targets(s, t, th); t[NB - 1][0] = cur[NB - 1][0]; t[NB - 1][1] = cur[NB - 1][1];   // HIGH: nur dB gleitet, Stellung per Überblenden
+    const double k = 1 - std::exp(-16.0 / (0.02 * fsI * 1.0)), mt = s.on ? 1 : 0, ms = 1.0 / (0.02 * fs);
     const std::vector<double> &h = halfband(); const int L = latency();
     for (int i = 0; i < n; i++) {
       if (cnt-- <= 0) { cnt = 16 / os - 1; for (int b = 0; b < NB; b++) { bool ch = false; for (int j = 0; j < 3; j++) { double d = t[b][j] - cur[b][j]; if (d != 0) { ch = true; cur[b][j] = std::fabs(d) < 1e-6 ? t[b][j] : cur[b][j] + k * d; } } if (ch) redesign(b); } }
+      if (hdir) { hw = std::min(1.0, std::max(0.0, hw + hdir * ms)); if ((hdir > 0 && hw >= 1) || (hdir < 0 && hw <= 0)) hdir = 0; }   // HIGH überblenden (20 ms)
+      else { int a = hw >= 1 ? 1 : 0; if (!same(hc[a], th)) { hc[1 - a] = th; redesignH(1 - a); hdir = a ? -1 : 1; } }
       double x = buf[i], y;
       if (os == 1) y = eq(x);
       else {   // 2-fach: v[2n] = x[n], v[2n+1] = 0; u = 2·(h ∗ v) → u[2n] = 2 Σ h[2j] x[n−j], u[2n+1] = 2 Σ h[2j+1] x[n−j]
