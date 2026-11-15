@@ -6,7 +6,7 @@
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"; LOV="$LOLDANO"   # Versionen wie im Release
+eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"; LOV="$LOLDANO"; KAV="$KAISERIN"; BLV="$BLECH"   # Versionen wie im Release
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/res"
 # Nachlauf je Plugin (ab 2026-11-03): fasst nur die Dateien des gewählten Plugins an. Vorher lief für jedes Teilpaket dasselbe Skript und
 # verschob von Hand installierte Fassungen aller drei Plugins in den Papierkorb, auch wenn nur eines gewählt war.
@@ -43,7 +43,7 @@ killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
   } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
-post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76; post loldano Loldano_SLO100
+post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76; post loldano Loldano_SLO100; post kaiserin Kaiserin_Reverb; post blech140 Blech_140
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -64,7 +64,9 @@ one AmpFett_SVTCL svtcl "$SVV" component; one AmpFett_SVTCL svtcl "$SVV" vst3
 one Wien_EQ wieneq "$WQV" component; one Wien_EQ wieneq "$WQV" vst3
 one AmpFett_76 ampfett76 "$U76V" component; one AmpFett_76 ampfett76 "$U76V" vst3
 one Loldano_SLO100 loldano "$LOV" component; one Loldano_SLO100 loldano "$LOV" vst3
-sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+one Kaiserin_Reverb kaiserin "$KAV" component; one Kaiserin_Reverb kaiserin "$KAV" vst3
+one Blech_140 blech140 "$BLV" component; one Blech_140 blech140 "$BLV" vst3
+sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" -e "s/@KAV@/$KAV/g" -e "s/@BLV@/$BLV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
@@ -98,6 +100,8 @@ cat > "$W/dist.xml" <<X
     <line choice="wieneq"/>
     <line choice="ampfett76"/>
     <line choice="loldano"/>
+    <line choice="kaiserin"/>
+    <line choice="blech140"/>
   </choices-outline>
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Federhall, Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
@@ -129,6 +133,12 @@ cat > "$W/dist.xml" <<X
   <choice id="loldano" title="Loldano SLO-100 Guitar Amp $LOV" description="Röhren-Gitarrenverstärker (100 W) nach dem Schaltplan des Soldano SLO-100: fünf 12AX7 mit NORMAL- und OVERDRIVE-Kanal, Klangregelung, Phasenumkehr, vier 6L6GC mit Ausgangsübertrager, Gegenkopplung und PRESENCE, an einer Lautsprecherlast gerechnet (ohne Boxensimulation). Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.loldano.component"/><pkg-ref id="de.tonestack.loldano.vst3"/>
   </choice>
+  <choice id="kaiserin" title="Kaiserin Reverb $KAV" description="Hall mit der Bedienung des Empress Effects Reverb (eigener Entwurf nach der Anleitung): HALL, PLATE, SPRING, ROOM, MOD, SPARKLE mit DECAY, MIX, OUTPUT, LOW, HI, THING 1/2 und HOLD; mono rein, stereo raus. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.kaiserin.component"/><pkg-ref id="de.tonestack.kaiserin.vst3"/>
+  </choice>
+  <choice id="blech140" title="Blech 140 Plate Reverb $BLV" description="Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz): DECAY 1–3,8 s bei 500 Hz mit Instrument und Lampe MOTOR, BASS CUT 0–3, dazu MIX, PRE-DELAY und OUTPUT; mono rein, stereo raus. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.blech140.component"/><pkg-ref id="de.tonestack.blech140.vst3"/>
+  </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.laney.vst3" version="$LV">laney-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.yamaha.component" version="$YV">yamaha-component.pkg</pkg-ref>
@@ -149,6 +159,10 @@ cat > "$W/dist.xml" <<X
   <pkg-ref id="de.tonestack.ampfett76.vst3" version="$U76V">ampfett76-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.loldano.component" version="$LOV">loldano-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.loldano.vst3" version="$LOV">loldano-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.kaiserin.component" version="$KAV">kaiserin-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.kaiserin.vst3" version="$KAV">kaiserin-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.blech140.component" version="$BLV">blech140-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.blech140.vst3" version="$BLV">blech140-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
 P="$OUT/$PKG"
