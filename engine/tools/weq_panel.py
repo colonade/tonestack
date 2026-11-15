@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # Zeichnet die Frontplatte des Wien-EQ (5-Band-Stereo-Equalizer nach den veröffentlichten Angaben zum adt-audio TM205). Eigene Gestaltung:
 # kein Foto, kein Logo, keine Nachbildung der ADT-Frontplatte; Bedienelemente wie in der ADT-Beschreibung (LOW mit zwei Tasten 60 / 100 Hz,
-# beide = 160 Hz, keine = 40 Hz; MID 1/2/3 GAIN, Q, FREQ; HIGH mit Tasten 12k / 8k, beide = 4 kHz, keine = 20 kHz; LOW und HIGH sind Kuhschwanzfilter; EQ ON mit Anzeige).
+# beide = 160 Hz, keine = 40 Hz; MID 1/2/3 GAIN, Q, FREQ; HIGH mit Tasten 8k / 12k, beide = 4 kHz, keine = 20 kHz; EQ ON mit Anzeige).
+# Ab 1.4: Tasten nebeneinander wie bei ADT (LOW 60 links, 100 rechts; HIGH 8k links, 12k rechts), sieben Skalenstriche in gleichen Winkeln wie bei ADT,
+# Frequenzzahlen an ihrer Stelle nach der Reglerkennlinie (weq_laws.hpp, hier nachgerechnet).
 # Schreibt
 #   engine/gen/weqpanel.jpg   Bild 2000 × 240 (Knöpfe ohne Zeiger; Zeiger, Tasten und Anzeige zeichnen Seite und Plugin)
 #   engine/gen/weqgeo.json    Lage von Knöpfen, Tasten und Anzeige in Bildpunkten
@@ -21,15 +23,43 @@ PANEL = (44, 50, 60); INK = (232, 234, 238); DIM = (150, 156, 166)
 CAP = {'low': (232, 150, 72), 'm1': (110, 196, 132), 'm2': (98, 160, 230), 'm3': (176, 140, 220), 'high': (236, 206, 92)}
 # (Schlüssel, x, Beschriftung, Skala, Farbe): Skala 'g' = − 0 +, 'q' = Bandbreite, ('f', lo, hi, Marken) = Frequenz logarithmisch
 KNOBS = [('lowg', 228, 'GAIN', 'g', 'low'),
-         ('m1g', 452, 'GAIN', 'g', 'm1'), ('m1q', 552, 'Q', 'q', 'm1'), ('m1f', 656, 'FREQ', ('f', 20, 2000, [20, 50, 100, 200, 500, 1000, 2000]), 'm1'),
-         ('m2g', 812, 'GAIN', 'g', 'm2'), ('m2q', 912, 'Q', 'q', 'm2'), ('m2f', 1016, 'FREQ', ('f', 60, 7000, [60, 100, 200, 500, 1000, 2000, 7000]), 'm2'),
-         ('m3g', 1172, 'GAIN', 'g', 'm3'), ('m3q', 1272, 'Q', 'q', 'm3'), ('m3f', 1376, 'FREQ', ('f', 250, 25000, [250, 500, 1000, 2000, 5000, 10000, 25000]), 'm3'),
-         ('highg', 1536, 'GAIN', 'g', 'high')]
+         ('m1g', 452, 'GAIN', 'g', 'm1'), ('m1q', 552, 'Q', 'q', 'm1'), ('m1f', 656, 'FREQ', ('f', 20, 2000, [20, 30, 50, 120, 240, 600, 2000]), 'm1'),
+         ('m2g', 812, 'GAIN', 'g', 'm2'), ('m2q', 912, 'Q', 'q', 'm2'), ('m2f', 1016, 'FREQ kHz', ('f', 60, 7000, [60, 100, 150, 400, 700, 2000, 7000]), 'm2'),
+         ('m3g', 1172, 'GAIN', 'g', 'm3'), ('m3q', 1272, 'Q', 'q', 'm3'), ('m3f', 1376, 'FREQ kHz', ('f', 250, 25000, [250, 400, 600, 1500, 3000, 7500, 25000]), 'm3'),
+         ('highg', 1520, 'GAIN', 'g', 'high')]
 SECT = [('LOW', 160, 372), ('MID 1', 388, 724), ('MID 2', 748, 1084), ('MID 3', 1108, 1444), ('HIGH', 1468, 1680)]
-BTNS = [('low60', 322, 108, '60'), ('low100', 322, 166, '100'), ('high12', 1630, 108, '12k'), ('high8', 1630, 166, '8k'), ('on', 1772, 166, 'EQ ON')]
+BTNS = [('low60', 294, 150, '60'), ('low100', 348, 150, '100'), ('high12', 1652, 150, '12k'), ('high8', 1600, 150, '8k'), ('on', 1772, 166, 'EQ ON')]   # Reihenfolge = Tastennummern in Plugin und Seite
 BW, BH = 48, 28
 LED = (1772, 104)
 def fmt(f): return ('%gk' % (f / 1000)) if f >= 1000 else '%g' % f
+# Reglerkennlinie Frequenz wie weq_laws.hpp (monoton kubisch durch die ADT-Striche); Stelle 0 … 1 zu einer Frequenz per Bisektion
+FX = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6, 1]; FU = [0, 0.097686, 0.195742, 0.393836, 0.527882, 0.737642, 1]
+def pchip(x, y, t):
+    n = len(x)
+    if t <= x[0]: return y[0]
+    if t >= x[-1]: return y[-1]
+    k = 0
+    while t > x[k + 1]: k += 1
+    dl = lambda i: (y[i + 1] - y[i]) / (x[i + 1] - x[i])
+    def der(i):
+        if i == 0 or i == n - 1:
+            a, b = (0, 1) if i == 0 else (n - 2, n - 3); h0, h1 = x[a + 1] - x[a], x[b + 1] - x[b]; d0, d1 = dl(a), dl(b)
+            d = ((2 * h0 + h1) * d0 - h0 * d1) / (h0 + h1)
+            if d * d0 <= 0: return 0.0
+            if d0 * d1 < 0 and abs(d) > 3 * abs(d0): return 3 * d0
+            return d
+        d0, d1 = dl(i - 1), dl(i)
+        if d0 * d1 <= 0: return 0.0
+        h0, h1 = x[i] - x[i - 1], x[i + 1] - x[i]; w1, w2 = 2 * h1 + h0, h1 + 2 * h0; return (w1 + w2) / (w1 / d0 + w2 / d1)
+    h = x[k + 1] - x[k]; u = (t - x[k]) / h; u2, u3 = u * u, u * u * u
+    return (2 * u3 - 3 * u2 + 1) * y[k] + (u3 - 2 * u2 + u) * h * der(k) + (-2 * u3 + 3 * u2) * y[k + 1] + (u3 - u2) * h * der(k + 1)
+def fpos(f, lo, hi):
+    target = math.log(f / lo) / math.log(hi / lo); a, b = 0.0, 1.0
+    for _ in range(60):
+        m = (a + b) / 2
+        if pchip(FX, FU, m) < target: a = m
+        else: b = m
+    return (a + b) / 2
 def font(px, f=FB, S=S): return ImageFont.truetype(f, int(round(px * S)))
 def draw(S):
     im = Image.new('RGB', (W * S, H * S)); d = ImageDraw.Draw(im)
@@ -47,8 +77,8 @@ def draw(S):
     for t, x0, x1 in SECT:
         ctext((x0 + x1) / 2, 18, t, 14, FB); d.line([(x0 * S, 40 * S), (x1 * S, 40 * S)], fill=(120, 126, 136), width=S)
     for x in (380, 736, 1096, 1456, 1692): d.line([(x * S, 20 * S), (x * S, (H - 20) * S)], fill=(28, 32, 38), width=3 * S); d.line([((x + 2) * S, 20 * S), ((x + 2) * S, (H - 20) * S)], fill=(84, 90, 100), width=S)
-    ctext(322, 196, 'none = 40 Hz', 9.5, FN, DIM); ctext(322, 209, 'both = 160 Hz', 9.5, FN, DIM)
-    ctext(1630, 196, 'none = 20 kHz', 9.5, FN, DIM); ctext(1630, 209, 'both = 4 kHz', 9.5, FN, DIM)
+    ctext(321, 186, 'none = 40 Hz', 9.5, FN, DIM); ctext(321, 199, 'both = 160 Hz', 9.5, FN, DIM)
+    ctext(1626, 186, 'none = 20 kHz shelf', 9.5, FN, DIM); ctext(1626, 199, 'both = 4 kHz', 9.5, FN, DIM)
     # Tasten (Ruhezustand; gedrückt/leuchtend zeichnen Seite und Plugin)
     for k, x, y, t in BTNS:
         sh = Image.new('L', (W * S, H * S), 0); ImageDraw.Draw(sh).rounded_rectangle([(x - BW / 2 + 2) * S, (y - BH / 2 + 4) * S, (x + BW / 2 + 2) * S, (y + BH / 2 + 4) * S], radius=4 * S, fill=180)
@@ -62,22 +92,27 @@ def draw(S):
     # Knöpfe
     for k, x, lab, scale, col in KNOBS:
         ctext(x, 52, lab, 13, FB)
-        if scale == 'g': marks = [(j, '0' if j == 5 else '') for j in range(11)]
-        elif scale == 'q': marks = [(j, '') for j in range(11)]
-        else:
-            _, lo, hi, fl = scale; marks = [(10 * math.log(f / lo) / math.log(hi / lo), fmt(f)) for f in fl]
-        for j, t in marks:
-            a = (-150 + 30 * j) * math.pi / 180; px, py = x + (KR + 6) * math.sin(a), KY - (KR + 6) * math.cos(a)
+        # sieben Striche in gleichen Winkeln (wie ADT); Zahlen: GAIN nur 0 (Bereich umschaltbar), FREQ an der Stelle ihrer Frequenz
+        ticks = [(j / 6, '0' if (scale == 'g' and j == 3) else '') for j in range(7)]
+        marks = []
+        if scale not in ('g', 'q'):
+            _, lo, hi, fl = scale; fk = (lambda f: ('%g' % (f / 1000)).lstrip('0')) if 'kHz' in lab else fmt   # MID 2/3 in kHz wie bei ADT (.06, .1 …)
+            marks = [(fpos(f, lo, hi), fk(f)) for f in fl]; ticks = [(j / 6, '') for j in range(7)]
+        for pos, t in ticks:
+            a = (-150 + 300 * pos) * math.pi / 180; px, py = x + (KR + 6) * math.sin(a), KY - (KR + 6) * math.cos(a)
             d.ellipse([(px - 1.6) * S, (py - 1.6) * S, (px + 1.6) * S, (py + 1.6) * S], fill=INK)
-            if t:
-                tx, ty = x + (KR + 20) * math.sin(a), KY - (KR + 20) * math.cos(a); ff = font(NUM, FB, S); tw = d.textlength(t, font=ff)   # Zahlen der Skala
-                d.text((tx * S - tw / 2, ty * S - 0.62 * NUM * S), t, font=ff, fill=INK)
+            if t: marks.append((pos, t))
+        for pos, t in marks:
+            a = (-150 + 300 * pos) * math.pi / 180
+            ff = font(NUM, FB, S); tw = d.textlength(t, font=ff); rr = KR + 13 + 0.5 * tw / S * abs(math.sin(a)) + 0.45 * NUM * abs(math.cos(a))   # Zahlen der Skala, Abstand nach Breite
+            tx, ty = x + rr * math.sin(a), KY - rr * math.cos(a)
+            d.text((tx * S - tw / 2, ty * S - 0.62 * NUM * S), t, font=ff, fill=INK)
         if scale == 'g':
             ff = font(13, FB, S); d.text(((x - KR - 16) * S, (KY + KR) * S), '−', font=ff, fill=INK); d.text(((x + KR + 8) * S, (KY + KR) * S), '+', font=ff, fill=INK)
         if scale == 'q':
             ff = font(NUM, FB, S)
-            for j, t in [(0, '5 oct'), (10, '1/3')]:
-                a = (-150 + 30 * j) * math.pi / 180; tx, ty = x + (KR + 22) * math.sin(a), KY - (KR + 22) * math.cos(a); tw = d.textlength(t, font=ff); d.text((tx * S - tw / 2, ty * S - 0.62 * NUM * S), t, font=ff, fill=INK)
+            for j, t in [(0, '5 oct'), (1, '1/3')]:
+                a = (-150 + 300 * j) * math.pi / 180; tx, ty = x + (KR + 22) * math.sin(a), KY - (KR + 22) * math.cos(a); tw = d.textlength(t, font=ff); d.text((tx * S - tw / 2, ty * S - 0.62 * NUM * S), t, font=ff, fill=INK)
         sh = Image.new('L', (W * S, H * S), 0); ImageDraw.Draw(sh).ellipse([(x - KR + 3) * S, (KY - KR + 6) * S, (x + KR + 3) * S, (KY + KR + 6) * S], fill=200)
         sh = sh.filter(ImageFilter.GaussianBlur(5 * S)); im.paste((14, 16, 20), mask=sh); d = ImageDraw.Draw(im)
         d.ellipse([(x - KR) * S, (KY - KR) * S, (x + KR) * S, (KY + KR) * S], fill=(20, 21, 24))
@@ -104,7 +139,7 @@ def main():
         f.write('// erzeugt von engine/tools/weq_panel.py: Lage der Bedienelemente auf weqpanel.jpg (Bildpunkte)\n')
         f.write('static const int WEQW = %d, WEQH = %d;\n' % (W, H))
         f.write('static const double WEQKNOB[%d][3] = {%s};   // LOW GAIN, MID 1 GAIN/Q/FREQ, MID 2 …, MID 3 …, HIGH GAIN\n' % (len(KNOBS), ', '.join('{%d, %d, %d}' % (x, KY, KR) for _, x, *_ in KNOBS)))
-        f.write('static const double WEQBTN[%d][4] = {%s};   // Tasten LOW 60, LOW 100, HIGH 12k, HIGH 8k, EQ ON (Mitte x, y, Breite, Höhe)\n' % (len(BTNS), ', '.join('{%d, %d, %d, %d}' % (x, y, BW, BH) for _, x, y, _ in BTNS)))
+        f.write('static const double WEQBTN[%d][4] = {%s};   // Tasten LOW 60, LOW 100, HIGH 12k (rechts), HIGH 8k (links), EQ ON (Mitte x, y, Breite, Höhe)\n' % (len(BTNS), ', '.join('{%d, %d, %d, %d}' % (x, y, BW, BH) for _, x, y, _ in BTNS)))
         f.write('static const double WEQLED[2] = {%d, %d};   // Anzeige EQ ON\n' % LED)
     crop = im.crop((520, 30, 720, 230)).resize((200, 200))
     ICO = os.path.join(R, 'web', 'tonestack', 'assets', 'icons'); os.makedirs(ICO, exist_ok=True)
