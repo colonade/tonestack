@@ -127,7 +127,11 @@ struct Core {
   dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
   void apply(const Vals &v) { cur = v; bl = build(f, v); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); }
     run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); }
-  void init(double fs_, const Vals &v) { fs = fs_; run = dk::Runner(); apply(v); w = 2 * PI * f.mains_hz / fs; t = 0;
+  void init(double fs_, const Vals &v) { fs = fs_; run = dk::Runner();
+#ifdef LPA_REUSE   // nur im Laney ab 3.47 (plugin.cpp, wasm_api.cpp): Zerlegung innerhalb eines Abtastwerts weiterverwenden (bis 3.46 je Newton-Schritt neu)
+    run.reuseStep = true; run.reuseRho = 0.1;
+#endif
+    apply(v); w = 2 * PI * f.mains_hz / fs; t = 0;
     // Startwerte nach den Spannungen im Plan, damit das Netzteil nicht lange einschwingen muss
     std::map<std::string, double> g = {{"B1", 400}, {"B2", 398}, {"B3", 326}, {"pa", 225}, {"pb", 209}, {"k", 36.4}, {"n", 35.3}, {"x", 10.8}, {"ga", 35.3}, {"gb", 35.3},
       {"c5", -36}, {"c6", -36}, {"g5", -36}, {"g6", -36}, {"BIAS", -36}, {"b48", -48}, {"bm", -48}, {"s5", 395}, {"s6", 395}, {"a5", 400}, {"a6", 400}, {"a5w", 400}, {"a6w", 400}, {"chk", 399}, {"R260", 280}, {"R252", 265}, {"R240", 255}};

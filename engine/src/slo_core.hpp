@@ -10,6 +10,8 @@
 #pragma once
 #define DK_FAST    // ab 1.3: Abkürzungen im Löser und in den Kennlinien (dk.hpp, b15_core.hpp), nur für den Loldano; andere Plugins bleiben bitgleich
 #define B15_FAST
+#define DK_KEEPLU   // ab 1.4: Zerlegung in ruhigen Abtastwerten behalten (dk.hpp)
+#define B15_TAB     // ab 1.4: Röhrenkennlinien als Tabelle (b15_core.hpp)
 #include "b15_core.hpp"
 #include <atomic>
 #include <complex>
@@ -189,7 +191,7 @@ struct Amp {
   // Mehrtakt (ab 1.3, ab 4x): Vorstufe (c, Teilnetz 1) mit os-facher, Endstufe (e, Teilnetz 2) mit 2-facher Abtastrate. Zwischen beiden ein Kaiser-Tiefpass
   // (Mitte 46 kHz, L2 = 2·os·3 + 1 Abgriffe), Ausgang der Endstufe wie bei 2x über hd. Austausch je Endstufenschritt:
   // Vorstufe ← B2 und Strom der Phasenumkehr (letzter Endstufenschritt), Endstufe ← B3 und Strom durch R_B3 (Mittel über die Vorstufenschritte).
-  bool split = false; Core e, e0; int osE = 2, rE = 1, L2 = 0, pi = 0, eph = 0; std::vector<double> h2, pb; double vB2 = 495.053, iPI = 2.934e-3, accB3 = 0, accI = 0;
+  bool split = false; Core e, e0; int osE = 2, rE = 1, L2 = 0, pi = 0, eph = 0; std::vector<double> h2, pb, pb0; double vB2 = 495.053, iPI = 2.934e-3, accB3 = 0, accI = 0, vB20 = 0, iPI0 = 0;   // …0: eingeschwungen (Rückfall)
   // Mehrtakt nur bei 4x (live): Vorstufe 4x, Endstufe 2x. Rendern (8x/16x) rechnet das ganze Netz: mit Endstufe 2x stieg das Aliasing bei MASTER 10 auf das
   // Maß von 2x, mit Endstufe 4x auf das von 4x, und das Band zwischen den Teilnetzen veränderte bei stark übersteuerter Endstufe Oberwellen um bis 1 dB (gemessen).
   static inline int SPLIT_MIN = 4, SPLIT_MAX = 4;   // Prüfprogramme ändern beides
@@ -206,23 +208,24 @@ struct Amp {
   void readBias() { for (int i = 0; i < NPEAK; i++) vgk0[i] = monCore(i).run.vp[monPort(i)]; }   // Ruhewert gilt für den eingeschwungenen Kern; nach dem Kanalwechsel für die neue Stufe neu gelesen (Näherung, solange Signal anliegt)
   // Einschwingen ohne Eingang; im Mehrtakt beide Teilnetze gekoppelt
   void settleAll(double secs, const std::atomic<bool> *cancel) { if (!split) { c.settle(secs, cancel); return; }
-    long n = (long)(secs * osE * fsB); double y[O_NO + 32], u[5];
-    for (long i = 0; i < n; i++) { if (cancel && (i & 1023) == 0 && cancel->load()) return; double b3 = 0, ib = 0;
-      for (int k = 0; k < rE; k++) { u[0] = 0; u[1] = vB2; u[2] = iPI; c.stepU(u, y); b3 += y[P_B3]; ib += (vB2 - y[P_B3]) / c.v.r_b3; }
-      b3 /= rE; ib /= rE; u[0] = 0; u[1] = e.v.dc_v - SI_U; u[2] = e.v.bias_v; u[3] = b3; u[4] = ib; e.stepU(u, y); vB2 = y[E_B2]; iPI = (b3 - y[E_B3]) / RS_B3E; } }
+    // ab 1.4 über runSplit samt Zwischenfilter: bis 1.3 bekam die Endstufe hier 0 V statt der Kathodenspannung von V4A (≈ 204 V), und der Filterspeicher
+    // war leer – beim Start mit 4x und nach jedem Umschalten auf 4x schwang die Schaltung mit einem Schlag bis −5 dBFS ein (gemessen, siehe PROJEKTSTAND)
+    long n = (long)(secs * os * fsB); double z;
+    for (long i = 0; i < n; i++) { if (cancel && (i & 1023) == 0 && cancel->load()) return; runSplit(0, z); }
+    for (auto &p : peak) p = 0; outPk = 0; outSq = 0; outN = 0; }
   void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); tgt = s; split = os >= SPLIT_MIN && os <= SPLIT_MAX;
     if (!split) c.init(fsB * os, pv, s);
     else { osE = osEFor(os); rE = os / osE; c.part = 1; c.init(fsB * os, pv, s); e.part = 2; e.init(fsB * osE, pv, s); vB2 = 495.053; iPI = 2.934e-3; }
-    settleAll(SETTLE, cancel); c0 = c; e0 = e; readBias();
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * wd; sum += h[k]; }
       for (int k = 0; k < L; k++) h[k] /= sum;
       hp.assign(os * 32, 0); for (int ph = 0; ph < os; ph++) for (int k = 0; k < 32; k++) hp[ph * 32 + k] = (k * os + ph < L) ? h[k * os + ph] : 0;
       if (!split) { Ld = 2 * os * LAT + 2 * os - L - 2; kaiser(hd, Ld, (22.0 / 48.0) / os, 9); }
-      else { L2 = 2 * os * 3 + 1; kaiser(h2, L2, (46.0 / 48.0) / os, 9); pb.assign(2 * L2, 0); pi = 0; eph = 0; accB3 = accI = 0;
+      else { L2 = 2 * os * 3 + 1; kaiser(h2, L2, (46.0 / 48.0) / os, 9); pb.assign(2 * L2, 203.924);   /* Kathode V4A in Ruhe */ pi = 0; eph = 0; accB3 = accI = 0;
         Ld = 2 * osE * (LAT - 16 - 3) + 2 * osE - 1; kaiser(hd, Ld, (22.0 / 48.0) / osE, 9); }
       xb.assign(64, 0); yb.assign(2 * Ld, 0); xi = yi = 0; }
+    settleAll(SETTLE, cancel); c0 = c; e0 = e; pb0 = pb; vB20 = vB2; iPI0 = iPI; readBias();
     ready = true; }
   int latency() const { return os > 1 ? LAT : 0; }
   static bool sameSw(const Setting &a, const Setting &b) { return a.od == b.od && a.crunch == b.crunch && a.bright == b.bright; }
@@ -230,7 +233,7 @@ struct Amp {
   void applyBoth(const Setting &n) { c.apply(n); if (split) e.apply(n); }
   void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, c.cur)) { Setting n = c.cur; n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; applyBoth(n); vgk0[1] = c0.run.vp[monPort(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   void snap() { applyBoth(tgt); cnt = 0; }
-  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); settleAll(secs, cancel); c0 = c; e0 = e; readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
+  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); settleAll(secs, cancel); c0 = c; e0 = e; pb0 = pb; vB20 = vB2; iPI0 = iPI; readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 8; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     if (moved) applyBoth(n); }
@@ -258,7 +261,7 @@ struct Amp {
           yi = yi == 0 ? Ld - 1 : yi - 1; yb[yi] = yb[yi + Ld] = z;
           if (ne++ == std::max(0, osE - 2)) for (int k = 0; k < Ld; k++) y += hd[k] * yb[yi + k]; } }
       if (!(std::fabs(y) < 20)) { y = 0;   // entgleist (NaN oder über 20-fache Vollaussteuerung): eingeschwungenen Zustand zurückholen, höchstens einmal je 0,1 s
-        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); if (split) { e = e0; e.apply(s); std::fill(pb.begin(), pb.end(), 0.0); eph = 0; accB3 = accI = 0; }
+        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); if (split) { e = e0; e.apply(s); pb = pb0; vB2 = vB20; iPI = iPI0; eph = 0; accB3 = accI = 0; }
           std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); bad = (int)(0.1 * fsB); } }
       if (bad > 0) bad--;
       buf[i] = (float)y; } }
