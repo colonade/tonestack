@@ -219,16 +219,6 @@ footer{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
 .fview{position:relative;overflow:hidden;line-height:0;border-radius:6px;border:1px solid var(--line);background:#0c0c0c;margin-top:8px}
 .fview img{position:absolute;max-width:none;height:auto;display:block}
 .fview svg{position:absolute;left:0;top:0;width:100%;height:100%}
-.fsel{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:6px}
-.fsel[hidden]{display:none}
-.fselkopf,.fselzeile{display:flex;align-items:center;gap:10px}
-.fselzeile{margin-top:8px}
-.fselname{font-weight:600}
-.fseltext{display:flex;flex-direction:column;line-height:1.25;flex:1;min-width:0}
-.fselval{font-variant-numeric:tabular-nums;color:var(--ink2);font-size:.88rem}
-.fselsp{display:none}
-.fsel input[type=range]{flex:1;min-width:0;height:40px}
-.fselb{min-width:44px;min-height:44px;font-size:1.3rem;padding:0}
 @media (max-width:760px){.frontscroll{display:none}.frontrows{display:block}}
 .fk:focus,.fjack:focus{outline:none}
 .fjack{cursor:pointer}.fjack .fjring{fill:none;stroke:transparent;stroke-width:3}.fjack.an .fjring{stroke:#E0382A}.fjack:focus-visible .fjring{stroke:#FFD34D;stroke-width:2.5}
@@ -313,12 +303,8 @@ select{max-width:100%}
     </div>
   </div>
   <div class="frontrows" id="frontrows"></div>
-  <div class="fsel" id="fsel" hidden>
-    <div class="fselkopf"><span class="fseltext"><span class="fselname" id="fselName"></span><span class="fselval" id="fselVal"></span></span><span class="fselsp"></span><button class="btn" type="button" id="fselMitte">Mitte</button><button class="btn fselb" type="button" id="fselZu" aria-label="Feinregler schließen">✕</button></div>
-    <div class="fselzeile"><button class="btn fselb" type="button" id="fselMinus" aria-label="Weniger">−</button><input type="range" id="fselRange" min="0" max="10" step="0.1"><button class="btn fselb" type="button" id="fselPlus" aria-label="Mehr">+</button></div>
-  </div>
   <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kipp2"><div class="kgrp"><label class="kt" for="avin">INPUT</label><span class="kin"><input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></span><span class="ks">Spitzenpegel deines Instruments</span></div><div class="kgrp"><label class="kt" for="aos">OVERSAMPLING</label><select id="aos" class="ksel"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option></select><span class="ks">Rechentakt beim Anhören (2x und 4x: weniger Aliasing, mehr Rechenzeit); der Download rechnet immer mit 4x</span></div><div class="kgrp drive" id="drive"><span class="kt">DRIVE</span><div class="stg"><span class="sn">V1B Eingang</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn" id="drv2">V2A Overdrive</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">V3B</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">V4B FX Return</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">V5 Phasenumkehr</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">6L6GC Gitter</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">Leistung</span><span class="sb"><i></i></span><span class="sv">–</span></div><span class="ks" id="driveks">Gitterhub je Stufe, 100 % = Gitter erreicht die Kathodenspannung (Strich); Leistung = Effektivspannung² / 8 Ω, Strich = 100 W (übersteuert liefert die Endstufe mehr)</span></div></div></div>
-  <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Grundstellung. Kippschalter durch Antippen umlegen: Hebel oben = BRIGHT, CRUNCH bzw. OVERDRIVE. BRIGHT und CLEAN/CRUNCH wirken nur im NORMAL-Kanal; jeder Kanal hat seinen eigenen PREAMP- und MASTER-Regler.</figcaption>
+  <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Grundstellung. Kippschalter durch Antippen umlegen: Hebel oben = BRIGHT, CRUNCH bzw. OVERDRIVE. BRIGHT und CLEAN/CRUNCH wirken nur im NORMAL-Kanal; jeder Kanal hat seinen eigenen PREAMP- und MASTER-Regler.</figcaption>
 </figure>
 
 <section class="panel p-plot" id="sec-plot" aria-labelledby="ph-plot">
@@ -593,7 +579,7 @@ function makeView(box, svgV, tipV, keys, jacks, sws) {
       const dx = e.clientX - st.x, dy = st.y - e.clientY;
       if (st.mode === '?') { if (Math.abs(dy) > 6 && Math.abs(dy) >= Math.abs(dx)) st.mode = 'turn'; else if (Math.abs(dx) > 10) st.mode = 'none'; }
       if (st.mode === 'turn') { KSET[k](st.v + dy * (e.pointerType === 'mouse' ? 0.04 : 0.05)); showTip(k, view); grp.classList.add('aktiv'); } });
-    const end = () => { if (!st) return; if (st.mode === '?') selectKnob(k); st = null; grp.classList.remove('aktiv'); };
+    const end = () => { if (!st) return; st = null; grp.classList.remove('aktiv'); };
     grp.addEventListener('pointerup', end); grp.addEventListener('pointercancel', () => { st = null; grp.classList.remove('aktiv'); });
     grp.addEventListener('pointerleave', e => { if (!st && e.pointerType === 'mouse' && document.activeElement !== grp) showTip(null); });
     grp.addEventListener('focus', () => showTip(k, view)); grp.addEventListener('blur', () => showTip(null));
@@ -603,7 +589,7 @@ function makeView(box, svgV, tipV, keys, jacks, sws) {
       const sp = e.shiftKey ? 1 : step, m = {ArrowUp:sp, ArrowRight:sp, ArrowDown:-sp, ArrowLeft:-sp, PageUp:big, PageDown:-big}[e.key];
       if (m !== undefined) { KSET[k](S.knobs[k] + m); showTip(k, view); e.preventDefault(); }
       else if (e.key === 'Home') { KSET[k](0); showTip(k, view); e.preventDefault(); } else if (e.key === 'End') { KSET[k](kmax(k)); showTip(k, view); e.preventDefault(); }
-      else if (e.key === 'Enter' || e.key === ' ') { selectKnob(k); e.preventDefault(); } });
+      });
   }
   for (const j of jacks) { const g = GEO.jacks[j];   // Buchse antippen = Stecker rein
     const jg = el('g', {class:'fjack', tabindex:'0', role:'button', 'aria-label':'Eingang'}, svgV);
@@ -639,16 +625,6 @@ for (const r of ROWS) {
   const tp = el2('div', 'ftip', box); tp.hidden = true;
   makeView(box, sv, tp, r.keys, r.jacks, r.sws);
 }
-let fselK = null;
-function selectKnob(k) { fselK = k; $('fsel').hidden = false; $('fselName').textContent = FNAME[k]; $('fselRange').setAttribute('aria-label', FNAME[k]);
-  $('fselRange').max = String(kmax(k)); $('fselRange').step = '0.1'; updSel();
-  for (const ls of Object.values(FPTR)) for (const ln of ls) ln._g.classList.toggle('gewaehlt', ln._g.dataset.k === k); }
-function updSel() { if (!fselK) return; $('fselRange').value = S.knobs[fselK]; $('fselVal').textContent = `${fval(fselK)} · ${fextra(fselK)}`; }
-$('fselRange').addEventListener('input', e => { if (fselK) KSET[fselK](+e.target.value); });
-$('fselMinus').addEventListener('click', () => { if (fselK) KSET[fselK](S.knobs[fselK] - 0.1); });
-$('fselPlus').addEventListener('click', () => { if (fselK) KSET[fselK](S.knobs[fselK] + 0.1); });
-$('fselMitte').addEventListener('click', () => { if (fselK) KSET[fselK](kdef(fselK)); });
-$('fselZu').addEventListener('click', () => { fselK = null; $('fsel').hidden = true; for (const ls of Object.values(FPTR)) for (const ln of ls) ln._g.classList.remove('gewaehlt'); });
 function updFront() {
   for (const k of KEYS) { const g = FRONT[k], v = S.knobs[k];
     for (const ln of FPTR[k]) { ln.setAttribute('transform', `rotate(${ang(k, v)} ${g.x} ${g.y})`); ln._g.setAttribute('aria-valuenow', v.toFixed(1)); ln._g.setAttribute('aria-valuetext', fval(k) + ' von 10'); } }
@@ -657,7 +633,6 @@ function updFront() {
     lv.setAttribute('d', `M${g.x - 5} ${g.y} L${g.x - 7} ${g.y + d * 34} Q${g.x} ${g.y + d * 41} ${g.x + 7} ${g.y + d * 34} L${g.x + 5} ${g.y} Z`);
     lv.parentNode.setAttribute('aria-checked', up); lv.parentNode.setAttribute('aria-label', `Schalter ${SWN[s]}: ${up ? 'ja' : 'nein'}`); });
   if (ftipK && ftipV) showTip(ftipK, ftipV);
-  updSel();
 }
 
 // ---------- Leiste, Einstellungen ----------

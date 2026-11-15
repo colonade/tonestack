@@ -28,8 +28,15 @@ Hochladen
    z. B. /var/www/html/tonestack  ->  https://example.de/tonestack/
    Der Ordner kann beliebig umbenannt werden oder direkt im Wurzelverzeichnis
    liegen; alle Pfade sind relativ.
-2. Beim Upload per FTP darauf achten, dass die versteckte Datei .htaccess
-   mit übertragen wird (im FTP-Programm "versteckte Dateien anzeigen").
+2. Zum Hochladen SFTP oder scp verwenden, nicht FTP: bei FTP gehen Benutzername
+   und Passwort unverschlüsselt über das Netz. Darauf achten, dass die
+   versteckte Datei .htaccess mit übertragen wird (im Programm "versteckte
+   Dateien anzeigen").
+   Auf einem eigenen Debian/Ubuntu-Server geht es einfacher mit
+   install-tonestack.sh (aus dem Repository, scripts/): es prüft die
+   Prüfsumme (tonestack-apache.zip.sha256 neben dem ZIP), die Dateitypen im
+   Paket und jede Zeile der .htaccess und richtet Apache für den Ordner ein.
+   Prüfsummen der Downloads stehen in download/SHA256SUMS.txt.
 3. Rechte: Ordner 755, Dateien 644. Beispiel auf dem Server:
      find tonestack -type d -exec chmod 755 {} \;
      find tonestack -type f -exec chmod 644 {} \;

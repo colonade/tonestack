@@ -9,10 +9,11 @@
 #   --host NAME        Host für die Prüfung       (Standard: localhost)
 #   --deinstallieren   Ordner und Apache-Einstellung entfernen (Sicherungen bleiben)
 #   --nur-pruefen      nichts ändern, nur die installierten Seiten prüfen
+#   --ohne-pruefsumme  ZIP ohne Prüfsummendatei annehmen (nicht empfohlen)
 #   --hilfe            Diese Hilfe
 #
 # Was das Skript tut:
-#   1. prüft Apache, das ZIP und dessen Inhalt
+#   1. prüft Apache, das ZIP (Prüfsumme aus <ZIP>.sha256 neben dem ZIP) und dessen Inhalt
 #   2. aktiviert die Module headers, expires, deflate, mime
 #   3. erlaubt die mitgelieferte .htaccess nur für den Installationsordner
 #      (/etc/apache2/conf-available/tonestack-<ordner>.conf)
@@ -27,6 +28,7 @@ ZIEL="/var/www/html/tonestack"
 URLPFAD="/tonestack"
 HOST="localhost"
 AKTION="install"
+OHNE_SUMME=0
 
 rot()  { printf '\033[31m%s\033[0m\n' "$*"; }
 gruen(){ printf '\033[32m%s\033[0m\n' "$*"; }
@@ -40,13 +42,22 @@ while [ $# -gt 0 ]; do
     --host)  HOST="$2"; shift 2 ;;
     --deinstallieren) AKTION="remove"; shift ;;
     --nur-pruefen) AKTION="check"; shift ;;
-    --hilfe|-h) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --ohne-pruefsumme) OHNE_SUMME=1; shift ;;
+    --hilfe|-h) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) fehler "Unbekannte Option: $1 (--hilfe zeigt alle)" ;;
     *)  ZIP="$1"; shift ;;
   esac
 done
 
 [ "$(id -u)" -eq 0 ] || fehler "Bitte mit sudo ausführen."
+# Eingaben prüfen (ab 2026-11-15): Ziel normalisiert (kein „..“), nur einfache Zeichen – es landet in der Apache-Konfiguration (<Directory "…">),
+# Anführungszeichen oder Zeilenumbrüche könnten dort sonst weitere Anweisungen einschleusen. Systemordner sind ausgeschlossen.
+ZIEL="$(realpath -m -- "$ZIEL")"
+[[ "$ZIEL" =~ ^/[A-Za-z0-9._/-]+$ ]] || fehler "Ungültiges Ziel '$ZIEL' – erlaubt sind Buchstaben, Ziffern, Punkt, Unterstrich, Bindestrich und /"
+case "$ZIEL" in /|/var|/var/www|/var/www/html|/srv|/home|/root|/tmp|/opt|/etc|/etc/*|/usr|/usr/*|/bin|/bin/*|/sbin|/sbin/*|/lib|/lib/*|/lib64|/lib64/*|/boot|/boot/*|/proc|/proc/*|/sys|/sys/*|/dev|/dev/*|/run|/run/*|/var/lib|/var/lib/*|/var/log|/var/log/*|/var/backups|/var/backups/*)
+  fehler "Ungültiges Ziel '$ZIEL' – bitte einen eigenen Unterordner im Webverzeichnis angeben (z. B. /var/www/html/tonestack)";; esac
+[[ "$URLPFAD" =~ ^/[A-Za-z0-9._/~-]*$ ]] || fehler "Ungültiger URL-Pfad '$URLPFAD'"
+[[ "$HOST" =~ ^[A-Za-z0-9.:-]+$ ]] || fehler "Ungültiger Host '$HOST'"
 # eigene Apache-Einstellung je Installationsordner, damit sich mehrere Installationen nicht stören
 CONF_NAME="tonestack$(printf '%s' "$ZIEL" | tr -c 'A-Za-z0-9' '-' | sed 's/--*/-/g; s/-$//')"
 CONF="/etc/apache2/conf-available/${CONF_NAME}.conf"
@@ -129,7 +140,6 @@ if [ "$AKTION" = "check" ]; then
 fi
 
 # Ziel absichern: nie leer, nie das Wurzelverzeichnis, und ersetzt/entfernt wird nur eine Tonestack-Installation
-case "$ZIEL" in ""|/|/var/www|/var/www/html) fehler "Ungültiges Ziel '$ZIEL' – bitte einen eigenen Unterordner angeben (z. B. /var/www/html/tonestack)";; esac
 SICHERUNGSORDNER="/var/backups/tonestack"   # außerhalb des Webverzeichnisses, damit alte Stände nicht öffentlich bleiben
 ist_tonestack() { [ -f "$1/sw.js" ] && [ -d "$1/laney-aor50" ] && { [ -d "$1/lametta-b100ii" ] || [ -d "$1/yamaha-b100ii" ]; }; }   # bis 2026-11-11 hieß der Ordner yamaha-b100ii
 
@@ -149,7 +159,17 @@ if [ -z "$ZIP" ]; then
   for k in ./tonestack-apache.zip "$(dirname "$0")/tonestack-apache.zip"; do [ -f "$k" ] && { ZIP="$k"; break; }; done
 fi
 [ -n "$ZIP" ] && [ -f "$ZIP" ] || fehler "ZIP nicht gefunden. Aufruf: sudo $0 /pfad/tonestack-apache.zip"
-info "Paket:      $ZIP ($(sha256sum "$ZIP" | cut -c1-16)…)"
+SUMME="$(sha256sum "$ZIP" | cut -d' ' -f1)"
+info "Paket:      $ZIP (${SUMME:0:16}…)"
+# Prüfsumme (ab 2026-11-15): <ZIP>.sha256 neben dem ZIP, im Format von sha256sum. Schützt vor beschädigten oder unterwegs ausgetauschten Paketen,
+# solange die Prüfsumme auf einem anderen Weg kommt als das ZIP selbst.
+if [ -f "$ZIP.sha256" ]; then
+  ERWARTET="$(grep -oE '^[0-9a-fA-F]{64}' "$ZIP.sha256" | head -n1 | tr 'A-F' 'a-f')"
+  [ -n "$ERWARTET" ] || fehler "$ZIP.sha256 enthält keine Prüfsumme."
+  [ "$ERWARTET" = "$SUMME" ] || fehler "Prüfsumme stimmt nicht ($ZIP.sha256) – Paket beschädigt oder verändert, nicht installiert."
+  info "Prüfsumme:  stimmt mit $(basename "$ZIP").sha256 überein"
+elif [ "$OHNE_SUMME" -eq 1 ]; then rot "  Warnung: keine Prüfsummendatei – installiert auf eigene Verantwortung (--ohne-pruefsumme)"
+else fehler "Prüfsummendatei $ZIP.sha256 fehlt. Bitte mit dem ZIP zusammen ablegen (oder --ohne-pruefsumme, nicht empfohlen)."; fi
 info "Ziel:       $ZIEL"
 info "Adresse:    http://$HOST$URLPFAD/"
 info "Apache:     $(apache2ctl -v 2>/dev/null | sed -n 's/^Server version: //p')"
@@ -165,17 +185,33 @@ ls "$NEU"/download/*.zip >/dev/null 2>&1 || info "Hinweis: im ZIP liegt kein dow
 # Sicherheit: nur gewöhnliche Dateien und Ordner (keine Verknüpfungen, die aus dem Webordner hinauszeigen könnten),
 # nur bekannte Dateitypen (nichts, was Apache als Programm ausführen könnte), und in der .htaccess nur die Anweisungen,
 # die die Seiten wirklich brauchen (kein AddHandler/SetHandler/Action/ExecCGI/php_…)
-FREMD="$(find "$NEU" ! -type f ! -type d -print -quit)"; [ -z "$FREMD" ] || fehler "Im ZIP liegt eine Verknüpfung oder Sonderdatei: ${FREMD#$TMP/} – nicht installiert."
+FREMD="$(find "$NEU" ! -type f ! -type d -print -quit)"; [ -z "$FREMD" ] || fehler "Im ZIP liegt eine Verknüpfung oder Sonderdatei: ${FREMD#"$TMP"/} – nicht installiert."
 FREMD="$(find "$NEU" -type f ! -name .htaccess ! -regex '.*\.\(html\|js\|css\|json\|webmanifest\|png\|jpg\|jpeg\|svg\|ico\|woff2\|txt\|zip\|pkg\)$' -print -quit)"
-[ -z "$FREMD" ] || fehler "Unerwarteter Dateityp im ZIP: ${FREMD#$TMP/} – nicht installiert."
+[ -z "$FREMD" ] || fehler "Unerwarteter Dateityp im ZIP: ${FREMD#"$TMP"/} – nicht installiert."
+# Ab 2026-11-15 auch die Werte: Apache benutzt einen Dateityp ohne eigenen Handler als Handler (z. B. AddType application/x-httpd-php .html
+# oder server-status) – darum nur die Dateitypen, Filter und Zeichensätze, die die Seiten brauchen.
+HT_FEHLER() { fehler ".htaccess im ZIP: unerwartete Anweisung „$1“ – nicht installiert."; }
 while IFS= read -r z; do
-  z="${z#"${z%%[![:space:]]*}"}"; [ -z "$z" ] || [ "${z:0:1}" = "#" ] && continue
-  case "${z%% *}" in
-    AddType|AddCharset|AddDefaultCharset|AddOutputFilterByType|DirectoryIndex|ExpiresActive|ExpiresByType|ExpiresDefault|Header|"<IfModule"|"</IfModule>"|"<FilesMatch"|"</FilesMatch>") ;;
-    Options) [ "$z" = "Options -Indexes" ] || fehler ".htaccess im ZIP: unerwartete Anweisung „$z“ – nicht installiert." ;;
-    *) fehler ".htaccess im ZIP: unerwartete Anweisung „$z“ – nicht installiert." ;;
+  z="${z#"${z%%[![:space:]]*}"}"; z="${z%"${z##*[![:space:]]}"}"; [ -z "$z" ] || [ "${z:0:1}" = "#" ] && continue
+  read -r -a w <<< "$z"
+  case "${w[0]}" in
+    AddType) case "${w[1]:-}" in application/manifest+json|text/javascript|font/woff2|application/octet-stream) ;; *) HT_FEHLER "$z";; esac
+             [ "${#w[@]}" -ge 3 ] || HT_FEHLER "$z"; for e in "${w[@]:2}"; do [[ "$e" =~ ^\.[a-z0-9]+$ ]] || HT_FEHLER "$z"; done ;;
+    AddCharset|AddDefaultCharset) [ "${w[1]:-}" = utf-8 ] || HT_FEHLER "$z" ;;
+    AddOutputFilterByType) [ "${w[1]:-}" = DEFLATE ] || HT_FEHLER "$z" ;;
+    DirectoryIndex) [ "$z" = "DirectoryIndex index.html" ] || HT_FEHLER "$z" ;;
+    Header) [[ "$z" =~ ^Header\ (always\ )?set\  ]] || HT_FEHLER "$z" ;;
+    ExpiresActive|ExpiresByType|ExpiresDefault|"<IfModule"|"</IfModule>"|"<FilesMatch"|"</FilesMatch>") ;;
+    Options) [ "$z" = "Options -Indexes" ] || HT_FEHLER "$z" ;;
+    *) HT_FEHLER "$z" ;;
   esac
 done < "$NEU/.htaccess"
+# Prüfsummen der Downloads im Paket (download/SHA256SUMS.txt, ab 2026-11-15)
+if [ -f "$NEU/download/SHA256SUMS.txt" ]; then
+  ( cd "$NEU/download" && sha256sum --quiet -c SHA256SUMS.txt ) || fehler "Downloads im ZIP passen nicht zu download/SHA256SUMS.txt – nicht installiert."
+  for f in "$NEU"/download/*; do [ "$(basename "$f")" = SHA256SUMS.txt ] || grep -qE "  $(basename "$f")\$" "$NEU/download/SHA256SUMS.txt" || fehler "download/$(basename "$f") fehlt in download/SHA256SUMS.txt – nicht installiert."; done
+  info "Downloads:  Prüfsummen stimmen ($(grep -c . "$NEU/download/SHA256SUMS.txt") Dateien)"
+fi
 info "Paketinhalt vollständig (Version $(grep -o 'VERSION = "[^"]*"' "$NEU/sw.js" | cut -d'"' -f2))"
 
 # ---------- 2. Module ----------
