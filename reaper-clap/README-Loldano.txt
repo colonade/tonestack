@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -113,11 +113,13 @@ Oversampling and latency
   as inharmonic tones (aliasing). Measured at 48 kHz with a 1.3 kHz tone,
   Overdrive, Preamp 6: 1x -18 dB, 2x -37 dB, 4x -47 dB below the signal.
   The most audible part lies below the note played (nothing masks it):
-  with a 1 kHz tone, Overdrive, Preamp 5, 100 mV: 2x -59 dB, 4x -70 dB,
+  with a 1 kHz tone, Overdrive, Preamp 5, 100 mV: 2x -59 dB, 4x -68 dB,
   8x -87 dB, 16x -95 dB. More oversampling only removes aliasing; the
   harmonics stay the same (2x against 16x: within 0.4 dB).
-  1x is for slow machines only; 2x is the default; 4x needs more than one
-  core in real time on most machines.
+  1x is for slow machines only; 2x is the default. 4x (from 1.3): the
+  preamp runs at 4x, the phase inverter and power amp at 2x (see 1.3
+  below); it costs about a fifth more than 2x. With the power amp driven
+  hard (MASTER high) its aliasing is that of 2x.
   RENDER (from 1.2): when the host renders offline (CLAP render mode,
   VST3 offline processing mode), the amp is rebuilt with 8x or 16x for
   the render and the live setting comes back afterwards. "As live" keeps
@@ -141,9 +143,12 @@ CPU
   The whole amp is solved every sample, and that is expensive: at 48 kHz
   and 1x about as much as the AmpFett SVT-CL, at 2x (the default) twice to
   nearly three times that (measured on the build machine: SVT-CL 32 % of
-  one core idle and 46 % playing, Loldano at 2x 55 % and 123 %). Hard
+  one core idle and 46 % playing, Loldano 1.1 at 2x 55 % and 123 %). Hard
   overdrive costs most, because the solver needs more steps per sample.
-  If it crackles while playing, set OVERSAMPLING to 1x and render with 4x.
+  From 1.3, measured here, driven hard: 2x 0.95 times real time (1.2:
+  1.11), 4x 1.15 (1.2: 1.56).
+  If it crackles while playing, set OVERSAMPLING to 1x; rendering uses the
+  RENDER setting.
   Stereo with different left and right signals doubles the load. With the same
   signal on both channels it is computed once. After 2 s of silence at the
   input the circuit is paused.
@@ -227,3 +232,28 @@ Notes
   running the preamp faster than the power amp (saves only 10 to 20 %
   against full oversampling, because the preamp takes 55 % of the time),
   a faster solver (at most 10 to 20 %, shared with all other amps).
+
+1.3
+  Less CPU, so that 4x becomes usable while playing.
+  - 4x: the circuit is split at the cathode follower V4A, which drives the
+    tone stack from a low impedance. The preamp (V1 to V4, with the tone
+    stack, masters and phase inverter input as its load) runs at 4x, the
+    tone stack, phase inverter, power amp, speaker and power supply at 2x.
+    Between them a low-pass at 46 kHz; the supply voltages B2/B3 and the
+    currents between the parts are exchanged every power-amp step (one
+    step late, the filter capacitors make that negligible).
+    Measured against the whole circuit: at equal rates the split changes
+    harmonics by at most 0.15 dB; at 4x/2x the aliasing below the note at
+    1 kHz is -68 dB (whole circuit at 4x: -70 dB, 2x: -59 dB), harmonics
+    within 0.2 dB of 8x at Master 3. With MASTER 10 the power amp clips
+    hard: then aliasing and harmonics are those of 2x (within 1.2 dB).
+    CPU at 4x: about a quarter less than 1.2.
+  - Solver shortcuts (only in this plugin; the other amps are unchanged,
+    byte for byte): exp(-Ua) is skipped where it cannot change the result,
+    grid current below -2 V counts as zero (under 0.2 nV across 1 Mohm),
+    and the second pass between preamp and power amp accepts a remaining
+    error below 0.1 mV. Together 9 % fewer instructions at 2x driven hard;
+    output differs from 1.2 by at most -89 dB (the size of the solver's own
+    tolerance).
+  - Rendering at 8x and 16x keeps the whole circuit (the split with a
+    slower power amp would raise its aliasing at high MASTER).

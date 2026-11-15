@@ -26,7 +26,11 @@ static const Pentode P6L6 = {8.753, 1.358, 1499.6, 26600, 38.93, 54.50, 1.0};
 inline void gridI0(double v, double &i, double &d);
 inline void gridI(double v, double &i, double &d, double gs = 1) { gridI0(v, i, d); i *= gs; d *= gs; }
 inline void gridI0(double v, double &i, double &d) { const double GG = 6.177e-4, CG = 9.901, XI = 1.314; double x = CG * v;
+#ifdef B15_FAST   // Loldano ab 1.3: unter −2,02 V Gitterstrom unter 2·10^−16 A (bei 1 MΩ unter 0,2 nV) – als null rechnen
+  if (x < -20) { i = 0; d = 0; return; }
+#else
   if (x < -30) { i = 0; d = 0; return; }
+#endif
   double sp, sg; if (x > 35) { sp = x; sg = 1; } else { double e = std::exp(x); sp = std::log1p(e); sg = e / (1 + e); }
   double s = sp / CG, p = std::pow(s, XI - 1); i = GG * p * s; d = GG * XI * p * sg; }
 // Triode: Tore (g−k, p−k), Ströme (Gitter, Anode), Ableitungen 2×2
@@ -46,7 +50,11 @@ inline void dempwolf(const TriodeD &T, double vg, double vp, double *out) {
   double x = T.C * (vp / T.mu + vg); if (x < -40) { out[0] = out[1] = out[2] = 0; return; }
   double sp, sig; if (x > 35) { sp = x; sig = 1; } else { double e = std::exp(x); sp = std::log1p(e); sig = e / (1 + e); }
   double base = sp / T.C, pw = std::exp((T.ga - 1) * std::log(base)), Ik = T.G * pw * base, dIk = T.G * T.ga * pw * sig;   // dIk = ∂Ik/∂(Ua/mu + Ug)
+#ifdef B15_FAST   // nur wo definiert (Loldano ab 1.3): ab 38 V ist exp(−Ua) < 2^−54, 1 − ex also genau 1 – Rechnung sparen (Ergebnis dort bitgleich)
+  double ex = vp > 38 ? 0.0 : std::exp(-vp), fv = 1 - ex;
+#else
   double ex = std::exp(-vp), fv = 1 - ex;
+#endif
   out[0] = Ik * fv; out[1] = dIk * fv; out[2] = dIk / T.mu * fv + Ik * ex; }
 // Triode (Dempwolf): Tore (g−k, p−k), Ströme (Gitter, Anode), Ableitungen 2×2
 inline void triodeD(const TriodeD &T, const double *v, double *i, double *J) {
