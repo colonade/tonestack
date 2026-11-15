@@ -9,7 +9,11 @@ pack() {   # $1 Name, $2 Version, $3 README
   rm -f "$D/$1"_CLAP-*.zip "$D/$1"_VST3-*.zip
   mkdir -p "$T/$1-c" "$T/$1-v"; cp "$B/$1.clap" "$T/$1-c/"; cp -r "$B/vst3/$1.vst3" "$T/$1-v/"
   for x in c v; do cp "reaper-clap/$3" "$T/$1-$x/README.txt"; cp reaper-clap/THIRD-PARTY-LICENSES.txt "$T/$1-$x/"; done
-  (cd "$T/$1-c" && zip -qr9 "$R/$D/$1_CLAP-$2.zip" .); (cd "$T/$1-v" && zip -qr9 "$R/$D/$1_VST3-$2.zip" .)
+  # reproduzierbar (ab 2026-11-15): feste Zeitstempel, sortierte Reihenfolge, keine Zusatzfelder – gleicher Inhalt ergibt in jedem Release-Lauf
+  # dieselben ZIP-Bytes (vorher wechselte die Prüfsumme mit jedem Lauf, und update-tonestack.sh lehnte ältere, inhaltsgleiche Pakete ab)
+  for x in c v; do find "$T/$1-$x" -exec touch -h -d "2026-01-01 00:00:00 UTC" {} +; done
+  (cd "$T/$1-c" && find . -mindepth 1 | LC_ALL=C sort | TZ=UTC zip -q -X -D -9 "$R/$D/$1_CLAP-$2.zip" -@)
+  (cd "$T/$1-v" && find . -mindepth 1 | LC_ALL=C sort | TZ=UTC zip -q -X -9 "$R/$D/$1_VST3-$2.zip" -@)
   echo "$D/$1_CLAP-$2.zip, $D/$1_VST3-$2.zip"
 }
 pack Laney_AOR50 "$LANEY" README.txt
