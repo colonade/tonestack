@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -75,10 +75,11 @@ Parameters
   Normal channel: Clean/Crunch; Normal channel: Bright (Normal / Bright);
   Instrument level (mV peak, 1 ... 1000); Oversampling (1x / 2x / 4x);
   Output level (-36 ... +24 dB); Input reference (peak of your playing /
-  0 dBFS).
+  0 dBFS); Oversampling when rendering offline (same as live / 8x / 16x,
+  from 1.2).
   Knob 10 = clockwise end (the amp's own scale reads 1 to 11).
   Defaults: all knobs 5, both masters 3, Overdrive channel, Clean, Bright
-  off, 100 mV, 2x, 0 dB.
+  off, 100 mV, 2x, 0 dB, rendering 8x.
   Each channel has its own Preamp and Master knob; Bright and Clean/Crunch
   act on the Normal channel only.
 
@@ -88,7 +89,8 @@ User interface
   toggle switches BRIGHT, CRUNCH/CLEAN and the channel switch (lever up =
   BRIGHT, CRUNCH, OVERDRIVE), the eight knobs. Knobs: drag vertically,
   mouse wheel, double-click = default. Below the panel the model strip
-  (not on the amp): OVERSAMPLING, the DRIVE meters (grid swing of V1B
+  (not on the amp): OVERSAMPLING, RENDER (oversampling for offline
+  rendering, from 1.2), the DRIVE meters (grid swing of V1B
   input, V2A overdrive or V1A normal, V3B, V4B, the phase inverter and the
   6L6GC grids, 100 % = grid reaches the cathode voltage; output power =
   rms voltage squared / 8 ohm, mark = 100 W), INPUT (instrument level) and
@@ -110,11 +112,30 @@ Oversampling and latency
   Distortion creates harmonics above half the sample rate that fold back
   as inharmonic tones (aliasing). Measured at 48 kHz with a 1.3 kHz tone,
   Overdrive, Preamp 6: 1x -18 dB, 2x -37 dB, 4x -47 dB below the signal.
+  The most audible part lies below the note played (nothing masks it):
+  with a 1 kHz tone, Overdrive, Preamp 5, 100 mV: 2x -59 dB, 4x -70 dB,
+  8x -87 dB, 16x -95 dB. More oversampling only removes aliasing; the
+  harmonics stay the same (2x against 16x: within 0.4 dB).
   1x is for slow machines only; 2x is the default; 4x needs more than one
-  core in real time on most machines and is meant for rendering. Latency
-  31 samples in every mode (reported to the host). Changing the
-  oversampling rebuilds the circuit in the background (about 1 s; the old
-  setting keeps playing until then).
+  core in real time on most machines.
+  RENDER (from 1.2): when the host renders offline (CLAP render mode,
+  VST3 offline processing mode), the amp is rebuilt with 8x or 16x for
+  the render and the live setting comes back afterwards. "As live" keeps
+  the live setting. Whether a host reports offline rendering is up to the
+  host; while it does, the RENDER switch reads "rendering now" (open the
+  plugin window during a render to check).
+  Measured here: 2x 1.1 times real time, 8x 2.4 times, 16x 4.1 times (so
+  a 3-minute song takes about 7 or 12 minutes to render). The switch to
+  the render oversampling takes about 3 seconds at the start of the
+  render. The Audio Unit on the Mac does not get this information from
+  the host and always renders with the live setting.
+  Latency 50 samples in every mode (reported to the host; 31 up to 1.1).
+  From 1.2 the output filter is flat to 20 kHz (before: -0.7 dB at
+  20 kHz) and blocks from 24 kHz on by at least 84 dB (before: -22 dB at
+  24 kHz), so nothing between 24 and 26 kHz folds back to 22-24 kHz any
+  more. That costs the 19 extra samples of latency.
+  Changing the oversampling while playing rebuilds the circuit in the
+  background (about 1 s; the old setting keeps playing until then).
 
 CPU
   The whole amp is solved every sample, and that is expensive: at 48 kHz
@@ -191,3 +212,18 @@ Notes
   (matrix build, factorisation, updates), a quarter in the tube curves,
   an eighth in the linear part. These parts are shared with the other
   tonestack amps; making them faster is a change to all of them.
+
+1.2
+  Less aliasing where it costs nothing while playing.
+  - RENDER: offline renders use 8x (default) or 16x oversampling, see
+    "Oversampling and latency". New parameter at the end of the list, old
+    projects keep their parameter numbers and get 8x.
+  - Output filter: flat to 20 kHz, at least 84 dB down from 24 kHz on
+    (Kaiser window instead of Blackman). Below 18 kHz the sound is
+    unchanged (measured: harmonics identical to 0.01 dB). Latency 50
+    instead of 31 samples.
+  - Web page: the WAV download renders with 8x instead of 4x.
+  Looked at and not done for now (measured, little gain for the effort):
+  running the preamp faster than the power amp (saves only 10 to 20 %
+  against full oversampling, because the preamp takes 55 % of the time),
+  a faster solver (at most 10 to 20 %, shared with all other amps).

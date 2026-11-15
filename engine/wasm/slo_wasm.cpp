@@ -8,7 +8,7 @@ static Setting fromT() { Setting s; for (int i = 0; i < 8; i++) { double x = tgt
   s.od = !(tgtS[8] < 0.5); s.crunch = tgtS[9] > 0.5; s.bright = tgtS[10] > 0.5; return s; }
 extern "C" {
 float *lo_buffer() { return bufS; } double *lo_target_buffer() { return tgtS; } double *lo_peaks_buffer() { return peakS; } double *lo_freq_buffer() { return freqS; } double *lo_resp_buffer() { return respS; }
-void lo_init(double fs, int os) { delete A; A = new Amp(); int o = (os == 1 || os == 2 || os == 4) ? os : 1; A->vin = 0.1; A->init(fs, o, Parts(), fromT()); }
+void lo_init(double fs, int os) { delete A; A = new Amp(); int o = (os == 1 || os == 2 || os == 4 || os == 8) ? os : 1; /* 8: Download (ab 1.2) */ A->vin = 0.1; A->init(fs, o, Parts(), fromT()); }
 int lo_latency() { return A ? A->latency() : 0; }
 void lo_set_target() { if (!A) return; A->setTarget(fromT()); double vin = tgtS[11]; A->vin = std::isfinite(vin) && vin > 0 ? vin : 0.1; }
 void lo_process(int n) { if (n < 0) return; if (n > 8192) n = 8192; if (A) A->process(bufS, n); else for (int i = 0; i < n; i++) bufS[i] = 0; }

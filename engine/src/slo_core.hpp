@@ -159,7 +159,12 @@ inline double &sfield(Setting &s, int i) { double *f[] = {&s.gain, &s.ngain, &s.
 struct Amp {
   /* cfg: Kennung des Aufbaus (Plugin) */ double fsB = 48000; int os = 2, cfg = 2; Core c, c0; Setting tgt; bool ready = false; int cnt = 0, bad = 0; double vin = 0.1, outPk = 0, outSq = 0; long outN = 0;   // c0: eingeschwungener Zustand (Rückfall bei entgleister Rechnung)
   double vgk0[NPEAK] = {-1, -1, -1, -1, -1, -1, -1}, peak[NPEAK] = {};
-  int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
+  // Überabtastung: Eingang wie bisher (Blackman, 32·os−1 Abgriffe, −0,7 dB bei 20 kHz); Ausgang ab 1.2 steiler (Kaiser β 9, Mitte 0,458·fs = 22 kHz bei 48 kHz):
+  // bis 20 kHz eben (< 0,001 dB), ab 24 kHz −84 dB und tiefer (vorher 24 kHz −22 dB, 26 kHz −65 dB – Anteile über 24 kHz spiegelten nach 22–24 kHz).
+  // Länge je Faktor so, dass die Latenz bei jedem Faktor LAT Abtastwerte bleibt: Eingang (L−1)/2os + Ausgang (Ld−1)/2os − (os−2)/os (Ausgang wird in Phase os−2 gebildet).
+  static constexpr int LAT = 50;
+  int L = 0, Ld = 0; std::vector<double> h, hp, hd, xb, yb; int xi = 0, yi = 0;
+  static double besselI0(double x) { double s = 1, t = 1; for (int k = 1; k < 60; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; if (t < 1e-17 * s) break; } return s; }
   int monPort(int i) const { static const int od[NPEAK] = {M_V1B, M_V2A, M_V3B, M_V4B, M_INV, M_6A, M_6B}; return c.bl.mon[(i == 1 && !c.cur.od) ? M_V1A : od[i]]; }
   void readBias() { for (int i = 0; i < NPEAK; i++) vgk0[i] = c.run.vp[monPort(i)]; }   // Ruhewert gilt für den eingeschwungenen Kern; nach dem Kanalwechsel für die neue Stufe neu gelesen (Näherung, solange Signal anliegt)
   void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); tgt = s; c.init(fsB * os, pv, s); c.settle(SETTLE, cancel); c0 = c; readBias();
@@ -168,9 +173,13 @@ struct Amp {
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * wd; sum += h[k]; }
       for (int k = 0; k < L; k++) h[k] /= sum;
       hp.assign(os * 32, 0); for (int ph = 0; ph < os; ph++) for (int k = 0; k < 32; k++) hp[ph * 32 + k] = (k * os + ph < L) ? h[k * os + ph] : 0;
-      xb.assign(64, 0); yb.assign(2 * L, 0); xi = yi = 0; }
+      Ld = 2 * os * LAT + 2 * os - L - 2; hd.assign(Ld, 0); double fd = (22.0 / 48.0) / os, sd = 0, beta = 9, i0b = besselI0(beta);
+      for (int k = 0; k < Ld; k++) { double m = k - (Ld - 1) / 2.0, r = 2.0 * k / (Ld - 1) - 1, w = besselI0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / i0b;
+        hd[k] = (m == 0 ? 2 * fd : std::sin(2 * PI * fd * m) / (PI * m)) * w; sd += hd[k]; }
+      for (int k = 0; k < Ld; k++) hd[k] /= sd;
+      xb.assign(64, 0); yb.assign(2 * Ld, 0); xi = yi = 0; }
     ready = true; }
-  int latency() const { return os > 1 ? 31 : 0; }
+  int latency() const { return os > 1 ? LAT : 0; }
   static bool sameSw(const Setting &a, const Setting &b) { return a.od == b.od && a.crunch == b.crunch && a.bright == b.bright; }
   static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.ngain == b.ngain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.nmaster == b.nmaster && a.pres == b.pres; }
   void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, c.cur)) { Setting n = c.cur; n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; c.apply(n); vgk0[1] = c0.run.vp[monPort(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
@@ -187,8 +196,8 @@ struct Amp {
       if (os == 1) y = run1(x);
       else { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0;
         for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
-          double z = run1(os * u); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = z;
-          if (ph == os - 2) for (int k = 0; k < L; k++) y += h[k] * yb[yi + k]; } }
+          double z = run1(os * u); yi = yi == 0 ? Ld - 1 : yi - 1; yb[yi] = yb[yi + Ld] = z;
+          if (ph == os - 2) for (int k = 0; k < Ld; k++) y += hd[k] * yb[yi + k]; } }
       if (!(std::fabs(y) < 20)) { y = 0;   // entgleist (NaN oder über 20-fache Vollaussteuerung): eingeschwungenen Zustand zurückholen, höchstens einmal je 0,1 s
         if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); bad = (int)(0.1 * fsB); } }
       if (bad > 0) bad--;

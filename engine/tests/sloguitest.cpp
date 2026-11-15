@@ -62,6 +62,8 @@ int main(int argc, char **argv) {
   for (int i = 0; i < 300; i++) { tick(); usleep(10000); }   // neuer Kern im Hilfsfaden
   { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar nach Umbau: %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
   click(ux(90), uy(70)); printf("Oversampling: %g (erwartet 1 = 2x)\n", pv(12)); for (int i = 0; i < 300; i++) { tick(); usleep(10000); }
+  click(ux(300), uy(100)); printf("Render: %g (erwartet 2 = 16x)\n", pv(15)); click(ux(300), uy(70)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));   // ab 1.2
+  click(ux(300), uy(70)); printf("Render: %g (erwartet 0 = wie live)\n", pv(15)); click(ux(300), uy(100)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));
   send(ButtonPress, kx(1184), kx(146), 4); tick(); send(ButtonPress, kx(1184), kx(146), 4); tick(); printf("Master Overdrive: %g (erwartet 3.4)\n", pv(6));
   { const int pts[][2] = {{78, 150}, {170, 146}, {250, 146}, {340, 146}, {1340, 140}, {1380, 200}, {452, 146}, {1306, 146}};
     for (auto &q : pts) { send(MotionNotify, kx(q[0]), kx(q[1]), 0); tick(); tick(); } printf("Wertanzeigen über Buchse, Schaltern, Knöpfen: ok\n"); }
