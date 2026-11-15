@@ -106,7 +106,7 @@ if teil plugins; then
   summe_ok() { local f="$1" n e; n="$(basename "$f")"
     e="$(cat "$ORDNER"/SHA256SUMS*.txt 2>/dev/null | awk -v n="$n" '$2 == n || $2 == "*" n { print tolower($1); exit }')"
     [ -n "$e" ] || return 2; [ "$e" = "$(sha256sum "$f" | cut -d' ' -f1)" ] && return 0 || return 1; }
-  for AMP in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100; do
+  for AMP in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb; do
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
     GEF=1; NAME="$(basename "$PZ" .zip)"

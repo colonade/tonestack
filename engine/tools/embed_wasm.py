@@ -11,7 +11,8 @@ targets = {'laney-core.wasm': ['web/tonestack/laney-aor50/index.html'],
            'svtcl-core.wasm': ['web/tonestack/ampfett-svtcl/index.html'],
            'wieneq-core.wasm': ['web/tonestack/wien-eq/index.html'],
            'ampfett76-core.wasm': ['web/tonestack/ampfett-76/index.html'],
-           'loldano-core.wasm': ['web/tonestack/loldano-slo100/index.html']}
+           'loldano-core.wasm': ['web/tonestack/loldano-slo100/index.html'],
+           'kaiserin-core.wasm': ['web/tonestack/kaiserin-reverb/index.html']}
 for wasm, files in targets.items():
     if not os.path.exists(os.path.join(B, wasm)): sys.exit('fehlt: engine/build/' + wasm + ' (erst bash engine/build.sh mit wasi-sdk)')
     b64 = base64.b64encode(open(os.path.join(B, wasm), 'rb').read()).decode()
