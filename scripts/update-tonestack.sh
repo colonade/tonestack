@@ -112,13 +112,23 @@ if teil plugins; then
     GEF=1; NAME="$(basename "$PZ" .zip)"
     ALTE="$(ls "$ORDNER/${AMP}_$FMT"-*.zip 2>/dev/null | grep -vxF "$PZ" | wc -l)"
     [ "$ALTE" -gt 0 ] && info "$AMP $FMT: neuestes Paket $NAME ($ALTE ältere im Ordner ignoriert)"
-    summe_ok "$PZ"; SR=$?
-    if [ $SR -eq 1 ]; then rot "  $NAME: Prüfsumme stimmt nicht – Paket beschädigt oder verändert, nicht eingespielt"; merke "$FMT $NAME: FEHLER (Prüfsumme)"; continue
-    elif [ $SR -eq 2 ] && [ "$OHNE_SUMME" -eq 0 ]; then rot "  $NAME: keine Prüfsumme gefunden (SHA256SUMS*.txt im Ordner) – nicht eingespielt (--ohne-pruefsumme erzwingt)"; merke "$FMT $NAME: FEHLER (keine Prüfsumme)"; continue
+    summe_ok "$PZ"; SR=$?; UNGEPRUEFT=0
+    # Ohne passende Prüfsumme nur vergleichen, nie einspielen: bis 2026-11-15 packte jeder Release-Lauf alle ZIPs neu (andere Zeitstempel, andere
+    # Prüfsumme bei gleichem Inhalt); ein älteres, inhaltsgleiches Paket im Ordner ist dann kein Fehler, sondern „bereits aktuell“.
+    if [ $SR -eq 1 ] || { [ $SR -eq 2 ] && [ "$OHNE_SUMME" -eq 0 ]; }; then UNGEPRUEFT=$SR
     elif [ $SR -eq 2 ]; then gelb "  $NAME: ohne Prüfsumme eingespielt (--ohne-pruefsumme)"; fi
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     if command -v unzip >/dev/null; then unzip -q -o "$PZ" -d "$T" 2>/dev/null
     else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$PZ" "$T"; fi
+    if [ "$UNGEPRUEFT" -ne 0 ]; then GLEICH=0
+      if [ "$FMT" = CLAP ]; then C1="$(find "$T" -maxdepth 1 -type f -name '*.clap' | head -n1)"; [ -n "$C1" ] && cmp -s "$C1" "$CLAPDIR/$(basename "$C1")" && GLEICH=1
+      else V1="$(find "$T" -maxdepth 1 -type d -name '*.vst3' | head -n1)"; S1="$(find "$V1/Contents/x86_64-linux" -maxdepth 1 -name '*.so' 2>/dev/null | head -n1)"
+        [ -n "$S1" ] && cmp -s "$S1" "$VST3DIR/$(basename "$V1")/Contents/x86_64-linux/$(basename "$S1")" && GLEICH=1; fi
+      rm -rf "$T"
+      if [ $GLEICH -eq 1 ]; then info "$NAME: $FMT bereits aktuell (Paket ohne passende Prüfsumme, Inhalt gleich dem installierten)"; merke "$FMT $NAME: bereits aktuell"
+      elif [ "$UNGEPRUEFT" -eq 1 ]; then rot "  $NAME: Prüfsumme stimmt nicht – Paket beschädigt, verändert oder aus einem älteren Release; nicht eingespielt"; merke "$FMT $NAME: FEHLER (Prüfsumme)"
+      else rot "  $NAME: keine Prüfsumme gefunden (SHA256SUMS*.txt im Ordner) – nicht eingespielt (--ohne-pruefsumme erzwingt)"; merke "$FMT $NAME: FEHLER (keine Prüfsumme)"; fi
+      continue; fi
     STAMP="$(date +%Y%m%d-%H%M%S)"
     CL=""; V3=""
     [ "$FMT" = CLAP ] && CL="$(find "$T" -maxdepth 1 -type f -name '*.clap' | head -n1)"
