@@ -43,3 +43,5 @@ docs/u76/*
 docs/loldano/*
 !docs/loldano/SCHALTPLAN.md
 *.PDF
+docs/wisent/*
+!docs/wisent/SCHALTPLAN.md
