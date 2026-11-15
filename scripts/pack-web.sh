@@ -1,6 +1,7 @@
 #!/bin/bash
 # Baut web/tonestack-apache.zip für den Server: Seiten aus web/tonestack/ plus die Downloads des aktuellen Releases
-# (Linux-ZIPs und Mac-Installerpaket) in download/. Die Links in web/tonestack/index.html müssen zu den Dateinamen passen.
+# (Linux-ZIPs und Mac-Installerpaket) in download/. Die Links in web/tonestack/index.html (Mac) und web/tonestack/plugins/index.html
+# (Linux, ab 2026-11-15) müssen zu den Dateinamen passen.
 #   bash scripts/pack-web.sh            (Downloads aus dem GitHub-Release, braucht gh)
 #   LOCAL=1 bash scripts/pack-web.sh    (Downloads aus dist/)
 set -euo pipefail
@@ -14,7 +15,7 @@ else   # über die REST-Schnittstelle (gh api), nur .zip und .pkg
 fi
 # Mac-Paket: fester Name (ab 2026-11-12). Releases davor trugen die Versionen im Namen; ein solches Paket wird hier umbenannt.
 for p in "$T/tonestack/download"/tonestack-Plugins-Mac_*.pkg; do [ -f "$p" ] && mv "$p" "$T/tonestack/download/tonestack-Plugins-Mac.pkg"; done
-for f in $(grep -o 'href="download/[^"]*"' web/tonestack/index.html | cut -d'"' -f2); do
-  [ -f "$T/tonestack/$f" ] || { echo "FEHLER: index.html verlinkt $f, im Release nicht vorhanden" >&2; exit 1; }; done
+for f in $(grep -oh 'href="\(\.\./\)\?download/[^"]*"' web/tonestack/index.html web/tonestack/plugins/index.html | cut -d'"' -f2 | sed 's|^\.\./||'); do
+  [ -f "$T/tonestack/$f" ] || { echo "FEHLER: eine Seite verlinkt $f, im Release nicht vorhanden" >&2; exit 1; }; done
 chmod -R u=rwX,go=rX "$T/tonestack"; rm -f web/tonestack-apache.zip; (cd "$T" && zip -qr9 "$R/web/tonestack-apache.zip" tonestack)
 ls "$T/tonestack/download"; echo "web/tonestack-apache.zip"

@@ -1,8 +1,10 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-15-3";
+const VERSION = "2026-11-15-4";
 const FILES = [
   "./",
   "index.html",
+  "plugins/",
+  "plugins/index.html",
   "assets/fonts/archivo-latin.woff2",
   "lametta-b100ii/b100ii-worklet.js",
   "laney-aor50/laney-worklet.js",
