@@ -285,6 +285,13 @@ struct Runner {
   bool reuseJ = false; double reuseRho = 0.25; std::vector<Vec> luA; std::vector<std::vector<int>> luP; std::vector<char> luOK; long luFact = 0, luReuse = 0;   // tol bis Laney 3.25 / AmpFett 1.10: 1e-6 V (jetzt 15–20 % weniger Newton-Schritte, Abweichung leise unter −100 dB)
   std::vector<std::vector<int>> grpDev, grpPort; std::vector<int> devGrp; std::vector<int> capOut; Vec capI;   // capOut: Kondensatoren, deren Strom (a→b) mit ausgegeben wird   // devGrp: Gruppe je Gerät (vom Aufrufer gesetzt, sonst alle in einer)
   Vec z, kq;   // z = [h, u, i] für die dünnen Produkte; kq = K·i
+#ifdef DK_FAST   // nur wo definiert (Loldano ab 1.3): ab dem zweiten Gauß-Seidel-Durchgang gilt eine Gruppe mit Restfehler unter tolX als gelöst.
+  // Dort stammt der Rest nur noch aus der schwachen Kopplung der Gruppen (Netzteil); gemessen −4,5 % Befehle, Abweichung wie die Abbruchgrenze selbst (−92 dB Spitze)
+  double tolX = 1e-4; int passNow = 0; double tolNow() const { return passNow > 0 ? tolX : tol; }
+#define DK_TOL tolNow()
+#else
+#define DK_TOL tol   // ohne DK_FAST derselbe Quelltext wie bis 2026-11-15 (andere Plugins bitgleich)
+#endif
   struct Blk { int p0, np; }; std::vector<std::vector<Blk>> grpBlk;   // Geräte der Gruppe in Reihenfolge der Tore (für buildA)
   void set(const Sys &ns) { bool first = h.empty() || (int)h.size() != ns.nh; s = ns; if (dense) s.setDense(true); if (first) { h.assign(s.nh, 0.0); } if ((int)vp.size() != s.m) { vp.assign(s.m, 0.0); ip.assign(s.m, 0.0); }
     vb.assign(s.nh, 0.0); p.assign(s.m, 0.0); if (Jd.size() != (size_t)s.m * 16) Jd.assign((size_t)s.m * 16, 0.0); A.assign((size_t)s.m * s.m, 0.0); x.assign(s.m, 0.0); v0.assign(s.m, 0.0); g.assign(s.m, 0.0); q.assign(s.m, 0.0); di.assign(s.m, 0.0); vp1 = vp;
@@ -326,7 +333,7 @@ struct Runner {
       double err = 0; for (int i = 0; i < n; i++) { g[i] = resid(P[i]); err = std::max(err, std::fabs(g[i])); }
       if (it == 0) first = err;
       if (!(err < 1e30)) { fails++; luOK[G] = 0; return err; }
-      if (err < tol) break;
+      if (err < DK_TOL) break;
       if (it > 0 && !lastFresh && !(err <= reuseRho * prev)) luOK[G] = 0;   // alte Matrix zieht nicht mehr genug: neu aufbauen
       lastFresh = false;
       if (!luOK[G]) {
@@ -348,7 +355,7 @@ struct Runner {
       double err = 0; for (int i = 0; i < n; i++) { g[i] = resid(P[i]); err = std::max(err, std::fabs(g[i])); }
       if (it == 0) first = err;
       if (!(err < 1e30)) { fails++; return err; }   // NaN/Überlauf: nicht als konvergiert werten
-      if (err < tol) break;
+      if (err < DK_TOL) break;
       // A = I − K_GG·J_GG (J blockdiagonal je Gerät); gleiche Rechenreihenfolge wie bis 3.25
       buildA(G, A.data()); for (int ri = 0; ri < n; ri++) x[ri] = -g[ri];
       if (!solveAny(n, A.data(), x.data())) { fails++; break; }
@@ -372,7 +379,11 @@ struct Runner {
     s.cK.apply(ip.data(), kq.data()); for (int k = 0; k < m; k++) q[k] = p[k] + kq[k];
     lastIt = 0; int pass = 0; const int ng = (int)grpPort.size() - 1; bool ok = false;
     // Gruppen nacheinander (Block-Gauß-Seidel); nach gsPass Durchgängen ohne Einigung Newton über alle Tore gemeinsam
+#ifdef DK_FAST
+    for (; pass < gsPass; pass++) { passNow = pass; double e = 0; for (int G = 0; G < ng; G++) { double r = solveGroup(G); if (!(r <= e)) e = r; } if (e < tolNow()) { ok = true; break; } } passNow = 0;
+#else
     for (; pass < gsPass; pass++) { double e = 0; for (int G = 0; G < ng; G++) { double r = solveGroup(G); if (!(r <= e)) e = r; } if (e < tol) { ok = true; break; } }   // NaN bleibt NaN
+#endif
     if (!ok) { damp = dampFull; for (int k = 0; k < maxPass; k++, pass++) if (solveGroup(ng) < tol) { ok = true; break; } damp = false; }
     if (!ok) {   // Rückfall: vom Wert des letzten Abtastwerts aus, kleinere Schritte, mehr Iterationen
       for (int k = 0; k < m; k++) vp[k] = vp1[k]; for (size_t k = 0; k < dev.size(); k++) evalDev((int)k);

@@ -8,6 +8,8 @@
 // Im OVERDRIVE-Betrieb bleibt der Normal-Weg angeschlossen (gegenphasig, über 2,2 M), wie im Gerät. Die Kanalumschaltung geschieht mit Fotowiderständen
 // (VTL5C1: leitend etwa 600 Ω, gesperrt 50 MΩ – Datenblattwerte, hier fest).
 #pragma once
+#define DK_FAST    // ab 1.3: Abkürzungen im Löser und in den Kennlinien (dk.hpp, b15_core.hpp), nur für den Loldano; andere Plugins bleiben bitgleich
+#define B15_FAST
 #include "b15_core.hpp"
 #include <atomic>
 #include <complex>
@@ -57,6 +59,9 @@ struct Setting {
   bool od = true, crunch = false, bright = false;   // Kanal OVERDRIVE; NORMAL: Crunch/Clean und Bright
 };
 enum { O_SPK = 0, O_SEND = 1, O_B1 = 2, O_NO = 3 };
+// Mehrtakt (ab 1.3): Ausgänge der Teilnetze. Vorstufe: Kathode V4A, Effekt-Send, B3; Endstufe: Lautsprecher, B3 (Speisepunkt der Phasenumkehr), B2
+enum { P_F2 = 0, P_SEND = 1, P_B3 = 2, E_SPK = 0, E_B3 = 1, E_B2 = 2 };
+constexpr double RS_B3E = 1.0;   // Endstufen-Teilnetz: B3 als Spannung hinter 1 Ω (Strom der Phasenumkehr = Spannungsabfall / 1 Ω)
 enum { M_V1B = 0, M_V2A, M_V1A, M_V3B, M_V4B, M_INV, M_6A, M_6B, M_NO };   // Tore für die Aussteuerungsanzeige (Gitter–Kathode)
 struct Built { dk::Net net; std::vector<dk::Dev> dev; std::vector<int> grp; int mon[M_NO] = {}; };
 // Gruppen des Lösers: die ganze Vorstufe gemeinsam, Phasenumkehr mit Endstufe, Netzteil. Je Stufe einzeln (wie zuerst) brauchte Block-Gauß-Seidel bei
@@ -66,14 +71,18 @@ struct Built { dk::Net net; std::vector<dk::Dev> dev; std::vector<int> grp; int 
 // Versucht und verworfen (1.1, Befehle je Abtastwert gezählt): die Röhren des nicht gewählten Kanals als eigene kleine Gruppe (±5 %), reuseJ über Abtastwerte
 // (Ruhe −24 %, übersteuert +9 %), dünne statt dichter Produkte (+12 … +29 %).
 static const int GRP[9] = {0, 0, 0, 0, 0, 0, 1, 2, 3};   // V1B, V2A, V2B, V1A, V3, V4 | Phasenumkehr + Endstufe | (Lautsprecher, Netzteil: keine Geräte)
-inline Built build(const Parts &v, const Setting &s, const std::vector<std::string> *dbg = nullptr) {
-  Built B; dk::Net &o = B.net; auto &dev = B.dev; int G = 0;
+// part (ab 1.3): 0 = ganzes Netz (wie bis 1.2), 1 = Vorstufe bis zur Kathode V4A samt Klangregelung und Master als Last, 2 = Klangregelung ab der Kathode V4A,
+// Phasenumkehr, Endstufe, Lautsprecher, Netzteil. Getrennt wird am Kathodenfolger (niederohmig): die Endstufe bekommt die Spannung an f2, die Vorstufe die
+// Spannung B2 und den Strom der Phasenumkehr aus B3, die Endstufe B3 und den Strom durch R_B3 (je Endstufenschritt, um einen Schritt versetzt).
+inline Built build(const Parts &v, const Setting &s, const std::vector<std::string> *dbg = nullptr, int part = 0) {
+  Built B; dk::Net &o = B.net; auto &dev = B.dev; int G = 0; const bool PRE = part != 2, POW = part != 1;
   auto mark = [&]() { while (B.grp.size() < dev.size()) B.grp.push_back(G); G++; };
   auto tri = [&](const std::string &g, const std::string &p, const std::string &k, bool caps = true) { int a = o.port(g, k); o.port(p, k); dev.push_back({K_TRI, a, 2, nullptr});
     if (caps) { o.c(g, k, v.cgk); o.c(g, p, v.cga); } return a; };
   auto pen = [&](const std::string &g1, const std::string &g2, const std::string &a) { int p0 = o.port(g1, "0"); o.port(g2, "0"); o.port(a, "0"); dk::Dev d{K_PEN, p0, 3, nullptr}; d.sc = 2; dev.push_back(d); return p0; };
   auto pot = [&](const std::string &a, const std::string &w, const std::string &b, double R, double x) { o.r(a, w, std::max(R * (1 - x), 1.0)); o.r(w, b, std::max(R * x, 1.0)); };
   auto ldr = [&](const std::string &a, const std::string &b, bool on) { o.r(a, b, on ? v.ldr_on : v.ldr_off); };
+  if (PRE) {
   // Eingang, V1B
   o.src("in", 1.0, 0); o.r("in", "0", v.rin); o.r("in", "g1", v.rgs1); B.mon[M_V1B] = tri("g1", "p1", "k1"); o.r("B5", "p1", v.ra1); o.r("k1", "0", v.rk1); o.c("k1", "0", v.ck1); o.c("p1", "n1", v.cc1);
   mark();
@@ -97,10 +106,13 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   mark();
   B.mon[M_V4B] = tri("send", "p5", "k5"); o.r("B3", "p5", v.ra5); o.r("k5", "0", v.rk5); o.c("k5", "0", v.ck5); tri("p5", "B3", "f2", false); o.r("f2", "0", v.rcf2);
   mark();
+  } else o.src("f2", 0.01, 0);   // Endstufen-Teilnetz: Kathode V4A als Spannungsquelle
   // Klangregelung (Treble 250 k lin, Bass 1 M log als Stellwiderstand, Middle 25 k lin mit dem Mitten-Kondensator am Schleifer), beide Master am Treble-Schleifer
   o.c("f2", "tt", v.ct); o.r("f2", "ts", v.rsl); o.c("ts", "tb", v.cb); o.c("ts", "tm", v.cm);
   pot("tt", "tw", "tb", v.ptreb, s.treb); o.r("tb", "tbb", std::max(v.pbass * taperA(s.bass), 1.0)); pot("tbb", "tm", "0", v.pmid, s.mid);
   pot("tw", "mo", "0", v.pmv, taperA(s.master)); pot("tw", "mn", "0", v.pmv, taperA(s.nmaster)); ldr("mo", "mv", s.od); ldr("mn", "mv", !s.od);   // LDR3, LDR4
+  if (!POW) { o.c("mv", "ga", v.cpi); o.r("ga", "0", v.rgl); }   // Vorstufen-Teilnetz: Eingang der Phasenumkehr als Last (1 M gegen Masse statt gegen den Schwanz)
+  if (POW) {
   // Phasenumkehr V5 (Schwanz 10 k auf den Gegenkopplungsknoten F: 4,7 k gegen Masse, 39 k vom 4-Ω-Abgriff, PRESENCE 25 k lin hinter 0,1 µF)
   o.c("mv", "ga", v.cpi); o.r("ga", "T", v.rgl); o.r("gb", "T", v.rgl); B.mon[M_INV] = tri("ga", "pa", "kp"); tri("gb", "pb", "kp", false); o.r("kp", "T", v.rkpi); o.r("T", "F", v.rtail);
   o.r("F", "0", v.rnt); o.c("gb", "F", v.cac); o.c("F", "px", v.cpr); o.r("px", "0", std::max(v.ppres * (1 - s.pres), 1.0));
@@ -118,20 +130,29 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   { double w = 2 * PI * v.spk_fs, res = v.spk_re * v.spk_qms / v.spk_qes, cmes = v.spk_qes / (w * v.spk_re), lces = 1 / (w * w * cmes);
     o.r("s8", "sl", v.spk_re); dk::Mat Le(1, 1); Le(0, 0) = v.spk_le; o.coupled({{"sl", "sm"}}, Le); o.r("sl", "sm", v.spk_r2);
     o.r("sm", "0", res); o.c("sm", "0", cmes); dk::Mat Lc(1, 1); Lc(0, 0) = lces; o.coupled({{"sm", "0"}}, Lc); }
+  }
   // Netzteil und Vorspannung
   // Gleichrichter: an der Gleichspannungsquelle leitet er immer; statt als nichtlineares Tor daher als Schwellspannung und Bahnwiderstand im Innenwiderstand (Core::step)
-  { o.src("B1", v.dc_r + SI_R, 1); o.c("B1", "0", v.c_b1);
+  if (part == 0) { o.src("B1", v.dc_r + SI_R, 1); o.c("B1", "0", v.c_b1);
     dk::Mat L(1, 1); L(0, 0) = v.ch_l; o.coupled({{"B1", "chk"}}, L); o.r("chk", "B2", v.ch_r); o.c("B2", "0", v.c_b2);
     o.r("B2", "B3", v.r_b3); o.c("B3", "0", v.c_b3); o.r("B3", "B4", v.r_b4); o.c("B4", "0", v.c_b4); o.r("B3", "B5", v.r_b5); o.c("B5", "0", v.c_b5);
     o.src("BIAS", v.bias_r, 2); o.c("BIAS", "0", v.c_bias); }
+  else if (part == 1) {   // Vorstufe: B2 (Eingang 1) hinter R_B3, Siebglieder B3/B4/B5, Strom der Phasenumkehr (Eingang 2) aus B3
+    o.src("B3", v.r_b3, 1); o.c("B3", "0", v.c_b3); o.r("B3", "B4", v.r_b4); o.c("B4", "0", v.c_b4); o.r("B3", "B5", v.r_b5); o.c("B5", "0", v.c_b5); o.isrc("B3", "0", 2, 1.0); }
+  else {   // Endstufe: Netzteil bis B2, Strom der Vorstufe durch R_B3 (Eingang 4) aus B2, B3 der Vorstufe (Eingang 3) hinter 1 Ω für die Phasenumkehr
+    o.src("B1", v.dc_r + SI_R, 1); o.c("B1", "0", v.c_b1);
+    dk::Mat L(1, 1); L(0, 0) = v.ch_l; o.coupled({{"B1", "chk"}}, L); o.r("chk", "B2", v.ch_r); o.c("B2", "0", v.c_b2);
+    o.src("B3", RS_B3E, 3); o.isrc("B2", "0", 4, 1.0);
+    o.src("BIAS", v.bias_r, 2); o.c("BIAS", "0", v.c_bias); }
   mark();
-  o.out("s8"); o.out("send"); o.out("B1"); if (dbg) for (auto &n : *dbg) o.out(n);
-  for (auto &g : B.grp) g = GRP[g];
+  if (part == 0) { o.out("s8"); o.out("send"); o.out("B1"); } else if (part == 1) { o.out("f2"); o.out("send"); o.out("B3"); } else { o.out("s8"); o.out("B3"); o.out("B2"); }
+  if (dbg) for (auto &n : *dbg) o.out(n);
+  for (auto &g : B.grp) g = part ? 0 : GRP[g];   // Teilnetze: je eine Gruppe
   return B; }
 
 struct Core {
-  double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; dk::Compiler comp; const std::vector<std::string> *dbg = nullptr;
-  void apply(const Setting &s) { cur = s; bl = build(v, s, dbg); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); }
+  double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; dk::Compiler comp; const std::vector<std::string> *dbg = nullptr; int part = 0;   // part: siehe build
+  void apply(const Setting &s) { cur = s; bl = build(v, s, dbg, part); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); }
     run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); run.dampFull = true; run.reuseStep = true; run.reuseRho = 0.1; apply(s);   // gemeinsamer Solve gleich gedämpft, Zerlegung innerhalb eines Abtastwerts weiterverwenden (wie SVT-CL)
    
@@ -142,6 +163,7 @@ struct Core {
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; }
   void step(double x, double *y) { double u[3] = {x, v.dc_v - SI_U, v.bias_v}; run.step(u, y); }
+  void stepU(const double *u, double *y) { run.step(u, y); }   // Teilnetze: alle Eingänge vom Aufrufer
   double step(double x) { double y[O_NO + 32]; step(x, y); return y[O_SPK]; }
   int nout() const { return (int)net.O.size(); }
   void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { long n = (long)(seconds * fs); double y[O_NO + 32]; for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); } }
@@ -164,42 +186,80 @@ struct Amp {
   // Länge je Faktor so, dass die Latenz bei jedem Faktor LAT Abtastwerte bleibt: Eingang (L−1)/2os + Ausgang (Ld−1)/2os − (os−2)/os (Ausgang wird in Phase os−2 gebildet).
   static constexpr int LAT = 50;
   int L = 0, Ld = 0; std::vector<double> h, hp, hd, xb, yb; int xi = 0, yi = 0;
+  // Mehrtakt (ab 1.3, ab 4x): Vorstufe (c, Teilnetz 1) mit os-facher, Endstufe (e, Teilnetz 2) mit 2-facher Abtastrate. Zwischen beiden ein Kaiser-Tiefpass
+  // (Mitte 46 kHz, L2 = 2·os·3 + 1 Abgriffe), Ausgang der Endstufe wie bei 2x über hd. Austausch je Endstufenschritt:
+  // Vorstufe ← B2 und Strom der Phasenumkehr (letzter Endstufenschritt), Endstufe ← B3 und Strom durch R_B3 (Mittel über die Vorstufenschritte).
+  bool split = false; Core e, e0; int osE = 2, rE = 1, L2 = 0, pi = 0, eph = 0; std::vector<double> h2, pb; double vB2 = 495.053, iPI = 2.934e-3, accB3 = 0, accI = 0;
+  // Mehrtakt nur bei 4x (live): Vorstufe 4x, Endstufe 2x. Rendern (8x/16x) rechnet das ganze Netz: mit Endstufe 2x stieg das Aliasing bei MASTER 10 auf das
+  // Maß von 2x, mit Endstufe 4x auf das von 4x, und das Band zwischen den Teilnetzen veränderte bei stark übersteuerter Endstufe Oberwellen um bis 1 dB (gemessen).
+  static inline int SPLIT_MIN = 4, SPLIT_MAX = 4;   // Prüfprogramme ändern beides
+  static inline int OSE_ENV = 0;     // Prüfprogramme: Endstufen-Überabtastung vorgeben
+  static int osEFor(int os) { return OSE_ENV ? OSE_ENV : os >= 8 ? 4 : 2; }   // Endstufe: 2x bei 4x, 4x bei 8x und 16x (gemessen: mit 2x stieg das Aliasing bei 8x/16x auf das Maß von 4x)
   static double besselI0(double x) { double s = 1, t = 1; for (int k = 1; k < 60; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; if (t < 1e-17 * s) break; } return s; }
-  int monPort(int i) const { static const int od[NPEAK] = {M_V1B, M_V2A, M_V3B, M_V4B, M_INV, M_6A, M_6B}; return c.bl.mon[(i == 1 && !c.cur.od) ? M_V1A : od[i]]; }
-  void readBias() { for (int i = 0; i < NPEAK; i++) vgk0[i] = c.run.vp[monPort(i)]; }   // Ruhewert gilt für den eingeschwungenen Kern; nach dem Kanalwechsel für die neue Stufe neu gelesen (Näherung, solange Signal anliegt)
-  void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); tgt = s; c.init(fsB * os, pv, s); c.settle(SETTLE, cancel); c0 = c; readBias();
+  static void kaiser(std::vector<double> &f, int n, double fc, double beta) { f.assign(n, 0); double sd = 0, i0b = besselI0(beta);   // fc: Mitte, bezogen auf die Abtastrate
+    for (int k = 0; k < n; k++) { double m = k - (n - 1) / 2.0, r = 2.0 * k / (n - 1) - 1, w = besselI0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / i0b;
+      f[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * w; sd += f[k]; }
+    for (int k = 0; k < n; k++) f[k] /= sd; }
+  // Anzeige-Tore: im Mehrtakt liegen V1B…V4B in der Vorstufe (c), Phasenumkehr und Endröhren in der Endstufe (e)
+  const Core &monCore(int i) const { return split && i >= 4 ? e : c; }
+  int monPort(int i) const { static const int od[NPEAK] = {M_V1B, M_V2A, M_V3B, M_V4B, M_INV, M_6A, M_6B}; return monCore(i).bl.mon[(i == 1 && !c.cur.od) ? M_V1A : od[i]]; }
+  void readBias() { for (int i = 0; i < NPEAK; i++) vgk0[i] = monCore(i).run.vp[monPort(i)]; }   // Ruhewert gilt für den eingeschwungenen Kern; nach dem Kanalwechsel für die neue Stufe neu gelesen (Näherung, solange Signal anliegt)
+  // Einschwingen ohne Eingang; im Mehrtakt beide Teilnetze gekoppelt
+  void settleAll(double secs, const std::atomic<bool> *cancel) { if (!split) { c.settle(secs, cancel); return; }
+    long n = (long)(secs * osE * fsB); double y[O_NO + 32], u[5];
+    for (long i = 0; i < n; i++) { if (cancel && (i & 1023) == 0 && cancel->load()) return; double b3 = 0, ib = 0;
+      for (int k = 0; k < rE; k++) { u[0] = 0; u[1] = vB2; u[2] = iPI; c.stepU(u, y); b3 += y[P_B3]; ib += (vB2 - y[P_B3]) / c.v.r_b3; }
+      b3 /= rE; ib /= rE; u[0] = 0; u[1] = e.v.dc_v - SI_U; u[2] = e.v.bias_v; u[3] = b3; u[4] = ib; e.stepU(u, y); vB2 = y[E_B2]; iPI = (b3 - y[E_B3]) / RS_B3E; } }
+  void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); tgt = s; split = os >= SPLIT_MIN && os <= SPLIT_MAX;
+    if (!split) c.init(fsB * os, pv, s);
+    else { osE = osEFor(os); rE = os / osE; c.part = 1; c.init(fsB * os, pv, s); e.part = 2; e.init(fsB * osE, pv, s); vB2 = 495.053; iPI = 2.934e-3; }
+    settleAll(SETTLE, cancel); c0 = c; e0 = e; readBias();
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * wd; sum += h[k]; }
       for (int k = 0; k < L; k++) h[k] /= sum;
       hp.assign(os * 32, 0); for (int ph = 0; ph < os; ph++) for (int k = 0; k < 32; k++) hp[ph * 32 + k] = (k * os + ph < L) ? h[k * os + ph] : 0;
-      Ld = 2 * os * LAT + 2 * os - L - 2; hd.assign(Ld, 0); double fd = (22.0 / 48.0) / os, sd = 0, beta = 9, i0b = besselI0(beta);
-      for (int k = 0; k < Ld; k++) { double m = k - (Ld - 1) / 2.0, r = 2.0 * k / (Ld - 1) - 1, w = besselI0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / i0b;
-        hd[k] = (m == 0 ? 2 * fd : std::sin(2 * PI * fd * m) / (PI * m)) * w; sd += hd[k]; }
-      for (int k = 0; k < Ld; k++) hd[k] /= sd;
+      if (!split) { Ld = 2 * os * LAT + 2 * os - L - 2; kaiser(hd, Ld, (22.0 / 48.0) / os, 9); }
+      else { L2 = 2 * os * 3 + 1; kaiser(h2, L2, (46.0 / 48.0) / os, 9); pb.assign(2 * L2, 0); pi = 0; eph = 0; accB3 = accI = 0;
+        Ld = 2 * osE * (LAT - 16 - 3) + 2 * osE - 1; kaiser(hd, Ld, (22.0 / 48.0) / osE, 9); }
       xb.assign(64, 0); yb.assign(2 * Ld, 0); xi = yi = 0; }
     ready = true; }
   int latency() const { return os > 1 ? LAT : 0; }
   static bool sameSw(const Setting &a, const Setting &b) { return a.od == b.od && a.crunch == b.crunch && a.bright == b.bright; }
   static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.ngain == b.ngain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.nmaster == b.nmaster && a.pres == b.pres; }
-  void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, c.cur)) { Setting n = c.cur; n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; c.apply(n); vgk0[1] = c0.run.vp[monPort(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
-  void snap() { c.apply(tgt); cnt = 0; }
-  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); c.settle(secs, cancel); c0 = c; readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
+  void applyBoth(const Setting &n) { c.apply(n); if (split) e.apply(n); }
+  void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, c.cur)) { Setting n = c.cur; n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; applyBoth(n); vgk0[1] = c0.run.vp[monPort(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
+  void snap() { applyBoth(tgt); cnt = 0; }
+  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); settleAll(secs, cancel); c0 = c; e0 = e; readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
     for (int i = 0; i < 8; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
-    if (moved) c.apply(n); }
-  double run1(double x) { double y[O_NO + 32]; c.step(x, y);
-    for (int i = 0; i < NPEAK; i++) { double d = c.run.vp[monPort(i)] - vgk0[i]; if (d > peak[i]) peak[i] = d; }   // nur der Hub nach oben (zum Gitterstrom hin)
-    double el = y[O_SPK]; if (std::fabs(el) > outPk) outPk = std::fabs(el); outSq += el * el; outN++; return el / VFS; }
+    if (moved) applyBoth(n); }
+  void peaksOf(const Core &k, int i0, int i1) { for (int i = i0; i < i1; i++) { double d = k.run.vp[monPort(i)] - vgk0[i]; if (d > peak[i]) peak[i] = d; } }   // nur der Hub nach oben (zum Gitterstrom hin)
+  double outOf(double el) { if (std::fabs(el) > outPk) outPk = std::fabs(el); outSq += el * el; outN++; return el / VFS; }
+  double run1(double x) { double y[O_NO + 32]; c.step(x, y); peaksOf(c, 0, NPEAK); return outOf(y[O_SPK]); }
+  // Mehrtakt: ein Vorstufenschritt; nach je rE Schritten ein Endstufenschritt (Rückgabe true, Lautsprecherwert in z)
+  bool runSplit(double x, double &z) { double y[O_NO + 32], u[5] = {x, vB2, iPI, 0, 0}; c.stepU(u, y); peaksOf(c, 0, 4);
+    pi = pi == 0 ? L2 - 1 : pi - 1; pb[pi] = pb[pi + L2] = y[P_F2]; accB3 += y[P_B3]; accI += (vB2 - y[P_B3]) / c.v.r_b3;
+    if (++eph < rE) return false;
+    double f = 0; for (int k = 0; k < L2; k++) f += h2[k] * pb[pi + k];
+    double b3 = accB3 / rE, ib = accI / rE; eph = 0; accB3 = accI = 0;
+    u[0] = f; u[1] = e.v.dc_v - SI_U; u[2] = e.v.bias_v; u[3] = b3; u[4] = ib; e.stepU(u, y); peaksOf(e, 4, NPEAK);
+    vB2 = y[E_B2]; iPI = (b3 - y[E_B3]) / RS_B3E; z = outOf(y[E_SPK]); return true; }
   void process(float *buf, int n) { if (!ready) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
     for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? std::max(-20.0, std::min(20.0, buf[i] * vin)) : 0, y; tick();   // Eingang auf ±20 V begrenzt
       if (os == 1) y = run1(x);
-      else { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0;
+      else if (!split) { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0;
         for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
           double z = run1(os * u); yi = yi == 0 ? Ld - 1 : yi - 1; yb[yi] = yb[yi + Ld] = z;
           if (ph == os - 2) for (int k = 0; k < Ld; k++) y += hd[k] * yb[yi + k]; } }
+      else { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0; int ne = 0;
+        for (int ph = 0; ph < os; ph++) { double u = 0, z; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];
+          if (!runSplit(os * u, z)) continue;
+          yi = yi == 0 ? Ld - 1 : yi - 1; yb[yi] = yb[yi + Ld] = z;
+          if (ne++ == std::max(0, osE - 2)) for (int k = 0; k < Ld; k++) y += hd[k] * yb[yi + k]; } }
       if (!(std::fabs(y) < 20)) { y = 0;   // entgleist (NaN oder über 20-fache Vollaussteuerung): eingeschwungenen Zustand zurückholen, höchstens einmal je 0,1 s
-        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); bad = (int)(0.1 * fsB); } }
+        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); if (split) { e = e0; e.apply(s); std::fill(pb.begin(), pb.end(), 0.0); eph = 0; accB3 = accI = 0; }
+          std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); bad = (int)(0.1 * fsB); } }
       if (bad > 0) bad--;
       buf[i] = (float)y; } }
   // Aussteuerung je Stufe seit der letzten Abfrage: Gitterhub bezogen auf die Gittervorspannung (1 = Gitter erreicht die Kathodenspannung)
