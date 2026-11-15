@@ -12,7 +12,11 @@
 #   --url PFAD             URL-Pfad Web                 (Standard: /tonestack)
 #   --host NAME            Server-Name für die Prüfung  (Standard: localhost)
 #   --erzwingen            Web auch bei gleicher Version neu installieren
+#   --ohne-pruefsumme      Pakete ohne passende Prüfsumme trotzdem einspielen (nicht empfohlen)
 #   --hilfe                diese Hilfe
+#
+# Prüfsummen (ab 2026-11-15): Web-Paket gegen tonestack-apache.zip.sha256, Plugin-Pakete gegen eine SHA256SUMS*.txt im selben Ordner
+# (aus dem GitHub-Release oder download/SHA256SUMS.txt der Webseite). Ein Paket ohne passenden Eintrag wird nicht eingespielt.
 
 set -uo pipefail
 
@@ -21,6 +25,7 @@ ZIEL="/var/www/html/tonestack"
 URLPFAD="/tonestack"
 HOST="localhost"
 ERZWINGEN=0
+OHNE_SUMME=0
 NUR=""
 
 rot()  { printf '\033[31m%s\033[0m\n' "$*"; }
@@ -36,7 +41,8 @@ while [ $# -gt 0 ]; do
     --url)      URLPFAD="$2"; shift 2 ;;
     --host)     HOST="$2"; shift 2 ;;
     --erzwingen) ERZWINGEN=1; shift ;;
-    --hilfe|-h) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --ohne-pruefsumme) OHNE_SUMME=1; shift ;;
+    --hilfe|-h) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) rot "Unbekannte Option: $1 (--hilfe zeigt alle)"; exit 1 ;;
   esac
 done
@@ -70,7 +76,8 @@ if teil web; then
       else merke "Webserver: bereits aktuell ($ALT), Prüfung FEHLER"; fi
     else
       SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
-      if $SUDO bash "$INST" "$ZIP" --ziel "$ZIEL" --url "$URLPFAD" --host "$HOST"; then merke "Webserver: aktualisiert ${ALT:-–} → $NEU"
+      OPT=(); [ "$OHNE_SUMME" -eq 1 ] && OPT=(--ohne-pruefsumme)
+      if $SUDO bash "$INST" "$ZIP" --ziel "$ZIEL" --url "$URLPFAD" --host "$HOST" "${OPT[@]}"; then merke "Webserver: aktualisiert ${ALT:-–} → $NEU"
       else rot "  Webserver-Update fehlgeschlagen (Details oben)"; merke "Webserver: FEHLER"; fi
     fi
   fi
@@ -95,12 +102,20 @@ if teil plugins; then
       printf '%s\t%s\n' "$v" "$f"
     done | sort -V -k1,1 | tail -n1 | cut -f2-
   }
+  # Prüfsumme eines Pakets: Eintrag mit genau diesem Dateinamen in einer SHA256SUMS*.txt im Ordner (0 = passt, 1 = falsch, 2 = kein Eintrag)
+  summe_ok() { local f="$1" n e; n="$(basename "$f")"
+    e="$(cat "$ORDNER"/SHA256SUMS*.txt 2>/dev/null | awk -v n="$n" '$2 == n || $2 == "*" n { print tolower($1); exit }')"
+    [ -n "$e" ] || return 2; [ "$e" = "$(sha256sum "$f" | cut -d' ' -f1)" ] && return 0 || return 1; }
   for AMP in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100; do
    for FMT in CLAP VST3; do
     PZ="$(neuestes "$AMP" "$FMT")"; [ -n "$PZ" ] || continue
     GEF=1; NAME="$(basename "$PZ" .zip)"
     ALTE="$(ls "$ORDNER/${AMP}_$FMT"-*.zip 2>/dev/null | grep -vxF "$PZ" | wc -l)"
     [ "$ALTE" -gt 0 ] && info "$AMP $FMT: neuestes Paket $NAME ($ALTE ältere im Ordner ignoriert)"
+    summe_ok "$PZ"; SR=$?
+    if [ $SR -eq 1 ]; then rot "  $NAME: Prüfsumme stimmt nicht – Paket beschädigt oder verändert, nicht eingespielt"; merke "$FMT $NAME: FEHLER (Prüfsumme)"; continue
+    elif [ $SR -eq 2 ] && [ "$OHNE_SUMME" -eq 0 ]; then rot "  $NAME: keine Prüfsumme gefunden (SHA256SUMS*.txt im Ordner) – nicht eingespielt (--ohne-pruefsumme erzwingt)"; merke "$FMT $NAME: FEHLER (keine Prüfsumme)"; continue
+    elif [ $SR -eq 2 ]; then gelb "  $NAME: ohne Prüfsumme eingespielt (--ohne-pruefsumme)"; fi
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     if command -v unzip >/dev/null; then unzip -q -o "$PZ" -d "$T" 2>/dev/null
     else python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); z.extractall(sys.argv[2], filter='data') if hasattr(zipfile,'data_filter') else z.extractall(sys.argv[2])" "$PZ" "$T"; fi

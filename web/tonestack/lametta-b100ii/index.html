@@ -222,16 +222,6 @@ footer{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
 .fview{position:relative;overflow:hidden;line-height:0;border-radius:6px;border:1px solid var(--line);background:#0c0c0c;margin-top:8px}
 .fview img{position:absolute;max-width:none;height:auto;display:block}
 .fview svg{position:absolute;left:0;top:0;width:100%;height:100%}
-.fsel{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:6px}
-.fsel[hidden]{display:none}
-.fselkopf,.fselzeile{display:flex;align-items:center;gap:10px}
-.fselzeile{margin-top:8px}
-.fselname{font-weight:600}
-.fseltext{display:flex;flex-direction:column;line-height:1.25;flex:1;min-width:0}
-.fselval{font-variant-numeric:tabular-nums;color:var(--ink2);font-size:.88rem}
-.fselsp{display:none}
-.fsel input[type=range]{flex:1;min-width:0;height:40px}
-.fselb{min-width:44px;min-height:44px;font-size:1.3rem;padding:0}
 @media (max-width:760px){.frontscroll{display:none}.frontrows{display:block}}
 .fk:focus,.fjack:focus{outline:none}
 .fjack{cursor:pointer}.fjack .fjring{fill:none;stroke:transparent;stroke-width:3}.fjack.an .fjring{stroke:#E0382A}.fjack:focus-visible .fjring{stroke:#FFD34D;stroke-width:2.5}
@@ -316,12 +306,8 @@ select{max-width:100%}
     </div>
   </div>
   <div class="frontrows" id="frontrows"></div>
-  <div class="fsel" id="fsel" hidden>
-    <div class="fselkopf"><span class="fseltext"><span class="fselname" id="fselName"></span><span class="fselval" id="fselVal"></span></span><span class="fselsp"></span><button class="btn" type="button" id="fselMitte">Mitte</button><button class="btn fselb" type="button" id="fselZu" aria-label="Feinregler schließen">✕</button></div>
-    <div class="fselzeile"><button class="btn fselb" type="button" id="fselMinus" aria-label="Weniger">−</button><input type="range" id="fselRange" min="0" max="10" step="0.1"><button class="btn fselb" type="button" id="fselPlus" aria-label="Mehr">+</button></div>
-  </div>
   <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="pwr"><span class="kt">POWER AMP</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">MA-Board</span></div><div class="ki" data-for="spk"><span class="kt">SPEAKER</span><span class="kk"><span class="kp"><span class="on">ON</span><span class="off">OFF</span></span></span><span class="ks">15" CB158, 78 l</span></div></div><div class="kipp2"><div class="kgrp"><label class="kt" for="avin">INPUT</label><span class="kin"><input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></span><span class="ks">Spitzenpegel deines Instruments (mit POWER AMP)</span></div><div class="kgrp"><label class="kt" for="ataper">POT TAPER</label><select id="ataper" class="ksel"><option value="a15">Log 15 % (Original)</option><option value="a10">Log 10 %</option><option value="lin">Linear</option></select><span class="ks">Kennlinie von Volume, Treble, Middle, Bass (A = log)</span></div><div class="kgrp ypk" id="pwrrow" hidden><span class="kt">POWER AMP PEAK</span><div class="stg"><span class="sb"><i id="pwrbar"></i></span><span class="sv" id="pwrv">–</span></div><span class="ks">vor der Begrenzung, Grenze 42 V (Strich)</span></div></div></div>
-  <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Antippen öffnet darunter einen großen Feinregler. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Mittelstellung. Eingang durch Antippen der Buchse HIGH oder LOW (roter Ring = Stecker drin). POWER und ON/OFF sind nur Bild.</figcaption>
+  <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Mittelstellung. Eingang durch Antippen der Buchse HIGH oder LOW (roter Ring = Stecker drin). POWER und ON/OFF sind nur Bild.</figcaption>
 </figure>
 
 
@@ -811,7 +797,7 @@ function makeView(box, svg, tip, keys) {
     el('circle', {class:'fring', cx:g.x, cy:g.y, r:g.r * 1.08}, grp);
     const ln = el('line', {x1:g.x, y1:g.y - g.r * FRONT._.pin, x2:g.x, y2:g.y - g.r * FRONT._.pout, stroke:'#101010', 'stroke-width':FRONT._.pw, 'stroke-opacity':.93}, grp);
     ln._g = grp; FPTR[k].push(ln);
-    // Geste: Beginn auf dem Knopf; nach oben/unten = drehen, seitlich = nichts, ohne Bewegung = antippen (Feinregler öffnen)
+    // Geste: Beginn auf dem Knopf; nach oben/unten = drehen, seitlich = nichts, ohne Bewegung = nichts (bis 2026-11-15 öffnete das einen Regler darunter)
     let st = null;
     // Berührung, die auf einem Knopf beginnt, gehört dem Knopf: der Browser darf daraus kein Scrollen machen
     grp.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
@@ -822,7 +808,7 @@ function makeView(box, svg, tip, keys) {
       if (st.mode === '?') { if (Math.abs(dy) > 6 && Math.abs(dy) >= Math.abs(dx)) st.mode = 'turn'; else if (Math.abs(dx) > 10) st.mode = 'none'; }
       if (st.mode === 'turn') { KSET[k](st.v + dy * (e.pointerType === 'mouse' ? 0.04 : 0.05)); showTip(k, view); grp.classList.add('aktiv'); }
     });
-    const end = () => { if (!st) return; if (st.mode === '?') selectKnob(k); st = null; grp.classList.remove('aktiv'); };
+    const end = () => { if (!st) return; st = null; grp.classList.remove('aktiv'); };
     grp.addEventListener('pointerup', end); grp.addEventListener('pointercancel', () => { st = null; grp.classList.remove('aktiv'); });
     grp.addEventListener('pointerleave', e => { if (!st && e.pointerType === 'mouse' && document.activeElement !== grp) showTip(null); });
     grp.addEventListener('focus', () => showTip(k, view)); grp.addEventListener('blur', () => showTip(null));
@@ -832,7 +818,7 @@ function makeView(box, svg, tip, keys) {
       const sp = e.shiftKey ? 1 : 0.1, m = {ArrowUp:sp, ArrowRight:sp, ArrowDown:-sp, ArrowLeft:-sp, PageUp:1, PageDown:-1}[e.key];
       if (m !== undefined) { KSET[k](S.knobs[k] + m); showTip(k, view); e.preventDefault(); }
       else if (e.key === 'Home') { KSET[k](0); showTip(k, view); e.preventDefault(); } else if (e.key === 'End') { KSET[k](10); showTip(k, view); e.preventDefault(); }
-      else if (e.key === 'Enter' || e.key === ' ') { selectKnob(k); e.preventDefault(); }
+     
     });
   }
   const vb = svg.viewBox.baseVal;
@@ -867,19 +853,6 @@ for (const r of ROWS) {
   const tip = el2('div', 'ftip', box); tip.hidden = true;
   makeView(box, svg, tip, r.keys);
 }
-// Feinregler (nach Antippen eines Knopfs)
-let fselK = null;
-function selectKnob(k) {
-  fselK = k; $('fsel').hidden = false; $('fselName').textContent = FNAME[k];
-  $('fselRange').setAttribute('aria-label', FNAME[k]); updSel();
-  for (const ls of Object.values(FPTR)) for (const ln of ls) ln._g.classList.toggle('gewaehlt', ln._g.dataset.k === k);
-}
-function updSel() { if (!fselK) return; const v = S.knobs[fselK]; $('fselRange').value = v; $('fselVal').textContent = `${fval(fselK)} · ${fextra(fselK)}`; }
-$('fselRange').addEventListener('input', e => { if (fselK) KSET[fselK](+e.target.value); });
-$('fselMinus').addEventListener('click', () => { if (fselK) KSET[fselK](S.knobs[fselK] - 0.1); });
-$('fselPlus').addEventListener('click', () => { if (fselK) KSET[fselK](S.knobs[fselK] + 0.1); });
-$('fselMitte').addEventListener('click', () => { if (fselK) KSET[fselK](5); });
-$('fselZu').addEventListener('click', () => { fselK = null; $('fsel').hidden = true; for (const ls of Object.values(FPTR)) for (const ln of ls) ln._g.classList.remove('gewaehlt'); });
 function updFront() {
   for (const k of FKEYS) { const g = FRONT[k], v = S.knobs[k];
     for (const ln of FPTR[k]) {
@@ -888,7 +861,6 @@ function updFront() {
       ln._g.setAttribute('aria-valuetext', EQKEYS.includes(k) ? fval(k) + ' (Skala −5 … +5)' : fval(k) + ' von 10'); } }
   for (const inp of ['high','low']) FJACK[inp].forEach(j => { const on = S.sw.inp === inp; j.classList.toggle('an', on); j.setAttribute('aria-pressed', on); });
   if (ftipK && ftipV) showTip(ftipK, ftipV);
-  updSel();
 }
 updFront();
 
