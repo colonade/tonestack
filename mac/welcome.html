@@ -2,7 +2,7 @@
 <html lang="de"><head><meta charset="utf-8">
 <style>body{font-family:-apple-system,Helvetica,sans-serif;font-size:13px;line-height:1.45}h2{font-size:15px;margin:0 0 8px}code{font-size:12px}</style></head>
 <body>
-<h2>tonestack – Verstärker-Simulationen aus den Original-Schaltplänen</h2>
+<h2>tonestack – Verstärker-Simulationen aus den Original-Schaltplänen, dazu Effekte</h2>
 <p>Dieses Paket installiert für alle Benutzer dieses Macs:</p>
 <ul>
 <li><b>Laney AOR 50 Preamp @LV@</b> – Röhren-Vorverstärker mit beiden Kanälen, Zugschaltern, Federhall, Endstufe und Lautsprecher</li>
@@ -15,12 +15,14 @@
 <li><b>Wien EQ @WQV@</b> – Fünfband-Stereo-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205 (eigener Entwurf, kein Schaltplan): LOW (weiche Glocke) und HIGH (Kuhschwanz oder weiche Glocke) mit je zwei Tasten, drei vollparametrische Mittenbänder, EQ ON</li>
 <li><b>AmpFett 76 Limiting Amplifier @U76V@</b> – FET-Kompressor/Limiter nach dem Schaltplan des UREI 1176LN: INPUT, OUTPUT, ATTACK, RELEASE, vier RATIO-Tasten (auch gemeinsam), VU-Anzeige; dazu nach dem Vorbild des Origin Effects Cali76 stufenlose Ratio, DRY, Hochpass in der Seitenkette und eine zweite Stufe (eigener Entwurf)</li>
 <li><b>Loldano SLO-100 Guitar Amp @LOV@</b> – Röhren-Gitarrenverstärker (100 W) nach dem Schaltplan des Soldano SLO-100: NORMAL- und OVERDRIVE-Kanal, Klangregelung, vier 6L6GC mit Ausgangsübertrager, PRESENCE; an einer Lautsprecherlast gerechnet (ohne Boxensimulation)</li>
+<li><b>Kaiserin Reverb @KAV@</b> – Hall mit der Bedienung des Empress Effects Reverb (eigener Entwurf nach der Anleitung): HALL, PLATE, SPRING, ROOM, MOD, SPARKLE mit DECAY, MIX, OUTPUT, LOW, HI, THING 1/2 und HOLD; mono rein, stereo raus</li>
+<li><b>Blech 140 Plate Reverb @BLV@</b> – Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz): DECAY 1–3,8 s bei 500 Hz mit Instrument und Lampe MOTOR, BASS CUT 0–3, dazu MIX, PRE-DELAY und OUTPUT; mono rein, stereo raus</li>
 </ul>
 <p>Jeweils als <b>Audio Unit</b> (Logic Pro, GarageBand, MainStage) und als <b>VST3</b> (z.&nbsp;B. Ableton, Cubase, Reaper, Waves StudioRack).
 Unter „Anpassen“ lässt sich ein Plugin abwählen.</p>
 <p><b>Danach:</b> Logic neu starten. Das Plugin steht im Audio-FX-Platz unter <i>Audio Units → tonestack</i>.
 Erscheint es nicht: Logic Pro → Einstellungen → Plug-in-Manager → „Zurücksetzen &amp; erneut prüfen“.</p>
 <p>Das Plugin-Fenster zeigt die Frontplatte zum Drehen (ziehen, Mausrad, Doppelklick = Mitte), die Modell-Schalter und den Frequenzgang – wie in der Linux-Fassung.</p>
-<p style="color:#666">Ziel: /Library/Audio/Plug-Ins/Components und /Library/Audio/Plug-Ins/VST3. Ältere Fassungen unter früheren Namen („Ampeg_B15NF“, „Yamaha_B100II“, „Yamaha_G100“, „Yamaha_B100III“) werden dabei entfernt. Entfernen: die Dateien Laney_AOR50.*, Lametta_B100II.*, AmpFett_B15NF.*, GK_800RB.*, Lametta_G100.*, Lametta_B100III.*, AmpFett_SVTCL.*, Wien_EQ.*, AmpFett_76.* bzw. Loldano_SLO100.* dort löschen.
+<p style="color:#666">Ziel: /Library/Audio/Plug-Ins/Components und /Library/Audio/Plug-Ins/VST3. Ältere Fassungen unter früheren Namen („Ampeg_B15NF“, „Yamaha_B100II“, „Yamaha_G100“, „Yamaha_B100III“) werden dabei entfernt. Entfernen: die Dateien Laney_AOR50.*, Lametta_B100II.*, AmpFett_B15NF.*, GK_800RB.*, Lametta_G100.*, Lametta_B100III.*, AmpFett_SVTCL.*, Wien_EQ.*, AmpFett_76.*, Loldano_SLO100.*, Kaiserin_Reverb.* bzw. Blech_140.* dort löschen.
 Lizenz: GPL-3.0; mitgelieferte Fremdbibliotheken (CLAP, clap-wrapper, VST3-SDK, AudioUnitSDK) unter MIT bzw. Apache-2.0.</p>
 </body></html>

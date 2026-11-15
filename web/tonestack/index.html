@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Verstärker-Simulatoren: Lametta B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Lametta G100-212II, Lametta B100-III, AmpFett SVT-CL, Loldano SLO-100; Wien EQ; AmpFett 76; Kaiserin Reverb</title>
+<title>Verstärker-Simulatoren: Lametta B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Lametta G100-212II, Lametta B100-III, AmpFett SVT-CL, Loldano SLO-100; Wien EQ; AmpFett 76; Kaiserin Reverb; Blech 140</title>
 <meta name="description" content="Interaktive Verstärker-Simulatoren für Lametta B100-II, Laney AOR 50, AmpFett B-15NF, GK 800RB, Lametta G100-212II, Lametta B100-III, AmpFett SVT-CL und Loldano SLO-100, berechnet aus den Schaltplänen; dazu der Wien EQ, ein Fünfband-Equalizer nach den Angaben zum adt-audio TM205, und der AmpFett 76, ein FET-Kompressor nach dem Schaltplan des UREI 1176LN.">
 <meta name="theme-color" content="#EEF1EC">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/lametta-b100ii-192.png">
@@ -86,6 +86,10 @@ footer a{color:inherit}
     <img src="assets/icons/kaiserin-reverb-192.png" alt="" width="72" height="72">
     <span><b>Kaiserin Reverb</b><span>Kein Verstärker, sondern ein Hall mit der Bedienung des Empress Effects Reverb (eigener Entwurf nach der Anleitung, das Original rechnet mit unveröffentlichten Verfahren): HALL, PLATE nach Dattorro, SPRING mit demselben Federmodell wie Laney und G100, ROOM, MOD und SPARKLE mit Oktave im Nachhall; DECAY, MIX, OUTPUT, LOW, HI, THING 1/2 und HOLD. Mono rein, stereo raus.</span></span>
   </a>
+  <a class="card" href="blech-140/">
+    <img src="assets/icons/blech-140-192.png" alt="" width="72" height="72">
+    <span><b>Blech 140</b><span>Kein Verstärker, sondern eine Hallplatte nach dem EMT 140 als physikalisches Modell: gespannte Stahlplatte 2 m × 1 m, alle etwa 23 000 Eigenschwingungen bis 18 kHz mit ihren Dämpfungen, daraus die Impulsantwort, gefaltet ohne Verzögerung. DECAY wie die Dämpfungsplatte (1–3,8 s bei 500 Hz, Instrument und Lampe MOTOR), BASS CUT 0–3; dazu MIX, PRE-DELAY und OUTPUT. Mono rein, stereo raus (zwei Abnehmer).</span></span>
+  </a>
   <h2>Für die DAW</h2>
   <div class="card dl">
     <span><b>Mac: alle Plugins für Logic Pro</b><span>Installerpaket mit Laney AOR 50, Lametta B100-II, AmpFett B-15NF, GK 800RB, Lametta G100-212II, Lametta B100-III, AmpFett SVT-CL, Loldano SLO-100, Wien EQ und AmpFett 76 als Audio Unit (Logic, GarageBand, MainStage) und VST3 (z.&nbsp;B. Ableton, Cubase, Waves StudioRack), für Apple Silicon und Intel ab macOS 11. Mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang wie unter Linux.</span>
@@ -93,11 +97,11 @@ footer a{color:inherit}
       <small>Laney 3.46 · Lametta B100-II 1.21 · AmpFett B-15NF 1.26 · GK 800RB 1.7 · Lametta G100-212II 1.12 · Lametta B100-III 1.8 · AmpFett SVT-CL 1.11 · Wien EQ 1.4 · AmpFett 76 1.2 · Loldano SLO-100 1.2 · einzeln abwählbar · Doppelklick, durch den Installer klicken (Administrator-Passwort), Logic neu starten; die Plugins stehen unter Audio-FX → Audio Units → tonestack. Das Paket ist nicht bei Apple beglaubigt: beim ersten Öffnen unter Systemeinstellungen → Datenschutz &amp; Sicherheit „Dennoch öffnen“ wählen (macOS 11–14: Rechtsklick → Öffnen). Logic nicht mit Rosetta starten: die Plugins laufen nativ auf Apple-Prozessoren, unter Rosetta deutlich langsamer.</small></span>
   </div>
   <a class="card dl" href="plugins/">
-    <span><b>Linux: alle Plugins für die DAW</b><span>Laney AOR 50, Lametta B100-II, AmpFett B-15NF, GK 800RB, Lametta G100-212II, Lametta B100-III, AmpFett SVT-CL, Loldano SLO-100, Wien EQ, AmpFett 76 und Kaiserin Reverb für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor), je als CLAP und VST3 mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang.</span>
+    <span><b>Linux: alle Plugins für die DAW</b><span>Laney AOR 50, Lametta B100-II, AmpFett B-15NF, GK 800RB, Lametta G100-212II, Lametta B100-III, AmpFett SVT-CL, Loldano SLO-100, Wien EQ, AmpFett 76, Kaiserin Reverb und Blech 140 für Linux x86-64 (REAPER 7, Bitwig, Ardour, Qtractor), je als CLAP und VST3 mit Frontplatte zum Drehen, Modell-Schaltern und Frequenzgang.</span>
       <span class="dls"><span class="dlb">Zu den Linux-Plugins</span></span>
       <small>Einzeln herunterladen, mit Versionen, Neuerungen und Hinweisen zur Installation.</small></span>
   </a>
-  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett B-15NF und SVT-CL, Loldano), Transistor-, Dioden- und FET-Verzerrung (GK, Lametta G100) bzw. Endstufenbegrenzung (Lametta B100-II, GK, Lametta B100-III); die Lametta-Simulatoren sind Nachbauten der Yamaha-Verstärker B100-115II, G100-212II und B100-112III/115III nach deren Service Manuals, „Yamaha“ ist eine Marke der Yamaha Corporation; der Wien EQ ist ein eigener Entwurf nach Herstellerangaben, „adt-audio“ ist eine Marke ihres Inhabers; der AmpFett 76 rechnet den Kompressor nach dem Schaltplan, seine Erweiterungen sind ein eigener Entwurf, „UREI“ und „Cali76“ sind Marken ihrer Inhaber; der Kaiserin Reverb ist ein eigener Entwurf nach der Anleitung des Empress Effects Reverb, „Empress Effects“ ist eine Marke ihres Inhabers. Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
+  <footer>Schaltungssimulation nach den Schaltplänen: Frequenzgänge als Kleinsignalrechnung, Wiedergabe mit Röhrenverzerrung (Laney, AmpFett B-15NF und SVT-CL, Loldano), Transistor-, Dioden- und FET-Verzerrung (GK, Lametta G100) bzw. Endstufenbegrenzung (Lametta B100-II, GK, Lametta B100-III); die Lametta-Simulatoren sind Nachbauten der Yamaha-Verstärker B100-115II, G100-212II und B100-112III/115III nach deren Service Manuals, „Yamaha“ ist eine Marke der Yamaha Corporation; der Wien EQ ist ein eigener Entwurf nach Herstellerangaben, „adt-audio“ ist eine Marke ihres Inhabers; der AmpFett 76 rechnet den Kompressor nach dem Schaltplan, seine Erweiterungen sind ein eigener Entwurf, „UREI“ und „Cali76“ sind Marken ihrer Inhaber; der Kaiserin Reverb ist ein eigener Entwurf nach der Anleitung des Empress Effects Reverb, „Empress Effects“ ist eine Marke ihres Inhabers. Blech 140 ist ein physikalisches Modell einer Hallplatte nach Angaben zum EMT 140, „EMT“ ist eine Marke ihres Inhabers. Annahmen stehen jeweils unten auf der Seite. Schrift: Archivo, SIL Open Font License (<a href="assets/fonts/OFL-Archivo.txt">Lizenz</a>), lokal eingebunden.</footer>
 </main>
 </body>
 </html>
