@@ -304,7 +304,7 @@ select{max-width:100%}
     </div>
   </div>
   <div class="frontrows" id="frontrows"></div>
-  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="pwr"><span class="kt">POWER AMP</span><span class="kk"><span class="kp"><span class="on">CLIP</span><span class="off">LINEAR</span></span></span><span class="ks">Begrenzung bei 100 W an 8 Ω</span></div></div><div class="kipp2"><div class="kgrp"><label class="kt" for="avin">INPUT</label><span class="kin"><input type="range" id="avin" min="0" max="3" step="0.05" value="2"> <output id="avinv" for="avin">100 mV</output></span><span class="ks">Spitzenpegel deines Instruments</span></div><div class="kgrp"><label class="kt" for="aos">OVERSAMPLING</label><select id="aos" class="ksel"><option value="2">2x</option><option value="4">4x</option></select><span class="ks">gegen Aliasing bei starker Verzerrung</span></div><div class="kgrp"><label class="kt" for="ataper">POT TAPER</label><select id="ataper" class="ksel"><option value="0">Log 15 % (Original)</option><option value="1">Log 10 %</option><option value="2">Linear</option></select><span class="ks">Kennlinie der A-Potis (VOLUME, Q)</span></div><div class="kgrp drive" id="drive"><span class="kt">DRIVE</span><div class="stg"><span class="sn">IC101 Eingang</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">VOLUME + Klang</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">PEQ 1</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">PEQ 2</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">Endstufe</span><span class="sb"><i></i></span><span class="sv">–</span></div><span class="ks">Aussteuerung der OPV-Stufen, 100 % = Begrenzung (±13,5 V); Leistung an 8 Ω, Strich = 100 W</span></div></div></div>
+  <div class="kipp" id="kipp" role="group" aria-label="Modell-Schalter"><span class="kippkopf">MODELL · nicht am Gerät</span><div class="kippreihe"><div class="ki" data-for="pwr"><span class="kt">POWER AMP</span><span class="kk"><span class="kp"><span class="on">CLIP</span><span class="off">LINEAR</span></span></span><span class="ks">Begrenzung bei 100 W an 8 Ω</span></div></div><div class="kipp2"><div class="kgrp"><label class="kt" for="avin">INPUT</label><span class="kin"><input type="range" id="avin" min="0" max="3.7" step="0.05" value="2"> <output id="avinv" for="avin">100 mV · −20,8 dBu</output></span><span class="ks">Spitzenpegel deines Instruments, 1 … 5000 mV; dBu wie ein Sinus mit dieser Spitze</span></div><div class="kgrp"><label class="kt" for="aos">OVERSAMPLING</label><select id="aos" class="ksel"><option value="2">2x</option><option value="4">4x</option></select><span class="ks">gegen Aliasing bei starker Verzerrung</span></div><div class="kgrp"><label class="kt" for="ataper">POT TAPER</label><select id="ataper" class="ksel"><option value="0">Log 15 % (Original)</option><option value="1">Log 10 %</option><option value="2">Linear</option></select><span class="ks">Kennlinie der A-Potis (VOLUME, Q)</span></div><div class="kgrp drive" id="drive"><span class="kt">DRIVE</span><div class="stg"><span class="sn">IC101 Eingang</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">VOLUME + Klang</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">PEQ 1</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">PEQ 2</span><span class="sb"><i></i></span><span class="sv">–</span></div><div class="stg"><span class="sn">Endstufe</span><span class="sb"><i></i></span><span class="sv">–</span></div><span class="ks">Aussteuerung der OPV-Stufen, 100 % = Begrenzung (±13,5 V); Leistung an 8 Ω, Strich = 100 W</span></div></div></div>
   <figcaption>Knopf nach oben oder unten ziehen = drehen; seitliches Wischen dreht nie. Am Rechner auch Mausrad, Pfeiltasten (mit Umschalt in ganzen Schritten) und Doppelklick = Mittelstellung. Ein Tipp auf die Anzeige links oben im Feld PARAMETRIC EQ 1 bzw. 2 schaltet den Entzerrer ein (rot) oder aus – am Gerät geschieht das mit dem Fußschalter. Die Frequenzweiche (CROSSOVER) wirkt nur auf die Buchsen LPF/HPF OUTPUT für fremde Endstufen und ist hier abgeblendet.</figcaption>
 </figure>
 
@@ -455,7 +455,7 @@ if (!isObj(S) || !isObj(S.knobs) || !isObj(S.sw)) S = JSON.parse(JSON.stringify(
 // gespeicherten Stand prüfen (Browserspeicher): nur bekannte Felder, endliche Zahlen in gültigen Bereichen
 { const k = {}; for (const n of KEYS) k[n] = Number.isFinite(S.knobs[n]) ? Math.max(0, Math.min(10, S.knobs[n])) : DEFK(n); S.knobs = k;
   const w = {}; for (const n of [...SWK, ...MK]) w[n] = typeof S.sw[n] === 'boolean' ? S.sw[n] : DEFSW[n]; S.sw = w;
-  S.vin = Number.isFinite(S.vin) ? Math.max(0, Math.min(3, S.vin)) : 2; S.os = S.os === 4 ? 4 : 2; S.mode = S.mode === 'abs' ? 'abs' : 'rel'; S.showRef = S.showRef !== false; S.taper = S.taper === 1 || S.taper === 2 ? S.taper : 0; }
+  S.vin = Number.isFinite(S.vin) ? Math.max(0, Math.min(3.7, S.vin)) : 2; S.os = S.os === 4 ? 4 : 2; S.mode = S.mode === 'abs' ? 'abs' : 'rel'; S.showRef = S.showRef !== false; S.taper = S.taper === 1 || S.taper === 2 ? S.taper : 0; }
 let cmp = null;
 const save = () => { try { localStorage.setItem('b100iii-v1', JSON.stringify(S)); } catch (e) {} };
 const potTaper = (x, mode) => { if (x <= 0) return 0; if (x >= 1) return 1; if (mode === 2) return x; const b = Math.pow(1 / (mode === 1 ? 0.10 : 0.15) - 1, 2); return (Math.pow(b, x) - 1) / (b - 1); };   // wie im Rechenkern (A-Potis): 0 log 15 %, 1 log 10 %, 2 linear
@@ -651,7 +651,7 @@ const psave = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRESETS));
 const pstate = () => ({ knobs: {...S.knobs}, sw: panelSw(), vin: S.vin });
 function pclean(q) { const knobs = {}; for (const k of KEYS) knobs[k] = q && q.knobs && Number.isFinite(q.knobs[k]) ? Math.max(0, Math.min(10, q.knobs[k])) : DEFK(k);
   const sw = {}; for (const k of SWK) sw[k] = q && q.sw && typeof q.sw[k] === 'boolean' ? q.sw[k] : DEFSW[k];
-  const r = { knobs, sw }; if (q && Number.isFinite(q.vin)) r.vin = Math.max(0, Math.min(3, q.vin)); return r; }
+  const r = { knobs, sw }; if (q && Number.isFinite(q.vin)) r.vin = Math.max(0, Math.min(3.7, q.vin)); return r; }
 function papply(q) { const c = pclean(q); S.knobs = c.knobs; Object.assign(S.sw, c.sw); if (c.vin !== undefined) { S.vin = c.vin; $('avin').value = S.vin; $('avin').dispatchEvent(new Event('input')); } render(); }
 function plist(selectName) { const sel = $('preset'); sel.innerHTML = '<option value="">– keine –</option>';
   PRESETS.forEach((q, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = q.name; sel.appendChild(o); });
@@ -682,7 +682,7 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
 const $ = id => document.getElementById(id);
 const A = { ctx:null, node:null, sp:null, eng:null, gain:null, an:null, buf:null, src:null, playing:false, mode:'on', prevMode:'on', ready:null, fallback:false, fname:'', rendering:false };
 const status = t => { const st = $('astatus'); st.textContent = st.dataset.wasm ? t + ' WebAssembly-Kern aktiv.' : t; };
-const vinVolt = () => Math.pow(10, +$('avin').value) / 1000;
+const vinVolt = () => Math.min(5000, Math.pow(10, +$('avin').value)) / 1000;   // INPUT 1 … 5000 mV (Regler bis 10^3,7; vorher bis 1000 mV)
 const params = () => { const q = A.mode === 'cmp' && window.B3.snapshot() ? window.B3.snapshot() : window.B3.current(); return { ...q, vin: vinVolt() / (A.peak || 1) }; };
 // Anzeige: Aussteuerung je Stufe (Anteil der Grenze) und Leistung der beiden Endstufen, gemeldet vom Rechenkern
 function showPeaks(pk) {
@@ -838,7 +838,8 @@ async function download() {
   finally { A.rendering = false; setButtons(); }
 }
 $('adl').onclick = download;
-$('avin').oninput = () => { const mv = Math.pow(10, +$('avin').value); $('avinv').textContent = (mv < 10 ? mv.toFixed(1).replace('.', ',') : Math.round(mv)) + ' mV'; send(); };
+$('avin').oninput = () => { const mv = Math.min(5000, Math.pow(10, +$('avin').value)), du = 20 * Math.log10(mv / 1000 / Math.SQRT2 / 0.7745966692);   // dBu: Effektivwert eines Sinus mit dieser Spitze (0 dBu = 0,7746 V)
+  $('avinv').textContent = (mv < 10 ? mv.toFixed(1).replace('.', ',') : Math.round(mv)) + ' mV · ' + (du < 0 ? '−' : '+') + Math.abs(du).toFixed(1).replace('.', ',') + ' dBu'; send(); };
 $('avin').oninput();   // Anzeige zum gespeicherten Wert
 $('avol').oninput = e => { const d = +e.target.value; $('avolv').textContent = (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' dB';
   if (A.gain) A.gain.gain.setTargetAtTime(Math.pow(10, d / 20), A.ctx.currentTime, 0.02); };

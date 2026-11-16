@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.12
+Version 1.13
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -85,7 +85,7 @@ Parameters
   Gain, Bass, Midrange (0 ... 10); Frequency (220 Hz, 450 Hz, 800 Hz,
   1.6 kHz, 3 kHz); Treble, Master (0 ... 10); Ultra Hi (Off / On); Ultra
   Lo (Off / On); Input (0 dB / -15 dB jack); Output tap (4 ohm / 2 ohm);
-  Instrument level (mV peak, 1 ... 1000); Input reference (peak of your
+  Instrument level (mV peak, 1 ... 5000); Input reference (peak of your
   playing / 0 dBFS); Output level (-36 ...
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
   TREBLE); Power supply (Simple / As schematic, 50 Hz mains / As
@@ -184,6 +184,13 @@ Input level (INPUT, since 1.6)
   Typical values: passive bass about 100-200 mV on a hard attack, active
   bass up to 1 V; single-coil guitar about 100-200 mV, humbucker or active
   pickups up to 1 V. Default 100 mV.
+  INPUT goes up to 5000 mV (until the versions of November 2026: 1000 mV),
+  enough for active instruments and for driving the first stage hot. The
+  value is also shown in dBu, as the rms level of a sine with this peak
+  (0 dBu = 0.775 V rms): 100 mV = -20.8 dBu, 1000 mV = -0.8 dBu,
+  5000 mV = +13.2 dBu. The convention of audio interfaces (0 dBFS = about
+  1 V) plays no role here: the track only supplies numbers, INPUT sets the
+  voltage at the amp.
   Projects saved with an earlier version keep the old meaning (INPUT = the
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
@@ -342,3 +349,13 @@ Notes
   the end; projects saved before load without speaker and with the whole
   amp, as before. The POWER SUPPLY toggle is now labelled SUPPLY. Sound
   with SPEAKER off and TAP AMP unchanged.
+
+1.13
+  INPUT goes up to 5000 mV peak (was 1000 mV), for active instruments and
+  for driving the first stage hot; the value is also shown in dBu (see the
+  paragraph on INPUT). The knob covers the new range, so 100 mV now sits a bit
+  further left. Saved projects keep their value, and the sound at the
+  same INPUT value is unchanged (bit-identical). VST3 only: hosts store
+  automation as a fraction of the parameter range, so INPUT automation
+  recorded with an earlier version plays back at a different voltage;
+  redraw it if you used it.

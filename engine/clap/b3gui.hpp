@@ -166,7 +166,7 @@ struct Gui {
         if (meterOn && !dim) { setrgb(c, over ? 0xff3b2a : f > mark * 0.7 ? 0xe8b23c : 0x3ec25a); cairo_rectangle(c, bx + 1, by + 1, (bw - 2) * f, bh - 2); cairo_fill(c); }
         setrgb(c, 0xffffff, 0.45); cairo_rectangle(c, bx + 1 + (bw - 2) * mark - 0.5, by, 1, bh); cairo_fill(c);
         setrgb(c, dim ? 0x5e626a : over && meterOn ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, meterOn && !dim ? t : "-", bx + bw + 8, by + 11, 11.5, false); } }
-    for (int i = 0; i < 2; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : (v[P_OUT] + 36) / 60;
+    for (int i = 0; i < 2; i++) { double uu = i == 0 ? tsin::vinU(v[P_VIN]) : (v[P_OUT] + 36) / 60;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : "OUTPUT", vt[i], drag == 50 + i || hover == 50 + i, false); }
     { char xt[64]; tsin::extraText(xt, sizeof xt, inPk, v[P_INREF] > 0.5); setrgb(c, 0x9a9ea6); tsw::text(c, xt, KN_X[0], KN_Y + 76, 11, false, 1); }   // unter INPUT: gemerkte Spitze; Klick setzt zurück bzw. schaltet alte Projekte auf „auto“
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
@@ -197,8 +197,8 @@ struct Gui {
     else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // oben = CLIP
   void clickPanel(int h) { if (h == 40) setP(P_EQ1, getP(P_EQ1) > 0.5 ? 0 : 1); else if (h == 41) setP(P_EQ2, getP(P_EQ2) > 0.5 ? 0 : 1); }
   int knobParam(int i) const { return i < NK ? KPARAM[i] : i == 50 ? P_VIN : P_OUT; }
-  double knobVal(int i) const { if (i < NK) return knobPos(i); return i == 50 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
-  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < NK) { int p = KPARAM[i]; if (p < 0) return; double r = std::round(u * 10) / 10; setP(p, bipolar(p) ? r - 5 : r); } else if (i == 50) setP(P_VIN, std::round(std::pow(1000, u / 10))); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
+  double knobVal(int i) const { if (i < NK) return knobPos(i); return i == 50 ? tsin::vinU(getP(P_VIN)) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
+  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < NK) { int p = KPARAM[i]; if (p < 0) return; double r = std::round(u * 10) / 10; setP(p, bipolar(p) ? r - 5 : r); } else if (i == 50) setP(P_VIN, tsin::vinFromU(u / 10)); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
 #ifndef __APPLE__
   bool handle(XEvent &ev) {
     switch (ev.type) {

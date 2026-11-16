@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.47
+Version 3.48
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -45,19 +45,20 @@ What it is
 Parameters
   Input jack, Channel, Preamp 1 Volume, Preamp 2 Volume, Preamp 1 Level,
   Treble, Middle, Bass, Master Volume, Mid/Top/Bass Boost, Bass mod,
-  FX loop + power amp (Presence), Output level,
+  Signal tap (Amp = FX loop + power amp, with Presence / Preamp; until 3.47
+  "FX loop + power amp" Off/On), Output level,
   Tube distortion, Instrument level, Input reference, Oversampling (1x/2x/4x, default 2x; 8x removed in 3.28),
-  Presence (active with "FX loop + power amp"), Tube V101/V102/V103, Speaker,
+  Presence (active with TAP AMP), Tube V101/V102/V103, Speaker,
   Soft and Late (circuit ideas, see 3.12), Power tube mismatch (0-10 %, see
   3.20), Volume/Treble/Bass pot taper (law of the log pots, see 3.43: log 15 %,
   log 10 %, linear; POT TAPER toggle in the model strip), Reverb (0 ... 10,
-  active with "FX loop + power amp", 3.35), Reverb tank nonlinearity
+  active with TAP AMP, 3.35), Reverb tank nonlinearity
   (0 ... 10, 0 = linear, 5 = as 3.36; field in the TUBES row: drag,
   wheel, double-click = 5; 3.37).
   Defaults (since 3.43): Preamp 1, HIGH, both preamp volumes and Preamp 1
   Level at 5.5, Treble, Bass and Master at 8, Middle and Presence at 1.5,
   all pull switches on, tube distortion on,
-  2x oversampling, bass mod on, FX loop + power amp on, tubes 3 x 5751, Soft
+  2x oversampling, bass mod on, TAP AMP, tubes 3 x 5751, Soft
   on, Late and speaker off, tube mismatch 8 %, reverb 0, reverb tank 5.
 
 User interface
@@ -65,7 +66,8 @@ User interface
   works too), double-click = centre. Click PULL ON / PULL BOOST for the pull
   switches, click the HIGH/LOW jack to choose the input. Model strip below
   (settings that do not exist on the amp): toggle switches for BASS MOD,
-  FX LOOP (+ power amp), DISTORTION, SPEAKER, SOFT and LATE (lever up = on, click to
+  TAP (AMP = with FX loop and power amp, PREAMP = without; until 3.47 FX
+  LOOP ON/OFF), DISTORTION, SPEAKER, SOFT and LATE (lever up = on, click to
   flip, mouse wheel up/down), a rotary selector for OVERSAMPLING (1x, eco,
   2x, 4x: click a label to select it directly, click the knob to turn it
   on, wheel turns either way), INPUT, OUTPUT and TUBE MISMATCH. Below: the three tube sockets (click to change
@@ -146,10 +148,30 @@ Input level (INPUT, since 3.40)
   Typical values: passive bass about 100-200 mV on a hard attack, active
   bass up to 1 V; single-coil guitar about 100-200 mV, humbucker or active
   pickups up to 1 V. Default 100 mV.
+  INPUT goes up to 5000 mV (until the versions of November 2026: 1000 mV),
+  enough for active instruments and for driving the first stage hot. The
+  value is also shown in dBu, as the rms level of a sine with this peak
+  (0 dBu = 0.775 V rms): 100 mV = -20.8 dBu, 1000 mV = -0.8 dBu,
+  5000 mV = +13.2 dBu. The convention of audio interfaces (0 dBFS = about
+  1 V) plays no role here: the track only supplies numbers, INPUT sets the
+  voltage at the amp.
   Projects saved with an earlier version keep the old meaning (INPUT = the
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.48
+  INPUT goes up to 5000 mV peak (was 1000 mV), for active instruments and
+  for driving the first stage hot; the value is also shown in dBu (see the
+  paragraph on INPUT). The knob covers the new range, so 100 mV now sits a bit
+  further left. Saved projects keep their value, and the sound at the
+  same INPUT value is unchanged (bit-identical). VST3 only: hosts store
+  automation as a fraction of the parameter range, so INPUT automation
+  recorded with an earlier version plays back at a different voltage;
+  redraw it if you used it.
+  - The switch FX LOOP is now called TAP (AMP / PREAMP), as in the other
+    amps: AMP = FX loop and power amp up to the speaker, PREAMP = without
+    them. Same parameter (now named "Signal tap"), same values, same sound.
 
 3.47
   Less CPU, same sound (measured against a reference computed with a

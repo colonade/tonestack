@@ -1,6 +1,6 @@
 // AmpFett SVT-CL, Nachbau des Ampeg SVT-CL (Service Manual: Vorverstärker 07S519-12, Endstufe 07S419-12; alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.12"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.13"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "svt_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -40,7 +40,7 @@ static const PDef PD[P_COUNT] = {
   {"Gain", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Midrange", 0, 10, 5, 0, 0}, {"Frequency", 0, 4, 2, N_FREQ, 5}, {"Treble", 0, 10, 5, 0, 0}, {"Master", 0, 10, 5, 0, 0},
   {"Ultra Hi", 0, 1, 0, N_ONOFF, 2}, {"Ultra Lo", 0, 1, 0, N_ONOFF, 2}, {"Input", 0, 1, 0, N_JACK, 2}, {"Output tap", 0, 1, 0, N_TAPO, 2},
   {"Standby", 0, 1, 0, N_ONOFF, 2}, {"Power", 0, 1, 1, N_ONOFF, 2},
-  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (1x only since 1.1)", 0, 0, 0, N_OS, 1}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3},
+  {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0}, {"Oversampling (1x only since 1.1)", 0, 0, 0, N_OS, 1}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots: gain, bass, treble)", 0, 2, 0, N_TAP, 3},
   {"Power supply", 0, 2, 0, N_PSU, 3}, {"BAL OUT load (T1)", 0, 1, 0, N_BAL, 2},   // ab 1.5
   {"Power tube mismatch (%)", 0, 10, 8, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
   {"Speaker (8x10 sealed, estimated)", 0, 1, 0, N_ONOFF, 2}, {"Signal tap", 0, 1, 0, N_PRE, 2} };   // ab 1.12   // ab 1.5: Ruhestrom-Unterschied der beiden 6550-Seiten
@@ -106,7 +106,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
-  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) std::snprintf(buf, n, "%.0f mV", v); else std::snprintf(buf, n, "%.1f", v);
+  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) tsin::hostText(buf, (int)n, v); else std::snprintf(buf, n, "%.1f", v);
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];

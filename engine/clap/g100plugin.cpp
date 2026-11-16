@@ -1,6 +1,6 @@
 // Lametta G100-212II = Nachbau des Yamaha G100-212II (Service Manual YAMU-02234: Vorverstärker als Schaltung, Endstufe nach Tabelle 3 geeicht; ohne Lautsprecher und Hall) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.12"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.13"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "g100_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -40,7 +40,7 @@ static const PDef PD[P_COUNT] = {
   {"B: Gain", 0, 10, 5, 0, 0}, {"B: Master Volume", 0, 10, 5, 0, 0}, {"B: Treble", 0, 10, 5, 0, 0}, {"B: Middle", 0, 10, 5, 0, 0}, {"B: Bass", 0, 10, 5, 0, 0}, {"B: Pull Fat (gain)", 0, 1, 0, N_PULL, 2}, {"B: Pull Bright (treble)", 0, 1, 0, N_PULL, 2},
   {"EQ: Level", -5, 5, 0, 0, 0}, {"EQ: Q", 0, 10, 5, 0, 0}, {"EQ: Frequency", 0, 10, 5, 0, 0},
   {"Input jack", 0, 1, 0, N_JACK, 2}, {"Power amp", 0, 1, 1, N_PWR, 2},
-  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Reverb", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear as 1.1)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2}, {"Speaker (2 x 12\" Celestion G12T-75, open back)", 0, 1, 0, N_SPK, 2} };   // ab 1.4 Regler 0 … 10 (1.2/1.3: Schalter, 1 = physikalisch)
+  {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Reverb", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear as 1.1)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2}, {"Speaker (2 x 12\" Celestion G12T-75, open back)", 0, 1, 0, N_SPK, 2} };   // ab 1.4 Regler 0 … 10 (1.2/1.3: Schalter, 1 = physikalisch)
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -97,7 +97,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
-  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) std::snprintf(buf, n, "%.0f mV", v); else if (id == P_LEVEL) std::snprintf(buf, n, "%+.1f", v); else if (id == P_FREQ) std::snprintf(buf, n, "%.1f (%.0f Hz)", v, freqOfKnob(v / 10)); else std::snprintf(buf, n, "%.1f", v);
+  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) tsin::hostText(buf, (int)n, v); else if (id == P_LEVEL) std::snprintf(buf, n, "%+.1f", v); else if (id == P_FREQ) std::snprintf(buf, n, "%.1f (%.0f Hz)", v, freqOfKnob(v / 10)); else std::snprintf(buf, n, "%.1f", v);
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];

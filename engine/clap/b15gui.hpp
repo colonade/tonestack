@@ -166,7 +166,7 @@ struct Gui {
         if (meterOn && !(preT && i >= 3)) { setrgb(c, over ? 0xff3b2a : f > mark * 0.7 ? 0xe8b23c : 0x3ec25a); cairo_rectangle(c, bx + 1, by + 1, (bw - 2) * f, bh - 2); cairo_fill(c); }
         setrgb(c, 0xffffff, 0.45); cairo_rectangle(c, bx + 1 + (bw - 2) * mark - 0.5, by, 1, bh); cairo_fill(c);
         setrgb(c, over && meterOn ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, meterOn && !(preT && i >= 3) ? t : "-", bx + bw + 10, by + 12, 12, false); } }
-    for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
+    for (int i = 0; i < 3; i++) { double uu = i == 0 ? tsin::vinU(v[P_VIN]) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, false); }   // MISMATCH: Ruhestrom-Unterschied der 6L6GC
     { char xt[64]; tsin::extraText(xt, sizeof xt, inPk, v[P_INREF] > 0.5); setrgb(c, 0x9a9ea6); tsw::text(c, xt, KN_X[0], KN_Y + 76, 11, false, 1); }   // unter INPUT: gemerkte Spitze; Klick setzt zurück bzw. schaltet alte Projekte auf „auto“
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
@@ -198,8 +198,8 @@ struct Gui {
     if (p == P_OS || p == P_TAPER) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else if (p == P_MAINS || p == P_PRE) setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); }   // MAINS: oben = 60 Hz; TAP: oben = AMP; SPEAKER: oben = ON
   void togglePanel(int) { setP(P_PWR, getP(P_PWR) > 0.5 ? 0 : 1); }   // einziger Frontplattenschalter: POWER
   int knobParam(int i) const { return i < 6 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
-  double knobVal(int i) const { if (i < 6) return getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }
-  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 6) setP(KPARAM[i], std::round(u * 10) / 10); else if (i == 9) setP(P_VIN, std::round(std::pow(1000, u / 10))); else if (i == 11) setP(P_MIS, std::round(u * 10) / 10); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
+  double knobVal(int i) const { if (i < 6) return getP(KPARAM[i]); return i == 9 ? tsin::vinU(getP(P_VIN)) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }
+  void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < 6) setP(KPARAM[i], std::round(u * 10) / 10); else if (i == 9) setP(P_VIN, tsin::vinFromU(u / 10)); else if (i == 11) setP(P_MIS, std::round(u * 10) / 10); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
 #ifndef __APPLE__
   bool handle(XEvent &ev) {
     switch (ev.type) {

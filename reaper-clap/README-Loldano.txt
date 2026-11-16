@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -112,7 +112,7 @@ Parameters
   Preamp Normal, Preamp Overdrive, Bass, Middle, Treble, Master Normal,
   Master Overdrive, Presence (0 ... 10); Channel (Normal / Overdrive);
   Normal channel: Clean/Crunch; Normal channel: Bright (Normal / Bright);
-  Instrument level (mV peak, 1 ... 1000); Oversampling (1x / 2x / 4x);
+  Instrument level (mV peak, 1 ... 5000); Oversampling (1x / 2x / 4x);
   Output level (-36 ... +24 dB); Input reference (peak of your playing /
   0 dBFS); Oversampling when rendering offline (same as live / 8x / 16x,
   from 1.2); Speaker (Celestion Vintage 30, data sheet curve) (Off / On)
@@ -208,6 +208,13 @@ Input level (INPUT)
   the set voltage. Below -40 dBFS nothing is raised further.
   Typical values: single-coil guitar about 100-200 mV on a hard attack,
   humbucker or active pickups up to 1 V. Default 100 mV.
+  INPUT goes up to 5000 mV (until the versions of November 2026: 1000 mV),
+  enough for active instruments and for driving the first stage hot. The
+  value is also shown in dBu, as the rms level of a sine with this peak
+  (0 dBu = 0.775 V rms): 100 mV = -20.8 dBu, 1000 mV = -0.8 dBu,
+  5000 mV = +13.2 dBu. The convention of audio interfaces (0 dBFS = about
+  1 V) plays no role here: the track only supplies numbers, INPUT sets the
+  voltage at the amp.
   With "Input reference" set to 0 dBFS, INPUT is the voltage at 0 dBFS of
   the track instead.
 
@@ -322,3 +329,13 @@ Notes
   see "Cabinet and SPEAKER" and "Signal tap". Appended at the end; projects
   saved before load without speaker and with the whole amp, as before.
   Sound with SPEAKER off and TAP AMP unchanged (bit for bit).
+
+1.6
+  INPUT goes up to 5000 mV peak (was 1000 mV), for active instruments and
+  for driving the first stage hot; the value is also shown in dBu (see the
+  paragraph on INPUT). The knob covers the new range, so 100 mV now sits a bit
+  further left. Saved projects keep their value, and the sound at the
+  same INPUT value is unchanged (bit-identical). VST3 only: hosts store
+  automation as a fraction of the parameter range, so INPUT automation
+  recorded with an earlier version plays back at a different voltage;
+  redraw it if you used it.

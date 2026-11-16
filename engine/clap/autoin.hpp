@@ -36,8 +36,17 @@ inline double pkDb(double pk) { return pk > 0 ? 20 * std::log10(pk) : -999; }   
 constexpr int STATE_ID = 999;
 inline int saveLine(char *buf, int n, double pk) { return std::snprintf(buf, n, "%d=%.17g\n", STATE_ID, pk); }
 inline double clampPk(double v) { return std::isfinite(v) && v > 0 ? std::min(v, 1e3) : 0; }
+// Bereich des Reglers INPUT der Verstärker (ab Laney 3.48 / B100-II 1.22 / B15NF 1.28 / GK 1.8 / G100 1.13 / B100-III 1.9 / SVT-CL 1.13 / Loldano 1.6; dBu-Anzeige auch AmpFett 76 1.3;
+// vorher 1 … 1000 mV): bis 5 V Spitze, damit aktive Instrumente und eine „heiß“ angefahrene erste Stufe einstellbar sind (Anregung des Kritikers).
+// Der Knopf ist logarithmisch über den ganzen Bereich (Stellung 0…1 = 1 mV … 5000 mV). Gespeicherte Werte bleiben gleich (CLAP und Zustand in mV).
+constexpr double VIN_MIN = 1, VIN_MAX = 5000;
+inline double vinU(double mv) { return std::log(std::max(VIN_MIN, std::min(VIN_MAX, mv))) / std::log(VIN_MAX); }
+inline double vinFromU(double u) { return std::round(std::pow(VIN_MAX, std::max(0.0, std::min(1.0, u)))); }
+// dBu: Effektivwert eines Sinus mit dieser Spitze, bezogen auf 0,7746 V (0 dBu); 1000 mV Spitze = −0,8 dBu, 5000 mV = +13,2 dBu
+inline double dBu(double mv) { return 20 * std::log10(std::max(1e-6, mv) / 1000 / std::sqrt(2.0) / 0.7745966692); }
 // Texte für Oberfläche und Host
-inline void valueText(char *b, int n, double mv, bool fixed) { (void)fixed; std::snprintf(b, n, "%.0f mV", mv); }   // Bezug steht in der Zeile darunter
+inline void valueText(char *b, int n, double mv, bool fixed) { (void)fixed; std::snprintf(b, n, "%.0f mV \xc2\xb7 %+.1f dBu", mv, dBu(mv)); }   // Bezug steht in der Zeile darunter
+inline void hostText(char *b, int n, double mv) { std::snprintf(b, n, "%.0f mV (%+.1f dBu)", mv, dBu(mv)); }   // Host: Wert zuerst (atof liest ihn zurück)
 inline void extraText(char *b, int n, double pkdb, bool fixed) {
   if (fixed) std::snprintf(b, n, "at 0 dBFS (old) \xc2\xb7 click: auto");
   else if (pkdb < -900) std::snprintf(b, n, "at your peak (not heard yet)");

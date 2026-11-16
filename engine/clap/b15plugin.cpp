@@ -1,7 +1,7 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #define B15_V127   // AmpFett ab 1.27 (Abgriff nach der Vorstufe) in b15_core.hpp; andere Plugins sehen den Stand 1.26 (bytegleich)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.27"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.28"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -41,7 +41,7 @@ static const PDef PD[P_COUNT] = {
   {"Input jack", 0, 2, 0, N_JACK, 3}, {"Volume 1", 0, 10, 5, 0, 0}, {"Treble 1", 0, 10, 5, 0, 0}, {"Bass 1", 0, 10, 5, 0, 0},
   {"Volume 2", 0, 10, 5, 0, 0}, {"Treble 2", 0, 10, 5, 0, 0}, {"Bass 2", 0, 10, 5, 0, 0},
   {"Standby (removed)", 0, 1, 0, N_STBY, 2}, {"Power", 0, 1, 1, N_ONOFF, 2}, {"Speaker (CTS 15\", sealed box, estimated)", 0, 1, 0, N_ONOFF, 2},
-  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0},
+  {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0},
   {"Power tube mismatch (%)", 0, 10, 8, 0, 0}, {"Mains frequency (full power supply)", 0, 1, 0, N_MAINS, 2}, {"Power supply", 0, 1, 0, N_PSU, 2}, {"Volume pot taper", 0, 2, 0, N_TAP, 3}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
   {"Signal tap", 0, 1, 0, N_PRE, 2} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
@@ -105,7 +105,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
-  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) std::snprintf(buf, n, "%.0f mV", v); else std::snprintf(buf, n, "%.1f", v);
+  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) tsin::hostText(buf, (int)n, v); else std::snprintf(buf, n, "%.1f", v);
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
