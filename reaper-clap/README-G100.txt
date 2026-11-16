@@ -1,5 +1,5 @@
 Lametta G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.12
+Version 1.13
 
 Two formats, one engine
   Lametta_G100.clap and Lametta_G100.vst3 contain the same code and sound
@@ -193,10 +193,27 @@ Input level (INPUT, since 1.7)
   Typical values: passive bass about 100-200 mV on a hard attack, active
   bass up to 1 V; single-coil guitar about 100-200 mV, humbucker or active
   pickups up to 1 V. Default 100 mV.
+  INPUT goes up to 5000 mV (until the versions of November 2026: 1000 mV),
+  enough for active instruments and for driving the first stage hot. The
+  value is also shown in dBu, as the rms level of a sine with this peak
+  (0 dBu = 0.775 V rms): 100 mV = -20.8 dBu, 1000 mV = -0.8 dBu,
+  5000 mV = +13.2 dBu. The convention of audio interfaces (0 dBFS = about
+  1 V) plays no role here: the track only supplies numbers, INPUT sets the
+  voltage at the amp.
   Projects saved with an earlier version keep the old meaning (INPUT = the
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.13
+  INPUT goes up to 5000 mV peak (was 1000 mV), for active instruments and
+  for driving the first stage hot; the value is also shown in dBu (see the
+  paragraph on INPUT). The knob covers the new range, so 100 mV now sits a bit
+  further left. Saved projects keep their value, and the sound at the
+  same INPUT value is unchanged (bit-identical). VST3 only: hosts store
+  automation as a fraction of the parameter range, so INPUT automation
+  recorded with an earlier version plays back at a different voltage;
+  redraw it if you used it.
 
 1.10
   - SPEAKER switch: the two Celestion G12T-75 in the open-back combo (see

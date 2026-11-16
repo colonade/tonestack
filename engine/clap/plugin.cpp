@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.47"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.48"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #define LPA_REUSE   // ab 3.47: Laney-Endstufe mit wiederverwendeter Zerlegung innerhalb eines Abtastwerts (laney_pa.hpp); vor dem ersten Einbinden
 #define B15_TAB     // ab 3.47: Röhrenkennlinien (Dempwolf, Gitterstrom) als Tabelle (b15_core.hpp)
@@ -34,7 +34,7 @@ using namespace aor;
 enum { P_INP, P_CH, P_V1, P_V2, P_PL, P_T, P_M, P_B, P_MV, P_MID, P_TOP, P_BASS, P_UMBAU, P_PA, P_TAPER, P_OUT, P_NL, P_VIN, P_OS, P_PRES, P_TUBE1, P_TUBE2, P_TUBE3, P_SPK, P_SOFT, P_PAD, P_MIS, P_ECO, P_REV, P_TANK, P_INREF, P_COUNT };   // P_REV, P_TANK ab 3.35 (angehängt)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_INP[] = {"HIGH (~1 mV)", "LOW (~30 mV)"}; static const char *N_CH[] = {"Preamp 1 (high gain)", "Preamp 2"};
-static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_UMB[] = {"Original", "Bass mod C2 C3 C14"};
+static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_TAPL[] = {"Preamp", "Amp"}; static const char *N_UMB[] = {"Original", "Bass mod C2 C3 C14"};   // N_TAPL: TAP ab 3.48 (vorher „FX loop + power amp“ Off/On, gleiche Werte)
 static const char *N_TAP[] = {"Log 15 %", "Log 10 %", "Linear"}; static const char *N_OS[] = {"1x", "2x", "4x"};   // 8x ab 3.28 entfernt (etwa zwei Kerne: Audioserver warf REAPER hinaus); alte Projekte mit 8x laufen mit 4x
 static const char *N_TUBE[] = {"12AX7 / ECC83 (stock)", "12AT7 / ECC81", "12AU7 / ECC82", "5751", "12AY7"};
 static const PDef PD[P_COUNT] = {
@@ -42,15 +42,15 @@ static const PDef PD[P_COUNT] = {
   {"Preamp 1 Volume", 0, 10, 5.5, 0, 0}, {"Preamp 2 Volume", 0, 10, 5.5, 0, 0}, {"Preamp 1 Level (Preamp 1 only)", 0, 10, 5.5, 0, 0},   // Grundstellungen ab 3.43 für die neuen Kennlinien (klingt etwa wie die Grundstellung bis 3.42); gespeicherte Projekte werden nicht umgerechnet (Nutzer, 2026-11-12)
   {"Treble", 0, 10, 8, 0, 0}, {"Middle", 0, 10, 1.5, 0, 0}, {"Bass", 0, 10, 8, 0, 0}, {"Master Volume", 0, 10, 8, 0, 0},
   {"Mid Boost (S105)", 0, 1, 1, N_ONOFF, 2}, {"Top Boost (S104)", 0, 1, 1, N_ONOFF, 2}, {"Bass Boost (pull switch)", 0, 1, 1, N_ONOFF, 2},
-  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"FX loop + power amp (Presence)", 0, 1, 1, N_ONOFF, 2}, {"Volume/Treble/Bass pot taper", 0, 2, 0, N_TAP, 3},
-  {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level (mV peak)", 1, 1000, 100, 0, 0},
+  {"Bass mod", 0, 1, 1, N_UMB, 2}, {"Signal tap (amp: FX loop + power amp, Presence)", 0, 1, 1, N_TAPL, 2}, {"Volume/Treble/Bass pot taper", 0, 2, 0, N_TAP, 3},
+  {"Output level (dB)", -36, 24, 0, 0, 0}, {"Tube distortion", 0, 1, 1, N_ONOFF, 2}, {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0},
   {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Presence", 0, 10, 1.5, 0, 0},
   {"Tube V101", 0, 4, 3, N_TUBE, 5}, {"Tube V102", 0, 4, 3, N_TUBE, 5}, {"Tube V103", 0, 4, 3, N_TUBE, 5},
   {"Speaker (15\" CB158, Portaflex-size vented box)", 0, 1, 0, N_ONOFF, 2},
   {"Soft (mod: C3 at V101B removed)", 0, 1, 1, N_ONOFF, 2}, {"Late (mod: 2.2 MOhm before Preamp 2 Volume)", 0, 1, 0, N_ONOFF, 2},
   {"Power tube mismatch (%)", 0, 10, 8, 0, 0},   // Grundstellung 8 % (Nutzer, 2026-11-02)
   {"Eco (2x: power amp at base rate, about 1/3 less CPU)", 0, 1, 0, N_ONOFF, 2},   // ab 3.26
-  {"Reverb (needs FX loop + power amp)", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };   // ab 3.35: Federhall nach dem Plan (IC201/IC202), Grundstellung 0 = wie 3.34
+  {"Reverb (needs signal tap: amp)", 0, 10, 0, 0, 0}, {"Reverb tank nonlinearity (0 = linear)", 0, 10, 5, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };   // ab 3.35: Federhall nach dem Plan (IC201/IC202), Grundstellung 0 = wie 3.34
 
 static const uint32_t LATENCY = 31;   // feste Latenz: Überabtastungsfilter 31 Abtastwerte; linear/1-fach wird im Kern um 31 verzögert, damit sie nicht mit dem Modus wechselt
 struct Plugin {
@@ -109,7 +109,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
-  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) std::snprintf(buf, n, "%.0f mV", v); else std::snprintf(buf, n, "%.1f", v);
+  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) tsin::hostText(buf, (int)n, v); else std::snprintf(buf, n, "%.1f", v);
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];

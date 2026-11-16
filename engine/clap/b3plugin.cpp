@@ -1,6 +1,6 @@
 // Lametta B100-III = Nachbau des Yamaha B100-112III / B100-115III (Service Manual 006594, 1984: Vorverstärker als Schaltung, Endstufe nach der Spezifikation geeicht; ohne Lautsprecher, Frequenzweiche, symmetrischen Ausgang) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.9"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b3_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -38,7 +38,7 @@ static const PDef PD[P_COUNT] = {
   {"Volume", 0, 10, 5, 0, 0}, {"Treble", -5, 5, 0, 0, 0}, {"Middle", -5, 5, 0, 0, 0}, {"Bass", -5, 5, 0, 0, 0},
   {"EQ 1: Level", -5, 5, 0, 0, 0}, {"EQ 1: Q", 0, 10, 5, 0, 0}, {"EQ 1: Frequency", 0, 10, 5, 0, 0}, {"EQ 1: Preset level", -5, 5, 0, 0, 0}, {"EQ 1: On (foot switch)", 0, 1, 1, N_ONOFF, 2},
   {"EQ 2: Level", -5, 5, 0, 0, 0}, {"EQ 2: Q", 0, 10, 5, 0, 0}, {"EQ 2: Frequency", 0, 10, 5, 0, 0}, {"EQ 2: Preset level", -5, 5, 0, 0, 0}, {"EQ 2: On (foot switch)", 0, 1, 1, N_ONOFF, 2},
-  {"Power amp", 0, 1, 1, N_PWR, 2}, {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 1, 0, N_OS, 2}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };
+  {"Power amp", 0, 1, 1, N_PWR, 2}, {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0}, {"Oversampling (distortion)", 0, 1, 0, N_OS, 2}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Pot taper (A pots)", 0, 2, 0, N_TAP, 3}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte (nur 2x und 4x, siehe Amp::init)
 static int osFactor(int k) { return k <= 0 ? 2 : 4; }
 
@@ -95,7 +95,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
-  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) std::snprintf(buf, n, "%.0f mV", v); else if (PD[id].lo < 0) std::snprintf(buf, n, "%+.1f", v);
+  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) tsin::hostText(buf, (int)n, v); else if (PD[id].lo < 0) std::snprintf(buf, n, "%+.1f", v);
   else if (id == P_F1 || id == P_F2) std::snprintf(buf, n, "%.1f (%.0f Hz)", v, std::min(freqOfKnob(v / 10), 2340.0)); else std::snprintf(buf, n, "%.1f", v);
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {

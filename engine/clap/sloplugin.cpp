@@ -1,6 +1,6 @@
 // Loldano SLO-100, Nachbau des Soldano SLO-100 Super Lead Overdrive (nach dem beschrifteten Gesamtplan von R. Robinette; alle Röhren gerechnet, src/slo_core.hpp) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.6"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "slo_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -39,7 +39,7 @@ static const PDef PD[P_COUNT] = {
   {"Preamp Normal", 0, 10, 5, 0, 0}, {"Preamp Overdrive", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0},
   {"Master Normal", 0, 10, 3, 0, 0}, {"Master Overdrive", 0, 10, 3, 0, 0}, {"Presence", 0, 10, 5, 0, 0},
   {"Channel", 0, 1, 1, N_CH, 2}, {"Normal channel: Clean/Crunch", 0, 1, 0, N_CR, 2}, {"Normal channel: Bright", 0, 1, 0, N_BR, 2},
-  {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
+  {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
   {"Oversampling when rendering offline", 0, 2, 1, N_ROS, 3},
   {"Speaker (Celestion Vintage 30, data sheet curve)", 0, 1, 0, N_ONOFF, 2}, {"Signal tap", 0, 1, 0, N_PRE, 2} };   // ab 1.5   // ab 1.2: meldet der Host Offline-Rendern (CLAP render, VST3 kOffline), rechnet der Kern mit 8x/16x
 static const uint32_t LATENCY = slo::Amp::LAT;   // fest: Überabtastungsfilter (ab 1.2: 50 Abtastwerte, vorher 31); bei 1x verzögert das Plugin selbst um so viel, damit die Latenz nicht mit dem Modus wechselt
@@ -108,7 +108,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
-  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) std::snprintf(buf, n, "%.0f mV", v); else std::snprintf(buf, n, "%.1f", v);
+  else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v); else if (id == P_VIN) tsin::hostText(buf, (int)n, v); else std::snprintf(buf, n, "%.1f", v);
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];

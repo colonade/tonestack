@@ -1,5 +1,5 @@
 AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   AmpFett_76.clap and AmpFett_76.vst3 contain the same code and sound
@@ -128,6 +128,9 @@ CPU and latency
   goes idle.
 
 Changes
+  1.3  The INPUT value is also shown in dBu, as the rms level of a sine
+       with this peak (0 dBu = 0.775 V rms; 3162 mV = +9.2 dBu). Range and
+       sound unchanged.
   1.2  Input level default 3 V instead of 300 mV, defaults Input 2 and
        Output 9. The unit is a studio device for line level (+4 dBu nominal,
        threshold -30 ... -24 dBu at full INPUT according to the data sheet).

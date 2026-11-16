@@ -153,10 +153,16 @@ Röhrenauswahl bzw. Endstufenanzeige und den Frequenzgang.
 Alle Regler gibt es auch in Logics Reglerliste („Steuerungen“) und für
 die Automation.
 
-Wichtig für den Pegel: „Instrument level at 0 dBFS“ sagt dem Plugin, wie
-viel Volt ein voll ausgesteuertes Signal am Instrumentenkabel hätte
-(Standard 100 mV). Höher = Röhren werden stärker angesteuert.
-„Output level“ regelt nur die Lautstärke am Ausgang.
+Wichtig für den Pegel: INPUT („Instrument level (mV peak)“) ist die
+Spitzenspannung deines Spiels an der Eingangsbuchse (Standard 100 mV).
+Das Plugin merkt sich die höchste Spitze der Spur und bringt sie mit
+diesem Wert an den Verstärker; wie laut die Spur aufgenommen ist, spielt
+keine Rolle. Höher = Röhren werden stärker angesteuert. Bereich 1 bis
+5000 mV (aktive Instrumente, heiß angefahrene erste Stufe); daneben steht
+der Wert in dBu (Effektivwert eines Sinus mit dieser Spitze: 100 mV =
+−20,8 dBu, 1000 mV = −0,8 dBu, 5000 mV = +13,2 dBu). Alte Projekte mit
+„Input reference“ 0 dBFS rechnen wie bisher: dann entspricht 0 dBFS dem
+INPUT-Wert. „Output level“ regelt nur die Lautstärke am Ausgang.
 
 Rechenlast: Die Plugins rechnen die ganze Schaltung in jedem Abtastwert.
 Laney mit Röhrenverzerrung und Endstufe bei 2-facher Überabtastung etwa
