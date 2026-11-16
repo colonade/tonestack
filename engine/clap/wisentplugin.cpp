@@ -2,14 +2,14 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
 #ifndef TS_NO_GUI
 #include "wisentgui.hpp"
 #else
-namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_COUNT }; }
+namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_COUNT }; }
 #endif
 #include <deque>
 #include <chrono>
@@ -32,10 +32,11 @@ struct PDef { const char *name; double lo, hi, def; const char *const *names; in
 static const char *N_ONOFF[] = {"Off", "On"};
 static const char *N_MODE[] = {"Echo", "Repeat", "Swell"};
 static const char *N_MAINS[] = {"50 Hz", "60 Hz"};
-static const PDef PD[P_COUNT] = { {"Input", 0, 10, 2.5, 0, 0}, {"Length of swell", 0, 10, 5, 0, 0}, {"Volume", 0, 10, 8, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0},
+static const PDef PD[P_COUNT] = { {"Input", 0, 10, 2.5, 0, 0}, {"Length of swell", 0, 10, 5, 0, 0}, {"Volume", 0, 10, 10, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0},
   {"Mode", 0, 2, 1, N_MODE, 3}, {"Playback head 1", 0, 1, 0, N_ONOFF, 2}, {"Playback head 2", 0, 1, 1, N_ONOFF, 2}, {"Playback head 3", 0, 1, 0, N_ONOFF, 2}, {"Playback head 4", 0, 1, 0, N_ONOFF, 2},
   {"Feedback head 1", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 2", 0, 1, 1, N_ONOFF, 2}, {"Feedback head 3", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 4", 0, 1, 0, N_ONOFF, 2},
-  {"Level (mV at 0 dBFS)", 20, 2000, 200, 0, 0}, {"Output (dB)", -24, 24, 0, 0, 0}, {"Mains (drum speed)", 0, 1, 0, N_MAINS, 2} };
+  {"Level (mV at 0 dBFS)", 20, 2000, 200, 0, 0}, {"Output (dB)", -24, 24, 0, 0, 0}, {"Mains (drum speed)", 0, 1, 0, N_MAINS, 2},
+  {"Dry (trimmer TD)", 0, 10, 6.7, 0, 0}, {"Varispeed (mod)", 0.25, 2, 1, 0, 0} };   // 1.1: hinten angehängt (gespeicherte Projekte von 1.0 bleiben gültig)
 
 struct Plugin {
   PortCfg ports;
@@ -43,7 +44,7 @@ struct Plugin {
   std::atomic<double> load{0}, eye{0}; std::vector<float> a, oa; long quiet = 0; std::atomic<bool> sleeping{false}; wisent::Setting cur; double outG = 1;
   wisentgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1400, guiH = 0;
   std::string diagMode, diagTxt; int diagCnt = 0;
-  wisent::Setting target() const { wisent::Setting s; s.input = val[P_INPUT].load() / 10; s.swell = val[P_SWELL].load() / 10; s.volume = val[P_VOLUME].load() / 10; s.bass = val[P_BASS].load() / 10; s.treble = val[P_TREBLE].load() / 10;
+  wisent::Setting target() const { wisent::Setting s; s.input = val[P_INPUT].load() / 10; s.swell = val[P_SWELL].load() / 10; s.volume = val[P_VOLUME].load() / 10; s.bass = val[P_BASS].load() / 10; s.treble = val[P_TREBLE].load() / 10; s.dry = val[P_DRY].load() / 10;
     s.mode = std::max(0, std::min(2, (int)std::lround(val[P_MODE].load()))); for (int k = 0; k < 4; k++) { s.out[k] = val[P_OUT1 + k].load() > 0.5; s.fb[k] = val[P_FB1 + k].load() > 0.5; } return s; }
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
@@ -58,7 +59,7 @@ static bool par_value(const clap_plugin_t *p, clap_id id, double *out) { if (id 
 static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint32_t n) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); return true; }
-  switch (id) { case P_LEVEL: std::snprintf(buf, n, "%.0f mV", v); break; case P_OUTDB: std::snprintf(buf, n, "%+.1f dB", v); break; default: std::snprintf(buf, n, "%.1f", v); }
+  switch (id) { case P_LEVEL: std::snprintf(buf, n, "%.0f mV", v); break; case P_OUTDB: std::snprintf(buf, n, "%+.1f dB", v); break; case P_SPEED: std::snprintf(buf, n, "%.2fx", v); break; default: std::snprintf(buf, n, "%.1f", v); }
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
@@ -115,7 +116,7 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
   stopAll(pl); delete pl; }
 // Hauptfaden: Netze übersetzen, Ruhezustand einschwingen (etwa 0,1 s), Trommel anlegen (etwa 1 s Draht bei doppelter Rate)
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; stopAll(pl);
-  try { pl->cur = pl->target(); pl->core = new wisent::Core(); pl->core->init(sr, pl->cur, pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_LEVEL].load() / 1000); }
+  try { pl->cur = pl->target(); pl->core = new wisent::Core(); pl->core->init(sr, pl->cur, pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_LEVEL].load() / 1000, pl->val[P_SPEED].load()); }
   catch (...) { stopAll(pl); return false; }
   for (auto *v : {&pl->a, &pl->oa}) v->assign(maxf + 16, 0); pl->fresh = true; pl->active = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); pl->active = false; stopAll(pl); }
@@ -126,7 +127,7 @@ static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->aud
 // Reglerstellungen gleiten (etwa 70 ms über den ganzen Weg), Netze werden höchstens alle 32 Abtastwerte (bei 48 kHz; gleiche Zeit bei anderen Raten) neu übersetzt (meist Rang-1-Änderungen);
 // Tasten wirken sofort
 static void follow(Plugin *pl) { if (wisent::glideTo(pl->cur, pl->target())) pl->core->apply(pl->cur);
-  pl->core->setHz(pl->val[P_MAINS].load() > 0.5 ? 60 : 50); pl->core->vin = pl->val[P_LEVEL].load() / 1000; pl->outG = std::pow(10.0, pl->val[P_OUTDB].load() / 20); }
+  pl->core->setSpeed(pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_SPEED].load()); pl->core->vin = pl->val[P_LEVEL].load() / 1000; pl->outG = std::pow(10.0, pl->val[P_OUTDB].load() / 20); }
 static bool settled(const Plugin *pl) { return wisent::sameKnobs(pl->cur, pl->target()); }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
@@ -218,9 +219,10 @@ static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_
 static uint32_t g_latency(const clap_plugin_t *p) { Plugin *pl = P(p); return pl->core ? (uint32_t)pl->core->lat : wisent::Core::LAT; }   // nach activate gültig (Rate)
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
 // Echo klingt nach (CLAP tail): ECHO bis zum letzten Kopf, REPEAT/SWELL mit Rückkopplung länger (schwingt die Schleife: ohne Ende)
-// (Schwelle der Schleife mit einem Kopf: 8,9 bei 50 Hz, 7,6 bei 60 Hz, wisent-Prüfung; hier etwas darunter)
-static uint32_t g_tail(const clap_plugin_t *p) { Plugin *pl = P(p); int m = (int)std::lround(pl->val[P_MODE].load()); double sw = pl->val[P_SWELL].load(), thr = pl->val[P_MAINS].load() > 0.5 ? 7.5 : 8.8;
-  if (m != 0 && sw >= thr) return UINT32_MAX; double t = m == 0 ? 0.4 : 0.4 + 30 * std::pow(sw / thr, 3); return (uint32_t)std::lround(t * pl->fs); }
+// Schwelle der Schleife über der Geschwindigkeit (wisent::loopThreshold, ein Rückkopplungskopf; hier etwas darunter)
+static uint32_t g_tail(const clap_plugin_t *p) { Plugin *pl = P(p); int m = (int)std::lround(pl->val[P_MODE].load()); double sw = pl->val[P_SWELL].load() / 10;
+  double thr = wisent::loopThreshold((pl->val[P_MAINS].load() > 0.5 ? 1.2 : 1.0) * pl->val[P_SPEED].load()) - 0.02;
+  if (m != 0 && sw >= thr) return UINT32_MAX; double t = m == 0 ? 0.4 / std::max(0.25, pl->val[P_SPEED].load()) : 0.4 + 30 * std::pow(sw / std::min(1.0, thr), 3); return (uint32_t)std::lround(t * pl->fs); }
 static const clap_plugin_tail_t EXT_TAIL = {g_tail};
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
@@ -237,7 +239,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_TAIL)) return &EXT_TAIL; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_DELAY, CLAP_PLUGIN_FEATURE_MONO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.wisent-echoreck", "Wisent Echoreck (after Binson Echorec PE 603 T)", "tonestack", "", "", "", TS_VERSION, "Tube echo with magnetic drum after the schematic of the Binson Echorec PE 603 T: input, mixer and record amplifier as tube circuits (ECC83, ECC82), steel-wire drum with four playback heads (74, 148, 222, 296 ms at 50 Hz), permanent-magnet erase, playback preamps, ECHO/REPEAT/SWELL, playback and feedback head buttons, length of swell, volume, bass, treble, magic eye; level, output and 50/60 Hz drum speed added; mono", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.wisent-echoreck", "Wisent Echoreck (after Binson Echorec PE 603 T)", "tonestack", "", "", "", TS_VERSION, "Tube echo with magnetic drum after the schematic of the Binson Echorec PE 603 T: input, mixer and record amplifier as tube circuits (ECC83, ECC82), steel-wire drum with four playback heads (74, 148, 222, 296 ms at 50 Hz), permanent-magnet erase, playback preamps, ECHO/REPEAT/SWELL, playback and feedback head buttons, length of swell, volume, bass, treble, magic eye; level, output and 50/60 Hz drum speed added, trimmer TD as dry control and varispeed (a later modification); mono", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

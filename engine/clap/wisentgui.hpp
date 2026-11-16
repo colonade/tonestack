@@ -20,6 +20,7 @@
 #include <vector>
 #include <functional>
 #include "wisentgeo_gen.h"
+#include "wisent_core.hpp"   // loopThreshold
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_JPEG
 #define STBI_NO_STDIO
@@ -29,14 +30,14 @@
 
 namespace wisentgui {
 constexpr double PI = 3.14159265358979323846;
-enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_COUNT };   // wie im Plugin
-constexpr int NK = 7;
-static const int KPARAM[NK] = {P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_LEVEL, P_OUTDB};
+enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_COUNT };   // wie im Plugin
+constexpr int NK = 9;
+static const int KPARAM[NK] = {P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_LEVEL, P_OUTDB, P_DRY, P_SPEED};
 constexpr double FW = WSW, FH = WSH, STRIPU = 92;
 static const double TOTALH = FH + STRIPU * FW / tsw::UW;
-inline double knob01(int p, double v) { switch (p) { case P_LEVEL: return std::log(std::max(20.0, v) / 20) / std::log(100.0); case P_OUTDB: return (v + 24) / 48; default: return v / 10; } }
-inline double fromKnob(int p, double u) { u = std::max(0.0, std::min(1.0, u)); switch (p) { case P_LEVEL: return std::round(20 * std::pow(100.0, u)); case P_OUTDB: return std::round((u * 48 - 24) * 2) / 2; default: return std::round(u * 100) / 10; } }
-inline double knobDefault(int p) { switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 8; case P_LEVEL: return 200; case P_OUTDB: return 0; default: return 5; } }
+inline double knob01(int p, double v) { switch (p) { case P_LEVEL: return std::log(std::max(20.0, v) / 20) / std::log(100.0); case P_OUTDB: return (v + 24) / 48; case P_SPEED: return std::log(std::max(0.25, v) / 0.25) / std::log(8.0); default: return v / 10; } }
+inline double fromKnob(int p, double u) { u = std::max(0.0, std::min(1.0, u)); switch (p) { case P_LEVEL: return std::round(20 * std::pow(100.0, u)); case P_OUTDB: return std::round((u * 48 - 24) * 2) / 2; case P_SPEED: return std::round(25 * std::pow(8.0, u)) / 100; default: return std::round(u * 100) / 10; } }
+inline double knobDefault(int p) { switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 10; case P_LEVEL: return 200; case P_OUTDB: return 0; case P_DRY: return 6.7; case P_SPEED: return 1; default: return 5; } }
 static const char *MODEN[3] = {"ECHO", "REPEAT", "SWELL"};
 
 #ifdef __APPLE__
@@ -84,10 +85,13 @@ struct Gui {
   int mode() const { return std::max(0, std::min(2, (int)std::lround(getP(P_MODE)))); }
   bool on(int p) const { return getP(p) > 0.5; }
   bool hz60() const { return getP(P_MAINS) > 0.5; }
+  double rel() const { return (hz60() ? 1.2 : 1.0) * std::max(0.25, getP(P_SPEED)); }   // Bandgeschwindigkeit gegen 50 Hz ohne Varispeed
   void knobText(int i, char *b, size_t n) const { int p = KPARAM[i]; double v = getP(p);
-    switch (p) { case P_INPUT: std::snprintf(b, n, "INPUT %.1f (record level, log)", v); break; case P_SWELL: std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; above about 9 the drum runs away)", v); break;
+    switch (p) { case P_INPUT: std::snprintf(b, n, "INPUT %.1f (record level, log)", v); break; case P_SWELL: { double t = wisent::loopThreshold(rel()); if (t > 1) std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; at this speed the loop does not run away)", v); else std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; one feedback head runs away from about %.1f)", v, 10 * t); break; }
       case P_VOLUME: std::snprintf(b, n, "VOLUME %.1f (echo level, log)", v); break; case P_BASS: std::snprintf(b, n, "BASS %.1f (5 = middle)", v); break; case P_TREBLE: std::snprintf(b, n, "TREBLE %.1f (5 = middle)", v); break;
-      case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input (model)", v); break; default: std::snprintf(b, n, "OUTPUT %+.1f dB (model)", v); } }
+      case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input (model)", v); break; case P_DRY: std::snprintf(b, n, "DRY %.1f: trimmer TD inside the unit, dry level (plan setting 6.7)", v); break;
+      case P_SPEED: std::snprintf(b, n, "VARISPEED %.2fx: drum speed, a later modification (PE 603 T: fixed); heads every %.0f ms", v, 74.4 / rel()); break;
+      default: std::snprintf(b, n, "OUTPUT %+.1f dB (model)", v); } }
   // Tasten: 0–2 Betriebsart, 10–13 Rückkopplung, 20–23 Wiedergabe, 30 Netzfrequenz
   int hitButton(double x, double y) const {
     for (int i = 0; i < 3; i++) if (std::fabs(x - WSMODE[i][0]) <= WSBTN[0] / 2 + 3 && std::fabs(y - WSMODE[i][1]) <= WSBTN[1] / 2 + 3) return i;
@@ -117,7 +121,7 @@ struct Gui {
       if (eye > 1.05) { setrgb(c, 0x80ffb0, std::min(0.6, (eye - 1) * 0.6)); cairo_rectangle(c, ex - 6, ey - eh / 2 + 3, 12, eh - 6); cairo_fill(c); } }
     // Tasten
     for (int i = 0; i < 3; i++) key(c, WSMODE[i][0], WSMODE[i][1], WSBTN[0], WSBTN[1], mode() == i, MODEN[i], 12.5);
-    { setrgb(c, 0xaaa898); for (int i = 0; i < 4; i++) { char t[16]; std::snprintf(t, sizeof t, "%.0f ms", 74.4 * (i + 1) * (hz60() ? 50.0 / 60 : 1)); tsw::text(c, t, WSHEADX[i], 66, 10, false, 1); } }   // Echozeiten je Netzfrequenz
+    { setrgb(c, 0xaaa898); for (int i = 0; i < 4; i++) { char t[16]; std::snprintf(t, sizeof t, "%.0f ms", 74.4 * (i + 1) / rel()); tsw::text(c, t, WSHEADX[i], 66, 10, false, 1); } }   // Echozeiten je Netzfrequenz
     for (int i = 0; i < 4; i++) { char t[4]; std::snprintf(t, 4, "%d", i + 1); key(c, WSHEADX[i], WSHFB, WSHBTN[0], WSHBTN[1], on(P_FB1 + i), t, 14); key(c, WSHEADX[i], WSHOUT, WSHBTN[0], WSHBTN[1], on(P_OUT1 + i), t, 14); }
     { int hb = hover; if (hb >= 0 && hb < 30 && (hb < 3 || hb >= 10)) { double x, y, w, h;
         if (hb < 3) { x = WSMODE[hb][0]; y = WSMODE[hb][1]; w = WSBTN[0]; h = WSBTN[1]; } else { x = WSHEADX[hb % 10]; y = hb < 20 ? WSHFB : WSHOUT; w = WSHBTN[0]; h = WSHBTN[1]; }
@@ -135,19 +139,19 @@ struct Gui {
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c);
     setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 420, 20);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
-    { const double t1 = 74.4 * (hz60() ? 50.0 / 60 : 1); char hb[64] = "", fb[64] = ""; int nh = 0, nf = 0;
+    { const double t1 = 74.4 / rel(); char hb[64] = "", fb[64] = ""; int nh = 0, nf = 0;
       for (int i = 0; i < 4; i++) { if (on(P_OUT1 + i)) sapp(hb, sizeof hb, nh, "%s%.0f", nh ? " + " : "", t1 * (i + 1)); if (on(P_FB1 + i)) sapp(fb, sizeof fb, nf, "%s%d", nf ? "+" : "", i + 1); }
       char b[300]; int m = mode();
       if (m == 2) std::snprintf(b, sizeof b, "SWELL  all four heads to the output (%.0f + %.0f + %.0f + %.0f ms), feedback heads %s", t1, 2 * t1, 3 * t1, 4 * t1, nf ? fb : "none (no repeats)");
       else std::snprintf(b, sizeof b, "%s  playback %s%s, feedback %s", MODEN[m], nh ? hb : "none (no echo)", nh ? " ms" : "", m == 0 ? "off (single echoes)" : nf ? fb : "none (single echoes)");
       setrgb(c, 0xdcdee2); tsw::text(c, b, 16, 50, 13.5, true);
-      double db = eye > 1e-5 ? 20 * std::log10(eye) : -100; char e[200]; std::snprintf(e, sizeof e, "RECORD LEVEL %s dB re wire saturation (magic eye)   ·   drum %.0f rpm at %s Hz, %.0f mm/s", db > -99 ? (std::to_string((int)std::lround(db))).c_str() : "below −99", 71.0 * (hz60() ? 1.2 : 1), hz60() ? "60" : "50", 457.0 * (hz60() ? 1.2 : 1));
+      double db = eye > 1e-5 ? 20 * std::log10(eye) : -100; char e[200]; std::snprintf(e, sizeof e, "RECORD LEVEL %s dB re wire saturation (magic eye)   ·   drum %.0f rpm at %s Hz%s, %.0f mm/s", db > -99 ? (std::to_string((int)std::lround(db))).c_str() : "below −99", 71.0 * rel(), hz60() ? "60" : "50", std::fabs(getP(P_SPEED) - 1) > 1e-6 ? " with varispeed" : "", 457.0 * rel());
       setrgb(c, 0x9a9ea6); tsw::text(c, e, 16, 76, 12.5, false); }
     cairo_restore(c);
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[200]; double ax, ay;
       if (i >= 100 || drag >= 0) { int k = drag >= 0 ? drag : i - 100; const double *g = WSKNOB[k]; ax = g[0] * s; ay = (g[1] - g[2] * 1.25) * s; knobText(k, buf, sizeof buf); }
       else if (i < 3) { ax = WSMODE[i][0] * s; ay = (WSMODE[i][1] - 26) * s; const char *d[3] = {"ECHO: playback heads (lower row) to the output, no feedback", "REPEAT: playback heads to the output, feedback heads (upper row) back to the drum", "SWELL: all four heads to the output, feedback heads back to the drum"}; std::snprintf(buf, sizeof buf, "%s", d[i]); }
-      else if (i < 30) { int k = i % 10; ax = WSHEADX[k] * s; ay = ((i < 20 ? WSHFB : WSHOUT) - 22) * s; std::snprintf(buf, sizeof buf, "Head %d (%.0f ms): %s %s", k + 1, 74.4 * (k + 1) * (hz60() ? 50.0 / 60 : 1), i < 20 ? "feedback" : "playback", on((i < 20 ? P_FB1 : P_OUT1) + k) ? "on" : "off"); }
+      else if (i < 30) { int k = i % 10; ax = WSHEADX[k] * s; ay = ((i < 20 ? WSHFB : WSHOUT) - 22) * s; std::snprintf(buf, sizeof buf, "Head %d (%.0f ms): %s %s", k + 1, 74.4 * (k + 1) / rel(), i < 20 ? "feedback" : "playback", on((i < 20 ? P_FB1 : P_OUT1) + k) ? "on" : "off"); }
       else { ax = WSMAINS[0] * s; ay = (WSMAINS[1] - 44) * s; std::snprintf(buf, sizeof buf, "MAINS %s Hz: the drum motor follows the mains frequency (model)", hz60() ? "60" : "50"); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }

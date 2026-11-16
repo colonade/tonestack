@@ -69,7 +69,7 @@ LENGTH OF SWELL läuft nicht bis null, weil unter dem Poti 47 k liegen. In REPEA
 
 ## Modell (engine/src/wisent_core.hpp)
 - **Elektronik:** Netz im Zeitbereich (dk.hpp), Röhren nach Dempwolf (12AX7) bzw. Koren-Form mit Messwerten (12AU7), Röhrenkapazitäten.
-  - Zwei Teilnetze: Aufnahme (V4A, V5A, V5B, V6A; nichtlinear, doppelte Abtastrate) und Wiedergabe (linear: Kopfstufen, Matrix, V3A, Klangregelung, V4B; einfache Rate).
+  - Zwei Teilnetze: Aufnahme (V4A, V5A, V5B, V6A; nichtlinear, doppelte Abtastrate) und Wiedergabe (Kopfstufen, Matrix, Klangregelung und V4B linear; V3A als Röhre, ab 1.1; einfache Rate). V3A: Kathode 1,40 V (Plan 1,4 V). Sie begrenzt den Echopegel, wenn die Schleife schwingt (mit Varispeed schnell und hell: Spitzen bis etwa +8 dBFS statt unbegrenzt).
   - Übergabe zwischen den Teilnetzen: Abgriff TD und Gitter V5B.
 - **Überabtastung:** IIR-Halbbänder (elliptisch, 8 Koeffizienten). Sperrdämpfung etwa 100 dB, Laufzeit 3 Abtastwerte. Ab 88,2 kHz rechnet die Aufnahmeseite mit der einfachen Rate (Latenz 0); ab 176,4 kHz das ganze Gerät mit der halben, ab 352,8 kHz mit einem Viertel der Rate (Halbbänder hinunter und hinauf; Latenz 8 bzw. 22 Abtastwerte, gemessen).
 - **Anodenspannungen:** ideal (Netzteil nicht gerechnet, Annahme).
@@ -78,16 +78,20 @@ LENGTH OF SWELL läuft nicht bis null, weil unter dem Poti 47 k liegen. In REPEA
   - Löschrest des Dauermagneten −50 dB von der vorigen Umdrehung (angenommen); Rauschen des Drahts −99 dB relativ zur Sättigung (weiß, vor der Ableitung der Wiedergabe; angenommen).
   - Wiedergabe: d/dt mal Abstandsverlust e^(−2π·d·f/v) mal Spaltverlust (5 µm), als linearphasiges FIR von ±1,2 ms (Tukey-Fenster) beim Schreiben; die vier Köpfe lesen dieselbe gefilterte Spur. Abweichung vom Ziel: 50 Hz −0,7 dB, ab 300 Hz unter 0,15 dB, bei jeder Rate gleich. Vorzeichen: positive Ableitung (Polarität der Köpfe im Gerät unbekannt, angenommen).
   - 60 Hz: dieselbe Normierung wie bei 50 Hz (höhere Geschwindigkeit, weniger Abstandsverlust: +0,6 dB bei 1 kHz, mehr Höhen).
+  - **Varispeed (ab 1.1, Modell):** Der PE 603 T läuft fest mit dem Netz (Spaltpolmotor; im Plan nur Spannungsabgriffe des Motors). Regelbare Drehzahl gab es nur als späteren Umbau mit neuem Motor (Soundgas: „Binson Echorecs were all manufactured with a fixed speed motor“; bei langsamer Drehzahl leiden Klangtreue und Selbstschwingen). Im Modell 0,25× bis 2× auf die Netzdrehzahl. Wiedergabe-FIRs auf einem Raster √1,2^i (0,23 … 2,49 · v50; 50 und 60 Hz liegen darauf), dazwischen gemischt. Der Aufnahme-Tiefpass wächst mit der Geschwindigkeit (Wellenlänge); die Drehzahl gleitet in 0,4 s.
+  - Schwelle der Schleife (REPEAT, ein Kopf, LENGTH OF SWELL) über r = v/v50: 0,8 → 0,97; 1,0 → 0,89; 1,2 → 0,75; 1,4 → 0,62; 1,7 → 0,46; 2,0 → 0,31; 2,4 → 0,16; unter etwa 0,75 schwingt sie nicht (wisenttest thr; Tabelle loopThreshold).
   - d = 31 µm wirksam (Draht 0,1 mm, Abstand, Dicke). Damit fällt die Schleifenverstärkung über 2,5 kHz ab, und Wiederholungen werden dunkler. Mit 8 µm schwang die Schleife bei 4–10 kHz.
   - Gleichlauf: Exzentrizität 0,05 % einmal je Umdrehung (Effectrode: bei gewartetem Gerät unhörbar).
   - Kopfspannung so abgeglichen, dass 1 V an der Anode V6A (1 kHz) 0,5 V an H ergibt (beides Planangaben).
 - **Kopf-Induktivitäten** 0,1 H (angenommen); Wiedergabekopf 650 Ω (Effectrode: 600–700 Ω).
 - **Trimmer:**
   - TF = 0,35: in REPEAT mit einem Kopf schwingt die Schleife ab LENGTH OF SWELL 0,9 (Abgleich, wisenttest loop).
-  - TSC = 5 k (Mitte), TSW = Mitte (SWELL je Kopf damit etwa 11 dB leiser als ECHO/REPEAT).
+  - TSC = 5 k (Mitte). TSW ganz offen (ab 1.1; vorher Mitte: SWELL je Kopf 11 dB leiser als ECHO/REPEAT). Offen ist SWELL je Kopf noch etwa 4 dB leiser, lauter geht es mit der Schaltung nicht.
+  - TD (Trocken-Anteil) als Modell-Regler DRY (ab 1.1); der Ausgang ist auf die Planstellung 0,67 geeicht.
 - **Klangregelung:** BASS und TREBLE linear; Rechtsanschlag = mehr Tiefen bzw. Höhen (wisenttest tone). Die Mittelstellung ist nicht linear im Frequenzgang.
-- **Übersprechen:** Abgeschaltete Köpfe kommen über die Swell-Schiene W (TSW-Abgriffe, je 330 k) mit etwa −50 dB auf einen eingeschalteten Kopf.
+- **Übersprechen:** Abgeschaltete Köpfe kommen über die Swell-Schiene W (TSW-Abgriffe, je 330 k) mit etwa −36 dB gegen das Echo auf einen eingeschalteten Kopf (TSW offen; bei TSW in Mittelstellung etwa −50 dB).
 - **Ausgang:** so geeicht, dass trocken = Eingang (1 kHz).
+- **Echo gegen trocken (Prüfung der Werkseinstellung 1.0):** Der trockene Weg geht vor INPUT ab (TD), INPUT regelt nur den Weg auf die Trommel. Der Plan ist auf etwa 1 mV am Eingang ausgelegt. Steht INPUT so, dass der Draht gerade sättigt, liegt das Echo bei VOLUME 10 etwa bei (−11 dB − Spitzenpegel in dBFS) gegen trocken (LEVEL 200 mV). Mit der Werkseinstellung von 1.0 (VOLUME 8) lag das Echo etwa 10 dB unter dem trockenen Signal und SWELL etwa 21 dB darunter; das war kaum hörbar. Ab 1.1: VOLUME 10, TSW offen, DRY als Regler.
 
 ## Prüfung (engine/tests/wisenttest.cpp)
 - Ruhespannungen siehe oben.
@@ -97,6 +101,6 @@ LENGTH OF SWELL läuft nicht bis null, weil unter dem Poti 47 k liegen. In REPEA
 - Zwei Rückkopplungsköpfe bei 0,5 bleiben stabil; bei 1,0 wächst der Pegel bis in die Sättigung.
 - Schleifenverstärkung über der Frequenz (LENGTH OF SWELL 0,5, 50 Hz): höchstens −4,1 dB bei 750 Hz, 400–3000 Hz innerhalb 1 dB, 100 Hz −12,7 dB, 10 kHz −21 dB.
 - Latenz (wisenttest lat): 3,07 Abtastwerte bis 48 kHz, 0 bei 88,2/96 kHz, 8,1 bei 176,4/192 kHz, 22,4 bei 352,8/384 kHz.
-- Rechenzeit: etwa 4,5 µs je Abtastwert bei 48 kHz (lautes Rauschen, 22 % eines Kerns), im Plugin-Prüfstand im Mittel etwa 11 %; 192 kHz etwa 23 %.
+- Rechenzeit: etwa 4,5 µs je Abtastwert bei 48 kHz (lautes Rauschen, 22 % eines Kerns), im Plugin-Prüfstand im Mittel etwa 11 %; 192 kHz etwa 23 %. Ab 1.1 (V3A als Röhre) auf einem langsameren Prüfrechner 7,7 µs statt 6,2 µs (1.0 auf demselben Rechner), also etwa ein Viertel mehr.
 - WebAssembly gegen C++: −97 dB (Newton-Toleranz und Mathematik-Bibliotheken).
 - Aliasing (Sinus 2,9 kHz, ohne Gleichlauf und Rauschen, nicht harmonische Anteile gegen Grundton): bis −10 dBFS bei INPUT 0,4 und bis −20 dBFS bei INPUT 0,8 unter −68 dB; nur bei starker Übersteuerung (INPUT 0,8 und −10 bzw. 0 dBFS, Aufnahme weit über der Sättigung) −40 bzw. −30 dB (ohne Überabtastung −21 bzw. −24 dB).

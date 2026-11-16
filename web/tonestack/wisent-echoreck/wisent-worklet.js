@@ -6,9 +6,9 @@
   // WebAssembly-Kern (engine/wasm/wisent_wasm.cpp); Ausgang mono, auf beide Kanäle
   class WisentWasm {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.ready = false; }
-    // p = { t: Zielwerte wie ws_target_buffer (17 Zahlen: Regler 0 … 1, Betriebsart, Köpfe, Volt bei 0 dBFS, OUTPUT dB, Netzfrequenz), tail (s), hold }
+    // p = { t: Zielwerte wie ws_target_buffer (19 Zahlen: Regler 0 … 1, Betriebsart, Köpfe, Volt bei 0 dBFS, OUTPUT dB, Netzfrequenz, DRY 0 … 1, Varispeed), tail (s), hold }
     setTarget(p) { if (!p || !Array.isArray(p.t)) return; const t = new Float64Array(this.x.memory.buffer, this.x.ws_target_buffer(), 24);
-      for (let i = 0; i < 17; i++) { const v = +p.t[i]; t[i] = Number.isFinite(v) ? v : NaN; }   // NaN: Kern nimmt den Standard
+      for (let i = 0; i < 19; i++) { const v = +p.t[i]; t[i] = Number.isFinite(v) ? v : NaN; }   // NaN: Kern nimmt den Standard
       if (!this.ready) { this.x.ws_init(this.fs); this.ready = true; } }   // Ruhezustand beim ersten Mal (etwa 0,1 s); danach gleiten die Regler (70 ms), Tasten sofort
     reset() { if (this.ready) this.x.ws_reset(); }
     eye() { return this.ready ? this.x.ws_eye() : 0; }

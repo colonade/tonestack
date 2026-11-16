@@ -2,26 +2,27 @@
 # Zeichnet die Frontplatte des Wisent Echoreck (Röhren-Echo mit Magnettrommel nach dem Binson Echorec PE 603 T). Eigene Gestaltung im Stil
 # italienischer Geräte der Sechziger: kein Foto, kein Logo, keine Nachbildung der Binson-Frontplatte. Magisches Auge (Aufnahmepegel, EM84),
 # Knöpfe INPUT, LENGTH OF SWELL, VOLUME, BASS, TREBLE, Tasten ECHO/REPEAT/SWELL, zwei Reihen Kopftasten (oben Rückkopplung, unten Wiedergabe),
-# dazu LEVEL, OUTPUT und Netzfrequenz 50/60 Hz (Modell, nicht am Gerät).
-# Schreibt engine/gen/wisentpanel.jpg (2000 × 240, ohne Zeiger und Tasten), wisentgeo.json, wisentpanel_jpg.h, wisentgeo_gen.h und die Seitensymbole
+# dazu DRY (Trimmer TD, im Gerät innen), VARISPEED (späterer Umbau), LEVEL, OUTPUT und Netzfrequenz 50/60 Hz (Modell, nicht am Gerät).
+# Schreibt engine/gen/wisentpanel.jpg (2240 × 240, ohne Zeiger und Tasten), wisentgeo.json, wisentpanel_jpg.h, wisentgeo_gen.h und die Seitensymbole
 #   python3 engine/tools/wisent_panel.py [repo]
 import json, os, sys, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 R = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', '..')
 GEN = os.path.join(R, 'engine', 'gen')
-W, H, S = 2000, 240, 2
+W, H, S = 2240, 240, 2
 FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FN = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf'
 PANEL = (58, 64, 62); INK = (232, 226, 206); DIM = (170, 168, 152); GOLD = (206, 172, 98)
 KY = 128; KR = 30
 KNOBS = [('input', 470, 'INPUT', '0', '10'), ('swell', 590, 'LENGTH OF SWELL', '0', '10'), ('volume', 710, 'VOLUME', '0', '10'),
-         ('bass', 830, 'BASS', '−', '+'), ('treble', 950, 'TREBLE', '−', '+'), ('level', 1640, 'LEVEL', '20 mV', '2 V'), ('out', 1760, 'OUTPUT', '−24', '+24 dB')]
+         ('bass', 830, 'BASS', '−', '+'), ('treble', 950, 'TREBLE', '−', '+'), ('level', 1880, 'LEVEL', '20 mV', '2 V'), ('out', 2000, 'OUTPUT', '−24', '+24 dB'),
+         ('dry', 1640, 'DRY (TD)', '0', '10'), ('speed', 1760, 'VARISPEED', '¼×', '2×')]   # Reihenfolge = Parameter der Oberfläche (KPARAM)
 EYE = (330, 128, 120, 30)             # Mitte x, y, Breite, Höhe des Leuchtschirms
 MODE = [(1085, 76), (1085, 128), (1085, 180)]   # ECHO, REPEAT, SWELL (Mitte; Taste 74 × 34)
 BW, BH = 74, 34
 HEADX = [1262, 1342, 1422, 1502]; HFB, HOUT = 100, 172   # Kopftasten: obere Reihe Rückkopplung, untere Wiedergabe (Taste 56 × 30)
 HW, HH = 56, 30
-MAINS = (1885, 128)                   # Kippschalter 50/60 Hz
+MAINS = (2125, 128)                   # Kippschalter 50/60 Hz
 def font(px, f=FB): return ImageFont.truetype(f, int(round(px * S)))
 def draw():
     im = Image.new('RGB', (W * S, H * S)); d = ImageDraw.Draw(im)
@@ -57,6 +58,8 @@ def draw():
             a = j * math.pi / 18; c = 210 if math.sin(a - 2.4) > 0 else 186; kc = KR * 0.72
             d.line([((x + (kc + 1) * math.cos(a)) * S, (KY + (kc + 1) * math.sin(a)) * S), ((x + (KR - 1) * math.cos(a)) * S, (KY + (KR - 1) * math.sin(a)) * S)], fill=(c, c - 6, c - 22), width=max(1, int(1.4 * S)))
         kc = KR * 0.72; d.ellipse([(x - kc) * S, (KY - kc) * S, (x + kc) * S, (KY + kc) * S], fill=(222, 214, 190))
+        if k == 'speed':   # 1× (Stellung log(4)/log(8) der logarithmischen Skala)
+            a = (-150 + 300 * math.log(4) / math.log(8)) * math.pi / 180; tx, ty = x + (KR + 22) * math.sin(a), KY - (KR + 22) * math.cos(a); tw = d.textlength('1×', font=ff); d.text((tx * S - tw / 2, (ty - 2) * S), '1×', font=ff, fill=GOLD)
     # Tasten: Betriebsart und Köpfe (Schächte; die Tasten zeichnet die Oberfläche)
     for (x, y) in MODE:
         d.rounded_rectangle([(x - BW / 2 - 4) * S, (y - BH / 2 - 4) * S, (x + BW / 2 + 4) * S, (y + BH / 2 + 4) * S], radius=5 * S, fill=(26, 28, 27))
@@ -67,7 +70,7 @@ def draw():
     for i, x in enumerate(HEADX): ctext(x, 44, str(i + 1), 14, FB)   # Zeiten darunter zeichnet die Oberfläche (50/60 Hz)
     ctext(1085, 22, 'MODE', 12, FB)
     # Trennlinie Modell
-    d.line([(1560 * S, 30 * S), (1560 * S, (H - 30) * S)], fill=GOLD, width=2 * S); ctext(1770, 22, 'MODEL  (not on the unit)', 11, FB, DIM)
+    d.line([(1560 * S, 30 * S), (1560 * S, (H - 30) * S)], fill=GOLD, width=2 * S); ctext(1900, 22, 'MODEL  (not on the unit)', 11, FB, DIM)
     mx, my = MAINS; ctext(mx, 52, 'MAINS', 12.5, FB); ctext(mx, 80, '60 Hz', 11, FN, DIM); ctext(mx, 164, '50 Hz', 11, FN, DIM)
     d.ellipse([(mx - 16) * S, (my - 16) * S, (mx + 16) * S, (my + 16) * S], fill=(200, 200, 190), outline=(90, 90, 84), width=2 * S)
     ctext(mx, 196, 'drum speed', 10, FN, DIM)
@@ -86,7 +89,7 @@ def main():
     with open(os.path.join(GEN, 'wisentgeo_gen.h'), 'w') as f:
         f.write('// erzeugt von engine/tools/wisent_panel.py: Lage der Bedienelemente auf wisentpanel.jpg (Bildpunkte)\n')
         f.write('static const int WSW = %d, WSH = %d;\n' % (W, H))
-        f.write('static const double WSKNOB[%d][3] = {%s};   // INPUT, LENGTH OF SWELL, VOLUME, BASS, TREBLE, LEVEL, OUTPUT\n' % (len(KNOBS), ', '.join('{%d, %d, %d}' % (x, KY, KR) for _, x, _, _, _ in KNOBS)))
+        f.write('static const double WSKNOB[%d][3] = {%s};   // INPUT, LENGTH OF SWELL, VOLUME, BASS, TREBLE, LEVEL, OUTPUT, DRY, VARISPEED\n' % (len(KNOBS), ', '.join('{%d, %d, %d}' % (x, KY, KR) for _, x, _, _, _ in KNOBS)))
         f.write('static const double WSEYE[4] = {%d, %d, %d, %d};   // magisches Auge: Mitte x, y, Breite, Höhe\n' % EYE)
         f.write('static const double WSMODE[3][2] = {%s}; static const double WSBTN[2] = {%d, %d};   // ECHO, REPEAT, SWELL\n' % (', '.join('{%d, %d}' % m for m in MODE), BW, BH))
         f.write('static const double WSHEADX[4] = {%s}; static const double WSHFB = %d, WSHOUT = %d; static const double WSHBTN[2] = {%d, %d};   // Kopftasten\n' % (', '.join(str(x) for x in HEADX), HFB, HOUT, HW, HH))
