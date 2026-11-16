@@ -153,7 +153,8 @@ struct Gui {
     { const char *to[3] = {"1X", "2X", "4X"}; tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", to, osActive != os ? "switching ..." : os == 2 ? "needs > 1 core" : "while playing", rendering); }
     { int r = std::max(0, std::min(2, (int)std::lround(v[P_ROS]))); const char *tr[3] = {"AS LIVE", "8X", "16X"}; tsw::toggle(c, SW_X[1], SW_Y, 3, r, "RENDER", tr, rendering ? "rendering now" : "offline bounce"); }
     { const char *oo[2] = {"ON", "OFF"}; tsw::toggle(c, SW_X[2], SW_Y, 2, v[P_SPK] > 0.5 ? 0 : 1, "SPEAKER", oo, "Vintage 30");
-      const char *tq[2] = {"AMP", "PREAMP"}; const bool pre = v[P_PRE] > 0.5; tsw::toggle(c, SW_X[3], SW_Y, 2, pre ? 1 : 0, "TAP", tq, pre ? "no power amp" : "speaker output"); }
+      const char *tq[3] = {"AMP", "PREAMP", "FX SEND"}, *tsub[3] = {"speaker output", "no power amp", "before V4B, tone stack"}; const int ti = std::max(0, std::min(2, (int)std::lround(v[P_PRE])));
+      tsw::toggle(c, SW_X[3], SW_Y, 3, ti, "TAP", tq, tsub[ti]); }   // FX SEND ab 1.7
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht die Kathodenspannung, Strich), Leistung = Effektivspannung² / 8 Ω (Strich = 100 W; übersteuert liefert die Endstufe mehr)
     { const char *tn[7] = {"V1B input", v[P_OD] > 0.5 ? "V2A overdrive" : "V1A normal", "V3B", "V4B fx return", "V5 inverter", "6L6GC grid", "power"};
       double lx = 580, bx = 690, bw = 120, bh = 11, y0 = 30, dy = 16; const bool preT = v[P_PRE] > 0.5; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 24, 13, true);
@@ -176,7 +177,7 @@ struct Gui {
       curveStale = computeCurves && key != curveKey; }
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x14161a); cairo_rectangle(c, 0, 0, tsw::UW, PLOTU); cairo_fill(c);
       double px0 = 58, px1 = tsw::UW - 18, py0 = 36, py1 = PLOTU - 40;
-      setrgb(c, 0xc8ccd4); tsw::text(c, v[P_PRE] > 0.5 ? (v[P_SPK] > 0.5 ? "FREQUENCY RESPONSE  (small signal, after preamp, re 1 kHz, sound pressure)" : "FREQUENCY RESPONSE  (small signal, after preamp, re 1 kHz)")
+      setrgb(c, 0xc8ccd4); tsw::text(c, v[P_PRE] > 1.5 ? (v[P_SPK] > 0.5 ? "FREQUENCY RESPONSE  (small signal, at FX send, re 1 kHz, sound pressure)" : "FREQUENCY RESPONSE  (small signal, at FX send, re 1 kHz)") : v[P_PRE] > 0.5 ? (v[P_SPK] > 0.5 ? "FREQUENCY RESPONSE  (small signal, after preamp, re 1 kHz, sound pressure)" : "FREQUENCY RESPONSE  (small signal, after preamp, re 1 kHz)")
         : v[P_SPK] > 0.5 ? "FREQUENCY RESPONSE  (small signal, re 1 kHz, sound pressure)" : "FREQUENCY RESPONSE  (small signal, speaker terminals, re 1 kHz)", px0, 22, 13, true);
       tsw::plot(c, curve, refCurve, NF, freqAt, px0, px1, py0, py1, REFLABEL, false); cairo_restore(c); }
     cairo_restore(c);
@@ -195,8 +196,8 @@ struct Gui {
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; const double *J = SLOJACK[0]; double dx = x - J[0], dy = y - J[1]; return dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14) ? 0 : -1; }
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < NPS; k++) if (std::fabs(x - SLOSW[k][0]) <= 32 && std::fabs(y - SLOSW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
-  void moveSwitch(int p, int dir) { if (p == P_SPK || p == P_PRE) { setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : (dir < 0) == (p == P_SPK) ? 1 : 0); return; }   // SPEAKER: oben = ON; TAP: oben = AMP
-    int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }   // OVERSAMPLING, RENDER: je drei Stellungen
+  void moveSwitch(int p, int dir) { if (p == P_SPK) { setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 1 : 0); return; }   // SPEAKER: oben = ON
+    int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); }   // OVERSAMPLING, RENDER, TAP (ab 1.7: AMP oben, PREAMP, FX SEND unten): je drei Stellungen
   void togglePanel(int k) { int p = SWPARAM[k]; setP(p, getP(p) > 0.5 ? 0 : 1); }
   int knobParam(int i) const { return i < NK ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
   double knobVal(int i) const { if (i < NK) return getP(KPARAM[i]); return i == 9 ? tsin::vinU(getP(P_VIN)) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
@@ -221,9 +222,9 @@ struct Gui {
         { double plx, ply; toLower(x, y, plx, ply); if (tsw::prefHit(plx, ply, 410, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } }   // Schalter der Kopfzeile (für alle Plugins gemeinsam gespeichert)
         if (hitInRef(x, y)) { if (getP(P_INREF) > 0.5) setP(P_INREF, 0); else if (resetPeak) resetPeak(); return true; }
         int k = hitKnob(x, y);
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? std::log(DEF_VIN) / std::log(1000.0) * 10 : k == 10 ? 6 : KPARAM[k] == P_MASTER || KPARAM[k] == P_NMASTER ? 3 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 9 ? tsin::vinU(DEF_VIN) * 10 : k == 10 ? 6 : KPARAM[k] == P_MASTER || KPARAM[k] == P_NMASTER ? 3 : 5); } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int ps = hitPanelSw(x, y); if (ps >= 0) { togglePanel(ps); return true; }
-        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_SPK || b == P_PRE ? 0 : half == 0 ? -1 : 1); return true; } }
+        { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_SPK ? 0 : half == 0 ? -1 : 1); return true; } }
         return false; }
       case 1: {
         if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) * (drag >= 9 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }

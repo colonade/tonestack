@@ -1095,22 +1095,22 @@ function wav24(y, fs) {   // WAV, 1 Kanal, 24 Bit PCM
   let o = 44; for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, y[i])); let q = Math.round(x * 8388607); if (q < 0) q += 16777216; v.setUint8(o, q & 255); v.setUint8(o + 1, (q >> 8) & 255); v.setUint8(o + 2, (q >> 16) & 255); o += 3; }
   return b;
 }
-async function renderThroughAmp(prm, onProgress) {
-  const fs = A.ctx.sampleRate, n = A.buf.length, dur = A.buf.duration;
+async function renderThroughAmp(prm, onProgress, buf = A.buf, fs = A.ctx.sampleRate) {   // buf/fs (ab Web 2026-11-16-5, Messung): eigener Puffer statt der geladenen Datei
+  const n = buf.length, dur = buf.duration;
   if (!A.fallback && window.OfflineAudioContext && window.AudioWorkletNode) {
     const oc = new OfflineAudioContext(1, n, fs); await oc.audioWorklet.addModule('b100ii-worklet.js');
     const node = new AudioWorkletNode(oc, 'b100ii-tonestack', { numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1], channelCount:1, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{ params: prm, bypass: false, match: false } });
-    const bin = (A.wasmReady ? await A.wasmReady : A.wasm) ? wasmBin() : null;   // erst sicher sein, welcher Kern in Echtzeit läuft, dann denselben nehmen
+    const bin = (A.wasmReady ? await A.wasmReady : (A.wasm ?? true)) ? wasmBin() : null;   /* noch kein Audio (Messung ohne Datei): WebAssembly versuchen */   // erst sicher sein, welcher Kern in Echtzeit läuft, dann denselben nehmen
     if (bin) await new Promise(res => { node.port.onmessage = e => { if (e.data && 'wasm' in e.data) res(); }; node.port.start(); node.port.postMessage({ wasm: bin.buffer }); });   // schlägt der Kern hier fehl, rechnet das Worklet mit dem JavaScript-Kern weiter
     node.port.postMessage({ params: prm, bypass: false, match: false });
-    const src = oc.createBufferSource(); src.buffer = A.buf; src.connect(node); node.connect(oc.destination); src.start(0);
+    const src = oc.createBufferSource(); src.buffer = buf; src.connect(node); node.connect(oc.destination); src.start(0);
     let timer = 0;
     if (typeof oc.suspend === 'function') { for (let t = 1; t < dur; t += 1) { const tt = t; oc.suspend(tt).then(() => { onProgress(tt / dur); oc.resume(); }).catch(() => {}); } }
     else { const t0 = performance.now(); timer = setInterval(() => onProgress(-((performance.now() - t0) / 1000)), 500); }   // Firefox kennt suspend() nicht: verstrichene Zeit statt Prozent
     try { const out = await oc.startRendering(); return out.getChannelData(0); } finally { if (timer) clearInterval(timer); }
   }
   const eng = new B100DSP.YEngine(fs); eng.setTarget(prm);
-  const c0 = A.buf.getChannelData(0), c1 = A.buf.getChannelData(A.buf.numberOfChannels > 1 ? 1 : 0), y = new Float32Array(n), B = 4096;
+  const c0 = buf.getChannelData(0), c1 = buf.getChannelData(buf.numberOfChannels > 1 ? 1 : 0), y = new Float32Array(n), B = 4096;
   for (let p = 0; p < n; p += B) { const e = Math.min(n, p + B); for (let i = p; i < e; i++) { eng.tick(); y[i] = eng.step(0.5 * (c0[i] + c1[i])); }
     onProgress(e / n); await new Promise(r => setTimeout(r, 0)); }
   return y;
@@ -1131,6 +1131,8 @@ async function download() {
   finally { A.rendering = false; setButtons(); }
 }
 $('adl').onclick = download;
+// Messung (ab Web 2026-11-16-5, assets/messung.js): Prüfton mit Spitze = INPUT durch denselben Weg wie beim Speichern
+window.TSMESS = { busy: () => !!A.rendering, render: async (buf, onP) => { A.rendering = true; setButtons(); try { return await renderThroughAmp((() => { const p = params(); return { v: p.v, s: { ...p.s, vin: vinVolt() } }; })(), onP, buf, buf.sampleRate); } finally { A.rendering = false; setButtons(); } } };
 $('avin').oninput = () => { const mv = Math.min(5000, Math.pow(10, +$('avin').value)), du = 20 * Math.log10(mv / 1000 / Math.SQRT2 / 0.7745966692);   // dBu: Effektivwert eines Sinus mit dieser Spitze (0 dBu = 0,7746 V)
   $('avinv').textContent = (mv < 10 ? mv.toFixed(1).replace('.', ',') : Math.round(mv)) + ' mV · ' + (du < 0 ? '−' : '+') + Math.abs(du).toFixed(1).replace('.', ',') + ' dBu'; send(); };
 $('avin').oninput();   // Anzeige zum gespeicherten Wert (mV und dBu)
@@ -1510,4 +1512,5 @@ body.kompakt .mlow>.sub.after h3{font-size:1rem;margin:0 0 6px}
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
+<script src="../assets/messung.js"></script>
 </body></html>

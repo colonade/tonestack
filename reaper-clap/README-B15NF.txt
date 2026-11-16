@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.28
+Version 1.29
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -458,3 +458,7 @@ Notes
   automation as a fraction of the parameter range, so INPUT automation
   recorded with an earlier version plays back at a different voltage;
   redraw it if you used it.
+
+1.29
+  Fixed: a double-click on INPUT set 292 mV instead of the default
+  100 mV (since 1.28). Sound unchanged.

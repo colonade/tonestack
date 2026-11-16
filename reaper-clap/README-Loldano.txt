@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.6
+Version 1.7
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -107,6 +107,15 @@ Signal tap
   Vintage 30 filter acts on this signal. Switching crossfades in 20 ms;
   the DRIVE meters for the phase inverter, the 6L6GC and the power show
   "-".
+  TAP FX SEND (from 1.7): taps the same preamp network earlier, at the
+  effects loop behind V3B and the cathode follower V3A (FX SEND after the
+  100 k / 1 k divider; the loop is connected through), so before V4B, V4A,
+  the tone stack and MASTER. This is where the second harmonic is highest:
+  the following inverting stage V4B partly cancels it again (NORMAL clean,
+  PREAMP 10, 400 Hz: k2 at V3B -36 dB at 100 mV and -33 dB at 140 mV,
+  at the speaker -48 and -35 dB). Level matched like PREAMP (x 11.65);
+  tone stack and MASTER have no effect here. Meant for comparisons with
+  circuit simulations measured at V3B, and for the raw preamp sound.
 
 Parameters
   Preamp Normal, Preamp Overdrive, Bass, Middle, Treble, Master Normal,
@@ -116,7 +125,8 @@ Parameters
   Output level (-36 ... +24 dB); Input reference (peak of your playing /
   0 dBFS); Oversampling when rendering offline (same as live / 8x / 16x,
   from 1.2); Speaker (Celestion Vintage 30, data sheet curve) (Off / On)
-  and Signal tap (speaker output / after the preamp) (both from 1.5).
+  and Signal tap (speaker output / after the preamp / FX send) (from 1.5,
+  FX send from 1.7).
   Knob 10 = clockwise end (the amp's own scale reads 1 to 11).
   Defaults: all knobs 5, both masters 3, Overdrive channel, Clean, Bright
   off, 100 mV, 2x, 0 dB, rendering 8x, speaker off, whole amp.
@@ -130,8 +140,8 @@ User interface
   BRIGHT, CRUNCH, OVERDRIVE), the eight knobs. Knobs: drag vertically,
   mouse wheel, double-click = default. Below the panel the model strip
   (not on the amp): OVERSAMPLING, RENDER (oversampling for offline
-  rendering, from 1.2), SPEAKER (ON / OFF) and TAP (AMP / PREAMP) (from
-  1.5), the DRIVE meters (grid swing of V1B
+  rendering, from 1.2), SPEAKER (ON / OFF) and TAP (AMP / PREAMP / FX SEND)
+  (from 1.5, FX SEND from 1.7), the DRIVE meters (grid swing of V1B
   input, V2A overdrive or V1A normal, V3B, V4B, the phase inverter and the
   6L6GC grids, 100 % = grid reaches the cathode voltage; output power =
   rms voltage squared / 8 ohm, mark = 100 W), INPUT (instrument level) and
@@ -339,3 +349,17 @@ Notes
   automation as a fraction of the parameter range, so INPUT automation
   recorded with an earlier version plays back at a different voltage;
   redraw it if you used it.
+
+1.7
+  TAP has a third position, FX SEND: the signal at the effects loop
+  behind V3B and V3A, before V4B and the tone stack (see "Signal tap").
+  The parameter "Signal tap" now has three values (0 speaker output,
+  1 after the preamp, 2 FX send); saved projects keep their setting.
+  VST3 only: automation of TAP recorded with an earlier version plays
+  back differently (stepped values are stored as a fraction of the
+  range).
+  Fixed: a double-click on INPUT set 292 mV instead of the default
+  100 mV (since 1.6).
+  New test engine/tests/slothd: k2/k3 at V3B, V4A and the speaker
+  (NORMAL clean, PREAMP 10, 100 and 140 mV, 400 Hz) must stay within
+  0.3 dB of the values measured on 16 November 2026.
