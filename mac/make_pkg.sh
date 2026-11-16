@@ -6,7 +6,7 @@
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"; LOV="$LOLDANO"; KAV="$KAISERIN"; BLV="$BLECH"   # Versionen wie im Release
+eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"; LOV="$LOLDANO"; KAV="$KAISERIN"; BLV="$BLECH"; WIV="$WISENT"   # Versionen wie im Release
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/res"
 # Nachlauf je Plugin (ab 2026-11-03): fasst nur die Dateien des gewählten Plugins an. Vorher lief für jedes Teilpaket dasselbe Skript und
 # verschob von Hand installierte Fassungen aller drei Plugins in den Papierkorb, auch wenn nur eines gewählt war.
@@ -43,7 +43,7 @@ killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
   } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
-post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76; post loldano Loldano_SLO100; post kaiserin Kaiserin_Reverb; post blech140 Blech_140
+post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76; post loldano Loldano_SLO100; post kaiserin Kaiserin_Reverb; post blech140 Blech_140; post wisent Wisent_Echoreck
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -66,7 +66,8 @@ one AmpFett_76 ampfett76 "$U76V" component; one AmpFett_76 ampfett76 "$U76V" vst
 one Loldano_SLO100 loldano "$LOV" component; one Loldano_SLO100 loldano "$LOV" vst3
 one Kaiserin_Reverb kaiserin "$KAV" component; one Kaiserin_Reverb kaiserin "$KAV" vst3
 one Blech_140 blech140 "$BLV" component; one Blech_140 blech140 "$BLV" vst3
-sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" -e "s/@KAV@/$KAV/g" -e "s/@BLV@/$BLV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+one Wisent_Echoreck wisent "$WIV" component; one Wisent_Echoreck wisent "$WIV" vst3
+sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" -e "s/@KAV@/$KAV/g" -e "s/@BLV@/$BLV/g" -e "s/@WIV@/$WIV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
@@ -102,6 +103,7 @@ cat > "$W/dist.xml" <<X
     <line choice="loldano"/>
     <line choice="kaiserin"/>
     <line choice="blech140"/>
+    <line choice="wisent"/>
   </choices-outline>
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Federhall, Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
@@ -109,7 +111,7 @@ cat > "$W/dist.xml" <<X
   <choice id="yamaha" title="Lametta B100-II Bass Amp $YV" description="Transistor-Bassverstärker mit 5-Band-EQ, Endstufe und Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.yamaha.component"/><pkg-ref id="de.tonestack.yamaha.vst3"/>
   </choice>
-  <choice id="b15nf" title="AmpFett B-15NF Bass Amp $BV" description="Röhren-Bassverstärker nach dem Werksschaltplan (6SL7, 6L6GC, 5AR4) mit Netzteil, Gegenkopplung und Lautsprecher. Audio Unit und VST3.">
+  <choice id="b15nf" title="AmpFett B-15NF Bass Amp $BV" description="Röhren-Bassverstärker nach dem Werksschaltplan (6SL7, 6L6GC, 5AR4) mit Netzteil, Gegenkopplung und Lautsprecher; Abgriff nach der Vorstufe ohne Endstufe wählbar. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.b15nf.component"/><pkg-ref id="de.tonestack.b15nf.vst3"/>
   </choice>
   <choice id="gk800rb" title="GK 800RB Bass Amp $GV" description="Transistor-Bassverstärker nach dem Service-Manual 1991: Vorstufe als Schaltung (4-Band-EQ, Filter, Boost mit J113), Bi-Amp-Weiche, zwei Endstufen, Lautsprecher. Audio Unit und VST3.">
@@ -121,7 +123,7 @@ cat > "$W/dist.xml" <<X
   <choice id="b100iii" title="Lametta B100-III Bass Amp $B3V" description="Transistor-Bassverstärker nach dem Service Manual 1984: aktive Klangregelung, zwei parametrische Entzerrer mit PRESET LEVEL (ein/aus wie mit dem Fußschalter), 100-W-Endstufe; ohne Lautsprecher. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.b100iii.component"/><pkg-ref id="de.tonestack.b100iii.vst3"/>
   </choice>
-  <choice id="svtcl" title="AmpFett SVT-CL Bass Amp $SVV" description="Röhren-Bassverstärker (300 W) nach dem Service Manual des Ampeg SVT-CL: Vorstufe mit 12AX7, Klangregelung mit fünfstufiger Mittenfrequenz, ULTRA HI/LO, Phasenumkehr, Treiber mit 12AU7, Endstufe mit sechs 6550 und Ausgangsübertrager (4 oder 2 Ω); ohne Lautsprecher. Audio Unit und VST3.">
+  <choice id="svtcl" title="AmpFett SVT-CL Bass Amp $SVV" description="Röhren-Bassverstärker (300 W) nach dem Service Manual des Ampeg SVT-CL: Vorstufe mit 12AX7, Klangregelung mit fünfstufiger Mittenfrequenz, ULTRA HI/LO, Phasenumkehr, Treiber mit 12AU7, Endstufe mit sechs 6550 und Ausgangsübertrager (4 oder 2 Ω); Lautsprecher (8×10-Box, geschätzt) zuschaltbar, Abgriff nach der Vorstufe ohne Endstufe wählbar. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.svtcl.component"/><pkg-ref id="de.tonestack.svtcl.vst3"/>
   </choice>
   <choice id="wieneq" title="Wien EQ $WQV" description="Fünfband-Stereo-Equalizer mit Wien-Brücken nach den veröffentlichten Angaben zum adt-audio TM205: LOW und HIGH als Kuhschwanzfilter mit je zwei Tasten, drei vollparametrische Mittenbänder, EQ ON, Regelbereich ±6/±12/±20 dB. Audio Unit und VST3.">
@@ -130,7 +132,7 @@ cat > "$W/dist.xml" <<X
   <choice id="ampfett76" title="AmpFett 76 Limiting Amplifier $U76V" description="FET-Kompressor/Limiter nach dem Schaltplan des UREI 1176LN (Op-Amp-Eingang, Klasse-AB-Ausgang): INPUT, OUTPUT, ATTACK, RELEASE, vier RATIO-Tasten auch gemeinsam, VU-Anzeige. Dazu nach dem Vorbild des Origin Effects Cali76: stufenlose Ratio, DRY, Hochpass in der Seitenkette, zweite Stufe. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.ampfett76.component"/><pkg-ref id="de.tonestack.ampfett76.vst3"/>
   </choice>
-  <choice id="loldano" title="Loldano SLO-100 Guitar Amp $LOV" description="Röhren-Gitarrenverstärker (100 W) nach dem Schaltplan des Soldano SLO-100: fünf 12AX7 mit NORMAL- und OVERDRIVE-Kanal, Klangregelung, Phasenumkehr, vier 6L6GC mit Ausgangsübertrager, Gegenkopplung und PRESENCE, an einer Lautsprecherlast gerechnet (ohne Boxensimulation). Audio Unit und VST3.">
+  <choice id="loldano" title="Loldano SLO-100 Guitar Amp $LOV" description="Röhren-Gitarrenverstärker (100 W) nach dem Schaltplan des Soldano SLO-100: fünf 12AX7 mit NORMAL- und OVERDRIVE-Kanal, Klangregelung, Phasenumkehr, vier 6L6GC mit Ausgangsübertrager, Gegenkopplung und PRESENCE, an einer 4×12-Box als Last gerechnet; Schall einer Celestion Vintage 30 nach Datenblatt zuschaltbar, Abgriff nach der Vorstufe ohne Endstufe wählbar. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.loldano.component"/><pkg-ref id="de.tonestack.loldano.vst3"/>
   </choice>
   <choice id="kaiserin" title="Kaiserin Reverb $KAV" description="Hall mit der Bedienung des Empress Effects Reverb (eigener Entwurf nach der Anleitung): HALL, PLATE, SPRING, ROOM, MOD, SPARKLE mit DECAY, MIX, OUTPUT, LOW, HI, THING 1/2 und HOLD; mono rein, stereo raus. Audio Unit und VST3.">
@@ -138,6 +140,9 @@ cat > "$W/dist.xml" <<X
   </choice>
   <choice id="blech140" title="Blech 140 Plate Reverb $BLV" description="Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz): DECAY 1–3,8 s bei 500 Hz mit Instrument und Lampe MOTOR, BASS CUT 0–3, dazu MIX, PRE-DELAY und OUTPUT; mono rein, stereo raus. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.blech140.component"/><pkg-ref id="de.tonestack.blech140.vst3"/>
+  </choice>
+  <choice id="wisent" title="Wisent Echoreck $WIV" description="Röhren-Echo mit Magnettrommel nach dem Schaltplan des Binson Echorec PE 603 T: vier Wiedergabeköpfe, ECHO/REPEAT/SWELL, Kopftasten für Wiedergabe und Rückkopplung, INPUT mit magischem Auge, LENGTH OF SWELL, VOLUME, BASS, TREBLE; dazu DRY, VARISPEED und WOBBLE (abgenutzte Trommel); mono rein, mono raus. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.wisent.component"/><pkg-ref id="de.tonestack.wisent.vst3"/>
   </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.laney.vst3" version="$LV">laney-vst3.pkg</pkg-ref>
@@ -163,6 +168,8 @@ cat > "$W/dist.xml" <<X
   <pkg-ref id="de.tonestack.kaiserin.vst3" version="$KAV">kaiserin-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.blech140.component" version="$BLV">blech140-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.blech140.vst3" version="$BLV">blech140-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.wisent.component" version="$WIV">wisent-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.wisent.vst3" version="$WIV">wisent-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
 P="$OUT/$PKG"

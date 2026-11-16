@@ -42,6 +42,10 @@ Technical Data bestätigt die Leiterplatte: 220k/.00047 oben, .001/.01 in der Mi
 - Übertrager OT-214: primär 6,5 kΩ (Anode–Anode), sekundär 8 Ω und 16 Ω; Gleichstromwiderstand primär 290 Ω, sekundär 1 Ω / 1,4 Ω.
 - Lautsprecher: CTS 15", 8 oder 16 Ω (Technical Data). Gerechnet: 8 Ω am 8-Ω-Abgriff (gleiche Last an der Primärseite wie 16 Ω am 16-Ω-Abgriff).
 
+## Abgriff nach der Vorstufe (ab 1.27, Modell)
+
+Eigenes, kleineres Netz: beide Kanäle, Klangregler, Mischung und die Phasenumkehr V3 als Last (Gegenkopplung vom Ausgang entfällt, ihr Widerstand liegt an Masse). Abgegriffen wird die Spannung am Gitter von V3A. Die Speisungen B3, B4 und die Vorspannung sind feste Quellen mit den Ruhewerten des ganzen Netzes (beim Aufbau aus dessen eingeschwungenem Zustand gelesen, etwa 362 V, 360 V, −49,6 V). Endstufe, Übertrager, Lautsprecher-Last und Netzteil werden nicht gerechnet. Pegel ×13,277 (PRE_GAIN): in Grundstellung bei 1 kHz gleich der Spannung an der Lautsprecherklemme. Mit SPEAKER wirkt der Lautsprecher (gleiche geschätzte Daten) als Filter auf diese Spannung (`engine/src/spkv.hpp`). Geprüft in `engine/tests/b15pre.cpp`: Zeitbereich gegen Knotenanalyse, Umschalten ohne Sprung, Rechenzeit.
+
 ## Netzteil
 - PT-108: 750 V Mittelanzapfung, 160 mA; 5 V für die 5AR4; 6,3 V Heizung.
 - B1 (Gleichrichter-Katode, Mittelanzapfung des Übertragers): 30 µF/600 V. B1 → 1 kΩ/10 W → B2 (Schirmgitter): 40 µF.

@@ -32,7 +32,7 @@
 namespace sgui {
 constexpr double PI = 3.14159265358979323846;
 // Parameterindizes wie im Plugin
-enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_PSU, P_BAL, P_MIS, P_INREF, P_COUNT };
+enum { P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_STBY, P_PWR, P_VIN, P_OS, P_OUT, P_TAPER, P_PSU, P_BAL, P_MIS, P_INREF, P_SPK, P_PRE, P_COUNT };
 static const int KPARAM[6] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER};   // Knopf (Reihenfolge SVTKNOB) → Parameter
 static const char *KNAME[6] = {"GAIN", "BASS", "MIDRANGE", "FREQUENCY", "TREBLE", "MASTER"};
 static const char *FNAME[5] = {"220 Hz", "450 Hz", "800 Hz", "1.6 kHz", "3 kHz"};
@@ -43,9 +43,9 @@ constexpr double STRIPU = 150;  // Modellstreifen in UI-Einheiten (tsw::UW = 120
 constexpr double PLOTU = 300;   // Frequenzgang
 static const double TOTALH = FH + (STRIPU + PLOTU) * FW / tsw::UW;   // Gesamthöhe in Frontplatten-Einheiten
 constexpr double SW_Y = 88;
-constexpr int NSW = 4;
-static const double SW_X[NSW] = {64, 186, 308, 430};   // OUTPUT TAP (4 / 2 Ω), POT TAPER, POWER SUPPLY (ab 1.5), BAL OUT (ab 1.5)
-static const int SW_P[NSW] = {P_TAP, P_TAPER, P_PSU, P_BAL};
+constexpr int NSW = 6;
+static const double SW_X[NSW] = {50, 150, 250, 350, 450, 550};   // OUTPUT TAP (4 / 2 Ω), POT TAPER, POWER SUPPLY (ab 1.5), BAL OUT (ab 1.5), SPEAKER und TAP (ab 1.12; Abgriff nach der Vorstufe)
+static const int SW_P[NSW] = {P_TAP, P_TAPER, P_PSU, P_BAL, P_SPK, P_PRE};
 static const double KN_X[3] = {1010, 1120, 905}; // INPUT, OUTPUT, TUBE MISMATCH (ab 1.5; Index 9, 10, 11)
 constexpr double KN_Y = 72;
 constexpr int NF = 120;
@@ -155,30 +155,34 @@ struct Gui {
     { const char *tt[2] = {"4 OHM", "2 OHM"}; (void)os;
       tsw::toggle(c, SW_X[0], SW_Y, 2, v[P_TAP] > 0.5 ? 1 : 0, "OUTPUT", tt, "tap = load");
       const char *tl[3] = {"LOG 15 %", "LOG 10 %", "LINEAR"}; int tp = std::max(0, std::min(2, (int)std::lround(v[P_TAPER]))); tsw::toggle(c, SW_X[1], SW_Y, 3, tp, "POT TAPER", tl, "gain, bass, treble");
-      const char *tps[3] = {"SIMPLE", "50 HZ", "60 HZ"}; int ps = std::max(0, std::min(2, (int)std::lround(v[P_PSU]))); tsw::toggle(c, SW_X[2], SW_Y, 3, ps, "POWER SUPPLY", tps, "as schematic");
-      const char *tb[2] = {"OFF", "T1 EST."}; tsw::toggle(c, SW_X[3], SW_Y, 2, v[P_BAL] > 0.5 ? 1 : 0, "BAL OUT", tb, "load on preamp out"); }
+      const char *tps[3] = {"SIMPLE", "50 HZ", "60 HZ"}; int ps = std::max(0, std::min(2, (int)std::lround(v[P_PSU]))); tsw::toggle(c, SW_X[2], SW_Y, 3, ps, "SUPPLY", tps, "as schematic");
+      const char *tb[2] = {"OFF", "T1 EST."}; tsw::toggle(c, SW_X[3], SW_Y, 2, v[P_BAL] > 0.5 ? 1 : 0, "BAL OUT", tb, "on preamp out");
+      const char *oo[2] = {"ON", "OFF"}; tsw::toggle(c, SW_X[4], SW_Y, 2, v[P_SPK] > 0.5 ? 0 : 1, "SPEAKER", oo, "8x10 sealed, est.");
+      const char *tq[2] = {"AMP", "PREAMP"}; const bool pre = v[P_PRE] > 0.5; tsw::toggle(c, SW_X[5], SW_Y, 2, pre ? 1 : 0, "TAP", tq, pre ? "no power amp" : "output tap"); }
     // Aussteuerung: Gitterhub je Stufe (1 = Gitter erreicht 0 V, Strich), Leistung an 8 Ω (Strich = 30 W)
     { const char *tn[6] = {"V1B input", "V1A gain", "V2B mid", "amp in V1A", "6550 grid", "power"};
-      double lx = 580, bx = 680, bw = 120, bh = 13, y0 = 36, dy = 18; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
+      double lx = 640, bx = 715, bw = 85, bh = 13, y0 = 36, dy = 18; const bool preT = v[P_PRE] > 0.5; setrgb(c, 0xdcdee2); tsw::text(c, "DRIVE", lx, 30, 13, true);
       for (int i = 0; i < 6; i++) { double by = y0 + i * dy; setrgb(c, 0x9a9ea6); tsw::text(c, tn[i], lx, by + 11, 11.5, false);
         setrgb(c, 0x0f1114); cairo_rectangle(c, bx, by, bw, bh); cairo_fill(c); setrgb(c, 0x2e3138); cairo_set_line_width(c, 1); cairo_rectangle(c, bx + 0.5, by + 0.5, bw - 1, bh - 1); cairo_stroke(c);
         double x = meter[i], f, mark; bool over; char t[24];
         if (i < 5) { f = std::min(1.0, x / 1.5); mark = 1 / 1.5; over = x >= 1; std::snprintf(t, sizeof t, "%.0f %%", x * 100); }
         else { f = std::min(1.0, x / 300 / 1.25); mark = 1 / 1.25; over = x > 300; if (x < 0.05) std::snprintf(t, sizeof t, "-"); else std::snprintf(t, sizeof t, x < 10 ? "%.1f W" : "%.0f W", x); }
-        if (meterOn) { setrgb(c, over ? 0xff3b2a : f > mark * 0.7 ? 0xe8b23c : 0x3ec25a); cairo_rectangle(c, bx + 1, by + 1, (bw - 2) * f, bh - 2); cairo_fill(c); }
+        const bool on = meterOn && !(preT && i >= 3);   // Abgriff nach der Vorstufe: Endstufe nicht gerechnet
+        if (on) { setrgb(c, over ? 0xff3b2a : f > mark * 0.7 ? 0xe8b23c : 0x3ec25a); cairo_rectangle(c, bx + 1, by + 1, (bw - 2) * f, bh - 2); cairo_fill(c); }
         setrgb(c, 0xffffff, 0.45); cairo_rectangle(c, bx + 1 + (bw - 2) * mark - 0.5, by, 1, bh); cairo_fill(c);
-        setrgb(c, over && meterOn ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, meterOn ? t : "-", bx + bw + 10, by + 11, 11.5, false); } (void)rl; }
+        setrgb(c, over && on ? 0xffb3a8 : 0xcfd1d6); tsw::text(c, on ? t : "-", bx + bw + 10, by + 11, 11.5, false); } (void)rl; }
     for (int i = 0; i < 3; i++) { double uu = i == 0 ? std::log(v[P_VIN]) / std::log(1000) : i == 1 ? (v[P_OUT] + 36) / 60 : v[P_MIS] / 10;
       tsw::smallKnobV(c, KN_X[i], KN_Y, uu, i == 0 ? "INPUT" : i == 1 ? "OUTPUT" : "TUBE MISMATCH", vt[i], drag == 9 + i || hover == 9 + i, false); }   // MISMATCH: Ruhestrom-Unterschied der 6550-Seiten
     { char xt[64]; tsin::extraText(xt, sizeof xt, inPk, v[P_INREF] > 0.5); setrgb(c, 0x9a9ea6); tsw::text(c, xt, KN_X[0], KN_Y + 76, 11, false, 1); }   // unter INPUT: gemerkte Spitze; Klick setzt zurück bzw. schaltet alte Projekte auf „auto“
     // Frequenzgang (Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz), höchstens alle 100 ms neu
-    { char kb[256]; int kn = 0; const int ks[] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_TAPER, P_BAL};   // ohne TUBE MISMATCH: Kleinsignal praktisch gleich
+    { char kb[256]; int kn = 0; const int ks[] = {P_GAIN, P_BASS, P_MID, P_FREQ, P_TREB, P_MASTER, P_UHI, P_ULO, P_JACK, P_TAP, P_TAPER, P_BAL, P_SPK, P_PRE};   // ohne TUBE MISMATCH: Kleinsignal praktisch gleich
       for (int id : ks) sapp(kb, sizeof kb, kn, "%.4g|", v[id]); std::string key(kb, kn); double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       if (computeCurves && key != curveKey && (now - curveTime > 0.1 || curve.empty())) { computeCurves(curve, refCurve); curveKey = key; curveTime = now; }
       curveStale = computeCurves && key != curveKey; }
     { cairo_save(c); cairo_translate(c, 0, STRIPU); setrgb(c, 0x14161a); cairo_rectangle(c, 0, 0, tsw::UW, PLOTU); cairo_fill(c);
       double px0 = 58, px1 = tsw::UW - 18, py0 = 36, py1 = PLOTU - 40;
-      setrgb(c, 0xc8ccd4); tsw::text(c, "FREQUENCY RESPONSE  (small signal, output tap, re 1 kHz)", px0, 22, 13, true);
+      setrgb(c, 0xc8ccd4); tsw::text(c, v[P_PRE] > 0.5 ? (v[P_SPK] > 0.5 ? "FREQUENCY RESPONSE  (small signal, after preamp, re 1 kHz, sound pressure)" : "FREQUENCY RESPONSE  (small signal, after preamp, re 1 kHz)")
+        : v[P_SPK] > 0.5 ? "FREQUENCY RESPONSE  (small signal, re 1 kHz, sound pressure)" : "FREQUENCY RESPONSE  (small signal, output tap, re 1 kHz)", px0, 22, 13, true);
       tsw::plot(c, curve, refCurve, NF, freqAt, px0, px1, py0, py1, REFLABEL, true); cairo_restore(c); }
     cairo_restore(c);
     // Wertanzeige
@@ -196,7 +200,7 @@ struct Gui {
   int hitJack(double x, double y) const { double s = scale(); x /= s; y /= s; for (int i = 0; i < 2; i++) { const double *J = SVTJACK[i]; double dx = x - J[0], dy = y - J[1]; if (dx*dx + dy*dy <= (J[2] + 14) * (J[2] + 14)) return i; } return -1; }
   int hitPanelSw(double x, double y) const { double s = scale(); x /= s; y /= s; for (int k = 0; k < NPS; k++) if (std::fabs(x - SVTSW[k][0]) <= 32 && std::fabs(y - SVTSW[k][1]) <= 52) return k; return -1; }
   int hitSwitch(double x, double y, int &half) const { double lx, ly; toLower(x, y, lx, ly); for (int k = 0; k < NSW; k++) { half = tsw::toggleHit(lx, ly, SW_X[k], SW_Y, 30); if (half >= 0) return SW_P[k]; } return -1; }
-  void moveSwitch(int p, int dir) { if (p == P_TAPER || p == P_PSU) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : dir < 0 ? 0 : 1); }   // OUTPUT: oben = 4 Ω
+  void moveSwitch(int p, int dir) { if (p == P_TAPER || p == P_PSU) { int t = (int)std::lround(getP(p)); setP(p, std::max(0, std::min(2, t + (dir == 0 ? 1 : dir)))); } else setP(p, dir == 0 ? (getP(p) > 0.5 ? 0 : 1) : (dir < 0) == (p == P_SPK) ? 1 : 0); }   // SPEAKER: oben = ON; OUTPUT: oben = 4 Ω, TAP: oben = AMP
   void togglePanel(int k) { int p = SWPARAM[k]; setP(p, getP(p) > 0.5 ? 0 : 1); }
   int knobParam(int i) const { return i < 6 ? KPARAM[i] : i == 9 ? P_VIN : i == 10 ? P_OUT : P_MIS; }
   double knobVal(int i) const { if (i < 6) return KPARAM[i] == P_FREQ ? getP(P_FREQ) * 2.5 : getP(KPARAM[i]); return i == 9 ? std::log(getP(P_VIN)) / std::log(1000) * 10 : i == 10 ? (getP(P_OUT) + 36) / 60 * 10 : getP(P_MIS); }   // FREQUENCY: 0 … 4 auf 0 … 10 Ziehweg

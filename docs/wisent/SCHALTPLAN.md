@@ -93,6 +93,17 @@ LENGTH OF SWELL läuft nicht bis null, weil unter dem Poti 47 k liegen. In REPEA
 - **Ausgang:** so geeicht, dass trocken = Eingang (1 kHz).
 - **Echo gegen trocken (Prüfung der Werkseinstellung 1.0):** Der trockene Weg geht vor INPUT ab (TD), INPUT regelt nur den Weg auf die Trommel. Der Plan ist auf etwa 1 mV am Eingang ausgelegt. Steht INPUT so, dass der Draht gerade sättigt, liegt das Echo bei VOLUME 10 etwa bei (−11 dB − Spitzenpegel in dBFS) gegen trocken (LEVEL 200 mV). Mit der Werkseinstellung von 1.0 (VOLUME 8) lag das Echo etwa 10 dB unter dem trockenen Signal und SWELL etwa 21 dB darunter; das war kaum hörbar. Ab 1.1: VOLUME 10, TSW offen, DRY als Regler.
 
+## Taumeln WOBBLE (ab 1.2, Modell, nicht am Gerät)
+
+Abgenutzte Trommel: die Scheibe läuft nicht plan. Der Abstand Kopf–Draht wächst einmal je Umdrehung sinusförmig um bis zu 30 µm (WOBBLE 10) über die 31 µm des Modells.
+Starre Scheibe auf fester Achse: jede Stelle des Drahts behält ihren Abstand, beim Aufnehmen wie beim Abspielen; der Zusatzverlust hängt also an der Stelle der Spur
+(für alle Köpfe gleich, jeder Kopf liest die Stelle zu seiner Zeit). Abstandsverlust nach Wallace e^(−2π·d·f/v), beim Aufnehmen wie beim Abspielen angenommen,
+zusammen die doppelte Strecke. Gerechnet als Poisson-Kern der Breite 2·Δd/v längs der Spur (Fourier-Paar von e^(−2π·τ·|f|)), je Abtastwert über das Intervall
+integriert, bei ±20 Breiten (höchstens 4 ms) abgeschnitten, aus einer Tabelle mit 160 log-gestuften Breiten (linear gemischt), auf die Kopfspannung der Spur,
+4 ms hinter dem Schreiben (die Köpfe lesen 62 ms und mehr dahinter). Abweichung vom Ziel bis 30 dB Verlust höchstens 0,12 dB (wisenttest wob). Bei 50 Hz und
+WOBBLE 10: Echo bei 1 kHz schwankt über eine Umdrehung um 7,16 dB (Rechnung 7,17 dB). Drehzahl und Gleichlauf unverändert; die Anzeigen (Frequenzgang,
+Echomuster) zeigen die plane Trommel. WOBBLE 0 rechnet bitgleich wie 1.1.
+
 ## Prüfung (engine/tests/wisenttest.cpp)
 - Ruhespannungen siehe oben.
 - Echozeiten bei 50 Hz: 74,9/149,2/223,7/298,2 ms (Soll 74,4/148,8/223,2/297,6 ms + 3 Abtastwerte Laufzeit); bei 60 Hz 62,5/124,5/186,4/248,5 ms.

@@ -56,6 +56,14 @@ Schreibweise: „.1“ = µF, „470 pF“, „1M A“ = 1 MΩ logarithmisch, �
   abschaltbar (Parameter „BAL OUT load“, Grundstellung aus). T1-Daten stehen in keinem Plan → geschätzt 10 H, Wicklung 50 Ω, Eisenverluste 20 kΩ
   (damit 40 Hz −2,8 dB wie die Spezifikation −3 dB; Anhebung um 60 Hz +5,7 dB durch den Reihenkreis mit C26). Knoten im Code „balT“.
 
+## Abgriff nach der Vorstufe (ab 1.12, Modell)
+
+Eigenes, kleineres Netz: Vorverstärker bis C26/R33 (FX SEND, mit R80 und wahlweise T1), der Eingang der Endstufe R92 220 Ω, R7 1 kΩ, R8 470 kΩ als ohmsche Last (ohne D55/D56). Speisung der Vorstufe als feste Quelle mit dem Ruhewert des ganzen Netzes (einfach 345 V; nach Plan B343 eingeschwungen, etwa 348 V). Startwerte: Knotenspannungen des eingeschwungenen ganzen Netzes, dann 6 s bei 4 kHz und 0,3 s bei voller Rate eingeschwungen (C12 mit MIDDLE und C26 haben Zeitkonstanten bis 0,7 s; ohne das stand am Abgriff anfangs Gleichspannung). Pegel ×164,66 (PRE_GAIN): in Grundstellung bei 1 kHz gleich dem 4-Ω-Abgriff; am 2-Ω-Abgriff mal √(2/4) (gleiche Leistung). Geprüft in `engine/tests/svtpre.cpp`.
+
+## Lautsprecher (ab 1.12, geschätzt)
+
+Eine übliche 8×10-Box, geschlossen (zwei getrennte Kammern je vier Lautsprecher), etwa 32 l je Lautsprecher. Angepasst an die üblichen Herstellerangaben (−3 dB bei 58 Hz und 5 kHz, −10 dB bei 40 Hz, bezogen auf 150 Hz … 1 kHz): Re 6 Ω, Le 0,1 mH (Anpassgröße), R2 20 Ω, Fs 49,8 Hz, Qms 4, Qes 0,896, Vas 40 l, Vb 32 l, Kegel-Tiefpass 7 kHz (Q 0,7). Als Filter auf die Spannung am Abgriff (`engine/src/spkv.hpp`), auf 1 kHz normiert; die Last im Netz bleibt ohmsch.
+
 ## Endstufe 07S419-12
 - J1-12 (Vorstufe über FX RETURN, siehe oben) → R92 220 → Spitze der Buchse SLAVE J2 (Schaltkontakt offen) → R7 1 k → Gitter V1A (12AX7); D55/D56 1N3070 antiparallel und R8 470 k gegen Masse.
 - V1A: Anode R12 100 k von +345 V (200 V); Kathode → R13 1 k → F → R14 220 → Masse. F = Gegenkopplungseinspeisung (J10).

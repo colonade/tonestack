@@ -174,6 +174,24 @@ struct Drum {
   static constexpr double TW = 1.2e-3; int nf = 0, M = 0; std::vector<double> fir; std::vector<std::vector<double>> firT;
   double tau1 = 0.074, trev = 0.82;
   double v50 = 0.457, vT = 0.457, aV = 0;
+  // Taumeln (ab 1.2, Verschleiß; nicht am Gerät): die Scheibe läuft nicht plan, der Abstand Kopf–Draht wächst einmal je Umdrehung um bis zu wob (m) über dsp,
+  // sinusförmig zwischen 0 und wob. Starre Scheibe auf fester Achse: jede Stelle des Drahts behält ihren Abstand, beim Aufnehmen wie beim Abspielen;
+  // der Zusatzverlust hängt also an der Stelle der Spur (gleich für alle Köpfe, jeder Kopf liest die Stelle zu seiner Zeit). Abstandsverlust nach Wallace
+  // e^(−2π·d·f/v), beim Aufnehmen wie beim Abspielen angenommen, zusammen die doppelte Strecke: längs der Spur ein Poisson-Kern der Breite 2·Δd/v
+  // (Fourier-Paar von e^(−2π·τ·|f|)), je Abtastwert über das Intervall integriert (arctan; auch schmaler als ein Abtastwert richtig), bei ±20 Breiten
+  // abgeschnitten (höchstens 4 ms), aus einer Tabelle (Breiten log-gestuft, linear gemischt). Abweichung vom Ziel bis 30 dB Verlust höchstens 0,3 dB (wisenttest wob).
+  // Gerechnet auf die Kopfspannung (fbuf), KW Abtastwerte hinter dem Schreiben – die Köpfe lesen weit dahinter. wob = 0: wie 1.1 (bitgleich).
+  double wob = 0; int KW = 0, wobLeft = 0; std::vector<float> rbuf, dbuf;
+  static constexpr int NWT = 160; static constexpr double WT0 = 0.02, WT1 = 60;   // Breiten in Abtastwerten der Trommelrate
+  std::vector<std::vector<float>> wtab;
+  void wobSetup() { KW = (int)std::ceil(4e-3 * fs); rbuf.assign(N, 0.f); dbuf.assign(N, 0.f); wobLeft = 0; wtab.assign(NWT, {});
+    for (int i = 0; i < NWT; i++) { const double t = WT0 * std::pow(WT1 / WT0, (double)i / (NWT - 1)); const int L = std::min(KW, (int)std::ceil(20 * t)); std::vector<float> &k = wtab[i];
+      k.resize(L + 1); for (int j = 0; j <= L; j++) k[j] = (float)((std::atan((j + 0.5) / t) - std::atan((j - 0.5) / t)) / PI); } }
+  double wobKernel(int q, int i) const { const std::vector<float> &k = wtab[i]; const int L = (int)k.size() - 1; double y = k[0] * rbuf[q];
+    for (int j = 1; j <= L; j++) { int a = q - j, b = q + j; if (a < 0) a += N; if (b >= N) b -= N; y += k[j] * ((double)rbuf[a] + rbuf[b]); } return y; }
+  // Frequenzgang des Zusatzverlusts bei Breite ts (Abtastwerte) wie gerechnet (Prüfung)
+  double wobGain(double ts, double f) const { if (ts < WT0) return 1; const double x = std::log(std::min(ts, WT1) / WT0) / std::log(WT1 / WT0) * (NWT - 1); const int i = std::min(NWT - 2, (int)x); const double a = x - i;
+    auto g = [&](int n) { const std::vector<float> &k = wtab[n]; double h = k[0]; for (size_t j = 1; j < k.size(); j++) h += 2 * k[j] * std::cos(2 * PI * f * j / fs); return h; }; return (1 - a) * g(i) + a * g(i + 1); }
   // Geschwindigkeiten: Netz 50/60 Hz mal Varispeed 0,25 … 2 (Umbau, nicht am PE 603 T). Wiedergabe-FIRs auf einem Raster v50 · √1,2^i, i = −16 … +10
   // (0,23 … 2,49 · v50; 50 und 60 Hz liegen genau auf dem Raster), dazwischen linear gemischt.
   static constexpr int NT = 27, I0 = 16; static constexpr double RS = 1.0954451150103321;
@@ -183,7 +201,7 @@ struct Drum {
     fs = fs_; aV = 1 - std::exp(-1 / (0.4 * fs)); N = (int)std::ceil((circ / vMin(v50) + 0.05) * fs) + 8; buf.assign(N, 0.f); fbuf.assign(N, 0.f); w = 0; lp = 0; ph = 0;
     M = (int)std::ceil(TW * fs); nf = 2 * M + 1; fir.assign(nf, 0.0); firT.assign(NT, {});
     const double g50 = design(v50, firT[I0], 0); for (int i = 0; i < NT; i++) if (i != I0) design(v50 * std::pow(RS, i - I0), firT[i], g50);
-    speed(hz, vs, true); }
+    wobSetup(); speed(hz, vs, true); }
   // Drehzahl: Spaltpolmotor folgt der Netzfrequenz, Varispeed vs (Umbau); ohne „now“ gleitet sie in etwa 0,4 s (Schwungmasse)
   void speed(double hz, double vs = 1, bool now = false) { vT = std::min(vMax(v50), std::max(vMin(v50), v50 * hz / 50 * vs)); if (now) { v = vT; mixFir(); } }
   // FIR, Aufnahme-Tiefpass (Selbstlöschung durch die Vormagnetisierung: hängt an der Wellenlänge, also proportional zur Geschwindigkeit) und Zeiten zur Geschwindigkeit v
@@ -203,7 +221,7 @@ struct Drum {
     if (g <= 0) { std::complex<double> H = 0; for (int n = 0; n < nf; n++) H += out[n] * std::polar(1.0, -2 * PI * 1000.0 * (n - M) / fs); g = std::abs(H) / (2 * PI * 1000); }
     if (g > 0) for (double &x : out) x /= g; return g; }
   std::complex<double> firH(double f) const { std::complex<double> H = 0; for (int n = 0; n < nf; n++) H += fir[n] * std::polar(1.0, -2 * PI * f * (n - M) / fs); return H; }
-  void clear() { std::fill(buf.begin(), buf.end(), 0.f); std::fill(fbuf.begin(), fbuf.end(), 0.f); lp = 0; }
+  void clear() { std::fill(buf.begin(), buf.end(), 0.f); std::fill(fbuf.begin(), fbuf.end(), 0.f); std::fill(rbuf.begin(), rbuf.end(), 0.f); std::fill(dbuf.begin(), dbuf.end(), 0.f); wobLeft = 0; lp = 0; }
   // Strom im Aufnahmekopf (A) einschreiben
   void write(double i) {
     lp += aLp * (i - lp); double m = isat * std::tanh(lp / isat);
@@ -214,7 +232,12 @@ struct Drum {
     double y = 0; const int n1 = std::min(nf, w + 1); const float *b = buf.data();
     for (int n = 0; n < n1; n++) y += fir[n] * b[w - n];
     for (int n = n1; n < nf; n++) y += fir[n] * b[w - n + N];
-    fbuf[w] = (float)(kh * y); if (++w == N) w = 0; }
+    const float hv = (float)(kh * y); fbuf[w] = hv; rbuf[w] = hv; dbuf[w] = wob > 0 ? (float)(wob * 0.5 * (1 - std::cos(2 * PI * ph))) : 0.f;
+    if (wob > 0) wobLeft = KW + 1; else if (wobLeft > 0) wobLeft--;
+    if (wobLeft > 0) { int q = w - KW; if (q < 0) q += N; const double ts = 2.0 * dbuf[q] * fs / v;   // Taumeln: Stelle q ist jetzt nach beiden Seiten geschrieben
+      if (ts >= WT0) { const double x = std::log(std::min(ts, WT1) / WT0) / std::log(WT1 / WT0) * (NWT - 1); const int i = std::min(NWT - 2, (int)x); const double a = x - i;
+        fbuf[q] = (float)((1 - a) * wobKernel(q, i) + a * wobKernel(q, i + 1)); } }
+    if (++w == N) w = 0; }
   // Kopfspannungen für den nächsten Abtastwert (Gleichlauf: Exzentrizität der Trommel, einmal je Umdrehung)
   void read(double *emf) {
     if (v != vT) { v += aV * (vT - v); if (std::fabs(v - vT) < 1e-7) v = vT; mixFir(); }
@@ -249,6 +272,9 @@ struct Core {
   void setHz(double h) { setSpeed(h, vs); }
   // Netzfrequenz (50/60 Hz) und Varispeed (0,25 … 2, Umbau); die Trommel gleitet in etwa 0,4 s zur neuen Drehzahl
   void setSpeed(double h, double x) { x = std::isfinite(x) ? std::min(2.0, std::max(0.25, x)) : 1.0; if (h != hz || x != vs) { hz = h; vs = x; drum.speed(hz, vs); } }
+  // Taumeln (ab 1.2): x = 0 … 1 (Regler WOBBLE), größter zusätzlicher Abstand Kopf–Draht WOBMAX
+  static constexpr double WOBMAX = 30e-6;
+  void setWobble(double x) { drum.wob = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) * WOBMAX : 0; }
   void apply(const Setting &s) { cur = s; rec.apply(buildRec(v, s), fs2); pb.apply(buildPb(v, s), fs); }
   void stepRec(double x, double g, double ramp, double *yr) { double ur[RU_NO] = {x, v.b1 * ramp, v.b2 * ramp, v.b3 * ramp, g}; rec.run.step(ur, yr); }
   void stepPb(double *yp, double ramp = 1.0) { double up[PU_NO] = {dry, emf[0], emf[1], emf[2], emf[3], v.b2 * ramp}; pb.run.step(up, yp); g5b = yp[PO_G5B]; }

@@ -93,7 +93,9 @@ paar Sekunden). Dann in einer Audiospur:
                                               Kaiserin Reverb (after Empress
                                               Effects Reverb),
                                               Blech 140 (after EMT 140 plate
-                                              reverb))
+                                              reverb),
+                                              Wisent Echoreck (after Binson
+                                              Echorec PE 603 T))
 
 Die Plugins laufen auf Mono- und Stereospuren (ab Laney 3.22 / B100-II 1.10 /
 AmpFett 1.7; vorher nur Stereo, auf Mono-Spuren erschienen sie nicht). Auf
@@ -116,6 +118,7 @@ Kontrolle im Terminal (sollte mit „AU VALIDATION SUCCEEDED“ enden):
     auval -v aufx LSLO Tnst      (Loldano SLO-100)
     auval -v aufx KAIR Tnst      (Kaiserin Reverb)
     auval -v aufx BL14 Tnst      (Blech 140)
+    auval -v aufx WSEC Tnst      (Wisent Echoreck)
 
 
 4. Über Waves StudioRack (VST3)
@@ -177,7 +180,10 @@ etwa 15 bis 25 % je Kanal bei 48 kHz, mit zweiter Stufe das Doppelte, bei
 (Grundstellung) das Doppelte bis knapp Dreifache; 4x ist für das Rendern gedacht; Kaiserin Reverb
 (gemessen unter Linux) 0,3 % (PLATE) bis 1,3 % (SPARKLE), SPRING etwa 5 %; Blech 140 (gemessen
 unter Linux) etwa 3 % bei 48 kHz, eine neue Platte (DECAY gedreht) kostet etwa 0,7 s auf einem
-zweiten Faden, Speicher etwa 60 MB. Beim Umschalten
+zweiten Faden, Speicher etwa 60 MB; Wisent Echoreck (gemessen unter Linux) etwa
+15 bis 30 % bei 48 kHz, mit WOBBLE bis etwa 7 % mehr; schläft, wenn Eingang und Echos
+verklungen sind. Beim Abgriff nach der Vorstufe (TAP PREAMP) rechnen AmpFett B-15NF
+und Loldano etwa die Hälfte, der AmpFett SVT-CL etwa ein Fünftel. Beim Umschalten
 von DISTORTION, Überabtastung, Röhren oder Kanal rechnet der Laney für etwa
 0,2 s die neue Schaltung mit, das kostet in dieser Zeit rund das Dreifache
 (bis 3.32 bis zum Fünffachen). Das offene Plugin-Fenster kostet 1 bis 7 %
@@ -203,9 +209,9 @@ Wenn Logic überlastet meldet oder es knackt:
 
 Logic beenden, dann im Terminal:
 
-    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76,Loldano_SLO100,Kaiserin_Reverb,Blech_140}.component
-    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76,Loldano_SLO100,Kaiserin_Reverb,Blech_140}.vst3
-    for p in laney yamaha b15nf gk800rb g100 b100iii svtcl wieneq ampfett76 loldano kaiserin blech140; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
+    sudo rm -rf /Library/Audio/Plug-Ins/Components/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76,Loldano_SLO100,Kaiserin_Reverb,Blech_140,Wisent_Echoreck}.component
+    sudo rm -rf /Library/Audio/Plug-Ins/VST3/{Laney_AOR50,Lametta_B100II,AmpFett_B15NF,GK_800RB,Lametta_G100,Lametta_B100III,AmpFett_SVTCL,Wien_EQ,AmpFett_76,Loldano_SLO100,Kaiserin_Reverb,Blech_140,Wisent_Echoreck}.vst3
+    for p in laney yamaha b15nf gk800rb g100 b100iii svtcl wieneq ampfett76 loldano kaiserin blech140 wisent; do for k in component vst3; do sudo pkgutil --forget de.tonestack.$p.$k; done; done
 
 Falls vorhanden, auch den Ordner ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen
 löschen. Danach ist nichts mehr davon auf dem Mac.

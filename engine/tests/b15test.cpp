@@ -1,4 +1,5 @@
 // Prüfstand B-15NF-Kern: Arbeitspunkte gegen Technical Data, Rechenzeit, Frequenzgang, Ausgangsleistung   b15test [fs] [Netzteil 0/1]
+#define B15_V127   // AmpFett ab 1.27 (Abgriff nach der Vorstufe) in b15_core.hpp; andere Plugins sehen den Stand 1.26 (bytegleich)
 #include "b15_core.hpp"
 #include <chrono>
 #include <cstdio>

@@ -5,6 +5,11 @@
 // Lautsprecher-Daten; Röhrenmodelle an Datenblätter angepasst (engine/tools/b15_tubes.py).
 #pragma once
 #include "dk.hpp"
+// B15_V127 (definiert im AmpFett-Plugin, seinem WebAssembly-Kern und seinen Prüfprogrammen): Stand 1.27 mit dem Abgriff nach der Vorstufe.
+// Ohne das Makro sieht der Übersetzer genau den Text von 1.26 – die anderen Plugins, die diese Datei für die Röhrenmodelle einbinden, bleiben bytegleich.
+#ifdef B15_V127
+#include "spkv.hpp"
+#endif
 #include <atomic>
 #include <cmath>
 #include <string>
@@ -210,10 +215,18 @@ struct Parts {   // Werte laut Schaltplan 1-66 (Ω, F); geschätzt markiert
   double spk_r2 = 20;   // geschätzt: Wirbelstromverluste der Schwingspule (20 Ω parallel zu Le, Impedanz bei 10 kHz etwa 25 Ω statt 64 Ω)
   double spk_re = 6.3, spk_le = 1.0e-3, spk_fs = 40, spk_qms = 5, spk_qes = 0.55, spk_vas = 280, spk_vb = 85;
   double rsrc = 1e3;    // Innenwiderstand der Quelle (Instrument/DI), geschätzt
+#ifdef B15_V127
+  double b3pre = 345, b4pre = 350, biaspre = -50;   // Abgriff nach der Vorstufe: feste Speisungen (Ruhewerte des ganzen Netzes, von Amp::init eingetragen)
+#endif
   bool ot_sat = true;   // Kernsättigung und Hysterese des Ausgangsübertragers; false nur für den Vergleich mit SPICE (tools/spiceref), dort nicht nachgebildet
 };
 // Buchsen: 0 = Kanal 1 "Bass" (ohne Teiler), 1 = Kanal 1 "Guitar" (mit 120 k + 100 k der leeren Bass-Buchse), 2 = Kanal 2
+#ifdef B15_V127
+struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; bool stby = false; int taper = 0;
+  bool pre = false; };   // pre (ab 1.27): nur bis zur Phasenumkehr gerechnet, Abgriff am Gitter von V3A; Endstufe, Übertrager, Lautsprecher, Netzteil fehlen   // taper: Kennlinie der Volume-Potis (1 MΩ log): 0 log 15 % in Mittelstellung, 1 log 10 %, 2 linear   // stby: STANDBY (Mittelanzapfung offen)   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
+#else
 struct Setting { double vol1 = 0.5, bass1 = 0.5, treb1 = 0.5, vol2 = 0.5, bass2 = 0.5, treb2 = 0.5; int jack = 0; bool tap16 = false; double mis = 0; bool stby = false; int taper = 0; };   // taper: Kennlinie der Volume-Potis (1 MΩ log): 0 log 15 % in Mittelstellung, 1 log 10 %, 2 linear   // stby: STANDBY (Mittelanzapfung offen)   // mis: Streuung der Endröhren (0,1 = 10 % Unterschied im Ruhestrom)   // Regler 0…1 (Knopf 0…10)
+#endif
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.vol1, &s.treb1, &s.bass1, &s.vol2, &s.treb2, &s.bass2}; return *f[i]; }
 inline double potTaper(double x, int mode) { if (x <= 0) return 0; if (x >= 1) return 1; if (mode == 2) return x; const double m = mode == 1 ? 0.10 : 0.15; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // log: m in Mittelstellung
 inline double logTaper(double x) { return potTaper(x, 0); }   // 15 % in Mittelstellung
@@ -250,6 +263,16 @@ inline Built build(const Parts &v, const Setting &s) {
     o.c("I" + c, "T" + c, v.ts_c3); pot("T" + c, "Y" + c, "U" + c, ch == 1 ? v.treb1 : v.ts_treb, xt); o.c("U" + c, "0", v.ts_c4);
     o.r("Y" + c, "mix", v.rmix); G = ch - 1; mark(); }
   G = 2;
+#ifdef B15_V127
+  if (s.pre) {   // Abgriff nach der Vorstufe: Phasenumkehr als Last (Eingangskapazität, Miller-Wirkung, Gitterstrom), ohne Endstufe und Gegenkopplung
+    // (Kathode V3A über 10 k an Masse wie bei stummem Lautsprecher), Speisungen fest auf ihren Ruhewerten
+    o.src("B4", 10, 1); o.src("B3", 10, 2); o.src("BIAS", 10, 3);
+    tri("mix", "pA", "kA"); B.mon[2] = B.lastTri; o.r("pA", "B3", v.pi_ra); o.r("kA", "N", v.pi_rk);
+    tri("gB", "pB", "N"); o.r("pB", "B3", v.pi_ra); o.r("N", "0", v.pi_rt); o.c("N", "0", v.pi_ct);
+    o.r("pA", "J", v.pi_rf1); o.r("J", "pB", v.pi_rf2); o.c("J", "gB", v.pi_cf); o.r("gB", "0", v.pi_rg); o.r("kA", "0", v.rnfb);
+    o.c("pA", "c5", v.cc3); o.r("c5", "BIAS", v.rgl); o.c("pB", "c4", v.cc3); o.r("c4", "BIAS", v.rgl);
+    mark(); B.mon[3] = B.mon[4] = B.mon[2]; o.out("mix"); o.out("mix"); o.out("B4"); o.out("BIAS"); return B; }
+#endif
   // --- Phasenumkehr V3 (6SL7, schwebende Paraphase) ---
   tri("mix", "pA", "kA"); B.mon[2] = B.lastTri; o.r("pA", "B3", v.pi_ra); o.r("kA", "N", v.pi_rk);
   tri("gB", "pB", "N"); o.r("pB", "B3", v.pi_ra); o.r("N", "0", v.pi_rt); o.c("N", "0", v.pi_ct);   // 1 k über F (Sekundärwicklung, über den Lautsprecherstecker an Masse)
@@ -303,7 +326,11 @@ inline Built build(const Parts &v, const Setting &s) {
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; double t = 0, w = 0;
   dk::Compiler comp;   // ab 2026-11-08: Reglerbewegung nur als Korrektur der Inversen (dk.hpp)
+#ifdef B15_V127
+  void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.capOut.clear(); if (bl.capSpk >= 0) run.capOut.push_back(bl.capSpk);   /* Vorstufen-Netz (ab 1.27) hat keine Membran */ run.set(comp.compile(net, fs)); }
+#else
   void apply(const Setting &s) { cur = s; bl = build(v, s); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); } run.devGrp = bl.grp; run.fn = devFn; run.capOut = {bl.capSpk}; run.set(comp.compile(net, fs)); }
+#endif
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); apply(s); w = 2 * PI * v.mains_hz / fs; t = 0;
     // Startwerte: Kondensatoren auf die Spannungen der Spannungstabelle (Technical Data), damit das Netzteil nicht minutenlang einschwingen muss
     std::map<std::string, double> g = {{"B1", 430}, {"hvdc", 445}, {"B2", 425}, {"B3", 345}, {"B4", 350}, {"BIAS", -50}, {"br", -60}, {"p1a", 165}, {"p2a", 165}, {"p1b", 175}, {"p2b", 175},
@@ -313,17 +340,36 @@ struct Core {
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; }
   // Abtastwert: x = Eingangsspannung (V); y[O_NO] Ausgänge
+#ifdef B15_V127
+  void step(double x, double *y) { if (cur.pre) { double u[4] = {x, v.b4pre, v.b3pre, v.biaspre}; run.step(u, y); return; }
+    double u[3] = {x, v.psu ? std::sqrt(2.0) * v.mains_v * std::sin(t) : v.dc_v, v.bias_v}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }   // u[2] nur beim einfachen Netzteil
+#else
   void step(double x, double *y) { double u[3] = {x, v.psu ? std::sqrt(2.0) * v.mains_v * std::sin(t) : v.dc_v, v.bias_v}; t += w; if (t > 2 * PI) t -= 2 * PI; run.step(u, y); }   // u[2] nur beim einfachen Netzteil
+#endif
   void setMains(double hz) { v.mains_hz = hz; w = 2 * PI * hz / fs; }
   void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { double y[O_NO]; long n = (long)(seconds * fs); for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); } }   // cancel: Abbruch (Hintergrund-Faden)
   // Kleinsignal-Frequenzgang Eingang → Lautsprecherklemme im aktuellen Arbeitspunkt
   std::complex<double> response(double f) { std::vector<std::vector<double>> J; std::vector<std::pair<int,int>> dp;
     for (auto &d : run.dev) { std::vector<double> b((size_t)d.np * d.np); for (int a = 0; a < d.np; a++) for (int c = 0; c < d.np; c++) b[a * d.np + c] = run.Jd[(size_t)(d.p0 + a) * 16 + c]; J.push_back(b); dp.push_back({d.p0, d.np}); }
+#ifdef B15_V127
+    if (cur.pre) { std::complex<double> r = dk::acResponse(net, J, dp, f, 0, net.idx.at("mix"), 0) * preGain; if (spkAc) r *= spkF.response(f); return r; }   // Vorstufe; Lautsprecher als Filter
+#endif
     int o = spkAc ? net.idx.at("sm") : net.idx.at(cur.tap16 ? "s16" : "s8"); std::complex<double> r = dk::acResponse(net, J, dp, f, 0, o, 0);
     if (spkAc) { std::complex<double> jw(0, 2 * PI * f), wc = 2 * PI * 3000; r *= jw * bl.cmes * spkNorm * (wc * wc / (wc * wc + jw * wc / 0.7 + jw * jw)); }   // Membranstrom · Normierung · Kegel-Tiefpass
     return r; }
+#ifdef B15_V127
+  bool spkAc = false; double spkNorm = 1; double preGain = 1; spkv::Filter spkF;
+#else
   bool spkAc = false; double spkNorm = 1;
+#endif
 };
+#ifdef B15_V127
+// Abgriff nach der Vorstufe: Spannung am Gitter von V3A mal PRE_GAIN, so dass sie in Grundstellung (Kanal 1, Bass-Buchse, Regler 5) bei 1 kHz im
+// Kleinsignal so laut ist wie die Lautsprecherklemme (8 Ω). Gemessen mit b15test pre (Verhältnis der beiden Frequenzgänge).
+constexpr double PRE_GAIN = 13.277;   // 123,73 V/V an 8 Ω gegen 9,319 V/V am Gitter V3A (Kanal 1, Bass-Buchse, Regler 5, Ruhewerte des einfachen Netzteils)
+// Lautsprecher als Filter (für den Abgriff nach der Vorstufe): dieselben Daten wie die Last im Netz, Kegel-Tiefpass 3 kHz wie dort
+inline spkv::Params spkParams(const Parts &v) { spkv::Params p; p.re = v.spk_re; p.le = v.spk_le; p.r2 = v.spk_r2; p.fs = v.spk_fs; p.qms = v.spk_qms; p.qes = v.spk_qes; p.vas = v.spk_vas; p.vb = v.spk_vb; p.fc = 3000; p.qc = 0.7; return p; }
+#endif
 // Lautsprecher-Schalldruck: Strom durch die Membran-Kapazität ~ Beschleunigung; Normierung so, dass bei 1 kHz Schall- und Klemmenpegel gleich sind
 inline double accNorm(const Parts &v) { std::complex<double> j(0, 1); double a = v.spk_vas / v.spk_vb, fc = v.spk_fs * std::sqrt(1 + a), qec = v.spk_qes * std::sqrt(1 + a), qmc = v.spk_qms * std::sqrt(1 + a);
   double res = v.spk_re * qmc / qec, cmes = qec / (2 * PI * fc * v.spk_re), lces = 1 / ((2 * PI * fc) * (2 * PI * fc) * cmes), w = 2 * PI * 1000;
@@ -335,11 +381,35 @@ struct Biquad { double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
 constexpr double V_FS = 24.0;   // 30 W an 8 Ω = 21,9 V Spitze
 struct Amp {
   double fsB = 48000; int os = 1; Core c; Parts v; Setting tgt; bool ready = false; int cnt = 0; double vin = 0.1; bool spk = false, power = true, standby = false; double spkMix = -1, pwr = 1;
+#ifdef B15_V127
+  // Abgriff nach der Vorstufe (ab 1.27): cp rechnet nur die Vorstufe (mit der Phasenumkehr als Last); umgeschaltet wird in 20 ms überblendet,
+  // dabei laufen beide; danach nur noch eines. Das jeweils andere startet beim Zurückschalten aus seinem Ruhezustand (c0, cp0).
+  bool pre = false; double preMix = 0; Core cp, cp0; spkv::Filter spkF;
+  bool fullOn() const { return preMix < 1; } bool preOn() const { return preMix > 0; }
+  Core &act() { return preMix >= 1 ? cp : c; }
+  static Setting withPre(Setting s, bool p) { s.pre = p; return s; }
+  void applyAct(const Setting &n) { if (fullOn()) c.apply(withPre(n, false)); if (preOn()) cp.apply(withPre(n, true)); }
+  double nrm = 1; Biquad cone; double vgkF[5] = {-1, -1, -1, -1, -1}, vgkP[5] = {-1, -1, -1, -1, -1}, peak[5] = {0, 0, 0, 0, 0}, outPk = 0;
+  // Gittervorspannungen im Ruhezustand je Netz (ganzer Verstärker F, Vorstufe P: andere Tore), Bezug der Aussteuerungsanzeige
+  void readF() { for (int i = 0; i < 5; i++) vgkF[i] = c.run.vp[c.bl.mon[i]]; } void readP() { for (int i = 0; i < 5; i++) vgkP[i] = cp.run.vp[cp.bl.mon[i]]; }
+  void readBias() { if (fullOn()) readF(); if (preOn()) readP(); } const double *vgk0() const { return preMix >= 1 ? vgkP : vgkF; }
+#else
   double nrm = 1; Biquad cone; double vgk0[5] = {-1, -1, -1, -1, -1}, peak[5] = {0, 0, 0, 0, 0}, outPk = 0;
+#endif
   int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
   Core c0; int bad = 0;   // c0: eingeschwungener Zustand nach init (Rückfall bei entgleister Rechnung); bad: Abtastwerte bis zum nächsten erlaubten Rückfall
   void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
+#ifdef B15_V127
+    c.init(fsB * os, v, withPre(s, false)); c.settle(1.5, cancel); c0 = c;
+    // Speisungen der Vorstufe für den Abgriff: Ruhewerte des ganzen Netzes (B3, B4, Vorspannung)
+    { std::vector<double> u = {0, v.psu ? std::sqrt(2.0) * v.mains_v * std::sin(c.t) : v.dc_v, v.bias_v}; dk::Vec V = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip);
+      v.b3pre = V[c.net.idx.at("B3")]; v.b4pre = V[c.net.idx.at("B4")]; v.biaspre = V[c.net.idx.at("BIAS")]; }
+    cp.init(fsB * os, v, withPre(s, true)); cp.settle(0.5, cancel); cp0 = cp;
+    spkF.design(spkParams(v), fsB * os); c.preGain = cp.preGain = PRE_GAIN; c.spkF = cp.spkF = spkF;
+    preMix = pre ? 1 : 0; readF(); readP();
+#else
     c.init(fsB * os, v, s); c.settle(1.5, cancel); c0 = c; for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]];
+#endif
     nrm = accNorm(v); c.spkNorm = nrm; cone.lp(3000, 0.7, fsB * os); spkMix = spk ? 1 : 0; pwr = power ? 1 : 0;
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
@@ -350,25 +420,61 @@ struct Amp {
     ready = true; }
   int latency() const { return os > 1 ? 31 : 0; }
   // Schalter sofort (Buchse baut das Netz neu, Zustände bleiben), Regler gleiten (15 ms)
+#ifdef B15_V127
+  void setTarget(const Setting &s) { const Setting &cc = act().cur; bool rebuild = s.jack != cc.jack || s.tap16 != cc.tap16 || s.taper != cc.taper; tgt = s;
+    if (rebuild) { Setting n = act().cur; n.jack = s.jack; n.tap16 = s.tap16; n.taper = s.taper; applyAct(n); readBias(); } }
+#else
   void setTarget(const Setting &s) { bool rebuild = s.jack != c.cur.jack || s.tap16 != c.cur.tap16 || s.taper != c.cur.taper; tgt = s;
     if (rebuild) { Setting n = c.cur; n.jack = s.jack; n.tap16 = s.tap16; n.taper = s.taper; c.apply(n); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; } }
+#endif
   // sofort auf das Ziel (ohne Gleiten), Schalter-Rampen am Ziel: nach Neustart aus dem Ruhezustand
   // Netzfrequenz (60 Hz Original USA, 50 Hz Exportfassung): ändert nur den Takt der Netzspannung
+#ifdef B15_V127
+  void setMains(double hz) { if (hz == v.mains_hz) return; v.mains_hz = hz; c.setMains(hz); c0.setMains(hz); cp.setMains(hz); cp0.setMains(hz); }
+#else
   void setMains(double hz) { if (hz == v.mains_hz) return; v.mains_hz = hz; c.setMains(hz); c0.setMains(hz); }
+#endif
   static bool sameAll(const Setting &a, const Setting &b) { return a.vol1 == b.vol1 && a.bass1 == b.bass1 && a.treb1 == b.treb1 && a.vol2 == b.vol2 && a.bass2 == b.bass2 && a.treb2 == b.treb2 && a.jack == b.jack && a.tap16 == b.tap16 && a.mis == b.mis && a.stby == b.stby && a.taper == b.taper; }
+#ifdef B15_V127
+  void snap() { preMix = pre ? 1 : 0; applyAct(tgt); readBias(); spkMix = spk ? 1 : 0; pwr = power ? 1 : 0; cnt = 0; }
+  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); if (fullOn()) { c.settle(secs, cancel); c0 = c; } if (preOn()) { cp.settle(secs, cancel); cp0 = cp; } readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
+#else
   void snap() { c.apply(tgt); for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; spkMix = spk ? 1 : 0; pwr = power ? 1 : 0; cnt = 0; }
   void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); c.settle(secs, cancel); c0 = c; for (int i = 0; i < 5; i++) vgk0[i] = c.run.vp[c.bl.mon[i]]; }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
+#endif
   // alle 64 Abtastwerte (Grundrate) einen Schritt Richtung Ziel; Netz neu aufbauen kostet etwa 0,1 ms
+#ifdef B15_V127
+  void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = act().cur; bool moved = false;
+#else
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
+#endif
     for (int i = 0; i < 6; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     { double d = tgt.mis - n.mis; if (d != 0) { moved = true; if (std::fabs(d) > 1e-5) n.mis += d * (1 - std::exp(-64 / (0.3 * fsB))); else n.mis = tgt.mis; } }   // Streuung gleitet 0,3 s: der Gleichstrom durch den Übertrager ändert sich langsam, kein Plopp
+#ifdef B15_V127
+    if (moved) applyAct(n); }
+  double run1(double x) { double y[O_NO]; const double st = 1.0 / (0.02 * c.fs);
+    // Abgriff umschalten: das hinzukommende Netz aus seinem Ruhezustand mit den aktuellen Stellungen
+    if (pre && preMix == 0) { cp = cp0; cp.apply(withPre(c.cur, true)); readP(); spkF.reset(); } else if (!pre && preMix == 1) { c = c0; c.apply(withPre(cp.cur, false)); readF(); cone.reset(); }
+    double tR = pre ? 1 : 0; if (preMix < tR) preMix = std::min(tR, preMix + st); else if (preMix > tR) preMix = std::max(tR, preMix - st);
+#else
     if (moved) c.apply(n); }
   double run1(double x) { double y[O_NO]; if (standby != c.cur.stby) { Setting n = c.cur; n.stby = standby; c.apply(n); } c.step(x, y);
     for (int i = 0; i < 5; i++) { double d = std::fabs(c.run.vp[c.bl.mon[i]] - vgk0[i]); if (d > peak[i]) peak[i] = d; }
     double el = y[O_SPK], ac = cone.step(c.run.capI[0] * nrm), st = 1.0 / (0.02 * c.fs);
+#endif
     double tS = spk ? 1 : 0; if (spkMix < tS) spkMix = std::min(tS, spkMix + st); else if (spkMix > tS) spkMix = std::max(tS, spkMix - st);
     double tP = power ? 1 : 0; if (pwr < tP) pwr = std::min(tP, pwr + st); else if (pwr > tP) pwr = std::max(tP, pwr - st);
+#ifdef B15_V127
+    double of = 0, op = 0, ef = 0, ep = 0;
+    if (fullOn()) { if (standby != c.cur.stby) { Setting n = c.cur; n.stby = standby; c.apply(n); } c.step(x, y);
+      ef = y[O_SPK]; double ac = cone.step(c.run.capI[0] * nrm); of = ef + spkMix * (ac - ef); }
+    if (preOn()) { cp.step(x, y); ep = y[O_SPK] * PRE_GAIN; double ac = spkF.step(ep); op = ep + spkMix * (ac - ep); }
+    Core &a = act(); const double *vg = vgk0(); for (int i = 0; i < 5; i++) { if (preMix >= 1 && i >= 3) continue; double d = std::fabs(a.run.vp[a.bl.mon[i]] - vg[i]); if (d > peak[i]) peak[i] = d; }
+    double el = preMix >= 1 ? ep : ef; if (std::fabs(el) > outPk) outPk = std::fabs(el);
+    double o = (of + preMix * (op - of)) * pwr; return o / V_FS; }
+#else
     double o = (el + spkMix * (ac - el)) * pwr; if (std::fabs(el) > outPk) outPk = std::fabs(el); return o / V_FS; }
+#endif
   void process(float *buf, int n) { if (!ready) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
     for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? std::max(-20.0, std::min(20.0, buf[i] * vin)) : 0, y; tick();   // Eingang auf ±20 V begrenzt (Unsinnswerte; ein Bass liefert höchstens wenige Volt)
       if (os == 1) y = run1(x);
@@ -377,11 +483,21 @@ struct Amp {
           double z = run1(os * u); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = z;
           if (ph == os - 2) for (int k = 0; k < L; k++) y += h[k] * yb[yi + k]; } }
       if (!(std::fabs(y) < 10)) { y = 0;   // entgleist (NaN oder über 240 V am Lautsprecher, physikalisch unmöglich): eingeschwungenen Zustand zurückholen (schnell, kein neues Einschwingen), höchstens einmal je 0,1 s
+#ifdef B15_V127
+        if (bad <= 0) { Setting s = act().cur; if (fullOn()) { c = c0; c.apply(withPre(s, false)); } if (preOn()) { cp = cp0; cp.apply(withPre(s, true)); } readBias();
+          std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); cone.reset(); spkF.reset(); bad = (int)(0.1 * fsB); } }
+#else
         if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); for (int k = 0; k < 5; k++) vgk0[k] = c.run.vp[c.bl.mon[k]]; std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); cone.reset(); bad = (int)(0.1 * fsB); } }
+#endif
       if (bad > 0) bad--;
       buf[i] = (float)y; } }
   // Aussteuerung je Stufe seit der letzten Abfrage: Gitterhub bezogen auf die Gittervorspannung (1 = Gitter erreicht 0 V)
+#ifdef B15_V127
+  void takePeaks(double *out) { for (int i = 0; i < 5; i++) { out[i] = peak[i] / std::max(0.1, std::fabs(vgk0()[i])); peak[i] = 0; } }
+  double takeOut() { double p = outPk; outPk = 0; return p; }   // Spitzenspannung am Lautsprecher (V); beim Abgriff nach der Vorstufe die Abgriffsspannung mal PRE_GAIN
+#else
   void takePeaks(double *out) { for (int i = 0; i < 5; i++) { out[i] = peak[i] / std::max(0.1, std::fabs(vgk0[i])); peak[i] = 0; } }
   double takeOut() { double p = outPk; outPk = 0; return p; }   // Spitzenspannung am Lautsprecher (V)
+#endif
 };
 } // namespace b15

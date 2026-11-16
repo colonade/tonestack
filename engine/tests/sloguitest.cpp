@@ -58,12 +58,15 @@ int main(int argc, char **argv) {
   click(kx(340), kx(146)); printf("Kanal: %g (erwartet 0 = Normal)\n", pv(8));
   { double m = 0; for (int i = 0; i < 20; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar (Normal): %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
   click(kx(340), kx(146)); printf("Kanal: %g (erwartet 1 = Overdrive)\n", pv(8));
-  click(ux(90), uy(100)); printf("Oversampling: %g (erwartet 2 = 4x)\n", pv(12));
+  click(ux(70), uy(100)); printf("Oversampling: %g (erwartet 2 = 4x)\n", pv(12));
   for (int i = 0; i < 300; i++) { tick(); usleep(10000); }   // neuer Kern im Hilfsfaden
   { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar nach Umbau: %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
-  click(ux(90), uy(70)); printf("Oversampling: %g (erwartet 1 = 2x)\n", pv(12)); for (int i = 0; i < 300; i++) { tick(); usleep(10000); }
-  click(ux(300), uy(100)); printf("Render: %g (erwartet 2 = 16x)\n", pv(15)); click(ux(300), uy(70)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));   // ab 1.2
-  click(ux(300), uy(70)); printf("Render: %g (erwartet 0 = wie live)\n", pv(15)); click(ux(300), uy(100)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));
+  click(ux(70), uy(70)); printf("Oversampling: %g (erwartet 1 = 2x)\n", pv(12)); for (int i = 0; i < 300; i++) { tick(); usleep(10000); }
+  click(ux(190), uy(100)); printf("Render: %g (erwartet 2 = 16x)\n", pv(15)); click(ux(190), uy(70)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));   // ab 1.2
+  click(ux(190), uy(70)); printf("Render: %g (erwartet 0 = wie live)\n", pv(15)); click(ux(190), uy(100)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));
+  click(ux(310), uy(100)); printf("Lautsprecher: %g (erwartet 1)\n", pv(16)); click(ux(430), uy(100)); printf("Abgriff: %g (erwartet 1 = nach der Vorstufe)\n", pv(17));   // ab 1.5
+  { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang Vorstufe mit Lautsprecher: %d (erwartet 1)\n", m > 1e-3 && m < 4 && std::isfinite(m) ? 1 : 0); }
+  click(ux(430), uy(100)); printf("Abgriff: %g (erwartet 0)\n", pv(17));
   send(ButtonPress, kx(1184), kx(146), 4); tick(); send(ButtonPress, kx(1184), kx(146), 4); tick(); printf("Master Overdrive: %g (erwartet 3.4)\n", pv(6));
   { const int pts[][2] = {{78, 150}, {170, 146}, {250, 146}, {340, 146}, {1340, 140}, {1380, 200}, {452, 146}, {1306, 146}};
     for (auto &q : pts) { send(MotionNotify, kx(q[0]), kx(q[1]), 0); tick(); tick(); } printf("Wertanzeigen über Buchse, Schaltern, Knöpfen: ok\n"); }

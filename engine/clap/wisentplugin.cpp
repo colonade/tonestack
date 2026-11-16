@@ -2,14 +2,14 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
 #ifndef TS_NO_GUI
 #include "wisentgui.hpp"
 #else
-namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_COUNT }; }
+namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_COUNT }; }
 #endif
 #include <deque>
 #include <chrono>
@@ -36,7 +36,8 @@ static const PDef PD[P_COUNT] = { {"Input", 0, 10, 2.5, 0, 0}, {"Length of swell
   {"Mode", 0, 2, 1, N_MODE, 3}, {"Playback head 1", 0, 1, 0, N_ONOFF, 2}, {"Playback head 2", 0, 1, 1, N_ONOFF, 2}, {"Playback head 3", 0, 1, 0, N_ONOFF, 2}, {"Playback head 4", 0, 1, 0, N_ONOFF, 2},
   {"Feedback head 1", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 2", 0, 1, 1, N_ONOFF, 2}, {"Feedback head 3", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 4", 0, 1, 0, N_ONOFF, 2},
   {"Level (mV at 0 dBFS)", 20, 2000, 200, 0, 0}, {"Output (dB)", -24, 24, 0, 0, 0}, {"Mains (drum speed)", 0, 1, 0, N_MAINS, 2},
-  {"Dry (trimmer TD)", 0, 10, 6.7, 0, 0}, {"Varispeed (mod)", 0.25, 2, 1, 0, 0} };   // 1.1: hinten angehängt (gespeicherte Projekte von 1.0 bleiben gültig)
+  {"Dry (trimmer TD)", 0, 10, 6.7, 0, 0}, {"Varispeed (mod)", 0.25, 2, 1, 0, 0},   // 1.1: hinten angehängt (gespeicherte Projekte von 1.0 bleiben gültig)
+  {"Wobble (worn drum)", 0, 10, 0, 0, 0} };   // 1.2: Taumeln der Scheibe (Verschleiß), hinten angehängt
 
 struct Plugin {
   PortCfg ports;
@@ -127,7 +128,7 @@ static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->aud
 // Reglerstellungen gleiten (etwa 70 ms über den ganzen Weg), Netze werden höchstens alle 32 Abtastwerte (bei 48 kHz; gleiche Zeit bei anderen Raten) neu übersetzt (meist Rang-1-Änderungen);
 // Tasten wirken sofort
 static void follow(Plugin *pl) { if (wisent::glideTo(pl->cur, pl->target())) pl->core->apply(pl->cur);
-  pl->core->setSpeed(pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_SPEED].load()); pl->core->vin = pl->val[P_LEVEL].load() / 1000; pl->outG = std::pow(10.0, pl->val[P_OUTDB].load() / 20); }
+  pl->core->setSpeed(pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_SPEED].load()); pl->core->setWobble(pl->val[P_WOB].load() / 10); pl->core->vin = pl->val[P_LEVEL].load() / 1000; pl->outG = std::pow(10.0, pl->val[P_OUTDB].load() / 20); }
 static bool settled(const Plugin *pl) { return wisent::sameKnobs(pl->cur, pl->target()); }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);

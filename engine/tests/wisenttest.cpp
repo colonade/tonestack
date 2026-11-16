@@ -73,6 +73,16 @@ int main(int argc, char **argv) {
       auto g = c.gains(f, 0); return 20 * std::log10(std::abs(g.echo / g.rec / c.drumH(f))); };
     double b0 = e(0, 0.5, 100), b1 = e(1, 0.5, 100), t0 = e(0.5, 0, 7000), t1 = e(0.5, 1, 7000);
     std::printf("Klangregelung (Echo, Wiedergabeseite): BASS 0/1 bei 100 Hz %+.1f / %+.1f dB, TREBLE 0/1 bei 7 kHz %+.1f / %+.1f dB\n", b0, b1, t0, t1); if (b1 - b0 < 10 || t1 - t0 < 10) bad++; }
+  if (all || w == "wob") {   // Taumeln (ab 1.2): Poisson-Kern gegen e^(−2π·τ·f); Hüllkurve des Echos über eine Umdrehung gegen den größten Zusatzverlust
+    Core c; Setting s0; c.init(fs, s0); double mx = 0; std::printf("Taumeln, Kern gegen e^(-2pi tau f) (dB, Breite in Abtastwerten der Trommelrate):\n ");
+    for (double ts : {0.5, 3.0, 12.0, 40.0}) for (double f : {500.0, 2000.0, 5000.0}) { const double want = -2 * PI * ts / c.drum.fs * f * 20 / std::log(10.0); if (want < -30) continue;
+      const double got = 20 * std::log10(std::fabs(c.drum.wobGain(ts, f))); mx = std::max(mx, std::fabs(got - want)); std::printf(" %.1f/%.0f Hz: %+.2f (%+.2f)", ts, f, got, want); }
+    std::printf("\n  größte Abweichung %.2f dB (erwartet < 0,3)\n", mx); if (mx > 0.3) bad++;
+    for (int k = 0; k < 2; k++) { const double wb = k ? 1.0 : 0.0, f = 1000; Core e; Setting s; s.mode = M_ECHO; s.dry = 0; s.input = 0.25; for (int j = 0; j < 4; j++) { s.out[j] = j == 0; s.fb[j] = false; } e.init(fs, s); e.setWobble(wb);
+      const long n0 = (long)(1.0 * fs), nr = (long)(e.drum.trev * fs), win = (long)(0.02 * fs); double lo = 1e9, hi = 0, acc = 0; long cnt = 0;
+      for (long i = 0; i < n0 + nr; i++) { const double y = e.tick(0.002 * std::sin(2 * PI * f * i / fs)); if (i < n0) continue; acc += y * y; if (++cnt == win) { const double r = std::sqrt(acc / win); lo = std::min(lo, r); hi = std::max(hi, r); acc = 0; cnt = 0; } }
+      const double want = k ? 2 * PI * 2 * Core::WOBMAX * f / e.drum.v * 20 / std::log(10.0) : 0, got = 20 * std::log10(hi / lo);
+      std::printf("Echo über eine Umdrehung (1 kHz, Kopf 1), WOBBLE %.0f: Schwankung %.2f dB (erwartet etwa %.2f)\n", wb * 10, got, want); if (std::fabs(got - want) > (k ? 1.0 : 0.3)) bad++; } }
   if (all || w == "lat") {   // Laufzeit über die Schaltung hinaus (Halbbänder, Sammeln bei dec > 1) aus der Phase des trockenen Wegs bei 1 kHz, gegen die gemeldete Latenz
     std::printf("Latenz (Abtastwerte der Plugin-Rate): gemessen / gemeldet\n ");
     for (double f2 : {44100.0, 48000.0, 88200.0, 96000.0, 176400.0, 192000.0, 352800.0, 384000.0}) { Core c; Setting s; s.mode = M_ECHO; for (int k = 0; k < 4; k++) s.out[k] = s.fb[k] = false; c.init(f2, s);
@@ -95,6 +105,6 @@ int main(int argc, char **argv) {
     std::printf("Rechenzeit: %.0f ns je Abtastwert (%.1f %% eines Kerns bei %.1f kHz), Newton-Fehlschläge %d %s\n", dt / x.size() * 1e9, dt / 5 * 100, fs / 1000, c.rec.run.fails + c.pb.run.fails, std::isfinite(acc) ? "" : "NICHT ENDLICH"); }
   if (w == "wav") { FILE *f = std::fopen(argv[2], "rb"); std::vector<float> x; float b; while (std::fread(&b, 4, 1, f) == 1) x.push_back(b); std::fclose(f);
     Core c; Setting s; if (argc > 4) s.mode = std::atoi(argv[4]); if (argc > 5) s.input = std::atof(argv[5]); if (argc > 6) s.swell = std::atof(argv[6]); if (argc > 7) s.volume = std::atof(argv[7]);
-    if (argc > 8) for (int k = 0; k < 4; k++) s.out[k] = argv[8][k] == '1'; if (argc > 9) for (int k = 0; k < 4; k++) s.fb[k] = argv[9][k] == '1'; c.init(fs, s);
+    if (argc > 8) for (int k = 0; k < 4; k++) s.out[k] = argv[8][k] == '1'; if (argc > 9) for (int k = 0; k < 4; k++) s.fb[k] = argv[9][k] == '1'; c.init(fs, s); if (argc > 10) c.setWobble(std::atof(argv[10]));   // 10: WOBBLE 0 … 1 (ab 1.2)
     FILE *o = std::fopen(argv[3], "wb"); for (size_t i = 0; i < x.size() + (size_t)(3 * fs); i++) { float y = (float)c.tick(i < x.size() ? x[i] : 0); std::fwrite(&y, 4, 1, o); } std::fclose(o); return 0; }
   std::printf("%s\n", bad ? "FEHLER" : "fertig"); return bad ? 1 : 0; }

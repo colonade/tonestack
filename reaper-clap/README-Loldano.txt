@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -49,9 +49,8 @@ What it is
       output transformer 2.2 kohm plate to plate
     - power supply with the filter chain of the schematic (200 uF, choke,
       100 uF, 10 k / 40 uF, 15 k / 10 uF twice); it sags with the signal
-    - a speaker as the electrical load (6.4 ohm voice coil, 0.6 mH,
-      resonance 110 Hz): it shapes the response of the power amp, it is
-      not a cabinet simulation
+    - a 4x12 closed cabinet as the electrical load (see "Cabinet and
+      SPEAKER"): it shapes the response of the power amp
   The 12AX7 capacitances (1.6 pF grid-cathode, 1.7 pF grid-plate) are real
   capacitors between the electrodes, so the Miller effect comes out of the
   circuit (left out at the two cathode followers and the second half of
@@ -65,9 +64,49 @@ What it is
   responses, and no measurement of a real amp was available: the model
   follows the part values; a comparison with the sound of a real SLO-100
   has not been made.
-  No cabinet: the output is the voltage at the speaker terminals. For a
-  finished guitar sound put a cabinet simulation (impulse response) behind
-  it.
+  By default the output is the voltage at the speaker terminals. SPEAKER
+  (from 1.5) adds the sound pressure of a Celestion Vintage 30 after its
+  data sheet curve; room and microphone are not part of it. For a finished
+  guitar sound an impulse response (cabinet with microphone) behind it,
+  with SPEAKER off, is the alternative.
+
+Cabinet and SPEAKER
+  The cabinet is assumed (it is not in the schematic): a closed 4x12 with
+  four 8 ohm speakers, two in series and both pairs in parallel, 8 ohm in
+  all. Wired like that the whole cabinet has the same impedance curve as
+  one speaker, so the circuit computes it as one: voice coil 6.4 ohm and
+  0.6 mH (eddy current loss 30 ohm in parallel), the motion as a resonant
+  circuit with the resonance in the closed box at 110 Hz (Qms 6, Qes 1.0;
+  estimated). The cabinet is always the load of the output transformer:
+  power amp and negative feedback see the impedance peak at the resonance
+  and the rise towards the treble, and the voltage at the terminals rises
+  there (at the default settings about 5 dB at 110 Hz and a good 3 dB at
+  80 and 150 Hz against a load without resonance). This is part of the
+  sound with SPEAKER off.
+  SPEAKER (from 1.5) adds the sound pressure: a filter on the terminal
+  voltage, fitted to the frequency response curve in the data sheet of
+  the Celestion Vintage 30 (8 ohm; read off at 46 points from 20 Hz to
+  20 kHz and taken as sound pressure per volt at the terminals, as such
+  curves are usually measured; within 1.4 dB up to 7 kHz). Re 7.3 ohm and
+  Fs 75 Hz come from the data sheet, the other quantities of the filter
+  are fitting values. The curve is that of one speaker in the maker's
+  test setup; the comb filtering of four speakers, the room and the
+  microphone are not computed. Equal level at 1 kHz.
+
+Signal tap
+  TAP AMP (default): the whole amp up to the speaker terminals.
+  TAP PREAMP (from 1.5): the signal at the grid of the phase inverter V5,
+  after preamp, tone stack and MASTER; the input of the phase inverter
+  (0.02 uF, 1 Mohm) stays connected as the load. Phase inverter, power
+  amp, output transformer, cabinet and power supply are not computed:
+  at 2x about half the CPU, at 4x about a quarter less (there the power
+  amp runs at 2x anyway). The preamp supply is held at the idle values of
+  the whole amp (495 V before the filter chain, phase inverter current
+  2.9 mA): no sag. The level is matched so that at the default settings
+  it equals the speaker terminals at 1 kHz (x 9.08). With SPEAKER the same
+  Vintage 30 filter acts on this signal. Switching crossfades in 20 ms;
+  the DRIVE meters for the phase inverter, the 6L6GC and the power show
+  "-".
 
 Parameters
   Preamp Normal, Preamp Overdrive, Bass, Middle, Treble, Master Normal,
@@ -76,10 +115,11 @@ Parameters
   Instrument level (mV peak, 1 ... 1000); Oversampling (1x / 2x / 4x);
   Output level (-36 ... +24 dB); Input reference (peak of your playing /
   0 dBFS); Oversampling when rendering offline (same as live / 8x / 16x,
-  from 1.2).
+  from 1.2); Speaker (Celestion Vintage 30, data sheet curve) (Off / On)
+  and Signal tap (speaker output / after the preamp) (both from 1.5).
   Knob 10 = clockwise end (the amp's own scale reads 1 to 11).
   Defaults: all knobs 5, both masters 3, Overdrive channel, Clean, Bright
-  off, 100 mV, 2x, 0 dB, rendering 8x.
+  off, 100 mV, 2x, 0 dB, rendering 8x, speaker off, whole amp.
   Each channel has its own Preamp and Master knob; Bright and Clean/Crunch
   act on the Normal channel only.
 
@@ -90,7 +130,8 @@ User interface
   BRIGHT, CRUNCH, OVERDRIVE), the eight knobs. Knobs: drag vertically,
   mouse wheel, double-click = default. Below the panel the model strip
   (not on the amp): OVERSAMPLING, RENDER (oversampling for offline
-  rendering, from 1.2), the DRIVE meters (grid swing of V1B
+  rendering, from 1.2), SPEAKER (ON / OFF) and TAP (AMP / PREAMP) (from
+  1.5), the DRIVE meters (grid swing of V1B
   input, V2A overdrive or V1A normal, V3B, V4B, the phase inverter and the
   6L6GC grids, 100 % = grid reaches the cathode voltage; output power =
   rms voltage squared / 8 ohm, mark = 100 W), INPUT (instrument level) and
@@ -273,3 +314,11 @@ Notes
   build machine driven 2x -19 %, 4x -22 % (4x now in real time there).
   Deviation from a reference with a much tighter solver tolerance: at
   most -106 dBFS, as before.
+
+1.5
+  New parameters "Speaker" (SPEAKER toggle: the sound pressure of a
+  Celestion Vintage 30 after its data sheet curve) and "Signal tap" (TAP
+  toggle: the signal after the preamp without computing the power amp),
+  see "Cabinet and SPEAKER" and "Signal tap". Appended at the end; projects
+  saved before load without speaker and with the whole amp, as before.
+  Sound with SPEAKER off and TAP AMP unchanged (bit for bit).

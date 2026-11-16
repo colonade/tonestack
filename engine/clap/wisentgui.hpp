@@ -30,14 +30,14 @@
 
 namespace wisentgui {
 constexpr double PI = 3.14159265358979323846;
-enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_COUNT };   // wie im Plugin
-constexpr int NK = 9;
-static const int KPARAM[NK] = {P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_LEVEL, P_OUTDB, P_DRY, P_SPEED};
+enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_COUNT };   // wie im Plugin
+constexpr int NK = 10;
+static const int KPARAM[NK] = {P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_LEVEL, P_OUTDB, P_DRY, P_SPEED, P_WOB};
 constexpr double FW = WSW, FH = WSH, STRIPU = 92;
 static const double TOTALH = FH + STRIPU * FW / tsw::UW;
 inline double knob01(int p, double v) { switch (p) { case P_LEVEL: return std::log(std::max(20.0, v) / 20) / std::log(100.0); case P_OUTDB: return (v + 24) / 48; case P_SPEED: return std::log(std::max(0.25, v) / 0.25) / std::log(8.0); default: return v / 10; } }
 inline double fromKnob(int p, double u) { u = std::max(0.0, std::min(1.0, u)); switch (p) { case P_LEVEL: return std::round(20 * std::pow(100.0, u)); case P_OUTDB: return std::round((u * 48 - 24) * 2) / 2; case P_SPEED: return std::round(25 * std::pow(8.0, u)) / 100; default: return std::round(u * 100) / 10; } }
-inline double knobDefault(int p) { switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 10; case P_LEVEL: return 200; case P_OUTDB: return 0; case P_DRY: return 6.7; case P_SPEED: return 1; default: return 5; } }
+inline double knobDefault(int p) { switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 10; case P_LEVEL: return 200; case P_OUTDB: return 0; case P_DRY: return 6.7; case P_SPEED: return 1; case P_WOB: return 0; default: return 5; } }
 static const char *MODEN[3] = {"ECHO", "REPEAT", "SWELL"};
 
 #ifdef __APPLE__
@@ -91,6 +91,7 @@ struct Gui {
       case P_VOLUME: std::snprintf(b, n, "VOLUME %.1f (echo level, log)", v); break; case P_BASS: std::snprintf(b, n, "BASS %.1f (5 = middle)", v); break; case P_TREBLE: std::snprintf(b, n, "TREBLE %.1f (5 = middle)", v); break;
       case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input (model)", v); break; case P_DRY: std::snprintf(b, n, "DRY %.1f: trimmer TD inside the unit, dry level (plan setting 6.7)", v); break;
       case P_SPEED: std::snprintf(b, n, "VARISPEED %.2fx: drum speed, a later modification (PE 603 T: fixed); heads every %.0f ms", v, 74.4 / rel()); break;
+      case P_WOB: std::snprintf(b, n, "WOBBLE %.1f: worn drum, head-to-wire spacing +%.0f um once per turn (model)", v, v * 3); break;
       default: std::snprintf(b, n, "OUTPUT %+.1f dB (model)", v); } }
   // Tasten: 0–2 Betriebsart, 10–13 Rückkopplung, 20–23 Wiedergabe, 30 Netzfrequenz
   int hitButton(double x, double y) const {
@@ -145,7 +146,8 @@ struct Gui {
       if (m == 2) std::snprintf(b, sizeof b, "SWELL  all four heads to the output (%.0f + %.0f + %.0f + %.0f ms), feedback heads %s", t1, 2 * t1, 3 * t1, 4 * t1, nf ? fb : "none (no repeats)");
       else std::snprintf(b, sizeof b, "%s  playback %s%s, feedback %s", MODEN[m], nh ? hb : "none (no echo)", nh ? " ms" : "", m == 0 ? "off (single echoes)" : nf ? fb : "none (single echoes)");
       setrgb(c, 0xdcdee2); tsw::text(c, b, 16, 50, 13.5, true);
-      double db = eye > 1e-5 ? 20 * std::log10(eye) : -100; char e[200]; std::snprintf(e, sizeof e, "RECORD LEVEL %s dB re wire saturation (magic eye)   ·   drum %.0f rpm at %s Hz%s, %.0f mm/s", db > -99 ? (std::to_string((int)std::lround(db))).c_str() : "below −99", 71.0 * rel(), hz60() ? "60" : "50", std::fabs(getP(P_SPEED) - 1) > 1e-6 ? " with varispeed" : "", 457.0 * rel());
+      double db = eye > 1e-5 ? 20 * std::log10(eye) : -100; char e[260]; std::snprintf(e, sizeof e, "RECORD LEVEL %s dB re wire saturation (magic eye)   ·   drum %.0f rpm at %s Hz%s, %.0f mm/s", db > -99 ? (std::to_string((int)std::lround(db))).c_str() : "below −99", 71.0 * rel(), hz60() ? "60" : "50", std::fabs(getP(P_SPEED) - 1) > 1e-6 ? " with varispeed" : "", 457.0 * rel());
+      if (getP(P_WOB) > 1e-6) { const size_t l = std::strlen(e); std::snprintf(e + l, sizeof e - l, ", wobble up to +%.0f um", getP(P_WOB) * 3); }
       setrgb(c, 0x9a9ea6); tsw::text(c, e, 16, 76, 12.5, false); }
     cairo_restore(c);
     if (showTip && (drag >= 0 || hover >= 0)) { int i = drag >= 0 ? drag : hover; char buf[200]; double ax, ay;

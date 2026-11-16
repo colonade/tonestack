@@ -58,11 +58,14 @@ int main(int argc, char **argv) {
   click(kx(470), kx(140)); printf("Ultra Hi: %g (erwartet 1)\n", pv(6)); click(kx(560), kx(140)); printf("Ultra Lo: %g (erwartet 1)\n", pv(7));
   { clap_param_info_t a, b; params->get_info(p, 10, &a); params->get_info(p, 11, &b); printf("Standby/Power verborgen: %d %d (erwartet 1 1)\n", (a.flags & CLAP_PARAM_IS_HIDDEN) ? 1 : 0, (b.flags & CLAP_PARAM_IS_HIDDEN) ? 1 : 0); }
   audio(40); printf("Ausgang hörbar: %d (erwartet 1)\n", outPk > 1e-3 ? 1 : 0);
-  click(ux(64), uy(100)); printf("Ausgang: %g (erwartet 1 = 2 Ohm)\n", pv(9));
-  click(ux(186), uy(100)); printf("Pot taper: %g (erwartet 1 = log 10 %%)\n", pv(15));
-  click(ux(308), uy(100)); printf("Netzteil: %g (erwartet 1 = nach Plan 50 Hz)\n", pv(16)); click(ux(430), uy(100)); printf("BAL OUT: %g (erwartet 1 = T1 geschätzt)\n", pv(17));
+  click(ux(50), uy(100)); printf("Ausgang: %g (erwartet 1 = 2 Ohm)\n", pv(9));
+  click(ux(150), uy(100)); printf("Pot taper: %g (erwartet 1 = log 10 %%)\n", pv(15));
+  click(ux(250), uy(100)); printf("Netzteil: %g (erwartet 1 = nach Plan 50 Hz)\n", pv(16)); click(ux(350), uy(100)); printf("BAL OUT: %g (erwartet 1 = T1 geschätzt)\n", pv(17));
   for (int i = 0; i < 300; i++) { tick(); usleep(10000); }   // neuer Kern im Hilfsfaden (Netzteil nach Plan, T1)
   { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang hörbar nach Umbau: %d (erwartet 1)\n", m > 1e-3 && std::isfinite(m) ? 1 : 0); }
+  click(ux(450), uy(100)); printf("Lautsprecher: %g (erwartet 1)\n", pv(20)); click(ux(550), uy(100)); printf("Abgriff: %g (erwartet 1 = nach der Vorstufe)\n", pv(21));
+  { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang Vorstufe mit Lautsprecher: %d (erwartet 1)\n", m > 1e-3 && m < 4 && std::isfinite(m) ? 1 : 0); }
+  click(ux(550), uy(100)); printf("Abgriff: %g (erwartet 0)\n", pv(21));
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
   printf("Tube mismatch Grundstellung: %g (erwartet 8)\n", pv(18));
   send(ButtonPress, ux(905), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(905), uy(72) + i * 8, 0); tick(); } send(ButtonRelease, ux(905), uy(152), 1); tick(); printf("Tube mismatch gezogen: %g (erwartet < 8)\n", pv(18));

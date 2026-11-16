@@ -52,13 +52,13 @@ int main(int argc, char **argv) {
   Window r, pr; Window *ch; unsigned nch; XQueryTree(d, par, &r, &pr, &ch, &nch); Window win = nch ? ch[0] : 0; printf("Kindfenster: %lu\n", (unsigned long)win);
   auto send = [&](int type, int x, int y, int button) { XEvent e{}; e.type = type; e.xbutton.window = win; e.xbutton.display = d; e.xbutton.x = x; e.xbutton.y = y; e.xbutton.button = button; e.xbutton.time = 1000; e.xbutton.same_screen = True; if (type == MotionNotify) { e.xmotion.x = x; e.xmotion.y = y; e.xmotion.window = win; } XSendEvent(d, win, True, type == MotionNotify ? PointerMotionMask : (type == ButtonPress ? ButtonPressMask : ButtonReleaseMask), &e); XFlush(d); };
   auto tick = [&]() { audio(2); tim->on_timer(p, 1); };
-  double s = w / 2240.0; auto kx = [&](double v) { return (int)(v * s); };
+  double s = w / 2360.0; auto kx = [&](double v) { return (int)(v * s); };
   double uu = w / 1200.0; auto ux = [&](double v) { return (int)(v * uu); }; auto uy = [&](double v) { return (int)(240 * s + v * uu); };
   auto click = [&](int x, int y) { send(ButtonPress, x, y, 1); tick(); send(ButtonRelease, x, y, 1); tick(); };
   auto pv = [&](int id) { for (int i = 0; i < 3; i++) { usleep(10000); tick(); } double v; params->get_value(p, id, &v); return v; };   // vorher kurz warten: Xvfb liefert Ereignisse manchmal erst nach dem nächsten Takt
   int bad = 0; auto chk = [&](const char *what, double v, bool ok) { printf("%s: %g %s\n", what, v, ok ? "ok" : "FEHLER"); if (!ok) bad++; };
   // Parameter: 0 INPUT, 1 SWELL, 2 VOLUME, 3 BASS, 4 TREBLE, 5 MODE, 6–9 Wiedergabeköpfe, 10–13 Rückkopplungsköpfe, 14 LEVEL (mV), 15 OUTPUT (dB), 16 MAINS, 17 DRY, 18 VARISPEED
-  // Frontplatte (2240 breit): Knöpfe INPUT 470, DRY 1640, VARISPEED 1760, LEVEL 1880, OUTPUT 2000 (y 128); Auge 330/128 (120 × 30); Betriebstasten 1085 / 76, 128, 180; Kopftasten x 1262 + 80·k, Rückkopplung y 100, Wiedergabe y 172; Kippschalter 2125/128
+  // Frontplatte (2360 breit, ab 1.2): Knöpfe INPUT 470, DRY 1640, VARISPEED 1760, WOBBLE 1880, LEVEL 2000, OUTPUT 2120 (y 128); Auge 330/128 (120 × 30); Betriebstasten 1085 / 76, 128, 180; Kopftasten x 1262 + 80·k, Rückkopplung y 100, Wiedergabe y 172; Kippschalter 2125/128
   // Auge: Grünanteil bei 20 % der Breite von links (leuchtet ab etwa −27 dB re Sättigung)
   auto eyeG = [&]() { for (int i = 0; i < 3; i++) { usleep(20000); tick(); } XImage *im = XGetImage(d, win, kx(330 - 60 + 24), kx(128), 1, 1, AllPlanes, ZPixmap); unsigned long px = XGetPixel(im, 0, 0); XDestroyImage(im); return (int)((px >> 8) & 255); };
   chk("Auge dunkel bei Stille (Grün Soll < 120)", eyeG(), eyeG() < 120);
@@ -71,12 +71,13 @@ int main(int argc, char **argv) {
   click(kx(1262), kx(100)); chk("Rückkopplungskopf 1 ein (Soll 1)", pv(10), pv(10) == 1);
   click(kx(1342), kx(100)); chk("Rückkopplungskopf 2 aus (Soll 0)", pv(11), pv(11) == 0);
   click(kx(1422), kx(172)); chk("Wiedergabekopf 3 ein (Soll 1)", pv(8), pv(8) == 1);
-  click(kx(2125), kx(128)); chk("Kippschalter 60 Hz (Soll 1)", pv(16), pv(16) == 1);
-  send(ButtonPress, kx(2000), kx(128), 4); tick(); chk("OUTPUT Mausrad (Soll +1 dB)", pv(15), pv(15) == 1);
-  send(ButtonPress, kx(1880), kx(128), 4); tick(); chk("LEVEL Mausrad (Soll 219 mV)", pv(14), pv(14) == 219);
+  click(kx(2245), kx(128)); chk("Kippschalter 60 Hz (Soll 1)", pv(16), pv(16) == 1);
+  send(ButtonPress, kx(2120), kx(128), 4); tick(); chk("OUTPUT Mausrad (Soll +1 dB)", pv(15), pv(15) == 1);
+  send(ButtonPress, kx(2000), kx(128), 4); tick(); chk("LEVEL Mausrad (Soll 219 mV)", pv(14), pv(14) == 219);
   send(ButtonPress, kx(1640), kx(128), 5); tick(); chk("DRY Mausrad (Soll 6,5)", pv(17), std::fabs(pv(17) - 6.5) < 1e-9);
   send(ButtonPress, kx(1760), kx(128), 4); tick(); chk("VARISPEED Mausrad (Soll 1,04)", pv(18), std::fabs(pv(18) - 1.04) < 1e-9);
   click(kx(1760), kx(128)); click(kx(1760), kx(128)); chk("VARISPEED Doppelklick (Soll 1)", pv(18), pv(18) == 1);
+  send(ButtonPress, kx(1880), kx(128), 4); tick(); send(ButtonPress, kx(1880), kx(128), 4); tick(); chk("WOBBLE Mausrad (Soll 0,4)", pv(19), std::fabs(pv(19) - 0.4) < 1e-9);
   outPk = 0; lrDiff = 0; audio(200); chk("Ausgang Spitze (Soll > 0,05)", outPk, outPk > 0.05); chk("links und rechts gleich (Soll < 1e-7)", lrDiff, lrDiff < 1e-7);
   send(MotionNotify, kx(1342), kx(172), 0); tick(); usleep(200000); for (int i = 0; i < 6; i++) tick();
   char t[96]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 96); printf("  %s = %s\n", inf.name, t); }
