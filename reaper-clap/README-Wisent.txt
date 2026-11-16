@@ -1,5 +1,11 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
+
+New in 1.1: DRY (the trimmer TD, dry level) and VARISPEED (drum speed
+0.25x to 2x, a later modification) as model controls; VOLUME default 10;
+trimmer TSW fully open (SWELL louder); V3A as a real tube (limits the echo
+when the loop runs away). Projects saved with 1.0 load unchanged (the new
+controls take their defaults).
 
 Two formats, one engine
   Wisent_Echoreck.clap and Wisent_Echoreck.vst3 contain the same code and
@@ -44,14 +50,17 @@ What it is
                spacing loss (31 um effective, assumed) and gap loss (5 um);
                erase residue -50 dB, wire noise, wow 0.05 % per turn
                (assumed). Speed 457 mm/s at 50 Hz, 548 mm/s at 60 Hz.
-    Playback   one ECC83 stage per head, switch matrix, V3A, passive tone
-               control, VOLUME and the cathode follower V4B (linearized at
-               their operating points: millivolt levels).
+    Playback   one ECC83 stage per head, switch matrix, passive tone control,
+               VOLUME and the cathode follower V4B (linearized at their
+               operating points: millivolt levels); V3A as a tube (cathode
+               1.40 V as in the schematic), it clips when the loop runs away.
     Matrix     the schematic shows the contacts without rest position. The
                model reads it as: lower row = heads to the output, upper
                row = heads into the feedback; ECHO without feedback, REPEAT
-               with, SWELL = all four heads to the output (each about 11 dB
-               quieter, trimmer TSW at mid position assumed) plus feedback.
+               with, SWELL = all four heads to the output (trimmer TSW fully
+               open assumed: each head still about 4 dB quieter) plus
+               feedback. Through the swell bus, switched-off heads leak in at
+               about -36 dB against the echo.
 
 Controls
   On the unit:
@@ -60,10 +69,15 @@ Controls
                  bands meet, the wire saturates. Default 2.5.
   LENGTH OF SWELL  feedback. With one feedback head the loop starts to
                  oscillate at about 8.9 (50 Hz) or 7.6 (60 Hz: less
-                 spacing loss). It never goes fully to zero (47 k below
+                 spacing loss); with VARISPEED at 2x already at about 3.1,
+                 below about 0.75x not at all. A runaway loop is loud (up
+                 to about +8 dBFS peak, limited by V3A). It never goes fully to zero (47 k below
                  the pot): in REPEAT there is always a second repeat at
                  about -15 dB.
-  VOLUME         echo level (log taper). Default 8.
+  VOLUME         echo level (log taper). Default 10. INPUT only feeds the
+                 drum: with INPUT set so the eye just closes, the echo at
+                 VOLUME 10 is about (-11 dB minus the input peak in dBFS)
+                 against the dry signal; use DRY to take the dry back.
   BASS, TREBLE   passive tone control of the echo; clockwise = more. The
                  middle position is not flat.
   ECHO / REPEAT / SWELL, head buttons: see "Matrix" above.
@@ -74,6 +88,14 @@ Controls
                  keeps its level at 1 kHz.
   MAINS 50/60 Hz drum speed (shaded-pole motor follows the mains); the
                  change glides in about 0.4 s.
+  DRY            the trimmer TD inside the unit (dry level), 0 to 10, plan
+                 setting 6.7; 0 = echo only. The output is calibrated at 6.7.
+  VARISPEED      drum speed 0.25x to 2x (log taper, default 1x). The
+                 PE 603 T has a fixed-speed motor; variable speed was a later
+                 modification with a new motor. Spacing loss and record
+                 losses follow the wavelength: slower is duller and stops
+                 self-oscillating, faster is brighter and runs away earlier.
+                 Head 4 from 1.19 s (0.25x) to 149 ms (2x) at 50 Hz.
 
 Measured (engine/tests/wisenttest.cpp)
   Operating points against the schematic: V4A 68 V (80), mixer 113 V
@@ -88,7 +110,7 @@ Mono, latency, CPU
   samples up to 48 kHz, 0 at 88.2/96 kHz; from 176.4 kHz the whole unit
   runs at half the rate (latency 8 samples), from 352.8 kHz at a quarter
   (22). The plugin reports its tail (ECHO 0.4 s, with feedback longer;
-  endless while the loop oscillates). CPU at 48 kHz about 10 to 25 % of one
+  endless while the loop oscillates). CPU at 48 kHz about 15 to 30 % of one
   core; when the input is silent and the echoes have died away, the plugin
   sleeps.
 
@@ -96,7 +118,8 @@ Interface
   The front panel is an own drawing (no photo, no logo): magic eye, INPUT,
   LENGTH OF SWELL, VOLUME, BASS, TREBLE, ECHO/REPEAT/SWELL, the head
   buttons (upper row feedback, lower row playback, with the delay of each
-  head), and the model controls LEVEL, OUTPUT and the mains switch. Below
+  head), and the model controls DRY, VARISPEED, LEVEL, OUTPUT and the mains
+  switch. Below
   it: mode, active heads, record level and drum speed.
   Drag a knob up/down, mouse wheel for fine steps, double-click = default.
   Click a button to press or release it.

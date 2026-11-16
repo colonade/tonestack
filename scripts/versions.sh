@@ -1,5 +1,5 @@
 #!/bin/bash
-# Gibt die Plugin-Versionen aus den Quellen aus: LANEY=3.18 YAMAHA=1.8 B15=1.1 GK=1.0 G100=1.0 B100III=1.0 SVTCL=1.0 WIENEQ=1.0 AMPFETT76=1.0 LOLDANO=1.0 KAISERIN=1.0 BLECH=1.0 WISENT=1.0 TAG=laney-3.18_b100ii-1.8_b15nf-1.1_gk800rb-1.0_g100-1.0_b100iii-1.0_svtcl-1.0_wieneq-1.0_ampfett76-1.0_loldano-1.0_kaiserin-1.0_blech140-1.0_wisent-1.0 PKG=tonestack-Plugins-Mac.pkg (Name fest, unabhängig vom Inhalt)  (zum Einlesen mit eval)
+# Gibt die Plugin-Versionen aus den Quellen aus: LANEY=3.18 YAMAHA=1.8 B15=1.1 GK=1.0 G100=1.0 B100III=1.0 SVTCL=1.0 WIENEQ=1.0 AMPFETT76=1.0 LOLDANO=1.0 KAISERIN=1.0 BLECH=1.0 WISENT=1.1 TAG=laney-3.18_b100ii-1.8_b15nf-1.1_gk800rb-1.0_g100-1.0_b100iii-1.0_svtcl-1.0_wieneq-1.0_ampfett76-1.0_loldano-1.0_kaiserin-1.0_blech140-1.0_wisent-1.1 PKG=tonestack-Plugins-Mac.pkg (Name fest, unabhängig vom Inhalt)  (zum Einlesen mit eval)
 R="$(cd "$(dirname "$0")/.." && pwd)"
 v() { sed -n 's/^#define TS_VERSION "\([0-9.]*\)".*/\1/p' "$R/engine/clap/$1" | head -n1; }   # nur die erste Zeile
 L="$(v plugin.cpp)"; Y="$(v yplugin.cpp)"; B="$(v b15plugin.cpp)"; G="$(v gkplugin.cpp)"; G1="$(v g100plugin.cpp)"; B3="$(v b3plugin.cpp)"; SV="$(v svtplugin.cpp)"; WQ="$(v weqplugin.cpp)"; U7="$(v u76plugin.cpp)"; LO="$(v sloplugin.cpp)"; KA="$(v kaiplugin.cpp)"; BL="$(v blechplugin.cpp)"; WI="$(v wisentplugin.cpp)"

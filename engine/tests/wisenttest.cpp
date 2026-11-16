@@ -3,6 +3,7 @@
 //   time    Echozeiten der vier Köpfe (50 und 60 Hz)
 //   loop    Rückkopplung: Verhältnis aufeinanderfolgender Wiederholungen über LENGTH OF SWELL (REPEAT, Kopf 1)
 //   pattern Kleinsignal-Echomuster gegen die Rechnung im Zeitbereich, Vorzeichen der Wiedergabe (Rampe)
+//   thr     Schwelle der Rückkopplung über der Geschwindigkeit (Varispeed)
 //   tone    Richtung der Klangregelung
 //   lat     Latenz über die Schaltung hinaus je Abtastrate gegen die gemeldete
 //   level   Pegel trocken / Echo bei 1 kHz, Klirrfaktor über dem Eingangspegel
@@ -19,10 +20,10 @@ static double rmsOf(const std::vector<double> &y, size_t a, size_t b) { double e
 int main(int argc, char **argv) {
   std::string w = argc > 1 ? argv[1] : "all"; bool all = w == "all"; const double fs = std::getenv("FS") ? std::atof(std::getenv("FS")) : 48000; int bad = 0;   // FS=…: andere Abtastrate
   if (all || w == "dc") { Core c; Setting s; auto t0 = std::chrono::steady_clock::now(); c.init(fs, s); double ti = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-    std::vector<double> u = {0, c.v.b1, c.v.b2, c.v.b3, c.g5b}, u2 = {c.dry, 0, 0, 0, 0}; dk::Vec V = dk::nodeVoltages(c.rec.net, c.fs2, c.rec.run.h, u, c.rec.run.ip), V2 = dk::nodeVoltages(c.pb.net, fs, c.pb.run.h, u2, c.pb.run.ip);
+    std::vector<double> u = {0, c.v.b1, c.v.b2, c.v.b3, c.g5b}, u2 = {c.dry, 0, 0, 0, 0, c.v.b2}; dk::Vec V = dk::nodeVoltages(c.rec.net, c.fs2, c.rec.run.h, u, c.rec.run.ip), V2 = dk::nodeVoltages(c.pb.net, fs, c.pb.run.h, u2, c.pb.run.ip);
     auto at = [&](const char *n) { auto it = c.rec.net.idx.find(n); if (it != c.rec.net.idx.end()) return V[it->second]; return V2[c.pb.net.idx.at(n)]; };
     std::printf("Einrichten %.2f s. Ruhespannungen (Plan): V4A Anode %.1f (80), Mischer Anode %.1f (130), V5B Kathode %.2f (0,7), V6A Anode %.1f (130), V6A Kathode %.2f (≈4,8),\n"
-      "  (V3A, V4B linear)\n", ti, at("p4"), at("pm"), at("k5b"), at("p6"), at("k6"));
+      "  V3A Anode %.1f, Kathode %.2f (1,4) (V4B linear)\n", ti, at("p4"), at("pm"), at("k5b"), at("p6"), at("k6"), at("p3"), at("k3"));
     std::printf("Abgleich: Aufnahmestrom %.1f µA je V an der Anode V6A, Sättigung %.1f µA, Kopfempfindlichkeit %.3g, Ausgang ×%.3f\n", c.kRec * 1e6, c.drum.isat * 1e6, c.drum.kh, c.gOut);
     if (std::fabs(at("p4") - 80) > 15 || std::fabs(at("pm") - 130) > 20 || std::fabs(at("p6") - 130) > 25 ) bad++; }
   if (all || w == "time") for (double hz : {50.0, 60.0}) { Core c; Setting s; s.mode = M_ECHO; for (int k = 0; k < 4; k++) s.out[k] = s.fb[k] = false; s.volume = 1; c.init(fs, s, hz);
@@ -57,10 +58,16 @@ int main(int argc, char **argv) {
       std::printf("Trommel: Rampe 1 A/s (nach dem Aufnahme-Tiefpass) → Kopf 1 %+.4f V (Soll ≈ +1,38: positive Ableitung, Tiefen +2,8 dB über 1 kHz)\n", last); if (last < 1 || last > 1.6) bad++; }
     for (double f2 : {2 * fs, fs < 88000 ? 4 * fs : 2 * fs}) { Drum d; d.setup(f2, 50); std::printf("Wiedergabe-FIR bei %.0f Hz (%d Abgriffe), Abweichung vom Ziel (dB, Bezug 1 kHz bei 50 Hz):", f2, d.nf); double wmax = 0;
       auto ideal = [&](double f, double v) { double u = PI * d.gpb * f / v; return 2 * PI * f * std::exp(-2 * PI * d.dsp * f / v) * (u > 1e-9 ? std::sin(u) / u : 1); }; const double ref = ideal(1000, d.v50) / (2 * PI * 1000);
-      for (double hz : {50.0, 60.0}) { d.speed(hz, true); if (hz == 60) std::printf(" | 60 Hz:");
+      for (double hz : {50.0, 60.0}) { d.speed(hz, 1, true); if (hz == 60) std::printf(" | 60 Hz:");
         for (double f : {50.0, 100.0, 300.0, 1000.0, 3000.0, 8000.0, 12000.0}) { double e = 20 * std::log10(std::abs(d.firH(f)) / ideal(f, d.v) * ref);
           std::printf(" %.0f:%+.2f", f, e); if (f >= 300) wmax = std::max(wmax, std::fabs(e)); else wmax = std::max(wmax, std::fabs(e) - 0.6); } }
       std::printf("\n"); if (wmax > 0.2) bad++; } }
+  if (all || w == "thr") {   // Schwelle der Schleife über der Geschwindigkeit gegen loopThreshold (Varispeed)
+    std::printf("Schwelle der Schleife (REPEAT, ein Kopf), LENGTH OF SWELL: gerechnet / Tabelle\n ");
+    for (double r : {0.8, 1.0, 1.4, 2.0, 2.4}) { double thr = -1; for (double sw = 0.1; sw <= 1.0001 && thr < 0; sw += 0.01) { Core c; Setting s; s.mode = M_REPEAT; for (int k = 0; k < 4; k++) s.out[k] = s.fb[k] = k == 0; s.swell = sw;
+        c.init(fs, s, r > 2 ? 60 : 50, 0.2, r > 2 ? r / 1.2 : r); double mx = -1e9; for (double f = 30; f < 15000; f *= 1.03) mx = std::max(mx, 20 * std::log10(std::abs(c.gains(f, 0).loop))); if (mx >= 0) thr = sw; }
+      std::printf("  %.1f×: %.2f / %.2f", r, thr, loopThreshold(r)); if (std::fabs(thr - loopThreshold(r)) > 0.025) bad++; }
+    std::printf("\n"); }
   if (all || w == "tone") {   // Klangregelung: Rechtsanschlag = mehr Tiefen bzw. Höhen (Echo je Aufnahmestrom und Trommel, also nur Wiedergabeseite)
     auto e = [&](double ba, double tr, double f) { Core c; Setting s; s.mode = M_ECHO; s.bass = ba; s.treble = tr; for (int k = 0; k < 4; k++) { s.out[k] = k == 0; s.fb[k] = false; } c.init(fs, s);
       auto g = c.gains(f, 0); return 20 * std::log10(std::abs(g.echo / g.rec / c.drumH(f))); };
