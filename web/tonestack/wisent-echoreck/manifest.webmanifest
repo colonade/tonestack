@@ -1,0 +1,29 @@
+{
+  "name": "Wisent Echoreck",
+  "short_name": "Wisent Echoreck",
+  "description": "Wisent Echoreck: Röhren-Echo mit Magnettrommel nach dem Schaltplan des Binson Echorec PE 603 T (vier Köpfe, ECHO/REPEAT/SWELL, magisches Auge); mit Anhören eigener Audiodateien.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#EEF1EC",
+  "icons": [
+    {
+      "src": "../assets/icons/wisent-echoreck-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/wisent-echoreck-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/wisent-echoreck-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
