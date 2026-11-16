@@ -236,7 +236,7 @@ struct Gui {
         { double plx, ply; toLower(x, y, plx, ply); if (tsw::prefHit(plx, ply, 410, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } }   // Schalter der Kopfzeile (für alle Plugins gemeinsam gespeichert)
         if (hitInRef(x, y)) { if (getP(P_INREF) > 0.5) setP(P_INREF, 0); else if (resetPeak) resetPeak(); return true; }
         int k = hitKnob(x, y);
-        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 50 ? std::log(100.0) / std::log(1000.0) * 10 : k == 51 ? 6 : 5); /* REVERB TANK (52): Doppelklick = 5 */ } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) { setKnob(k, k == 50 ? tsin::vinU(100) * 10 : k == 51 ? 6 : 5); /* REVERB TANK (52): Doppelklick = 5 */ } else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int ps = hitPanel(x, y); if (ps >= 0) { clickPanel(ps); return true; }
         { int half, b = hitSwitch(x, y, half); if (b >= 0) { moveSwitch(b, b == P_OS || b == P_TAPER ? (half == 0 ? -1 : 1) : 0); return true; } }
         return false; }

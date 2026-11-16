@@ -828,8 +828,8 @@ function wav24(y, fs) {   // WAV, 1 Kanal, 24 Bit PCM
   let o = 44; for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, y[i])); let q = Math.round(x * 8388607); if (q < 0) q += 16777216; v.setUint8(o, q & 255); v.setUint8(o + 1, (q >> 8) & 255); v.setUint8(o + 2, (q >> 16) & 255); o += 3; }
   return b;
 }
-async function renderThroughAmp(prm, onProgress) {
-  const fs = A.ctx.sampleRate, n = A.buf.length, c0 = A.buf.getChannelData(0), c1 = A.buf.getChannelData(A.buf.numberOfChannels > 1 ? 1 : 0), x = new Float32Array(n);
+async function renderThroughAmp(prm, onProgress, buf = A.buf, fs = A.ctx.sampleRate) {   // buf/fs (ab Web 2026-11-16-5, Messung): eigener Puffer statt der geladenen Datei
+  const n = buf.length, c0 = buf.getChannelData(0), c1 = buf.getChannelData(buf.numberOfChannels > 1 ? 1 : 0), x = new Float32Array(n);
   for (let i = 0; i < n; i++) x[i] = 0.5 * (c0[i] + c1[i]);
   let w; try { w = new Worker('g100-render.js'); } catch (e) { return renderMain(prm, fs, x, onProgress); }
   try { return await new Promise((res, rej) => { w.onerror = e => rej(new Error(e.message || 'Rechen-Thread')); w.onmessage = ev => { const d = ev.data || {};
@@ -863,6 +863,8 @@ async function download() {
   finally { A.rendering = false; setButtons(); }
 }
 $('adl').onclick = download;
+// Messung (ab Web 2026-11-16-5, assets/messung.js): Prüfton mit Spitze = INPUT durch denselben Weg wie beim Speichern
+window.TSMESS = { busy: () => !!A.rendering, render: async (buf, onP) => { A.rendering = true; setButtons(); try { return await renderThroughAmp({ ...params(), vin: vinVolt() }, onP, buf, buf.sampleRate); } finally { A.rendering = false; setButtons(); } } };
 $('avin').oninput = () => { const mv = Math.min(5000, Math.pow(10, +$('avin').value)), du = 20 * Math.log10(mv / 1000 / Math.SQRT2 / 0.7745966692);   // dBu: Effektivwert eines Sinus mit dieser Spitze (0 dBu = 0,7746 V)
   $('avinv').textContent = (mv < 10 ? mv.toFixed(1).replace('.', ',') : Math.round(mv)) + ' mV · ' + (du < 0 ? '−' : '+') + Math.abs(du).toFixed(1).replace('.', ',') + ' dBu'; send(); };
 $('avin').oninput();   // Anzeige zum gespeicherten Wert
@@ -1242,4 +1244,5 @@ body.kompakt .mlow>.sub.after h3{font-size:1rem;margin:0 0 6px}
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
+<script src="../assets/messung.js"></script>
 </body></html>

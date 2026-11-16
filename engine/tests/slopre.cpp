@@ -18,6 +18,8 @@ int main() { int bad = 0; Parts p; Setting s;
     printf("Speisungen der Vorstufe: B2 %.2f V, Strom der Phasenumkehr %.4f mA\n", a.vB2r, a.iPIr * 1e3); if (std::fabs(20 * std::log10(gf / gp / PRE_GAIN)) > 0.05) bad++;
     Setting n = s; n.od = false; a.c.apply(n); a.cp.apply(n); double gf2 = std::abs(a.c.response(1000)), gp2 = std::abs(a.cp.response(1000));
     printf("NORMAL: Klemme %.3f V/V, Vorstufe angeglichen %.3f V/V (%+.2f dB)\n", gf2, gp2, 20 * std::log10(gp2 / gf2)); if (std::fabs(20 * std::log10(gp2 / gf2)) > 0.3) bad++; }
+  { Amp a; a.vin = 0.01; a.init(48000, 1, p, s); double gf = std::abs(a.c.response(1000)); a.cp.acSend = true; a.cp.preGain = SEND_GAIN; double gs = std::abs(a.cp.response(1000));   // FX SEND (ab 1.7)
+    printf("FX SEND, Grundstellung 1 kHz: Klemme %.3f V/V, Effektweg angeglichen %.3f V/V (%+.3f dB, SEND_GAIN %.4f)\n", gf, gs, 20 * std::log10(gs / gf), SEND_GAIN); if (std::fabs(20 * std::log10(gs / gf)) > 0.05) bad++; }
   { spkv::Filter F; F.design(spkParams(), 48000); double mx = 0; printf("Lautsprecher gegen Datenblatt (Filter bei 48 kHz − Kurve, dB):");
     for (auto &q : V30) { double d = 20 * std::log10(std::abs(F.response(q[0]))) - (q[1] - 101); mx = std::max(mx, std::fabs(d)); if (q[0] == 40 || q[0] == 100 || q[0] == 1400 || q[0] == 2300 || q[0] == 5000 || q[0] == 7000) printf("  %.0f Hz %+.2f", q[0], d); }
     printf("  größte Abweichung bis 7 kHz %.2f dB (erwartet < 1,6)\n", mx); if (mx > 1.6) bad++; }
@@ -31,9 +33,9 @@ int main() { int bad = 0; Parts p; Setting s;
     double q[NPEAK], qr[NPEAK]; c = b; a.process(c.data(), (int)c.size()); a.takePeaks(q); a.pre = false; for (int k = 0; k < 3; k++) { c = b; a.process(c.data(), (int)c.size()); a.takePeaks(q); c = b; r.process(c.data(), (int)c.size()); r.takePeaks(qr); }
     double mx = 0; printf("Aussteuerung nach Start im Abgriff und Umschalten (%dx) gegen ohne Umschalten:", os); for (int i = 0; i < NPEAK; i++) { printf(" %.3f/%.3f", q[i], qr[i]); mx = std::max(mx, std::fabs(q[i] - qr[i])); } printf(" (erwartet gleich auf 0,05)\n"); if (!(mx < 0.05)) bad++; }
   for (int os : {2, 4}) { Amp a; a.vin = 0.1; a.init(48000, os, p, s); std::vector<float> b(4800); double t = 0, mx = 0, jump = 0, last = 0; bool fin = true;
-    for (int k = 0; k < 40; k++) { a.pre = (k / 3) % 2; a.spk = (k / 5) % 2; for (auto &x : b) { x = (float)(0.5 * std::sin(t)); t += 2 * PI * 110 / 48000; } a.process(b.data(), (int)b.size());
+    for (int k = 0; k < 40; k++) { a.pre = (k / 3) % 2; a.spk = (k / 5) % 2; a.send = (k / 4) % 2;   /* FX SEND ab 1.7 */ for (auto &x : b) { x = (float)(0.5 * std::sin(t)); t += 2 * PI * 110 / 48000; } a.process(b.data(), (int)b.size());
       for (float y : b) { fin = fin && std::isfinite(y); mx = std::max(mx, (double)std::fabs(y)); jump = std::max(jump, std::fabs(y - last)); last = y; } }
-    printf("Umschalten %dx (Abgriff 13-mal, Lautsprecher 8-mal in 4 s): endlich %s, Spitze %.3f, größter Sprung je Abtastwert %.4f\n", os, fin ? "ja" : "NEIN", mx, jump); if (!fin || jump > 0.25) bad++; }
+    printf("Umschalten %dx (Abgriff 13-mal, Lautsprecher 8-mal, FX SEND 10-mal in 4 s): endlich %s, Spitze %.3f, größter Sprung je Abtastwert %.4f\n", os, fin ? "ja" : "NEIN", mx, jump); if (!fin || jump > 0.25) bad++; }
   for (int os : {2, 4}) for (int pre : {0, 1}) { Amp a; a.vin = 0.2; a.pre = pre; a.init(48000, os, p, s); std::vector<float> b(48000 * 2); for (size_t i = 0; i < b.size(); i++) b[i] = (float)(0.5 * std::sin(2 * PI * 110 * i / 48000.0));
     auto t0 = std::chrono::steady_clock::now(); a.process(b.data(), (int)b.size()); double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     printf("Rechenzeit %dx %s: %.1f %% eines Kerns (48 kHz)\n", os, pre ? "nur Vorstufe" : "ganzer Verstärker", dt / 2 * 100); }

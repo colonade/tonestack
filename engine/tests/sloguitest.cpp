@@ -66,7 +66,11 @@ int main(int argc, char **argv) {
   click(ux(190), uy(70)); printf("Render: %g (erwartet 0 = wie live)\n", pv(15)); click(ux(190), uy(100)); printf("Render: %g (erwartet 1 = 8x)\n", pv(15));
   click(ux(310), uy(100)); printf("Lautsprecher: %g (erwartet 1)\n", pv(16)); click(ux(430), uy(100)); printf("Abgriff: %g (erwartet 1 = nach der Vorstufe)\n", pv(17));   // ab 1.5
   { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang Vorstufe mit Lautsprecher: %d (erwartet 1)\n", m > 1e-3 && m < 4 && std::isfinite(m) ? 1 : 0); }
-  click(ux(430), uy(100)); printf("Abgriff: %g (erwartet 0)\n", pv(17));
+  click(ux(430), uy(100)); printf("Abgriff: %g (erwartet 2 = FX SEND)\n", pv(17));   // ab 1.7: drei Stellungen, untere Hälfte = eine weiter nach unten
+  { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang FX SEND mit Lautsprecher: %d (erwartet 1)\n", m > 1e-3 && m < 4 && std::isfinite(m) ? 1 : 0); }
+  click(ux(430), uy(70)); printf("Abgriff: %g (erwartet 1)\n", pv(17)); click(ux(430), uy(70)); printf("Abgriff: %g (erwartet 0)\n", pv(17));
+  send(ButtonPress, ux(1010), uy(72), 4); tick(); send(ButtonPress, ux(1010), uy(72), 4); tick(); printf("INPUT nach Mausrad: %g (erwartet über 100)\n", pv(11));
+  click(ux(1010), uy(72)); click(ux(1010), uy(72)); printf("INPUT nach Doppelklick: %g (erwartet 100)\n", pv(11));   // ab 1.7 (1.6 setzte 292 mV)
   send(ButtonPress, kx(1184), kx(146), 4); tick(); send(ButtonPress, kx(1184), kx(146), 4); tick(); printf("Master Overdrive: %g (erwartet 3.4)\n", pv(6));
   { const int pts[][2] = {{78, 150}, {170, 146}, {250, 146}, {340, 146}, {1340, 140}, {1380, 200}, {452, 146}, {1306, 146}};
     for (auto &q : pts) { send(MotionNotify, kx(q[0]), kx(q[1]), 0); tick(); tick(); } printf("Wertanzeigen über Buchse, Schaltern, Knöpfen: ok\n"); }

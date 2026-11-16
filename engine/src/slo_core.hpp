@@ -173,9 +173,9 @@ struct Core {
   // Kleinsignal-Frequenzgang im Arbeitspunkt: Lautsprecherspannung je Volt am Eingang
   std::complex<double> response(double f) { std::vector<std::vector<double>> J; std::vector<std::pair<int,int>> dp;
     for (auto &d : run.dev) { std::vector<double> b((size_t)d.np * d.np); for (int a = 0; a < d.np; a++) for (int c = 0; c < d.np; c++) b[a * d.np + c] = run.Jd[(size_t)(d.p0 + a) * 16 + c]; J.push_back(b); dp.push_back({d.p0, d.np}); }
-    std::complex<double> h = dk::acResponse(net, J, dp, f, 0, net.idx.at(part == 1 ? "ga" : "s8"), 0);   // Vorstufen-Teilnetz: Gitter der Phasenumkehr (mal preGain)
+    std::complex<double> h = dk::acResponse(net, J, dp, f, 0, net.idx.at(part == 1 ? (acSend ? "send" : "ga") : "s8"), 0);   // Vorstufen-Teilnetz: Gitter der Phasenumkehr bzw. Effektweg (mal preGain)
     if (part == 1) h *= preGain; if (spkAc) h *= spkF.response(f); return h; }
-  double preGain = 1; bool spkAc = false; spkv::Filter spkF;   // Anzeige (ab 1.5): Verstärkung des Abgriffs nach der Vorstufe, Lautsprecher als Filter
+  double preGain = 1; bool spkAc = false, acSend = false; spkv::Filter spkF;   // Anzeige (ab 1.5): Verstärkung des Abgriffs nach der Vorstufe, Lautsprecher als Filter; acSend (ab 1.7): Abgriff am Effektweg (preGain dann SEND_GAIN)
   // Startwerte aus Knotenspannungen eines anderen Netzes (gleiche Knotennamen), z. B. Vorstufe aus dem eingeschwungenen ganzen Verstärker
   void seed(const dk::Net &from, const dk::Vec &Vf) { std::vector<double> V(net.nn + 1, 0.0);
     for (auto &kv : net.idx) { auto it = from.idx.find(kv.first); if (it != from.idx.end() && it->second < (int)Vf.size()) V[kv.second] = Vf[it->second]; }
@@ -186,6 +186,10 @@ struct Core {
 // Abgriff nach der Vorstufe (ab 1.5): Spannung am Gitter der Phasenumkehr mal PRE_GAIN, so dass sie in Grundstellung (OVERDRIVE, Regler wie voreingestellt)
 // bei 1 kHz im Kleinsignal so laut ist wie die Lautsprecherklemme. Gemessen mit slopre.
 constexpr double PRE_GAIN = 9.0799;   // 16604 V/V an 8 Ω gegen 1828,7 V/V am Gitter der Phasenumkehr (OVERDRIVE, Grundstellung, 1x)
+// Abgriff am Effektweg (ab 1.7, TAP FX SEND): Spannung am Rückweg des Effektwegs (Gitter V4B; Effektweg durchverbunden, also wie an FX SEND hinter dem
+// Teiler 100k/1k) mal SEND_GAIN, gleich bezogen wie PRE_GAIN. Hinter V3B und dem Kathodenfolger V3A, vor V4B, V4A, Klangregler, Phasenumkehr und Endstufe:
+// dort ist k2 am höchsten (V4B hebt es teilweise wieder auf, gemessen, siehe PROJEKTSTAND). Gemessen mit slopre.
+constexpr double SEND_GAIN = 11.6549;   // 16604 V/V an 8 Ω gegen 1424,64 V/V am Rückweg des Effektwegs (OVERDRIVE, Grundstellung, 1x; NORMAL gleich, die Kette dahinter ist dieselbe)
 // Lautsprecher (ab 1.5): Celestion Vintage 30 (8 Ω), Filter auf die Spannung an den Lautsprecherklemmen, angepasst an die Schalldruckkurve des Datenblatts
 // (als Schalldruck je Volt an den Klemmen genommen; an 46 Punkten abgelesen, bis 7 kHz auf ±1,4 dB). Re 7,3 Ω und Fs 75 Hz aus dem Datenblatt; Qms, Qes, Le, R2, Kegel-Tiefpass
 // und die sieben Glocken sind Anpassgrößen (keine Messwerte des Lautsprechers). Die Box (4 × 12", geschlossen) steckt als Last im Netz (geschätzt, s. Parts).
@@ -205,7 +209,8 @@ struct Amp {
   // mit festen Speisungen (B2 und Strom der Phasenumkehr wie im eingeschwungenen ganzen Verstärker); Ausgang: Gitter der Phasenumkehr mal PRE_GAIN.
   // Umgeschaltet wird in 20 ms überblendet (beide laufen), danach rechnet nur noch eines; das hinzukommende startet aus seinem Ruhezustand (c0/e0, cp0).
   // Lautsprecher (ab 1.5): Filter bei der Grundrate auf das Ergebnis (spkF), ebenfalls 20 ms überblendet.
-  bool pre = false, spk = false; double preMix = 0, spkMix = 0; Core cp, cp0; spkv::Filter spkF; double vB2r = 495.053, iPIr = 2.934e-3;
+  // send (ab 1.7): im Vorstufen-Teilnetz statt des Gitters der Phasenumkehr den Effektweg ausgeben (gleiches Netz, 20 ms überblendet; läuft das Teilnetz nicht, sofort).
+  bool pre = false, spk = false, send = false; double preMix = 0, spkMix = 0, sendMix = 0; Core cp, cp0; spkv::Filter spkF; double vB2r = 495.053, iPIr = 2.934e-3;
   std::vector<double> pbP, pbP0; int piP = 0; double vgkP[NPEAK] = {-1, -1, -1, -1, -1, -1, -1};
   bool fullOn() const { return preMix < 1; } bool preOn() const { return preMix > 0; }
   const Setting &curS() const { return preMix >= 1 ? cp.cur : c.cur; }
@@ -237,7 +242,7 @@ struct Amp {
   // Vorstufe allein: ein Schritt bei os-facher Rate, Rückgabe Spannung am Gitter der Phasenumkehr mal PRE_GAIN (V, wie an der Lautsprecherklemme)
   double stepP(double x) { double y[O_NO + 32], u[3] = {x, vB2r, iPIr}; cp.stepU(u, y);
     if (preMix >= 1) for (int i = 0; i < 4; i++) { double d = cp.run.vp[monPortP(i)] - vgkP[i]; if (d > peak[i]) peak[i] = d; }
-    return y[P_GA] * PRE_GAIN; }
+    double g = y[P_GA] * PRE_GAIN; if (sendMix > 0) g += sendMix * (y[P_SEND] * SEND_GAIN - g); return g; }
   void settleP(double secs, const std::atomic<bool> *cancel) { long n = (long)(secs * cp.fs); for (long i = 0; i < n; i++) { if (cancel && (i & 1023) == 0 && cancel->load()) return; stepP(0); } }
   // Vorstufen-Netz aus dem eingeschwungenen ganzen Verstärker aufsetzen (Speisungen, Startwerte) und einschwingen
   void initPre(const Parts &pv, const Setting &s, const std::atomic<bool> *cancel) {
@@ -271,13 +276,13 @@ struct Amp {
         Ld = 2 * osE * (LAT - 16 - 3) + 2 * osE - 1; kaiser(hd, Ld, (22.0 / 48.0) / osE, 9); }
       xb.assign(64, 0); yb.assign(2 * Ld, 0); xi = yi = 0; }
     settleAll(SETTLE, cancel); c0 = c; e0 = e; pb0 = pb; vB20 = vB2; iPI0 = iPI; readBias();
-    initPre(pv, s, cancel); spkF.design(spkParams(), fsB); cp.preGain = cp0.preGain = PRE_GAIN; c.spkF = c0.spkF = cp.spkF = cp0.spkF = spkF; preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0;
+    initPre(pv, s, cancel); spkF.design(spkParams(), fsB); cp.preGain = cp0.preGain = PRE_GAIN; c.spkF = c0.spkF = cp.spkF = cp0.spkF = spkF; preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; sendMix = send ? 1 : 0;
     ready = true; }
   int latency() const { return os > 1 ? LAT : 0; }
   static bool sameSw(const Setting &a, const Setting &b) { return a.od == b.od && a.crunch == b.crunch && a.bright == b.bright; }
   static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.ngain == b.ngain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.nmaster == b.nmaster && a.pres == b.pres; }
   void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, curS())) { Setting n = curS(); n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; applyAct(n); vgk0[1] = c0.run.vp[monPort(1)]; vgkP[1] = cp0.run.vp[monPortP(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
-  void snap() { preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; applyAct(tgt); cnt = 0; }
+  void snap() { preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; sendMix = send ? 1 : 0; applyAct(tgt); cnt = 0; }
   void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); if (fullOn()) { settleAll(secs, cancel); c0 = c; e0 = e; pb0 = pb; vB20 = vB2; iPI0 = iPI; readBias(); }
     if (preOn()) { settleP(secs, cancel); cp0 = cp; pbP0 = pbP; readP(); } }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen
   void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = curS(); bool moved = false;
@@ -307,6 +312,7 @@ struct Amp {
       if (pre && preMix == 0) restoreP(c.cur); else if (!pre && preMix == 1) restoreF(cp.cur);
       { double t = pre ? 1 : 0; if (preMix < t) preMix = std::min(t, preMix + st); else if (preMix > t) preMix = std::max(t, preMix - st); }
       { double t = spk ? 1 : 0; if (spkMix < t) spkMix = std::min(t, spkMix + st); else if (spkMix > t) spkMix = std::max(t, spkMix - st); }
+      { double t = send ? 1 : 0; if (preMix == 0) sendMix = t; else if (sendMix < t) sendMix = std::min(t, sendMix + st); else if (sendMix > t) sendMix = std::max(t, sendMix - st); }   // FX SEND (ab 1.7)
       if (os == 1) y = run1(x);
       else if (!split) { xi = xi == 0 ? 31 : xi - 1; xb[xi] = xb[xi + 32] = x; y = 0;
         for (int ph = 0; ph < os; ph++) { double u = 0; const double *hh = &hp[ph * 32]; for (int k = 0; k < 32; k++) u += hh[k] * xb[xi + k];

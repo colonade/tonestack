@@ -1328,16 +1328,16 @@ function wav24(y, fs) {   // WAV, 1 Kanal, 24 Bit PCM
 // Latenz des Rechenkerns (Abtastwerte): WebAssembly fest 31 wie im Plugin; JavaScript-Kern nur mit Röhre und 2-facher Überabtastung
 const ampLatency = (prm, wasm) => wasm ? 31 : (prm.nl && (prm.os || 2) > 1 ? 31 : 0);
 // Datei durch den Verstärker rechnen; die Latenz wird ausgeglichen (länger rechnen, vorn abschneiden), damit die Datei sample-genau auf dem Original liegt
-async function renderThroughAmp(prm, onProgress) {
-  const fs = A.ctx.sampleRate, n = A.buf.length, dur = A.buf.duration;
+async function renderThroughAmp(prm, onProgress, buf = A.buf, fs = A.ctx.sampleRate) {   // buf/fs (ab Web 2026-11-16-5, Messung): eigener Puffer statt der geladenen Datei
+  const n = buf.length, dur = buf.duration;
   if (!A.fallback && window.OfflineAudioContext && window.AudioWorkletNode) {
-    const useWasm = !!(A.wasmReady ? await A.wasmReady : A.wasm), lat = ampLatency(prm, useWasm && !!wasmBin());
+    const useWasm = !!(A.wasmReady ? await A.wasmReady : (A.wasm ?? true)),   /* noch kein Audio (Messung ohne Datei): WebAssembly versuchen */ lat = ampLatency(prm, useWasm && !!wasmBin());
     const oc = new OfflineAudioContext(1, n + lat, fs); await oc.audioWorklet.addModule('laney-worklet.js');
     const node = new AudioWorkletNode(oc, 'laney-preamp', { numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1], channelCount:1, channelCountMode:'explicit', channelInterpretation:'speakers', processorOptions:{ params: prm, bypass: false, match: false } });
     const bin = useWasm ? wasmBin() : null;   // erst sicher sein, welcher Kern in Echtzeit läuft, dann denselben nehmen
     let wasmOk = !bin; if (bin) await new Promise(res => { node.port.onmessage = e => { if (e.data && 'wasm' in e.data) { wasmOk = !!e.data.wasm; res(); } }; node.port.start(); node.port.postMessage({ wasm: bin.buffer }); });   // schlägt der Kern hier fehl, rechnet das Worklet mit dem JavaScript-Kern weiter
     node.port.postMessage({ params: prm, bypass: false, match: false });
-    const src = oc.createBufferSource(); src.buffer = A.buf; src.connect(node); node.connect(oc.destination); src.start(0);
+    const src = oc.createBufferSource(); src.buffer = buf; src.connect(node); node.connect(oc.destination); src.start(0);
     let timer = 0;
     if (typeof oc.suspend === 'function') { for (let t = 1; t < dur; t += 1) { const tt = t; oc.suspend(tt).then(() => { onProgress(tt / dur); oc.resume(); }).catch(() => {}); } }
     else { const t0 = performance.now(); timer = setInterval(() => onProgress(-((performance.now() - t0) / 1000)), 500); }   // Firefox kennt suspend() nicht: verstrichene Zeit statt Prozent
@@ -1346,7 +1346,7 @@ async function renderThroughAmp(prm, onProgress) {
   }
   // Ausweichbetrieb: Rechenkern im Hauptthread, in Stücken, damit die Seite bedienbar bleibt
   const eng = new LaneyDSP.LaneyEngine(fs); eng.setTarget(prm); const lat = ampLatency(prm, false), m = n + lat;
-  const c0 = A.buf.getChannelData(0), c1 = A.buf.getChannelData(A.buf.numberOfChannels > 1 ? 1 : 0), y = new Float32Array(m), B = 4096;
+  const c0 = buf.getChannelData(0), c1 = buf.getChannelData(buf.numberOfChannels > 1 ? 1 : 0), y = new Float32Array(m), B = 4096;
   for (let p = 0; p < m; p += B) { eng.work(B); const e = Math.min(m, p + B); for (let i = p; i < e; i++) { eng.tick(); y[i] = eng.step(i < n ? 0.5 * (c0[i] + c1[i]) : 0); }
     onProgress(e / m); await new Promise(r => setTimeout(r, 0)); }
   return y.slice(lat, lat + n);
@@ -1368,6 +1368,8 @@ async function download() {
   finally { A.rendering = false; setButtons(); }
 }
 $('adl').onclick = download;
+// Messung (ab Web 2026-11-16-5, assets/messung.js): Prüfton mit Spitze = INPUT durch denselben Weg wie beim Speichern
+window.TSMESS = { busy: () => !!A.rendering, render: async (buf, onP) => { A.rendering = true; setButtons(); try { return await renderThroughAmp({ ...params(), vin: vinVolt() }, onP, buf, buf.sampleRate); } finally { A.rendering = false; setButtons(); } } };
 $('avol').oninput = e => { const d = +e.target.value; $('avolv').textContent = (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' dB';
   if (A.gain) A.gain.gain.setTargetAtTime(Math.pow(10, d / 20), A.ctx.currentTime, 0.02); };
 $('amis').oninput = () => { $('amisv').textContent = String(+$('amis').value).replace('.', ',') + ' %'; send(); };
@@ -1801,4 +1803,5 @@ body.kompakt .mlow>.sub.after h3{font-size:1rem;margin:0 0 6px}
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
+<script src="../assets/messung.js"></script>
 </body></html>
