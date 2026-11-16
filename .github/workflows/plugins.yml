@@ -1,6 +1,6 @@
 # Plugins bauen und veröffentlichen: Linux (CLAP, VST3; Ubuntu 24.04) und Mac (Audio Unit für Logic, VST3; macOS 15).
 # Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
-# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V>_loldano-<V>_kaiserin-<V>_blech140-<V> (ältere werden gelöscht).
+# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V>_loldano-<V>_kaiserin-<V>_blech140-<V>_wisent-<V> (ältere werden gelöscht).
 # Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
 # Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
 name: Plugins
@@ -42,7 +42,11 @@ jobs:
           ./engine/build/kaitest rt | tail -3
           ./engine/build/blechtest conv | tail -3
           ./engine/build/blechtest rate | tail -4
-          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
+          ./engine/build/wisenttest time | tail -3
+          ./engine/build/wisenttest pattern | tail -2
+          ./engine/build/wisenttest tone
+          ./engine/build/wisenttest lat | tail -2
+          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
       - name: Packen
         run: |
           set -euo pipefail

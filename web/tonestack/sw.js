@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-15-12";
+const VERSION = "2026-11-16-1";
 // Eigener Speichername je Version und Installationsort (ab 2026-11-15-8): beim Aktualisieren werden nur die eigenen alten Speicher gelöscht,
 // nicht die anderer Web-Apps auf derselben Domain (bis 2026-11-15-7 wurden alle Speicher der Domain außer dem aktuellen gelöscht).
 const CACHE = "tonestack-" + VERSION + "@" + self.registration.scope;
@@ -88,6 +88,13 @@ const FILES = [
   "blech-140/blech-ir.js",
   "assets/icons/blech-140-192.png",
   "assets/icons/blech-140-512.png",
+  "wisent-echoreck/",
+  "wisent-echoreck/index.html",
+  "wisent-echoreck/manifest.webmanifest",
+  "wisent-echoreck/wisent-worklet.js",
+  "wisent-echoreck/wisent-render.js",
+  "assets/icons/wisent-echoreck-192.png",
+  "assets/icons/wisent-echoreck-512.png",
   "ampfett-76/",
   "ampfett-76/index.html",
   "ampfett-76/manifest.webmanifest",

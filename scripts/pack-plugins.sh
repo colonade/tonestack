@@ -28,3 +28,4 @@ pack AmpFett_76 "$AMPFETT76" README-AmpFett76.txt
 pack Loldano_SLO100 "$LOLDANO" README-Loldano.txt
 pack Kaiserin_Reverb "$KAISERIN" README-Kaiserin.txt
 pack Blech_140 "$BLECH" README-Blech140.txt
+pack Wisent_Echoreck "$WISENT" README-Wisent.txt

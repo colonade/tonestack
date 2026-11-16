@@ -71,25 +71,32 @@ LENGTH OF SWELL läuft nicht bis null, weil unter dem Poti 47 k liegen. In REPEA
 - **Elektronik:** Netz im Zeitbereich (dk.hpp), Röhren nach Dempwolf (12AX7) bzw. Koren-Form mit Messwerten (12AU7), Röhrenkapazitäten.
   - Zwei Teilnetze: Aufnahme (V4A, V5A, V5B, V6A; nichtlinear, doppelte Abtastrate) und Wiedergabe (linear: Kopfstufen, Matrix, V3A, Klangregelung, V4B; einfache Rate).
   - Übergabe zwischen den Teilnetzen: Abgriff TD und Gitter V5B.
-- **Überabtastung:** IIR-Halbbänder (elliptisch, 8 Koeffizienten). Sperrdämpfung etwa 100 dB, Laufzeit 3 Abtastwerte.
+- **Überabtastung:** IIR-Halbbänder (elliptisch, 8 Koeffizienten). Sperrdämpfung etwa 100 dB, Laufzeit 3 Abtastwerte. Ab 88,2 kHz rechnet die Aufnahmeseite mit der einfachen Rate (Latenz 0); ab 176,4 kHz das ganze Gerät mit der halben, ab 352,8 kHz mit einem Viertel der Rate (Halbbänder hinunter und hinauf; Latenz 8 bzw. 22 Abtastwerte, gemessen).
 - **Anodenspannungen:** ideal (Netzteil nicht gerechnet, Annahme).
 - **Trommel:**
   - Aufnahme: Tiefpass 12 kHz (Selbstlöschung durch die Vormagnetisierung, angenommen), dann tanh-Sättigung. Die Sättigung setzt bei 3 V an der Anode V6A ein (9,5 dB über dem Planpegel, angenommen).
   - Löschrest des Dauermagneten −50 dB von der vorigen Umdrehung (angenommen); Rauschen des Drahts −99 dB relativ zur Sättigung (weiß, vor der Ableitung der Wiedergabe; angenommen).
-  - Wiedergabe: d/dt mal Abstandsverlust e^(−2π·d·f/v) mal Spaltverlust (5 µm).
+  - Wiedergabe: d/dt mal Abstandsverlust e^(−2π·d·f/v) mal Spaltverlust (5 µm), als linearphasiges FIR von ±1,2 ms (Tukey-Fenster) beim Schreiben; die vier Köpfe lesen dieselbe gefilterte Spur. Abweichung vom Ziel: 50 Hz −0,7 dB, ab 300 Hz unter 0,15 dB, bei jeder Rate gleich. Vorzeichen: positive Ableitung (Polarität der Köpfe im Gerät unbekannt, angenommen).
+  - 60 Hz: dieselbe Normierung wie bei 50 Hz (höhere Geschwindigkeit, weniger Abstandsverlust: +0,6 dB bei 1 kHz, mehr Höhen).
   - d = 31 µm wirksam (Draht 0,1 mm, Abstand, Dicke). Damit fällt die Schleifenverstärkung über 2,5 kHz ab, und Wiederholungen werden dunkler. Mit 8 µm schwang die Schleife bei 4–10 kHz.
   - Gleichlauf: Exzentrizität 0,05 % einmal je Umdrehung (Effectrode: bei gewartetem Gerät unhörbar).
   - Kopfspannung so abgeglichen, dass 1 V an der Anode V6A (1 kHz) 0,5 V an H ergibt (beides Planangaben).
 - **Kopf-Induktivitäten** 0,1 H (angenommen); Wiedergabekopf 650 Ω (Effectrode: 600–700 Ω).
 - **Trimmer:**
   - TF = 0,35: in REPEAT mit einem Kopf schwingt die Schleife ab LENGTH OF SWELL 0,9 (Abgleich, wisenttest loop).
-  - TSC = 5 k (Mitte), TSW = Mitte.
+  - TSC = 5 k (Mitte), TSW = Mitte (SWELL je Kopf damit etwa 11 dB leiser als ECHO/REPEAT).
+- **Klangregelung:** BASS und TREBLE linear; Rechtsanschlag = mehr Tiefen bzw. Höhen (wisenttest tone). Die Mittelstellung ist nicht linear im Frequenzgang.
+- **Übersprechen:** Abgeschaltete Köpfe kommen über die Swell-Schiene W (TSW-Abgriffe, je 330 k) mit etwa −50 dB auf einen eingeschalteten Kopf.
 - **Ausgang:** so geeicht, dass trocken = Eingang (1 kHz).
 
 ## Prüfung (engine/tests/wisenttest.cpp)
 - Ruhespannungen siehe oben.
 - Echozeiten bei 50 Hz: 74,9/149,2/223,7/298,2 ms (Soll 74,4/148,8/223,2/297,6 ms + 3 Abtastwerte Laufzeit); bei 60 Hz 62,5/124,5/186,4/248,5 ms.
-- Rückkopplung (REPEAT, ein Kopf), Verhältnis 2./1. Wiederholung: −15 dB (LENGTH OF SWELL 0), −4 dB (0,5), 0 dB (0,9), +1 dB (1,0).
+- Rückkopplung (REPEAT, ein Kopf), Verhältnis 2./1. Wiederholung: −15 dB (LENGTH OF SWELL 0), −4 dB (0,5), 0 dB (0,9), +1 dB (1,0). Kleinsignal-Echomuster (Anzeige der Seite) gegen den Zeitbereich auf 0,1 dB.
+- Schleife erreicht 0 dB (höchster Wert über der Frequenz): LENGTH OF SWELL 0,89 bei 50 Hz (781 Hz), 0,76 bei 60 Hz (2,9 kHz).
 - Zwei Rückkopplungsköpfe bei 0,5 bleiben stabil; bei 1,0 wächst der Pegel bis in die Sättigung.
-- Schleifenverstärkung über der Frequenz (LENGTH OF SWELL 0,5): höchstens −7,8 dB bei 400–2500 Hz, 10 kHz −25 dB, 100 Hz −16 dB.
+- Schleifenverstärkung über der Frequenz (LENGTH OF SWELL 0,5, 50 Hz): höchstens −4,1 dB bei 750 Hz, 400–3000 Hz innerhalb 1 dB, 100 Hz −12,7 dB, 10 kHz −21 dB.
+- Latenz (wisenttest lat): 3,07 Abtastwerte bis 48 kHz, 0 bei 88,2/96 kHz, 8,1 bei 176,4/192 kHz, 22,4 bei 352,8/384 kHz.
+- Rechenzeit: etwa 4,5 µs je Abtastwert bei 48 kHz (lautes Rauschen, 22 % eines Kerns), im Plugin-Prüfstand im Mittel etwa 11 %; 192 kHz etwa 23 %.
+- WebAssembly gegen C++: −97 dB (Newton-Toleranz und Mathematik-Bibliotheken).
 - Aliasing (Sinus 2,9 kHz, ohne Gleichlauf und Rauschen, nicht harmonische Anteile gegen Grundton): bis −10 dBFS bei INPUT 0,4 und bis −20 dBFS bei INPUT 0,8 unter −68 dB; nur bei starker Übersteuerung (INPUT 0,8 und −10 bzw. 0 dBFS, Aufnahme weit über der Sättigung) −40 bzw. −30 dB (ohne Überabtastung −21 bzw. −24 dB).

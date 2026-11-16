@@ -1,0 +1,102 @@
+Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
+Version 1.0
+
+Two formats, one engine
+  Wisent_Echoreck.clap and Wisent_Echoreck.vst3 contain the same code and
+  sound identical. Use whichever your DAW prefers. CLAP is the native
+  format, the VST3 is built from it with clap-wrapper (free-audio, MIT) and
+  the VST3 SDK 3.8 (Steinberg, MIT). A project saved with one format does
+  not load its settings into the other.
+  Third-party licenses: THIRD-PARTY-LICENSES.txt.
+
+Updating
+  Close REAPER first. Copying a new .clap over the file a running REAPER has
+  loaded makes REAPER crash (at once or a while later). scripts/update-
+  tonestack.sh refuses to run while REAPER is open and never overwrites a
+  plugin file in place.
+
+Installation (CLAP)
+  mkdir -p ~/.clap && cp Wisent_Echoreck.clap ~/.clap/
+  In REAPER: Options > Preferences > Plug-ins > CLAP: add ~/.clap to the
+  path if it is not there and press "Re-scan". The plugin then appears in
+  the FX browser under CLAP as "Wisent Echoreck (after Binson Echorec PE
+  603 T)".
+
+Installation (VST3)
+  mkdir -p ~/.vst3 && cp -r Wisent_Echoreck.vst3 ~/.vst3/
+  (Wisent_Echoreck.vst3 is a folder - copy it as a whole.) Then "Re-scan".
+
+What it is
+  A tube echo with a magnetic drum, modelled after the schematic of the
+  Binson Echorec PE 603 T (a redrawing of the factory schematic). The
+  signal is written onto steel wire on a rotating drum; four playback heads
+  34 mm apart read it 74, 148, 222 and 297 ms later (50 Hz mains), a
+  permanent magnet erases before the next turn. "Binson" and "Echorec" are
+  trademarks of their owners; this plugin is independent and no
+  measurement of a unit.
+    Tubes      input stage V4A, mixer V5A/V5B (ECC83) and record amplifier
+               V6A (ECC82) as a time-domain circuit with the part values of
+               the schematic (record side at twice the sample rate up to
+               48 kHz).
+    Drum       record current with bias as a 12 kHz low-pass and a soft
+               saturation of the wire (assumed: about 9.5 dB above the
+               level in the schematic); playback as the derivative with
+               spacing loss (31 um effective, assumed) and gap loss (5 um);
+               erase residue -50 dB, wire noise, wow 0.05 % per turn
+               (assumed). Speed 457 mm/s at 50 Hz, 548 mm/s at 60 Hz.
+    Playback   one ECC83 stage per head, switch matrix, V3A, passive tone
+               control, VOLUME and the cathode follower V4B (linearized at
+               their operating points: millivolt levels).
+    Matrix     the schematic shows the contacts without rest position. The
+               model reads it as: lower row = heads to the output, upper
+               row = heads into the feedback; ECHO without feedback, REPEAT
+               with, SWELL = all four heads to the output (each about 11 dB
+               quieter, trimmer TSW at mid position assumed) plus feedback.
+
+Controls
+  On the unit:
+  INPUT          record level (log taper). The magic eye shows the record
+                 current against the saturation of the wire: when the two
+                 bands meet, the wire saturates. Default 2.5.
+  LENGTH OF SWELL  feedback. With one feedback head the loop starts to
+                 oscillate at about 8.9 (50 Hz) or 7.6 (60 Hz: less
+                 spacing loss). It never goes fully to zero (47 k below
+                 the pot): in REPEAT there is always a second repeat at
+                 about -15 dB.
+  VOLUME         echo level (log taper). Default 8.
+  BASS, TREBLE   passive tone control of the echo; clockwise = more. The
+                 middle position is not flat.
+  ECHO / REPEAT / SWELL, head buttons: see "Matrix" above.
+  Model (not on the unit):
+  LEVEL          the voltage at the input for 0 dBFS (20 mV to 2 V peak,
+                 default 200 mV, about a guitar).
+  OUTPUT         -24 to +24 dB. The output is calibrated so the dry signal
+                 keeps its level at 1 kHz.
+  MAINS 50/60 Hz drum speed (shaded-pole motor follows the mains); the
+                 change glides in about 0.4 s.
+
+Measured (engine/tests/wisenttest.cpp)
+  Operating points against the schematic: V4A 68 V (80), mixer 113 V
+  (130), V6A 130.5 V (130). Echo times 74.4 / 148.8 / 223.2 / 297.6 ms plus
+  latency (60 Hz: 62 / 124 / 186 / 248 ms). Feedback with one head, second
+  against first repeat: -15 dB at LENGTH OF SWELL 0, -4 dB at 5, 0 dB at 9.
+  Small-signal echo pattern against the time domain within 0.1 dB.
+  Aliasing under normal drive below -68 dB.
+
+Mono, latency, CPU
+  Mono in (a stereo input is summed), mono out on both channels. Latency 3
+  samples up to 48 kHz, 0 at 88.2/96 kHz; from 176.4 kHz the whole unit
+  runs at half the rate (latency 8 samples), from 352.8 kHz at a quarter
+  (22). The plugin reports its tail (ECHO 0.4 s, with feedback longer;
+  endless while the loop oscillates). CPU at 48 kHz about 10 to 25 % of one
+  core; when the input is silent and the echoes have died away, the plugin
+  sleeps.
+
+Interface
+  The front panel is an own drawing (no photo, no logo): magic eye, INPUT,
+  LENGTH OF SWELL, VOLUME, BASS, TREBLE, ECHO/REPEAT/SWELL, the head
+  buttons (upper row feedback, lower row playback, with the delay of each
+  head), and the model controls LEVEL, OUTPUT and the mains switch. Below
+  it: mode, active heads, record level and drum speed.
+  Drag a knob up/down, mouse wheel for fine steps, double-click = default.
+  Click a button to press or release it.
