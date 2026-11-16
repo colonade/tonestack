@@ -96,17 +96,17 @@ g++ -O2 -std=c++17 -Ithird_party tests/sloguitest.cpp -ldl $(pkg-config --cflags
 g++ -O2 -std=c++17 -Ithird_party tests/kaiguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/kaiguitest
 g++ -O2 -std=c++17 -Ithird_party tests/blechguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/blechguitest
 g++ -O2 -std=c++17 -Ithird_party tests/wisentguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/wisentguitest
-g++ -O3 -std=c++17 -Isrc -Igen tests/b15test.cpp -o build/b15test; g++ -O3 -std=c++17 -Isrc -Igen tests/b15amp.cpp -o build/b15amp
+g++ -O3 -std=c++17 -Isrc -Igen tests/b15test.cpp -o build/b15test; g++ -O3 -std=c++17 -Isrc -Igen tests/b15amp.cpp -o build/b15amp; g++ -O3 -std=c++17 -Isrc -Igen tests/b15pre.cpp -o build/b15pre
 g++ -O3 -std=c++17 -Isrc -Igen tests/gktest.cpp -o build/gktest
 g++ -O3 -std=c++17 -Isrc -Igen tests/g100test.cpp -o build/g100test
 g++ -O3 -std=c++17 -Isrc -Igen tests/b3test.cpp -o build/b3test
-g++ -O3 -std=c++17 -Isrc tests/svttest.cpp -o build/svttest
+g++ -O3 -std=c++17 -Isrc tests/svttest.cpp -o build/svttest; g++ -O3 -std=c++17 -Isrc tests/svtpre.cpp -o build/svtpre
 g++ -O3 -std=c++17 -Isrc tests/weqtest.cpp -o build/weqtest
 g++ -O3 -std=c++17 -Isrc -Igen tests/u76test.cpp -o build/u76test -lpthread
-g++ -O3 -std=c++17 -Isrc -Igen tests/slotest.cpp -o build/slotest -lpthread
+g++ -O3 -std=c++17 -Isrc -Igen tests/slotest.cpp -o build/slotest -lpthread; g++ -O3 -std=c++17 -Isrc -Igen tests/slopre.cpp -o build/slopre
 g++ -O3 -std=c++17 -Isrc tests/kaitest.cpp -o build/kaitest
 g++ -O3 -std=c++17 -Isrc tests/blechtest.cpp -o build/blechtest
 g++ -O3 -std=c++17 -Isrc tests/wisenttest.cpp -o build/wisenttest
 g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
 g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/g100guitest, build/b3guitest, build/svtguitest, build/weqguitest, build/u76guitest, build/b15test, build/b15amp, build/gktest, build/g100test, build/b3test, build/svttest, build/weqtest, build/u76test, build/clapstress, build/switchtest, build/kaiguitest, build/blechguitest, build/wisentguitest, build/kaitest, build/blechtest, build/wisenttest"
+echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/g100guitest, build/b3guitest, build/svtguitest, build/weqguitest, build/u76guitest, build/b15test, build/b15amp, build/b15pre, build/svtpre, build/slopre, build/gktest, build/g100test, build/b3test, build/svttest, build/weqtest, build/u76test, build/clapstress, build/switchtest, build/kaiguitest, build/blechguitest, build/wisentguitest, build/kaitest, build/blechtest, build/wisenttest"

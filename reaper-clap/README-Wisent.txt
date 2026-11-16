@@ -1,5 +1,9 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
+
+New in 1.2: WOBBLE (a worn drum whose disc does not run true) as a model
+control. Default 0 = as in 1.1 (bit for bit); projects saved with 1.0 or
+1.1 load unchanged.
 
 New in 1.1: DRY (the trimmer TD, dry level) and VARISPEED (drum speed
 0.25x to 2x, a later modification) as model controls; VOLUME default 10;
@@ -96,6 +100,21 @@ Controls
                  losses follow the wavelength: slower is duller and stops
                  self-oscillating, faster is brighter and runs away earlier.
                  Head 4 from 1.19 s (0.25x) to 149 ms (2x) at 50 Hz.
+  WOBBLE         0 to 10, default 0. A worn drum: the disc does not run
+                 true, and the spacing between wire and heads grows once
+                 per turn by up to 30 um (WOBBLE 10) and goes back again
+                 (sinusoidal). The disc is rigid, so every spot of the wire
+                 keeps its spacing: it is recorded with it and read with
+                 it, by each head at its own time. Spacing loss after
+                 Wallace, assumed for recording as well as playback; at
+                 50 Hz and WOBBLE 10 the worst spot loses 7.2 dB at 1 kHz
+                 and 21.5 dB at 3 kHz, the bass hardly anything. You hear a
+                 slow rise and fall of level and treble of the echoes in
+                 time with the drum (0.82 s at 50 Hz); every echo and every
+                 repeat meets another spot. The speed does not change. The
+                 frequency response and echo pattern in the page show the
+                 true-running drum. Up to about 7 % of a core more CPU at
+                 WOBBLE 10.
 
 Measured (engine/tests/wisenttest.cpp)
   Operating points against the schematic: V4A 68 V (80), mixer 113 V
@@ -118,8 +137,8 @@ Interface
   The front panel is an own drawing (no photo, no logo): magic eye, INPUT,
   LENGTH OF SWELL, VOLUME, BASS, TREBLE, ECHO/REPEAT/SWELL, the head
   buttons (upper row feedback, lower row playback, with the delay of each
-  head), and the model controls DRY, VARISPEED, LEVEL, OUTPUT and the mains
-  switch. Below
+  head), and the model controls DRY, VARISPEED, WOBBLE, LEVEL, OUTPUT and
+  the mains switch. Below
   it: mode, active heads, record level and drum speed.
   Drag a knob up/down, mouse wheel for fine steps, double-click = default.
   Click a button to press or release it.

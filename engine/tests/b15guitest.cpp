@@ -1,6 +1,6 @@
 // GUI-Test (AmpFett B-15NF): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   b15guitest AmpFett_B15NF.clap bild.png
-// Prüft: Buchse Guitar, Treble 1 ziehen, POWER aus und wieder an, Lautsprecher an, Überabtastung 2x und volles Netzteil 50 Hz (Kernwechsel im Hilfsfaden), Mausrad auf Bass 2.
+// Prüft: Buchse Guitar, Treble 1 ziehen, POWER aus und wieder an, Lautsprecher an, Abgriff nach der Vorstufe und zurück (ab 1.27), Überabtastung 2x und volles Netzteil 50 Hz (Kernwechsel im Hilfsfaden), Mausrad auf Bass 2.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -54,6 +54,8 @@ int main(int argc, char **argv) {
   send(ButtonPress, kx(655), kx(112), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(655), kx(112) - i * 8, 0); tick(); } send(ButtonRelease, kx(655), kx(32), 1); tick(); printf("Treble 1: %g (erwartet > 5)\n", pv(2));
   click(kx(1530), kx(110)); printf("Power: %g (erwartet 0)\n", pv(8)); audio(40); printf("Ausgang nach 0,2 s aus: %.3f (erwartet 0)\n", outPk); click(kx(1530), kx(110)); printf("Power: %g (erwartet 1)\n", pv(8));
   click(ux(64), uy(88)); printf("Lautsprecher: %g (erwartet 1)\n", pv(9));
+  click(ux(504), uy(88)); printf("Abgriff: %g (erwartet 1 = nach der Vorstufe)\n", pv(18)); audio(40); printf("Ausgang Vorstufe: %.3f (erwartet > 0)\n", outPk);
+  click(ux(504), uy(88)); printf("Abgriff: %g (erwartet 0 = ganzer Verstärker)\n", pv(18)); audio(40); printf("Ausgang ganzer Verstärker: %.3f (erwartet > 0)\n", outPk);
   click(ux(186), uy(70)); click(ux(186), uy(100)); printf("Überabtastung: %g (erwartet 1 = 2x)\n", pv(11));
   for (int i = 0; i < 400; i++) { tick(); usleep(5000); }
   send(ButtonPress, ux(1110), uy(72), 1); for (int i = 1; i <= 10; i++) { send(MotionNotify, ux(1110), uy(72) - i * 4, 0); tick(); } send(ButtonRelease, ux(1110), uy(32), 1); tick(); printf("Mismatch: %g (erwartet > 0)\n", pv(13)); click(ux(310), uy(100)); click(ux(310), uy(100)); printf("Netzteil: %g (erwartet 1 = voll), Netz: %g (erwartet 1 = 50 Hz)\n", pv(15), pv(14)); for (int i = 0; i < 400; i++) { tick(); usleep(5000); }

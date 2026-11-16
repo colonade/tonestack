@@ -1,5 +1,5 @@
 AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.26
+Version 1.27
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -58,7 +58,8 @@ Parameters
   Instrument level, Input reference, Oversampling (1x, 2x, 4x), Output level, Power tube
   mismatch (0-10 %), Power supply (simple / full), Mains frequency (full
   power supply only: 60 Hz US original / 50 Hz export), Volume pot taper
-  (log 15 % / log 10 % / linear, see 1.16). Standby was
+  (log 15 % / log 10 % / linear, see 1.16), Signal tap (whole amp /
+  after the preamp, see 1.27). Standby was
   removed in 1.15 (the parameter is still there for old projects, hidden
   and without effect).
   Knob 10 = clockwise end = boost (treble, bass) / full volume.
@@ -71,7 +72,8 @@ User interface
   knobs to turn (drag vertically, mouse wheel, double-click = 5), click a
   jack to plug in there, click the POWER switch (STANDBY and GROUND were
   removed in 1.15). Below the panel the model strip (not on the amp):
-  SPEAKER, OVERSAMPLING, SUPPLY (DC / 60 Hz / 50 Hz, see below), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
+  SPEAKER, OVERSAMPLING, SUPPLY (DC / 60 Hz / 50 Hz, see below), POT
+  TAPER, TAP (AMP / PREAMP, see "Signal tap"), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
   inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
   0 V, marked - and the output power into 8 ohm, mark = 30 W), INPUT
   (instrument level), OUTPUT and TUBE MISMATCH (idle current difference of the
@@ -104,6 +106,19 @@ Speaker
   SPEAKER adds the 15" speaker of the B-15 in its closed box (estimated
   Thiele-Small data: Fs 40 Hz, Qms 5, Qes 0.55, Vas 280 l, box 85 l), driven
   by the amp's real output impedance, plus a cone roll-off at 3 kHz.
+  With TAP PREAMP there is no power amp to drive it: the same speaker data
+  then act as a filter on the preamp signal (no load on the circuit).
+
+Signal tap
+  TAP AMP (default): the whole amp up to the speaker terminal.
+  TAP PREAMP: the signal at the grid of the phase inverter V3, after both
+  channels, the tone controls and the mixing; the phase inverter stays
+  connected as the load. Power amp, output transformer and power supply
+  are not computed (about half the CPU). The preamp supplies are held at
+  the idle values of the whole amp (about 362 V and 360 V, bias -49.6 V):
+  no sag, no hum. The level is matched so that at the default settings it
+  equals the speaker terminal at 1 kHz (x 13.3). Switching crossfades in
+  20 ms; the DRIVE meters for the 6L6GC and the power show "-".
 
 Oversampling and latency
   1x is enough for clean and moderately driven playing; 2x or 4x reduce
@@ -420,3 +435,9 @@ Notes
   20 kHz (more with VOLUME turned up); below 1 kHz nothing changes
   (0.01 dB). Found while building the Loldano, where the same omission
   showed up. Twelve more states in the circuit, so somewhat more CPU.
+
+1.27
+  New parameter "Signal tap" (TAP toggle in the model strip): the signal
+  after the preamp, without computing the power amp (see "Signal tap").
+  Appended at the end, projects saved before load with the whole amp as
+  before. Sound with TAP AMP unchanged.

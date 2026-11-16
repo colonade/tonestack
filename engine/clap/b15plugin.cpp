@@ -1,6 +1,7 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
+#define B15_V127   // AmpFett ab 1.27 (Abgriff nach der Vorstufe) in b15_core.hpp; andere Plugins sehen den Stand 1.26 (bytegleich)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.26"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.27"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -31,8 +32,9 @@ namespace bgui { struct Gui; }
 #endif
 using namespace b15;
 
-enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_MAINS, P_PSU, P_TAPER, P_INREF, P_COUNT };   // P_STBY ab 1.15 ohne Wirkung (verborgen, Nummer bleibt für alte Projekte)
+enum { P_JACK, P_V1, P_T1, P_B1, P_V2, P_T2, P_B2, P_STBY, P_PWR, P_SPK, P_VIN, P_OS, P_OUT, P_MIS, P_MAINS, P_PSU, P_TAPER, P_INREF, P_PRE, P_COUNT };   // P_PRE ab 1.27 (angehängt)   // P_STBY ab 1.15 ohne Wirkung (verborgen, Nummer bleibt für alte Projekte)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
+static const char *N_PRE[] = {"Speaker output (whole amp)", "After preamp (V3A grid, power amp not computed)"};
 static const char *N_JACK[] = {"Bass (channel 1)", "Guitar (channel 1)", "Inst. (channel 2)"}; static const char *N_ONOFF[] = {"Off", "On"};
 static const char *N_MAINS[] = {"60 Hz (US original)", "50 Hz (export)"}; static const char *N_TAP[] = {"Log 15 % (original)", "Log 10 %", "Linear"}; static const char *N_STBY[] = {"Off (playing)", "On (no effect since 1.15)"}; static const char *N_PSU[] = {"Simple (DC, no hum, about 20 % less CPU)", "Full (mains transformer, 5AR4, hum, sag)"}; static const char *N_OS[] = {"1x", "2x", "4x"};
 static const PDef PD[P_COUNT] = {
@@ -40,7 +42,8 @@ static const PDef PD[P_COUNT] = {
   {"Volume 2", 0, 10, 5, 0, 0}, {"Treble 2", 0, 10, 5, 0, 0}, {"Bass 2", 0, 10, 5, 0, 0},
   {"Standby (removed)", 0, 1, 0, N_STBY, 2}, {"Power", 0, 1, 1, N_ONOFF, 2}, {"Speaker (CTS 15\", sealed box, estimated)", 0, 1, 0, N_ONOFF, 2},
   {"Instrument level (mV peak)", 1, 1000, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 0, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0},
-  {"Power tube mismatch (%)", 0, 10, 8, 0, 0}, {"Mains frequency (full power supply)", 0, 1, 0, N_MAINS, 2}, {"Power supply", 0, 1, 0, N_PSU, 2}, {"Volume pot taper", 0, 2, 0, N_TAP, 3}, {"Input reference", 0, 1, 0, tsin::N_REF, 2} };
+  {"Power tube mismatch (%)", 0, 10, 8, 0, 0}, {"Mains frequency (full power supply)", 0, 1, 0, N_MAINS, 2}, {"Power supply", 0, 1, 0, N_PSU, 2}, {"Volume pot taper", 0, 2, 0, N_TAP, 3}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
+  {"Signal tap", 0, 1, 0, N_PRE, 2} };
 static const uint32_t LATENCY = 31;   // fest: Überabtastungsfilter 31 Abtastwerte; bei 1x verzögert das Plugin selbst um 31, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int k) { return k <= 0 ? 1 : k == 1 ? 2 : 4; }
 
@@ -59,7 +62,7 @@ struct Plugin {
   tsin::AutoIn ain;   // Eingangsbezug: gemerkte Spitze (autoin.hpp)
   tsfx::Trash<Pend> trash; Pend *swapQ = nullptr; tsfx::Fade fade;
   double swSeen[P_COUNT] = {}; bool swHold = false;   // Schalter ohne Knacks (swapfade.hpp): zuletzt übernommene Stellungen, Umschalten wartet aufs Ausblenden
-  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_PSU && id != P_INREF && id != P_SPK; }   // stufige Parameter; Überabtastung/Netzteil laufen über den Kernwechsel, den Lautsprecher blendet der Kern selbst über (20 ms)
+  bool swIs(int id) const { return PD[id].names && id != P_OS && id != P_PSU && id != P_INREF && id != P_SPK && id != P_PRE; }   // stufige Parameter; Überabtastung/Netzteil laufen über den Kernwechsel, Lautsprecher und Abgriff blendet der Kern selbst über (20 ms)
   bool swDiff() const { for (int i = 0; i < P_COUNT; i++) if (swIs(i) && val[i].load() != swSeen[i]) return true; return false; }
   void swTake() { for (int i = 0; i < P_COUNT; i++) swSeen[i] = val[i].load(); }   // vor applyTo: eine Änderung danach fällt beim nächsten Block auf
   // Ruhezustand auf den aktuellen Stellungen (ab AmpFett 1.20 / SVT-CL 1.7): proto ist der Startpunkt nach jeder Pause (Play, FX an). Bisher stand er auf der
@@ -76,16 +79,16 @@ struct Plugin {
   std::atomic<bool> fresh{true}; std::chrono::steady_clock::time_point lastEnd{};   // fresh: beim nächsten process aus dem Ruhezustand neu beginnen (Start, reset, Lücke in der Zeit)
   Amp *proto = nullptr;   // Ruhezustand des laufenden Kerns: reset kopiert ihn (im Audio-Faden kein Einschwingen, keine Sperre)
   bgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1400, guiH = 0; std::string diagMode; int diagCnt = 0; std::string diagTxt;
-  std::unique_ptr<Core> plotC; double plotFs = 0;   // eigene Instanz für den Frequenzgang (Oberflächen-Faden), zur Abtastrate plotFs
+  std::unique_ptr<Core> plotC, plotCp; double plotFs = 0;   // eigene Instanz für den Frequenzgang (Oberflächen-Faden), zur Abtastrate plotFs
   // ab 1.14: der eingeschwungene 1x-Kern für das Diagramm entsteht im Hintergrund (vorher bis zu Sekunden im Hauptfaden beim ersten Öffnen bei 2x/4x)
-  std::thread plotJob; std::atomic<bool> plotBusy{false}, plotRedo{false}, plotStop{false}, cancelJobs{false}; std::mutex plotM; std::unique_ptr<Core> plotReady; double plotReadyFs = 0; int plotPsu = -1, plotReadyPsu = -1;
+  std::thread plotJob; std::atomic<bool> plotBusy{false}, plotRedo{false}, plotStop{false}, cancelJobs{false}; std::mutex plotM; std::unique_ptr<Core> plotReady, plotReadyP; double plotReadyFs = 0; int plotPsu = -1, plotReadyPsu = -1;
   // Aufbau des Kerns: Überabtastung + 10 · Netzteil (0 einfach, 1 vollständig); ein Wechsel braucht einen neu eingeschwungenen Kern (Hilfsfaden)
   int psuWant() const { return val[P_PSU] > 0.5 ? 1 : 0; }
   int cfgWant() const { return osFactor((int)std::lround(val[P_OS])) + 10 * psuWant(); }
   Setting setting(double k1, double t1, double b1, double k2, double t2, double b2) const { Setting s; s.vol1 = k1 / 10; s.treb1 = t1 / 10; s.bass1 = b1 / 10; s.vol2 = k2 / 10; s.treb2 = t2 / 10; s.bass2 = b2 / 10;
     s.jack = std::max(0, std::min(2, (int)std::lround(val[P_JACK]))); s.mis = val[P_MIS] / 100; s.taper = std::max(0, std::min(2, (int)std::lround(val[P_TAPER]))); return s; }   // taper: Kennlinie der Volume-Potis (1 MΩ log)
   Setting target() const { return setting(val[P_V1], val[P_T1], val[P_B1], val[P_V2], val[P_T2], val[P_B2]); }
-  void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->standby = false; a->power = val[P_PWR] > 0.5; a->setMains(val[P_MAINS] > 0.5 ? 50 : 60); a->setTarget(target()); if (snap) a->snap(); }
+  void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->pre = val[P_PRE] > 0.5; a->standby = false; a->power = val[P_PWR] > 0.5; a->setMains(val[P_MAINS] > 0.5 ? 50 : 60); a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; }
     trash.freeAll(); if (swapQ) { delete swapQ->a; delete swapQ->proto; delete swapQ; swapQ = nullptr; } fade = tsfx::Fade(); swHold = false;
     if (Pend *q = protoNew.exchange(nullptr)) { delete q->a; delete q->proto; delete q; } resettleReq = false; resettling = false; protoValsOK = false; seenFor = 0; }   // nur bei stehendem Audio-Faden (activate, deactivate, destroy)
@@ -182,14 +185,14 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
     pl->cfgAct = pl->eng->os + 10 * pl->eng->v.psu; pl->eng2Stale = true; pl->monoOK = true; pl->dirty = true; pl->quiet = 0; pl->d1 = Dly(); pl->d2 = Dly(); pl->building = false; pl->fade.start(1, pl->fs); ask_main(pl); }   // Hauptfaden: Papierkorb leeren, ggf. weitere Wahl bauen
   // neuer Ruhezustand auf den aktuellen Stellungen aus dem Hilfsfaden; sonst nach 0,5 s unveränderter, abweichender Stellungen anfordern
   if (Pend *q = pl->protoNew.exchange(nullptr)) { if (q->cfg == pl->cfgAct && q->vals == pl->circuitVals()) { std::swap(pl->proto, q->proto); pl->protoVals = q->vals; pl->protoValsOK = true; } pl->trash.push(q); pl->resettling = false; pl->building = false; ask_main(pl); }
-  else if (pl->proto && !pl->swapQ && !pl->building && !pl->resettling) { auto cv = pl->circuitVals(); if (!Amp::sameAll(pl->proto->c.cur, pl->target())) {
+  else if (pl->proto && !pl->swapQ && !pl->building && !pl->resettling) { auto cv = pl->circuitVals(); if (!Amp::sameAll(pl->proto->act().cur, pl->target())) {
       if (cv != pl->seenVals) { pl->seenVals = cv; pl->seenFor = 0; } else if ((pl->seenFor += n) >= (long)(0.5 * pl->fs)) { pl->seenFor = 0; pl->resettling = true; pl->resettleReq = true; ask_main(pl); } } }
   // Neubeginn: eingeschwungener Ruhezustand (wie ein Verstärker, der während der Pause still weiterlief), Regler und Schalter sofort am Ziel.
   // Auslöser: activate, start_processing, reset oder eine Pause zwischen zwei Aufrufen von über 0,2 s (bzw. drei Blocklängen) (FX aus und wieder an, ohne dass der Host es meldet).
   // steady_time taugt dafür nicht: clap-wrapper (VST3, AU) liefert dort die Projektposition, die bei stehendem Transport steht und bei Schleifen springt.
   { auto now = std::chrono::steady_clock::now(); double gap = std::chrono::duration<double>(now - pl->lastEnd).count();
     if (pl->lastEnd.time_since_epoch().count() && gap > std::max(0.2, 3.0 * n / pl->fs) && !pl->sleeping) pl->fresh = true; }   // große Puffer: erst ab dreifacher Blockdauer; im Schlaf darf der Host aussetzen (ab 1.14 wie Laney: kein Neubeginn)
-  if (pl->fresh.exchange(false) && pl->proto) { *pl->eng = *pl->proto; bool at = Amp::sameAll(pl->proto->c.cur, pl->target()); pl->applyTo(pl->eng, !at); pl->dirty = false; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); if (!at) pl->fade.start(1, pl->fs, 0.15);   // Ruhezustand noch nicht auf diesen Stellungen: Einschwingen 150 ms einblenden   // nur der erste Kern; der zweite wird bei Bedarf von ihm kopiert (eng2Stale)
+  if (pl->fresh.exchange(false) && pl->proto) { *pl->eng = *pl->proto; bool at = Amp::sameAll(pl->proto->act().cur, pl->target()); pl->applyTo(pl->eng, !at); pl->dirty = false; pl->fade = tsfx::Fade(); pl->swHold = false; pl->swTake(); if (!at) pl->fade.start(1, pl->fs, 0.15);   // Ruhezustand noch nicht auf diesen Stellungen: Einschwingen 150 ms einblenden   // nur der erste Kern; der zweite wird bei Bedarf von ihm kopiert (eng2Stale)
     pl->d1 = Dly(); pl->d2 = Dly(); pl->monoOK = true; pl->eng2Stale = true; pl->quiet = 0; pl->sleeping = false; pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->outCur = -1; }
   // Schalter umgelegt (läuft, kein anderes Blenden): erst 3 ms ausblenden, umgeschaltet wird im Block an der Stelle, an der es still ist
   if (pl->dirty.exchange(false)) { if (!pl->swHold && pl->fade.dir == 0 && pl->outCur >= 0 && !pl->sleeping && pl->swDiff()) { pl->swHold = true; pl->fade.start(-1, pl->fs); }
@@ -271,16 +274,16 @@ static bool g_supported(const clap_plugin_t *, const char *api, bool floating) {
 static bool g_preferred(const clap_plugin_t *, const char **api, bool *floating) { *api = TS_WINAPI; *floating = false; return true; }
 // Frequenzgang wie auf der Web-Seite: Kleinsignal im Arbeitspunkt, bezogen auf 1 kHz; Vergleich: alle Knöpfe auf 5, gleiche Buchse
 static void startPlotJob(Plugin *pl, double fs, int psu) { if (pl->plotBusy.exchange(true)) return; if (pl->plotJob.joinable()) pl->plotJob.join();
-  try { pl->plotJob = std::thread([pl, fs, psu]() { DenormGuard dg; std::unique_ptr<Core> c;
-      try { Amp *a = newAmp(fs, 1 + 10 * psu, &pl->plotStop); if (a) { c.reset(new Core(a->c)); c->spkNorm = a->nrm; delete a; } } catch (...) {}
-      if (c) { std::lock_guard<std::mutex> lk(pl->plotM); pl->plotReady = std::move(c); pl->plotReadyFs = fs; pl->plotReadyPsu = psu; }
+  try { pl->plotJob = std::thread([pl, fs, psu]() { DenormGuard dg; std::unique_ptr<Core> c, cp;
+      try { Amp *a = newAmp(fs, 1 + 10 * psu, &pl->plotStop); if (a) { c.reset(new Core(a->c)); c->spkNorm = a->nrm; cp.reset(new Core(a->cp)); delete a; } } catch (...) {}
+      if (c && cp) { std::lock_guard<std::mutex> lk(pl->plotM); pl->plotReady = std::move(c); pl->plotReadyP = std::move(cp); pl->plotReadyFs = fs; pl->plotReadyPsu = psu; }
       pl->plotBusy = false; pl->plotRedo = true; }); } catch (...) { pl->plotBusy = false; } }
 static void curves(Plugin *pl, std::vector<double> &cur, std::vector<double> &ref) {
   const int psu = pl->psuWant(); const bool have = pl->plotC && pl->plotFs == pl->fs && pl->plotPsu == psu;
-  if (!have) { std::lock_guard<std::mutex> lk(pl->plotM); if (pl->plotReady && pl->plotReadyFs == pl->fs && pl->plotReadyPsu == psu) { pl->plotC = std::move(pl->plotReady); pl->plotFs = pl->plotReadyFs; pl->plotPsu = psu; } }
+  if (!have) { std::lock_guard<std::mutex> lk(pl->plotM); if (pl->plotReady && pl->plotReadyFs == pl->fs && pl->plotReadyPsu == psu) { pl->plotC = std::move(pl->plotReady); pl->plotCp = std::move(pl->plotReadyP); pl->plotFs = pl->plotReadyFs; pl->plotPsu = psu; } }
   if (!pl->plotC || pl->plotFs != pl->fs || pl->plotPsu != psu) { startPlotJob(pl, pl->fs, psu); cur.clear(); ref.clear(); return; }   // noch nicht da: leeres Diagramm, nach dem Rechnen neu
-  Core &C = *pl->plotC; C.spkAc = pl->val[P_SPK] > 0.5;
-  auto curveOf = [&](const Setting &s, std::vector<double> &o) { C.apply(s); double r = std::abs(C.response(1000)); o.resize(bgui::NF);
+  const bool pre = pl->val[P_PRE] > 0.5 && pl->plotCp; Core &C = pre ? *pl->plotCp : *pl->plotC; C.spkAc = pl->val[P_SPK] > 0.5;
+  auto curveOf = [&](Setting s, std::vector<double> &o) { s.pre = pre; C.apply(s); double r = std::abs(C.response(1000)); o.resize(bgui::NF);
     for (int i = 0; i < bgui::NF; i++) o[i] = 20 * std::log10(std::max(1e-12, std::abs(C.response(bgui::freqAt(i))) / std::max(r, 1e-30))); };
   curveOf(pl->target(), cur); curveOf(pl->setting(5, 5, 5, 5, 5, 5), ref); }
 static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); TSX_GUARD; if (std::strcmp(api, TS_WINAPI) || floating) return false;

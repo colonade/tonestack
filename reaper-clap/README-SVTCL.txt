@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.11
+Version 1.12
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -76,7 +76,8 @@ What it is
   the negative feedback (4 ohm assumed), the 6550 model (fitted to data
   sheet points), the log taper of the A pots (15 % at center), the source
   impedance (1 kohm), the BAL OUT transformer T1 (10 H, 50 ohm, 20 kohm
-  iron losses), the mains transformer source resistances. No speaker; the
+  iron losses), the mains transformer source resistances, the speaker
+  (since 1.12, see "Speaker"). The
   SLAVE / BALANCED outputs themselves are not available, only the load
   of T1 on the preamp output (switchable).
 
@@ -89,11 +90,12 @@ Parameters
   +24 dB); Pot taper (A pots) (log 15 % / log 10 % / linear; GAIN, BASS,
   TREBLE); Power supply (Simple / As schematic, 50 Hz mains / As
   schematic, 60 Hz mains); BAL OUT load (T1) (Off / On (T1 estimated));
-  Power tube mismatch (%) (0 ... 10).
+  Power tube mismatch (%) (0 ... 10); Speaker (8x10 sealed, estimated)
+  (Off / On); Signal tap (output tap / after the preamp) (both since 1.12).
   Knob 10 = clockwise end.
   Defaults: all knobs 5, Frequency 800 Hz, Ultra Hi and Ultra Lo off,
   0 dB input, 4 ohm tap, 100 mV, 0 dB, log 15 %, simple power supply,
-  BAL OUT load off, tube mismatch 8 % (projects saved before 1.5 load
+  BAL OUT load off, speaker off, whole amp, tube mismatch 8 % (projects saved before 1.5 load
   with 0 %, so they sound as before).
   Changing Power supply or BAL OUT load rebuilds the circuit in the
   background (1-3 s, the old setting keeps playing until then).
@@ -110,7 +112,8 @@ User interface
   part of the panel (STANDBY / POWER / FAULT lamp, STANDBY and POWER
   switches); the panel is narrower and the default window 1200 wide. Knobs: drag vertically, mouse wheel, double-click = center. Below the
   panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, POWER SUPPLY (SIMPLE / 50 HZ /
-  60 HZ), BAL OUT (OFF / T1 EST.), the DRIVE meters (grid swing of V1B input, V1A gain, V2B
+  60 HZ; since 1.12 labelled SUPPLY), BAL OUT (OFF / T1 EST.), SPEAKER (ON / OFF) and
+  TAP (AMP / PREAMP) (since 1.12), the DRIVE meters (grid swing of V1B input, V1A gain, V2B
   midrange, power amp input, 6550 grids, 100 % = grid reaches 0 V; output
   power into the selected load, mark = 300 W), TUBE MISMATCH, INPUT
   (instrument level) and OUTPUT. Below that the small-signal frequency response at the operating
@@ -122,7 +125,33 @@ Levels
   to 1 V and more). The output is the voltage at the selected output
   transformer tap: 60 V peak = 0 dBFS into 4 ohm, 42.4 V peak = 0 dBFS
   into 2 ohm (the same power, 450 W, in both cases; 300 W into 4 ohm are
-  49 V peak).
+  49 V peak). With SPEAKER on: the sound pressure of the cabinet, equal
+  at 1 kHz. With TAP PREAMP: the preamp output, matched in level (see
+  below).
+
+Speaker
+  SPEAKER adds a typical 8x10 bass cabinet (sealed, two separate
+  chambers of four speakers each, about 32 l per speaker), estimated and
+  fitted to the usual manufacturer figures for such a cabinet: -3 dB at
+  58 Hz and 5 kHz, -10 dB at 40 Hz. Per speaker: Fs 50 Hz, Qms 4, Qes 0.9,
+  Vas 40 l, voice coil 6 ohm (its inductance is a fitting value: the
+  model has no beaming, which raises the level on axis at the top). It
+  acts as a filter on the voltage at the output tap: the power amp has
+  strong negative feedback and a low output impedance. The load in the
+  circuit stays resistive (4 or 2 ohm, as selected).
+
+Signal tap
+  TAP AMP (default): the whole amp up to the output tap.
+  TAP PREAMP: the signal behind the cathode follower V2A (FX SEND, where
+  PREAMP OUT and BAL OUT are taken off); the power amp input (220 ohm,
+  1 kohm, 470 kohm to ground) stays connected as the load, the clamp
+  diodes do not. Power amp, output transformer and power supply are not
+  computed (about a fifth to a quarter of the CPU). The preamp supply is
+  held at the idle value of the whole amp (345 V; about 348 V with the
+  power supply as schematic). The level is matched so that at the default
+  settings it equals the 4 ohm tap at 1 kHz (x 164.7; at the 2 ohm tap
+  the same power). Switching crossfades in 20 ms; the DRIVE meters for
+  the power amp, the 6550 and the power show "-".
 
 Oversampling and latency
   Since 1.1 the amp runs at the host rate only (no oversampling): 2x and
@@ -305,3 +334,11 @@ Notes
   cathode perveance: 12AX7 0.31, 6922 0.26); 6550 and EL34 scaled from the
   6L6GC (estimate). Effect on the sound: below 0.15 dB per band even when
   driven very hard.
+
+1.12
+  New parameters "Speaker" (SPEAKER toggle: a typical 8x10 sealed cabinet,
+  estimated) and "Signal tap" (TAP toggle: the preamp output without
+  computing the power amp), see "Speaker" and "Signal tap". Appended at
+  the end; projects saved before load without speaker and with the whole
+  amp, as before. The POWER SUPPLY toggle is now labelled SUPPLY. Sound
+  with SPEAKER off and TAP AMP unchanged.

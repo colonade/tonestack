@@ -9,6 +9,7 @@
 #define DK_BIGN 1   // entrollte Löser für die große Endstufen-Gruppe (dk.hpp); muss vor dem ersten Einbinden von dk.hpp stehen
 #include "dk.hpp"
 #include "b15_core.hpp"
+#include "spkv.hpp"
 #include <atomic>
 #include <cmath>
 #include <map>
@@ -59,7 +60,7 @@ struct Parts {   // Werte laut Plan (Ω, F); geschätzt markiert
   double l1a = 0.1, l1b = 0.3, l1c = 0.8, l1_r = 190, l1_k = 0.995;   // L1: 100/300/800 mH ab „CMN“ (Plan); Wicklungswiderstand (für 1 H gerechnet) und Kopplung geschätzt
   double c17 = 0.033e-6, c19 = 0.033e-6, c22 = 0.1e-6, c15 = 0.15e-6, c13 = 0.68e-6, rsw = 470e3;
   double r14 = 220e3, r15 = 4.7e3, r16 = 220e3, c26 = 0.68e-6, r33 = 1e6;
-  double b_pre = 345;   // Vorstufen-Anodenspannung (Plan: +345 V; ideal angenommen)
+  double b_pre = 345, bqpre = 345;   // bqpre (ab 1.12): Vorstufen-Speisung beim Abgriff nach der Vorstufe (Ruhewert des ganzen Netzes, beim Aufbau gelesen)   // Vorstufen-Anodenspannung (Plan: +345 V; ideal angenommen)
   // Endstufe 07S419-12
   double r92 = 220, pr7 = 1e3, pr8 = 470e3, pr12 = 100e3, pr13 = 1e3, pr14 = 220, nfb_r = 68e3, nfb_c = 100e-12;
   double pc6 = 0.1e-6, pr16 = 1e6, pr17 = 820, pr18 = 68e3, pr15 = 68e3, pc7 = 50e-12;
@@ -91,7 +92,7 @@ struct Parts {   // Werte laut Plan (Ω, F); geschätzt markiert
   double r24 = 120e3, pbias = 50e3, r25 = 68e3, bias_x = BIAS_X_DEFAULT;
 };
 // Stellungen: jack 0 = 0 dB, 1 = −15 dB; freq 0 … 4 = 220 Hz … 3 kHz; tap 0 = 4 Ω (Last 4 Ω), 1 = 2 Ω (Last 2 Ω)
-struct Setting { double gain = 0.5, bass = 0.5, mid = 0.5, treb = 0.5, master = 0.5; int freq = 2; bool ulo = false, uhi = false; int jack = 0, tap = 0, taper = 0, psu = 0, bal = 0; double mis = 0; };   // mis (ab 1.5): Streuung der Endröhren, Ruhestrom-Unterschied Seite A gegen B (0,08 = 8 %)   // psu: 0 einfach, 1 nach Plan 50 Hz, 2 nach Plan 60 Hz; bal: BAL OUT (T1, geschätzt) 0 aus, 1 an
+struct Setting { double gain = 0.5, bass = 0.5, mid = 0.5, treb = 0.5, master = 0.5; int freq = 2; bool ulo = false, uhi = false; int jack = 0, tap = 0, taper = 0, psu = 0, bal = 0; double mis = 0; bool pre = false; };   // pre (ab 1.12): nur die Vorstufe bis zum Kathodenfolger V2A (Abgriff PO, Endstufen-Eingang als Last)   // mis (ab 1.5): Streuung der Endröhren, Ruhestrom-Unterschied Seite A gegen B (0,08 = 8 %)   // psu: 0 einfach, 1 nach Plan 50 Hz, 2 nach Plan 60 Hz; bal: BAL OUT (T1, geschätzt) 0 aus, 1 an
 inline double &sfield(Setting &s, int i) { double *f[] = {&s.gain, &s.bass, &s.mid, &s.treb, &s.master}; return *f[i]; }
 inline double potTaper(double x, int mode) { return b15::potTaper(x, mode); }
 enum { O_SPK = 0, O_B1 = 1, O_SCR = 2, O_PRE = 3, O_GA = 4, O_GB = 5, O_NO = 6 };
@@ -105,8 +106,8 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   auto pot = [&](const std::string &a, const std::string &w, const std::string &b, double R, double x) { o.r(a, w, std::max(R * (1 - x), 1.0)); o.r(w, b, std::max(R * x, 1.0)); };
   const double xg = potTaper(s.gain, s.taper), xb = potTaper(s.bass, s.taper), xt = potTaper(s.treb, s.taper);   // GAIN, BASS, TREBLE: 1 M „A“
   const bool full = s.psu > 0;   // Netzteil nach Plan: Vorstufe an +343 V (R55), Endstufen-Eingang an +345 V (R58); sonst beide an einer idealen Quelle
-  const std::string BQ = full ? "B343" : "Bp", BE = full ? "B345" : "Bp";
-  if (!full) o.src("Bp", 0.1, 6);   // +345 V Vorstufen (ideal)
+  const std::string BQ = full && !s.pre ? "B343" : "Bp", BE = full ? "B345" : "Bp";
+  if (!full || s.pre) o.src("Bp", 0.1, 6);   // +345 V Vorstufen (ideal); beim Abgriff nach der Vorstufe der Ruhewert des ganzen Netzes
   // --- Eingänge ---
   o.src("in", v.rsrc, 0);
   if (s.jack == 0) { o.r("in", "G1", v.r1); o.r("in", "G1", v.r3); }   // 0 dB: R1 ∥ R3 (J2 leer verbindet R3 mit J1)
@@ -141,7 +142,13 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   // --- V2A Kathodenfolger ---
   B.mon[3] = tri(K_AX7, "G4", BQ, "K4"); o.r("G4", "Kt4", v.r14); o.r("K4", "Kt4", v.r15); o.r("Kt4", "0", v.r16);
   o.c("K4", "PO", v.c26); o.r("PO", "0", v.r33); o.r("PO", "0", v.r80);
-  if (s.bal) { dk::Mat L(1, 1); L(0, 0) = v.t1_l; o.r("PO", "balT", v.r91 + v.t1_rdc); o.coupled({{"balT", "0"}}, L); o.r("balT", "0", v.t1_rc); }   // BAL OUT: R91 + T1 (geschätzt, abschaltbar)   // V2A gehört zur Gruppe der Endstufe: die Begrenzerdioden D55/D56 belasten ihn stark
+  if (s.bal) { dk::Mat L(1, 1); L(0, 0) = v.t1_l; o.r("PO", "balT", v.r91 + v.t1_rdc); o.coupled({{"balT", "0"}}, L); o.r("balT", "0", v.t1_rc); }
+  if (s.pre) {   // Abgriff nach der Vorstufe (ab 1.12): Endstufen-Eingang R92, R7, R8 als ohmsche Last (Begrenzerdioden, Endstufe, Netzteil nicht gerechnet)
+    o.r("PO", "pi", v.r92); o.r("pi", "pg", v.pr7); o.r("pg", "0", v.pr8); G = 3; mark();
+    B.mon[4] = B.mon[3]; B.pen[0] = B.pen[1] = B.mon[3];
+    for (int k = 0; k < O_NO; k++) o.out("PO");
+    if (dbg) for (auto &n : *dbg) o.out(n);
+    return B; }   // BAL OUT: R91 + T1 (geschätzt, abschaltbar)   // V2A gehört zur Gruppe der Endstufe: die Begrenzerdioden D55/D56 belasten ihn stark
   // ===== Endstufe =====
   o.r("PO", "pi", v.r92); o.r("pi", "pg", v.pr7); o.r("pg", "0", v.pr8);
   { int p = o.port("pg", "0"); dev.push_back({K_CLAMP, p, 1, nullptr}); p = o.port("0", "pg"); dev.push_back({K_CLAMP, p, 1, nullptr}); }   // D55/D56
@@ -196,26 +203,65 @@ struct Core {
     for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V[net.C[k].a] - V[net.C[k].b]);
     for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
     run.vp1 = run.vp; }
-  void step(double x, double *y) { double u[7] = {x, v.hv_v, v.sc_v, v.v_neg, v.v_bias, v.v_bias, v.b_pre};
+  // Startwerte aus Knotenspannungen eines anderen Netzes (gleiche Knotennamen), z. B. Vorstufe aus dem eingeschwungenen ganzen Verstärker
+  void seed(const dk::Net &from, const dk::Vec &Vf) { std::vector<double> V(net.nn + 1, 0.0);
+    for (auto &kv : net.idx) { auto it = from.idx.find(kv.first); if (it != from.idx.end() && it->second < (int)Vf.size()) V[kv.second] = Vf[it->second]; }
+    for (size_t k = 0; k < net.C.size(); k++) run.h[k] = -run.s.gc[k] * (V[net.C[k].a] - V[net.C[k].b]);
+    for (size_t k = 0; k < net.P.size(); k++) run.vp[k] = V[net.P[k].a] - V[net.P[k].b];
+    run.vp1 = run.vp; }
+  void step(double x, double *y) { if (cur.pre) { double u[7] = {x, 0, 0, 0, 0, 0, v.bqpre}; run.step(u, y); return; }
+    double u[7] = {x, v.hv_v, v.sc_v, v.v_neg, v.v_bias, v.v_bias, v.b_pre};
     if (cur.psu > 0) { ph += (cur.psu == 2 ? 60.0 : 50.0) / fs; if (ph >= 1) ph -= 1; double a = std::fabs(std::sin(2 * PI * ph)); u[1] = v.hv_pk * a; u[2] = v.sc_pk * a; u[3] = -v.neg_pk * a; }
     run.step(u, y); }
   void settle(double seconds, const std::atomic<bool> *cancel = nullptr) { std::vector<double> yv(net.O.size() + 1); double *y = yv.data(); long n = (long)(seconds * fs); for (long i = 0; i < n; i++) { if (cancel && (i & 2047) == 0 && cancel->load()) return; step(0, y); } }
   std::complex<double> response(double f) { std::vector<std::vector<double>> J; std::vector<std::pair<int,int>> dp;
     for (auto &d : run.dev) { std::vector<double> b((size_t)d.np * d.np); for (int a = 0; a < d.np; a++) for (int c = 0; c < d.np; c++) b[a * d.np + c] = run.Jd[(size_t)(d.p0 + a) * 16 + c]; J.push_back(b); dp.push_back({d.p0, d.np}); }
-    return dk::acResponse(net, J, dp, f, 0, net.idx.at(cur.tap == 1 ? "s2" : "s4"), 0); }
+    std::complex<double> h = dk::acResponse(net, J, dp, f, 0, net.idx.at(cur.pre ? "PO" : cur.tap == 1 ? "s2" : "s4"), 0);
+    if (cur.pre) h *= preGain * std::sqrt(loadOhm(cur) / 4);   // Abgriff nach der Vorstufe: auf die Klemme des gewählten Abgriffs bezogen (gleiche Leistung)
+    if (spkAc) h *= spkF.response(f); return h; }
+  double preGain = 1; bool spkAc = false; spkv::Filter spkF;   // Anzeige: Verstärkung des Abgriffs nach der Vorstufe, Lautsprecher als Filter
 };
+// Abgriff nach der Vorstufe (ab 1.12): Spannung am Kathodenfolger V2A (PO) mal PRE_GAIN, so dass sie in Grundstellung bei 1 kHz im Kleinsignal so laut ist
+// wie die 4-Ω-Klemme (einfaches Netzteil). Gemessen mit svtpre.
+constexpr double PRE_GAIN = 164.66;   // 321,24 V/V an 4 Ω gegen 1,9509 V/V am Kathodenfolger (Grundstellung, Eingang 0 dB, einfaches Netzteil)
+// Lautsprecher (ab 1.12, geschätzt): 8 × 10" in geschlossener Box (zwei dicht getrennte Kammern, je vier Lautsprecher), je Lautsprecher etwa 32 l.
+// Angepasst an die üblichen Herstellerangaben einer solchen Box: −3 dB bei 58 Hz und 5 kHz, −10 dB bei 40 Hz (bezogen auf 150 Hz … 1 kHz);
+// Qms und Vas angenommen, Fs, Qes und Le daraus bestimmt (Le als Anpassgröße: im Modell fehlt die Bündelung, die oben den Pegel auf der Achse hebt).
+// Wirkt als Filter auf die Spannung am Abgriff (die Endstufe hat starke Gegenkopplung, also kleinen Innenwiderstand); die Last im Netz bleibt ohmsch.
+inline spkv::Params spkParams() { spkv::Params p; p.re = 6.0; p.le = 0.1e-3; p.r2 = 20; p.fs = 49.8; p.qms = 4; p.qes = 0.896; p.vas = 40; p.vb = 32; p.fc = 7000; p.qc = 0.7; return p; }
 // Verstärker mit Überabtastung, Reglerglättung, Schaltern und Anzeigen. Ausgabe: Spannung am gewählten Abgriff, 1,0 = vfs() Volt
 // (4 Ω: 60 V Spitze = 0 dBFS, 300 W an 4 Ω sind 49 V Spitze; 2 Ω: 42,4 V, gleiche Leistung)
 struct Amp {
   /* cfg: Kennung des Aufbaus (Plugin) */ double fsB = 48000; int os = 1, cfg = 1; Core c; Parts v; Setting tgt; bool ready = false; int cnt = 0; double vin = 0.1; bool power = true; double pwr = 1;
-  double vgk0[6] = {-1, -1, -1, -1, -1, -1}, peak[6] = {0, 0, 0, 0, 0, 0}, outPk = 0;   // Gitterhub je Stufe (V1B, V1A, V2B, Endstufe V1A, 6550 A/B)
+  double vgkF[6] = {-1, -1, -1, -1, -1, -1}, vgkP[6] = {-1, -1, -1, -1, -1, -1}, peak[6] = {0, 0, 0, 0, 0, 0}, outPk = 0;   // Gitterhub je Stufe (V1B, V1A, V2B, Endstufe V1A, 6550 A/B)
   int L = 0; std::vector<double> h, hp, xb, yb; int xi = 0, yi = 0;
   Core c0; int bad = 0;   // c0: eingeschwungener Zustand nach init (Rückfall bei entgleister Rechnung)
-  double vfs() const { return 60 * std::sqrt(loadOhm(c.cur) / 4); }
-  int monPort(int i) const { return i < 4 ? c.bl.mon[i == 3 ? 4 : i] : c.bl.pen[i - 4]; }
-  void readBias() { for (int i = 0; i < 6; i++) vgk0[i] = c.run.vp[monPort(i)]; }
+  // Abgriff nach der Vorstufe (ab 1.12): cp rechnet nur die Vorstufe (Endstufen-Eingang als Last); umgeschaltet wird in 20 ms überblendet, dabei laufen
+  // beide, danach nur noch eines. Das jeweils andere startet beim Zurückschalten aus seinem Ruhezustand (c0, cp0). Lautsprecher (ab 1.12): Filter am Ausgang.
+  bool pre = false, spk = false; double preMix = 0, spkMix = 0; Core cp, cp0; spkv::Filter spkF;
+  bool fullOn() const { return preMix < 1; } bool preOn() const { return preMix > 0; }
+  Core &act() { return preMix >= 1 ? cp : c; } const Core &act() const { return preMix >= 1 ? cp : c; }
+  static Setting withPre(Setting s, bool p) { s.pre = p; return s; }
+  void applyAct(const Setting &n) { if (fullOn()) c.apply(withPre(n, false)); if (preOn()) cp.apply(withPre(n, true)); }
+  double vfs() const { return 60 * std::sqrt(loadOhm(act().cur) / 4); }
+  static int monPort(const Core &a, int i) { return i < 4 ? a.bl.mon[i == 3 ? 4 : i] : a.bl.pen[i - 4]; }
+  // Gittervorspannungen im Ruhezustand je Netz (ganzer Verstärker F, Vorstufe P: andere Tore), Bezug der Aussteuerungsanzeige
+  void readF() { for (int i = 0; i < 6; i++) vgkF[i] = c.run.vp[monPort(c, i)]; } void readP() { for (int i = 0; i < 6; i++) vgkP[i] = cp.run.vp[monPort(cp, i)]; }
+  void readBias() { if (fullOn()) readF(); if (preOn()) readP(); } const double *vgk0() const { return preMix >= 1 ? vgkP : vgkF; }
   void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) { fsB = fs; os = std::max(1, os_); v = pv; tgt = s;
-    c.init(fsB * os, v, s); c.settle(1.5, cancel); c0 = c; readBias(); pwr = power ? 1 : 0;
+    c.init(fsB * os, v, withPre(s, false)); c.settle(1.5, cancel); c0 = c;
+    // Speisung der Vorstufe für den Abgriff: Ruhewert des ganzen Netzes (einfach: 345 V ideal; nach Plan: B343 eingeschwungen)
+    // und Startwerte aller Kondensatoren der Vorstufe aus dem eingeschwungenen ganzen Netz (Koppelkondensatoren mit bis zu 0,7 s Zeitkonstante: sonst Gleichspannung am Abgriff)
+    { std::vector<double> u = {0, v.hv_v, v.sc_v, v.v_neg, v.v_bias, v.v_bias, v.b_pre};
+      if (s.psu > 0) { double a = std::fabs(std::sin(2 * PI * c.ph)); u[1] = v.hv_pk * a; u[2] = v.sc_pk * a; u[3] = -v.neg_pk * a; }
+      dk::Vec V = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip); v.bqpre = s.psu > 0 ? V[c.net.idx.at("B343")] : v.b_pre;
+      // Zeitkonstanten bis 0,7 s (C12 mit MIDDLE, C26): erst bei 4 kHz 6 s einschwingen (billig), dann mit diesen Werten bei voller Rate weiter
+      Core t; t.init(4000, v, withPre(s, true)); t.seed(c.net, V); t.settle(6, cancel);
+      std::vector<double> ut = {0, 0, 0, 0, 0, 0, v.bqpre}; dk::Vec Vt = dk::nodeVoltages(t.net, t.fs, t.run.h, ut, t.run.ip);
+      cp.init(fsB * os, v, withPre(s, true)); cp.seed(t.net, Vt); }
+    cp.settle(0.3, cancel); cp0 = cp;
+    spkF.design(spkParams(), fsB * os); c.preGain = cp.preGain = PRE_GAIN; c.spkF = cp.spkF = spkF;
+    preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; readF(); readP(); pwr = power ? 1 : 0;
     L = 0; if (os > 1) { L = 32 * os - 1; h.assign(L, 0); double fc = 0.229 * 2 / os, sum = 0;
       for (int k = 0; k < L; k++) { double m = k - (L - 1) / 2.0, wd = 0.42 - 0.5 * std::cos(2 * PI * k / (L - 1)) + 0.08 * std::cos(4 * PI * k / (L - 1));
         h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * wd; sum += h[k]; }
@@ -224,21 +270,30 @@ struct Amp {
       xb.assign(64, 0); yb.assign(2 * L, 0); xi = yi = 0; }
     ready = true; }
   int latency() const { return os > 1 ? 31 : 0; }
-  static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.mis == b.mis; }   // ohne psu/bal (Aufbau, cfg)
+  static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.mis == b.mis; }   // ohne psu/bal/pre (Aufbau, cfg; Abgriff über Amp::pre)
   static bool sameSw(const Setting &a, const Setting &b) { return a.freq == b.freq && a.ulo == b.ulo && a.uhi == b.uhi && a.jack == b.jack && a.tap == b.tap && a.taper == b.taper; }
   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   // Netzteil und BAL OUT ändern den Aufbau samt Arbeitspunkt: nur über init (neu eingeschwungen), hier bleiben sie wie im Kern
-  void setTarget(const Setting &s0) { Setting s = s0; s.psu = c.cur.psu; s.bal = c.cur.bal; tgt = s; if (!sameSw(s, c.cur)) { Setting n = c.cur; n.freq = s.freq; n.ulo = s.ulo; n.uhi = s.uhi; n.jack = s.jack; n.tap = s.tap; n.taper = s.taper; c.apply(n); readBias(); } }
-  void snap() { c.apply(tgt); readBias(); pwr = power ? 1 : 0; cnt = 0; }
-  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); c.settle(secs, cancel); c0 = c; readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen (Neubeginn ohne Einschwing-Knacks)
-  void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = c.cur; bool moved = false;
+  void setTarget(const Setting &s0) { Setting s = s0; const Setting &cc = act().cur; s.psu = cc.psu; s.bal = cc.bal; tgt = s; if (!sameSw(s, cc)) { Setting n = cc; n.freq = s.freq; n.ulo = s.ulo; n.uhi = s.uhi; n.jack = s.jack; n.tap = s.tap; n.taper = s.taper; applyAct(n); readBias(); } }
+  void snap() { preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; applyAct(tgt); readBias(); pwr = power ? 1 : 0; cnt = 0; }
+  void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); if (fullOn()) { c.settle(secs, cancel); c0 = c; } if (preOn()) { cp.settle(secs, cancel); cp0 = cp; } readBias(); }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen (Neubeginn ohne Einschwing-Knacks)
+  void tick() { if (++cnt < 64) return; cnt = 0; double a = 1 - std::exp(-64 / (0.015 * fsB)); Setting n = act().cur; bool moved = false;
     for (int i = 0; i < 5; i++) { double &x = sfield(n, i), d = sfield(tgt, i) - x; if (d == 0) continue; moved = true; if (std::fabs(d) > 1e-4) x += d * a; else x = sfield(tgt, i); }
     { double d = tgt.mis - n.mis; if (d != 0) { moved = true; if (std::fabs(d) > 1e-5) n.mis += d * (1 - std::exp(-64 / (0.3 * fsB))); else n.mis = tgt.mis; } }   // Streuung gleitet 0,3 s (Gleichstrom im Übertrager ändert sich langsam, kein Plopp)
-    if (moved) c.apply(n); }
-  double run1(double x) { double y[O_NO]; c.step(x, y);
-    for (int i = 0; i < 6; i++) { double d = std::fabs(c.run.vp[monPort(i)] - vgk0[i]); if (d > peak[i]) peak[i] = d; }
-    double st = 1.0 / (0.02 * c.fs), tP = power ? 1 : 0; if (pwr < tP) pwr = std::min(tP, pwr + st); else if (pwr > tP) pwr = std::max(tP, pwr - st);
-    double el = y[O_SPK]; if (std::fabs(el) > outPk) outPk = std::fabs(el); return el * pwr / vfs(); }
+    if (moved) applyAct(n); }
+  double run1(double x) { double y[O_NO]; const double st = 1.0 / (0.02 * c.fs);
+    // Abgriff umschalten: das hinzukommende Netz aus seinem Ruhezustand mit den aktuellen Stellungen
+    if (pre && preMix == 0) { cp = cp0; cp.apply(withPre(c.cur, true)); readP(); } else if (!pre && preMix == 1) { c = c0; c.apply(withPre(cp.cur, false)); readF(); }
+    double tR = pre ? 1 : 0; if (preMix < tR) preMix = std::min(tR, preMix + st); else if (preMix > tR) preMix = std::max(tR, preMix - st);
+    double tS = spk ? 1 : 0; if (spkMix < tS) spkMix = std::min(tS, spkMix + st); else if (spkMix > tS) spkMix = std::max(tS, spkMix - st);
+    double tP = power ? 1 : 0; if (pwr < tP) pwr = std::min(tP, pwr + st); else if (pwr > tP) pwr = std::max(tP, pwr - st);
+    const double sc = std::sqrt(loadOhm(act().cur) / 4); double ef = 0, ep = 0;
+    if (fullOn()) { c.step(x, y); ef = y[O_SPK]; }
+    if (preOn()) { cp.step(x, y); ep = y[O_SPK] * PRE_GAIN * sc; }   // auf die Klemme des gewählten Abgriffs bezogen
+    const Core &a = act(); const double *vg = vgk0(); for (int i = 0; i < 6; i++) { if (preMix >= 1 && i >= 3) continue; double d = std::fabs(a.run.vp[monPort(a, i)] - vg[i]); if (d > peak[i]) peak[i] = d; }
+    double el = ef + preMix * (ep - ef); if (std::fabs(preMix >= 1 ? ep : ef) > outPk) outPk = std::fabs(preMix >= 1 ? ep : ef);
+    double ac = spkF.step(el);   // läuft immer mit: Zuschalten ohne Einschwingen
+    return (el + spkMix * (ac - el)) * pwr / vfs(); }
   void process(float *buf, int n) { if (!ready) { for (int i = 0; i < n; i++) buf[i] = 0; return; }
     for (int i = 0; i < n; i++) { double x = std::isfinite(buf[i]) ? std::max(-20.0, std::min(20.0, buf[i] * vin)) : 0, y; tick();   // Eingang auf ±20 V begrenzt
       if (os == 1) y = run1(x);
@@ -247,11 +302,12 @@ struct Amp {
           double z = run1(os * u); yi = yi == 0 ? L - 1 : yi - 1; yb[yi] = yb[yi + L] = z;
           if (ph == os - 2) for (int k = 0; k < L; k++) y += h[k] * yb[yi + k]; } }
       if (!(std::fabs(y) < 10)) { y = 0;   // entgleist (NaN oder über 10-fache Vollaussteuerung, physikalisch unmöglich): eingeschwungenen Zustand zurückholen, höchstens einmal je 0,1 s
-        if (bad <= 0) { Setting s = c.cur; c = c0; c.apply(s); readBias(); std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); bad = (int)(0.1 * fsB); } }
+        if (bad <= 0) { Setting s = act().cur; if (fullOn()) { c = c0; c.apply(withPre(s, false)); } if (preOn()) { cp = cp0; cp.apply(withPre(s, true)); } readBias();
+          std::fill(xb.begin(), xb.end(), 0.0); std::fill(yb.begin(), yb.end(), 0.0); spkF.reset(); bad = (int)(0.1 * fsB); } }
       if (bad > 0) bad--;
       buf[i] = (float)y; } }
-  // Aussteuerung je Stufe seit der letzten Abfrage: Gitterhub bezogen auf die Gittervorspannung (1 = Gitter erreicht 0 V)
-  void takePeaks(double *out) { for (int i = 0; i < 6; i++) { out[i] = peak[i] / std::max(0.1, std::fabs(vgk0[i])); peak[i] = 0; } }
-  double takeOut() { double p = outPk; outPk = 0; return p; }   // Spitzenspannung am Abgriff (V)
+  // Aussteuerung je Stufe seit der letzten Abfrage: Gitterhub bezogen auf die Gittervorspannung (1 = Gitter erreicht 0 V); beim Abgriff nach der Vorstufe ab 3 nicht gerechnet (0)
+  void takePeaks(double *out) { for (int i = 0; i < 6; i++) { out[i] = peak[i] / std::max(0.1, std::fabs(vgk0()[i])); peak[i] = 0; } }
+  double takeOut() { double p = outPk; outPk = 0; return p; }   // Spitzenspannung am Abgriff (V); beim Abgriff nach der Vorstufe die angeglichene Spannung (PO mal PRE_GAIN)
 };
 } // namespace svt

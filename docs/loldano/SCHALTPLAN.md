@@ -65,9 +65,25 @@ NORMAL (Clean), PREAMP 5, MASTER 3: Verstärkung 34,4 dB bei 1 kHz; 82 Hz −5,2
 - Fotowiderstände VTL5C1: leitend 600 Ω, gesperrt 50 MΩ (Datenblatt), ohne ihre Trägheit (Umschalten im Plugin mit kurzem Aus- und Einblenden).
 - Röhrenkapazitäten 12AX7 nach Datenblatt: 1,6 pF Gitter–Kathode, 1,7 pF Gitter–Anode, als echte Kapazitäten zwischen den Elektroden – bei den sechs Verstärkerstufen und dem Eingang der Phasenumkehr.
   Bei den Kathodenfolgern V3A/V4A und der zweiten Hälfte der Phasenumkehr weggelassen (ab 1.1): Frequenzgang bis 20 kHz höchstens 0,03 dB anders. Ohne die Gitter–Kathoden-Kapazitäten der Verstärkerstufen wären es 0,2 dB bei 10 kHz, daher bleiben sie.
-- Lautsprecher: Schwingspule 6,4 Ω, 0,6 mH mit 30 Ω parallel, Resonanz 110 Hz (Qms 6, Qes 1) – vier 12-Zoll-Lautsprecher in geschlossener Box als 8-Ω-Last.
+- Lautsprecher: Schwingspule 6,4 Ω, 0,6 mH mit 30 Ω parallel, Resonanz 110 Hz (Qms 6, Qes 1) – vier 12-Zoll-Lautsprecher in geschlossener Box als 8-Ω-Last
+  (je zwei in Reihe, beide Paare parallel: gleicher Impedanzverlauf wie ein Lautsprecher). Die Resonanz hebt die Klemmenspannung in Grundstellung bei 110 Hz um
+  etwa 5 dB, bei 80 und 150 Hz um gut 3 dB gegenüber einer Last ohne Resonanz.
 - Logarithmische Potis: 15 % in Mittelstellung.
 - Röhrenmodelle: 12AX7 nach Dempwolf (wie im Laney), Gitterstrom gemessen; 6L6GC Strahltetroden-Modell aus uTracer-Messungen (D. Reefman), Gitterstrom nach RCA-Datenblatt.
+
+## Lautsprecher-Schall SPEAKER (ab 1.5)
+Filter auf die Klemmenspannung (`engine/src/spkv.hpp`, Parameter `slo::spkParams`), angepasst an die Schalldruckkurve aus dem Datenblatt der Celestion Vintage 30 (8 Ω),
+an 46 Punkten von 20 Hz bis 20 kHz abgelesen (Bildschirmfoto des Datenblatts, nicht im Repository; die Werte bis 7 kHz stehen in `engine/tests/slopre.cpp`).
+Re 7,3 Ω und Fs 75 Hz aus dem Datenblatt; Anpassgrößen: Qms 3, Qes 0,30, Le 0,672 mH mit 5 Ω parallel, Kegel-Tiefpass 4,6 kHz (Q 2,9) und sieben Glocken
+(107 Hz +1,1 dB, 364 Hz −3,1 dB, 989 Hz +1,6 dB, 2,19 kHz +7,5 dB, 3,27 kHz +9,6 dB, 3,58 kHz breit −7,0 dB, 6,66 kHz −9,5 dB). Bis 7 kHz höchstens 1,4 dB
+neben der Kurve. Auf 1 kHz normiert. Die Kurve gilt für einen Lautsprecher im Messaufbau des Herstellers; Kammfilter der vier Lautsprecher, Raum und Mikrofon fehlen.
+
+## Abgriff nach der Vorstufe TAP (ab 1.5)
+Vorstufen-Teilnetz wie im Mehrtakt (Teilnetz 1: bis Klangregelung und MASTER, Eingang der Phasenumkehr 0,02 µF / 1 MΩ gegen Masse als Last), bei os-facher Rate;
+zusätzlich ausgegeben: Gitter der Phasenumkehr (`ga`). Speisung fest auf den Ruhewerten des ganzen Netzes (B+2 495,05 V, Strom der Phasenumkehr 2,933 mA, aus den
+Knotenspannungen des eingeschwungenen Netzes); Startwerte aller Kondensatoren aus demselben Zustand, dann 0,5 s eingeschwungen. Pegel ×9,0799 (PRE_GAIN):
+in Grundstellung (OVERDRIVE) bei 1 kHz gleich der Lautsprecherklemme; im NORMAL-Kanal ebenso (gleiche Endstufe). Im Mehrtakt (4x) läuft der Abgriff wie f2 durch
+den Zwischenfilter auf die Rate der Endstufe. Geprüft in `engine/tests/slopre.cpp`. Mit SPEAKER aus und TAP AMP rechnet der Kern bitgleich wie 1.4.
 
 ## Nicht gerechnet
 Rauschen und Brummen, Trägheit der Fotowiderstände, Geräte im Effektweg, SLAVE-Ausgang, Impedanzwahl (immer 8 Ω), DEPTH (das Original hat keinen), STANDBY/POWER.

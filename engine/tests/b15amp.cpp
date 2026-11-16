@@ -1,4 +1,5 @@
 // Prüfung der Hülle Amp: Kleinsignal-Frequenzgang (Knotenanalyse) gegen Zeitbereich, Lautsprecher, Überabtastung, Standby, Rechenzeit
+#define B15_V127   // AmpFett ab 1.27 (Abgriff nach der Vorstufe) in b15_core.hpp; andere Plugins sehen den Stand 1.26 (bytegleich)
 #include "b15_core.hpp"
 #include <chrono>
 #include <cstdio>
