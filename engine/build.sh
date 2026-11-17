@@ -103,7 +103,7 @@ g++ -O3 -std=c++17 -Isrc -Igen tests/b3test.cpp -o build/b3test
 g++ -O3 -std=c++17 -Isrc tests/svttest.cpp -o build/svttest; g++ -O3 -std=c++17 -Isrc tests/svtpre.cpp -o build/svtpre
 g++ -O3 -std=c++17 -Isrc tests/weqtest.cpp -o build/weqtest
 g++ -O3 -std=c++17 -Isrc -Igen tests/u76test.cpp -o build/u76test -lpthread
-g++ -O3 -std=c++17 -Isrc -Igen tests/slotest.cpp -o build/slotest -lpthread; g++ -O3 -std=c++17 -Isrc -Igen tests/slopre.cpp -o build/slopre; g++ -O3 -std=c++17 -Isrc -Igen tests/slothd.cpp -o build/slothd
+g++ -O3 -std=c++17 -Isrc -Igen tests/slotest.cpp -o build/slotest -lpthread; g++ -O3 -std=c++17 -Isrc -Igen tests/slopre.cpp -o build/slopre; g++ -O3 -std=c++17 -Isrc -Igen tests/slothd.cpp -o build/slothd; g++ -O3 -std=c++17 -pthread -Isrc -Igen tests/ecc83ds.cpp -o build/ecc83ds
 g++ -O3 -std=c++17 -Isrc tests/kaitest.cpp -o build/kaitest
 g++ -O3 -std=c++17 -Isrc tests/blechtest.cpp -o build/blechtest
 g++ -O3 -std=c++17 -Isrc tests/wisenttest.cpp -o build/wisenttest
