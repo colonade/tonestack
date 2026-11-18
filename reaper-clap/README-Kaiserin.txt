@@ -1,5 +1,5 @@
 Kaiserin Reverb (after Empress Effects Reverb) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   Kaiserin_Reverb.clap and Kaiserin_Reverb.vst3 contain the same code and
@@ -95,3 +95,9 @@ Interface
   with LOW and HI, relative to 1 kHz; dashed: LOW and HI at 12 o'clock).
   Drag a knob up/down, mouse wheel for fine steps, double-click = 12 o'clock.
   The mouse wheel on the mode buttons steps through the modes.
+
+Changes
+  1.1  The value popup at the knobs is gone (it appeared while turning a
+       knob or with the mouse over a control); with it the switch VALUE POPUP
+       in the header line of the model strip. Sound unchanged.
+  1.0  First version.

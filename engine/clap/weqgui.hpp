@@ -145,7 +145,7 @@ struct Gui {
     const double u = uscale(); char vo[40]; std::snprintf(vo, 40, "%+.1f dB", v[P_OUT]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 420, 20); tsw::prefDraw(c, "BAND LIST", tsw::prefs().bands, 590, 20);
+    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "BAND LIST", tsw::prefs().bands, 420, 20);   /* ab 1.5: VALUE POPUP entfernt */
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *rl[3] = {"+/-6 dB", "+/-12 dB", "+/-20 dB"}; tsw::toggle(c, SW_X, SW_Y, 3, range(), "RANGE", rl, "TM205 versions"); }
     // Bänder als Text: Frequenz, Güte, dB
@@ -200,7 +200,7 @@ struct Gui {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int half, p = hitSwitch(x, y, half); if (p >= 0) moveSwitch(button == 4 ? -1 : 1); } return true; }
         if (button != 1) return false;
-        { double plx, ply; toLower(x, y, plx, ply); if (tsw::prefHit(plx, ply, 420, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } if (tsw::prefHit(plx, ply, 590, 20, 105)) { tsw::prefs().bands = !tsw::prefs().bands; tsw::prefSave(); return true; } }   // Schalter der Kopfzeile (für alle Plugins gemeinsam gespeichert)
+        { double plx, ply; toLower(x, y, plx, ply); if (tsw::prefHit(plx, ply, 420, 20, 105)) { tsw::prefs().bands = !tsw::prefs().bands; tsw::prefSave(); return true; } }   // Schalter der Kopfzeile (für alle Plugins gemeinsam gespeichert)
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) setKnob(k, k == 51 ? 5 : isGain(KPARAM[k]) ? 5 : 5); else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int b = hitBtn(x, y); if (b >= 0) { clickBtn(b - 40); return true; }

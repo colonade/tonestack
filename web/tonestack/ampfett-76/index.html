@@ -230,6 +230,7 @@ details.exp>summary::-webkit-details-marker{display:none}
 .fk .fring{fill:none;stroke:transparent;stroke-width:3}
 .fk:focus-visible .fring{stroke:#FFD34D}
 .ftip{position:absolute;transform:translate(-50%,-100%);background:#F4EFE3;color:#111;font:600 .8rem/1.2 var(--f);padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.ftip{display:none!important}   /* ab Web 2026-11-18-1: kein Wert-Popup mehr an der Frontplatte (Wunsch des Nutzers) */
 .front figcaption{font-size:.82rem;color:var(--ink2);margin-top:6px}
 .wave{position:relative;height:96px;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--field);margin:10px 0 8px}
 .wave[hidden]{display:none}
@@ -500,6 +501,10 @@ let yr = [-60, 10];
 const yOf = d => { const [a, b] = yr; return T + (b - Math.min(b, Math.max(a, d))) / (b - a) * (Ht - T - B); };
 const svg = $('plot');
 const el = (n, a, parent = svg) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+// Zeiger (ab Web 2026-11-18-1): runde Enden, geometrisch geglättet, darunter ein weicher Saum in derselben Farbe (1,5-fache Breite, 28 %) –
+// gegen Treppenkanten am gedrehten Strich (Hinweis des Nutzers).
+const zeiger = (par, a) => { const w = +a['stroke-width'] || 3, o = a['stroke-opacity'] === undefined ? 1 : +a['stroke-opacity'];
+  el('line', {...a, 'stroke-width':w * 1.5, 'stroke-opacity':0.28 * o, 'stroke-linecap':'round'}, par); return el('line', {...a, 'stroke-linecap':'round'}, par); };
 const shown = c => !c ? null : S.mode === 'rel' ? c.out.map((d, i) => d - LEVELS[i]) : c.out;   // Pegeländerung = Ausgang − Eingang
 const valAt = (c, d) => { const x = (d - X0) / (X1 - X0) * (NP - 1), i = Math.max(0, Math.min(NP - 2, Math.floor(x))), t = x - i; return c[i] + (c[i + 1] - c[i]) * t; };
 const pathOf = arr => arr.map((d, i) => (i ? 'L' : 'M') + xOf(LEVELS[i]).toFixed(1) + ' ' + yOf(d).toFixed(1)).join('');
@@ -581,8 +586,8 @@ function makeView(box, svgV, tipV, keys, btns, vu) {
     el('circle', {class:'fring', cx:g.x, cy:g.y, r:g.r * 1.1}, grp);
     // Zeiger wie im Plugin: dunkler Strich auf der Metallkappe, weiße Spitze am Rand
     const ln = el('g', {'shape-rendering':'geometricPrecision', 'pointer-events':'none'}, grp), sw = g.r > 50 ? 5 : 4;
-    el('line', {x1:g.x, y1:g.y - g.r * 0.12, x2:g.x, y2:g.y - g.r * 0.58, stroke:'#16181c', 'stroke-width':sw, 'stroke-linecap':'round'}, ln);
-    el('line', {x1:g.x, y1:g.y - g.r * 0.70, x2:g.x, y2:g.y - g.r * 0.95, stroke:'#f2f2f2', 'stroke-width':sw, 'stroke-linecap':'round'}, ln);
+    zeiger(ln, {x1:g.x, y1:g.y - g.r * 0.12, x2:g.x, y2:g.y - g.r * 0.58, stroke:'#16181c', 'stroke-width':sw, 'stroke-linecap':'round'});
+    zeiger(ln, {x1:g.x, y1:g.y - g.r * 0.70, x2:g.x, y2:g.y - g.r * 0.95, stroke:'#f2f2f2', 'stroke-width':sw, 'stroke-linecap':'round'});
     ln._g = grp; FPTR[k].push(ln);
     const span = kmax(k) - kmin(k), step = 0.1, wheel = 0.2;
     let st = null;

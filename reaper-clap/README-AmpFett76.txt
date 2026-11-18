@@ -1,5 +1,5 @@
 AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.3
+Version 1.4
 
 Two formats, one engine
   AmpFett_76.clap and AmpFett_76.vst3 contain the same code and sound
@@ -128,6 +128,9 @@ CPU and latency
   goes idle.
 
 Changes
+  1.4  The value popup at the knobs is gone (it appeared while turning a
+       knob or with the mouse over a control); with it the switch VALUE POPUP
+       in the header line of the model strip. Sound unchanged.
   1.3  The INPUT value is also shown in dBu, as the rms level of a sine
        with this peak (0 dBu = 0.775 V rms; 3162 mV = +9.2 dBu). Range and
        sound unchanged.

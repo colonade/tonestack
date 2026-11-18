@@ -1,6 +1,6 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.49"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.50"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #define LPA_REUSE   // ab 3.47: Laney-Endstufe mit wiederverwendeter Zerlegung innerhalb eines Abtastwerts (laney_pa.hpp); vor dem ersten Einbinden
 #define B15_TAB     // ab 3.47: Röhrenkennlinien (Dempwolf, Gitterstrom) als Tabelle (b15_core.hpp)

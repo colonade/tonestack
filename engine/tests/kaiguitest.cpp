@@ -1,6 +1,6 @@
 // GUI-Test (Kaiserin Reverb): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   kaiguitest Kaiserin_Reverb.clap bild.png
-// Prüft: DECAY ziehen, MIX kaum bewegt (Rastung bei 12 Uhr), Modustasten und Anzeigen, Mausrad auf den Modustasten, HOLD, THING 1 ziehen, Doppelklick, VALUE POPUP; Ausgang stereo.
+// Prüft: DECAY ziehen, MIX kaum bewegt (Rastung bei 12 Uhr), Modustasten und Anzeigen, Mausrad auf den Modustasten, HOLD, THING 1 ziehen, Doppelklick, Kopfzeile ohne VALUE POPUP; Ausgang stereo.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
   char t[96]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 96); printf("  %s = %s\n", inf.name, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
   { std::string cf = std::string(home) + "/.config/tonestack/ui.conf"; auto rd = [&]() { int tp = -1; FILE *f = fopen(cf.c_str(), "r"); if (!f) return tp; char k[32]; int v; while (fscanf(f, " %31[a-z]=%d", k, &v) == 2) if (!strcmp(k, "tips")) tp = v; fclose(f); return tp; };
-    click(ux(460), uy(16)); int tp = rd(); chk("VALUE POPUP aus (tips Soll 0)", tp, tp == 0); click(ux(460), uy(16)); tp = rd(); chk("VALUE POPUP wieder ein (Soll 1)", tp, tp == 1);
+    click(ux(460), uy(16)); int tp = rd(); chk("Kopfzeile ohne VALUE POPUP (ab 18.11.2026): Klick an die alte Stelle schreibt nichts (Soll -1)", tp, tp == -1);
     remove(cf.c_str()); rmdir((std::string(home) + "/.config/tonestack").c_str()); rmdir((std::string(home) + "/.config").c_str()); rmdir(home); }
   gui->hide(p); gui->destroy(p); p->stop_processing(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d);
   if (bad) { printf("FEHLER: %d Prüfung(en)\n", bad); return 1; } printf("alle Prüfungen bestanden\n"); return 0;

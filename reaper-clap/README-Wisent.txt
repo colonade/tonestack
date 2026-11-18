@@ -1,5 +1,9 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
+
+New in 1.3: the value popup at the knobs is gone (it appeared while turning
+a knob or with the mouse over a control); with it the switch VALUE POPUP in
+the header line of the model strip. Sound unchanged.
 
 New in 1.2: WOBBLE (a worn drum whose disc does not run true) as a model
 control. Default 0 = as in 1.1 (bit for bit); projects saved with 1.0 or

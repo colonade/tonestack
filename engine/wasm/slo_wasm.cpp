@@ -3,9 +3,10 @@
 using namespace slo;
 static Amp *A = nullptr; static Core *P = nullptr, *PP = nullptr; static float bufS[8192]; static double tgtS[16], peakS[12], freqS[512], respS[512];
 // tgtS = 0 preamp overdrive, 1 preamp normal, 2 bass, 3 middle, 4 treble, 5 master overdrive, 6 master normal, 7 presence (0…1),
-// 8 Kanal (1 = OVERDRIVE), 9 Crunch (0 = Clean), 10 Bright, 11 vin (V Spitze bei 0 dBFS); ab 1.5: 12 Lautsprecher (Vintage 30, 1 = an), 13 Abgriff nach der Vorstufe (1 = Endstufe nicht gerechnet)
+// 8 Kanal (1 = OVERDRIVE), 9 Crunch (0 = Clean), 10 Bright, 11 vin (V Spitze bei 0 dBFS); ab 1.5: 12 Lautsprecher (Vintage 30, 1 = an), 13 Abgriff nach der Vorstufe (1 = Endstufe nicht gerechnet, ab 1.7: 2 = FX SEND);
+// ab 1.8: 14 BASS CK (1 = Kathodenkondensatoren V1B, V2A, V3B 3,9 µF)
 static Setting fromT() { Setting s; for (int i = 0; i < 8; i++) { double x = tgtS[i]; sfield(s, i) = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0.5; }
-  s.od = !(tgtS[8] < 0.5); s.crunch = tgtS[9] > 0.5; s.bright = tgtS[10] > 0.5; return s; }
+  s.od = !(tgtS[8] < 0.5); s.crunch = tgtS[9] > 0.5; s.bright = tgtS[10] > 0.5; s.bassCk = tgtS[14] > 0.5; return s; }
 extern "C" {
 float *lo_buffer() { return bufS; } double *lo_target_buffer() { return tgtS; } double *lo_peaks_buffer() { return peakS; } double *lo_freq_buffer() { return freqS; } double *lo_resp_buffer() { return respS; }
 void lo_init(double fs, int os) { delete A; A = new Amp(); int o = (os == 1 || os == 2 || os == 4 || os == 8) ? os : 1; /* 8: Download (ab 1.2) */ A->vin = 0.1; A->spk = tgtS[12] > 0.5; A->pre = tgtS[13] > 0.5; A->send = tgtS[13] > 1.5; A->init(fs, o, Parts(), fromT()); }   // tgtS[13]: 0 AMP, 1 PREAMP, 2 FX SEND (ab 1.7)

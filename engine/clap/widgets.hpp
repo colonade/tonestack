@@ -112,13 +112,9 @@ inline void smallKnobV(cairo_t *c, double cx, double cy, double u01, const char 
 // Schalter in der Kopfzeile des Modellstreifens: „NAME ON|OFF“ ab (x, y), anklickbar über die Breite w
 inline void prefDraw(cairo_t *c, const char *name, bool on, double x, double y) { rgb(c, 0x6c7079); double w = text(c, name, x, y, 12, false); rgb(c, on ? 0xffd98a : 0x8d919a); text(c, on ? "ON" : "OFF", x + w + 7, y, 12, true); }
 inline bool prefHit(double lx, double ly, double x, double y, double w) { return lx >= x - 6 && lx <= x + w + 6 && ly >= y - 15 && ly <= y + 7; }
-// Werteanzeige (Sprechblase) in Bildschirm-Pixeln: Anker (px, py) = Mitte oberhalb des Bedienelements; u = Pixel je UI-Einheit
-inline void tip(cairo_t *c, const char *t, double px, double py, double u, double winW) {
-  if (!prefs().tips) return;   // „VALUE POPUP OFF“
-  cairo_save(c); cairo_identity_matrix(c); cairo_translate(c, 0, 0); font(c, 14 * u, true); cairo_text_extents_t e; cairo_text_extents(c, t, &e);
-  double bw = e.width + 18 * u, bh = 26 * u, bx = std::min(std::max(px - bw / 2, 4.0), winW - bw - 4), by = std::max(2.0, py - bh - 4 * u);
-  rgb(c, 0xf4efe3); rrect(c, bx, by, bw, bh, 4 * u); cairo_fill(c); rgb(c, 0x111111); cairo_move_to(c, bx + 9 * u - e.x_bearing, by + bh / 2 + e.height / 2); cairo_show_text(c, t); cairo_restore(c);
-}
+// Werteanzeige (Sprechblase): ab den Versionen vom 18.11.2026 entfernt (Wunsch des Nutzers: kein Popup beim Drehen, in allen Plugins);
+// vorher abschaltbar über „VALUE POPUP“ in der Kopfzeile. Die Aufrufe bleiben, zeichnen aber nichts.
+inline void tip(cairo_t *, const char *, double, double, double, double) {}
 // Frequenzgang-Diagramm in UI-Einheiten: Kurven in dB an den Stützstellen fAt(0 … nf−1), Legende rechts oben; marks: tiefes E und H des Basses
 inline void plot(cairo_t *c, const std::vector<double> &curve, const std::vector<double> &refCurve, int NF, double (*freqAt)(int), double px0, double px1, double py0, double py1, const char *REFLABEL, bool marks) {
   double lo = -25, hi = 15; if (!curve.empty()) { double mn = 1e9, mx = -1e9; for (double x : curve) { mn = std::min(mn, x); mx = std::max(mx, x); } for (double x : refCurve) { mn = std::min(mn, x); mx = std::max(mx, x); }

@@ -134,7 +134,7 @@ struct Gui {
     const double u = uscale();
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 420, 20);
+    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { char t[320]; setrgb(c, 0xdcdee2); std::snprintf(t, sizeof t, "%s%s", kai::MODE_NAME[m], st.hold ? "  ·  HOLD (input muted, tail frozen)" : ""); tsw::text(c, t, 16, 48, 14, true);
       double tm = kai::t60Mid(m, st.decay); std::snprintf(t, sizeof t, "RT60  low %.2f s   mid %.2f s   high %.2f s%s", tm * kai::lowRatio(st.low), tm, tm * kai::hiRatioMode(m, st), m == kai::M_SPRING ? "  (approx.)" : "");
@@ -179,7 +179,6 @@ struct Gui {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k >= 0) setKnob(k, knobVal(k) + (button == 4 ? 0.2 : -0.2)); else { int b = hitBtn(x, y); if (b >= 40 && b < 46) setP(P_MODE, std::max(0, std::min(5, mode() + (button == 4 ? -1 : 1)))); } return true; }
         if (button != 1) return false;
-        { double plx = x / uscale(), ply = (y - FH * scale()) / uscale(); if (tsw::prefHit(plx, ply, 420, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } }
         int k = hitKnob(x, y);
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) setKnob(k, 5); else { drag = k; dragY0 = y; dragV0 = knobVal(k); if (gesture) gesture(knobParam(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         int b = hitBtn(x, y); if (b >= 0) { clickBtn(b - 40); return true; }
