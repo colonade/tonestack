@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.7
+Version 1.8
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -117,6 +117,21 @@ Signal tap
   tone stack and MASTER have no effect here. Meant for comparisons with
   circuit simulations measured at V3B, and for the raw preamp sound.
 
+BASS CK (from 1.8, a modification, not on the original)
+  Switches the cathode bypass capacitors of V1B, V2A and V3B (1 uF each
+  across 1.8 k, corner 88 Hz) to 3.9 uF (corner 23 Hz). Suggested by a
+  reader for using the SLO-100 as a bass distortion: with 1 uF an electric
+  bass sounds "too much like a circular saw". V2B (cold stage, 39 k, no
+  capacitor) and V4B (25 uF) stay as they are; in the Normal channel V1B
+  and V3B are affected. Small signal at the speaker, default settings,
+  3.9 uF against 1 uF: Overdrive 41 Hz +8.3 dB, 82 Hz +8.9 dB, 220 Hz
+  +3.5 dB, 400 Hz +1.2 dB; Normal 41 Hz +4.9 dB, 82 Hz +5.2 dB, 400 Hz
+  +0.7 dB. A bass note (40 Hz with overtones) in the Overdrive channel:
+  2 to 3 dB more below 130 Hz and about 5 dB less "saw" between 1 and
+  5 kHz. The operating point is the same (the capacitor carries no DC);
+  when switching, each capacitor keeps its voltage (like a pre-charged
+  capacitor being switched in), so there is no click and no settling.
+
 Parameters
   Preamp Normal, Preamp Overdrive, Bass, Middle, Treble, Master Normal,
   Master Overdrive, Presence (0 ... 10); Channel (Normal / Overdrive);
@@ -126,10 +141,11 @@ Parameters
   0 dBFS); Oversampling when rendering offline (same as live / 8x / 16x,
   from 1.2); Speaker (Celestion Vintage 30, data sheet curve) (Off / On)
   and Signal tap (speaker output / after the preamp / FX send) (from 1.5,
-  FX send from 1.7).
+  FX send from 1.7); Cathode caps V1B, V2A, V3B (bass mod) (1 uF original /
+  3.9 uF bass, from 1.8; projects from earlier versions load with 1 uF).
   Knob 10 = clockwise end (the amp's own scale reads 1 to 11).
   Defaults: all knobs 5, both masters 3, Overdrive channel, Clean, Bright
-  off, 100 mV, 2x, 0 dB, rendering 8x, speaker off, whole amp.
+  off, 100 mV, 2x, 0 dB, rendering 8x, speaker off, whole amp, 1 uF.
   Each channel has its own Preamp and Master knob; Bright and Clean/Crunch
   act on the Normal channel only.
 
@@ -141,7 +157,8 @@ User interface
   mouse wheel, double-click = default. Below the panel the model strip
   (not on the amp): OVERSAMPLING, RENDER (oversampling for offline
   rendering, from 1.2), SPEAKER (ON / OFF) and TAP (AMP / PREAMP / FX SEND)
-  (from 1.5, FX SEND from 1.7), the DRIVE meters (grid swing of V1B
+  (from 1.5, FX SEND from 1.7), BASS CK (1 uF / 3.9 uF, from 1.8), the
+  DRIVE meters (grid swing of V1B
   input, V2A overdrive or V1A normal, V3B, V4B, the phase inverter and the
   6L6GC grids, 100 % = grid reaches the cathode voltage; output power =
   rms voltage squared / 8 ohm, mark = 100 W), INPUT (instrument level) and
@@ -228,9 +245,9 @@ Input level (INPUT)
   With "Input reference" set to 0 dBFS, INPUT is the voltage at 0 dBFS of
   the track instead.
 
-VALUE POPUP
-  The small switch in the model strip turns the value display at the knobs
-  on and off (stored for all tonestack plugins together).
+VALUE POPUP (removed in 1.8)
+  The value popup at the knobs and its switch in the header line of the
+  model strip are gone (since 1.8).
 
 Estimated (not in the schematic)
   Output transformer inductance, leakage, capacitance and losses; internal
@@ -363,3 +380,15 @@ Notes
   New test engine/tests/slothd: k2/k3 at V3B, V4A and the speaker
   (NORMAL clean, PREAMP 10, 100 and 140 mV, 400 Hz) must stay within
   0.3 dB of the values measured on 16 November 2026.
+
+1.8
+  New switch BASS CK in the model strip: cathode capacitors of V1B, V2A
+  and V3B 3.9 uF instead of 1 uF, for bass (see "BASS CK"). New parameter
+  "Cathode caps V1B, V2A, V3B (bass mod)", appended at the end; saved
+  projects load with 1 uF and sound as before. With 1 uF the amp computes
+  exactly as 1.7. The DRIVE meters moved a little to the right.
+  New test engine/tests/slobassck (frequency response, operating point,
+  switching without a click).
+  The value popup at the knobs is gone (it appeared while turning a knob
+  or with the mouse over a control); with it the switch VALUE POPUP in the
+  header line of the model strip. Sound unchanged.

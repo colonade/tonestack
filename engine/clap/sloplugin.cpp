@@ -1,6 +1,6 @@
 // Loldano SLO-100, Nachbau des Soldano SLO-100 Super Lead Overdrive (nach dem beschrifteten Gesamtplan von R. Robinette; alle Röhren gerechnet, src/slo_core.hpp) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.7"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "slo_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
@@ -31,17 +31,18 @@ namespace lgui { struct Gui; }
 #endif
 using namespace slo;
 
-enum { P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES, P_OD, P_CRUNCH, P_BRIGHT, P_VIN, P_OS, P_OUT, P_INREF, P_ROS, P_SPK, P_PRE, P_COUNT };   // P_ROS ab 1.2, P_SPK und P_PRE ab 1.5 (hinten: alte Projekte behalten ihre Kennungen)
+enum { P_NGAIN, P_GAIN, P_BASS, P_MID, P_TREB, P_NMASTER, P_MASTER, P_PRES, P_OD, P_CRUNCH, P_BRIGHT, P_VIN, P_OS, P_OUT, P_INREF, P_ROS, P_SPK, P_PRE, P_BCK, P_COUNT };   // P_ROS ab 1.2, P_SPK und P_PRE ab 1.5, P_BCK ab 1.8 (hinten: alte Projekte behalten ihre Kennungen)
 struct PDef { const char *name; double lo, hi, def; const char *const *names; int nn; };
 static const char *N_CH[] = {"Normal", "Overdrive"}; static const char *N_CR[] = {"Clean", "Crunch"}; static const char *N_BR[] = {"Normal", "Bright"}; static const char *N_OS[] = {"1x", "2x", "4x"}; static const char *N_ROS[] = {"Same as live", "8x", "16x"};
-static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_PRE[] = {"Speaker output (whole amp)", "After preamp (phase inverter grid, power amp not computed)", "FX send (before V4B and tone stack)"};
+static const char *N_ONOFF[] = {"Off", "On"}; static const char *N_BCK[] = {"1 uF (original)", "3.9 uF (bass)"}; static const char *N_PRE[] = {"Speaker output (whole amp)", "After preamp (phase inverter grid, power amp not computed)", "FX send (before V4B and tone stack)"};
 static const PDef PD[P_COUNT] = {
   {"Preamp Normal", 0, 10, 5, 0, 0}, {"Preamp Overdrive", 0, 10, 5, 0, 0}, {"Bass", 0, 10, 5, 0, 0}, {"Middle", 0, 10, 5, 0, 0}, {"Treble", 0, 10, 5, 0, 0},
   {"Master Normal", 0, 10, 3, 0, 0}, {"Master Overdrive", 0, 10, 3, 0, 0}, {"Presence", 0, 10, 5, 0, 0},
   {"Channel", 0, 1, 1, N_CH, 2}, {"Normal channel: Clean/Crunch", 0, 1, 0, N_CR, 2}, {"Normal channel: Bright", 0, 1, 0, N_BR, 2},
   {"Instrument level (mV peak)", 1, tsin::VIN_MAX, 100, 0, 0}, {"Oversampling (distortion)", 0, 2, 1, N_OS, 3}, {"Output level (dB)", -36, 24, 0, 0, 0}, {"Input reference", 0, 1, 0, tsin::N_REF, 2},
   {"Oversampling when rendering offline", 0, 2, 1, N_ROS, 3},
-  {"Speaker (Celestion Vintage 30, data sheet curve)", 0, 1, 0, N_ONOFF, 2}, {"Signal tap", 0, 2, 0, N_PRE, 3} };   // ab 1.5   // ab 1.2: meldet der Host Offline-Rendern (CLAP render, VST3 kOffline), rechnet der Kern mit 8x/16x
+  {"Speaker (Celestion Vintage 30, data sheet curve)", 0, 1, 0, N_ONOFF, 2}, {"Signal tap", 0, 2, 0, N_PRE, 3},   // ab 1.5
+  {"Cathode caps V1B, V2A, V3B (bass mod)", 0, 1, 0, N_BCK, 2} };   // ab 1.8 (Projekte davor laden mit 1 uF)   // ab 1.2: meldet der Host Offline-Rendern (CLAP render, VST3 kOffline), rechnet der Kern mit 8x/16x
 static const uint32_t LATENCY = slo::Amp::LAT;   // fest: Überabtastungsfilter (ab 1.2: 50 Abtastwerte, vorher 31); bei 1x verzögert das Plugin selbst um so viel, damit die Latenz nicht mit dem Modus wechselt
 static int osFactor(int i) { return i <= 0 ? 1 : i == 1 ? 2 : 4; }   // 4x braucht mehr als einen Rechenkern in Echtzeit
 static int rosFactor(int i) { return i <= 0 ? 0 : i == 1 ? 8 : 16; }   // Rendern: 0 = wie live
@@ -89,7 +90,7 @@ struct Plugin {
   int cfgWant() const { int r = rosFactor((int)std::lround(val[P_ROS])); return offline && r > 0 ? r : cfgLive(); }   // cfg = Überabtastung
   static int ix(double v, int hi) { return std::max(0, std::min(hi, (int)std::lround(v))); }
   Setting setting(double ng, double g, double b, double m, double t, double nm, double ms, double pr) const { Setting s; s.ngain = ng / 10; s.gain = g / 10; s.bass = b / 10; s.mid = m / 10; s.treb = t / 10; s.nmaster = nm / 10; s.master = ms / 10; s.pres = pr / 10;
-    s.od = val[P_OD] > 0.5; s.crunch = val[P_CRUNCH] > 0.5; s.bright = val[P_BRIGHT] > 0.5; return s; }
+    s.od = val[P_OD] > 0.5; s.crunch = val[P_CRUNCH] > 0.5; s.bright = val[P_BRIGHT] > 0.5; s.bassCk = val[P_BCK] > 0.5; return s; }
   Setting target() const { return setting(val[P_NGAIN], val[P_GAIN], val[P_BASS], val[P_MID], val[P_TREB], val[P_NMASTER], val[P_MASTER], val[P_PRES]); }
   void applyTo(Amp *a, bool snap = false) const { if (!a) return; a->vin = val[P_VIN] / 1000; a->spk = val[P_SPK] > 0.5; a->pre = val[P_PRE] > 0.5; a->send = val[P_PRE] > 1.5; a->setTarget(target()); if (snap) a->snap(); }
   void joinWorker() { std::lock_guard<std::mutex> lk(wm); cancelJobs = true; if (worker.joinable()) worker.join(); cancelJobs = false; building = false; if (Pend *q = pending.exchange(nullptr)) { delete q->a; delete q->proto; delete q; }

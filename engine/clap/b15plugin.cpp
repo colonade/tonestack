@@ -1,7 +1,7 @@
 // AmpFett B-15NF, Nachbau des Ampeg B-15NF Portaflex (Schaltplan 1-66, alle Röhren gerechnet) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #define B15_V127   // AmpFett ab 1.27 (Abgriff nach der Vorstufe) in b15_core.hpp; andere Plugins sehen den Stand 1.26 (bytegleich)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.29"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.30"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "b15_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"

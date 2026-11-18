@@ -51,6 +51,7 @@ jobs:
           ./engine/build/svtpre | tail -1
           ./engine/build/slopre | tail -1
           ./engine/build/slothd | tail -2
+          ./engine/build/slobassck | tail -1
           ./engine/build/ecc83ds | tail -4
           for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
       - name: Packen

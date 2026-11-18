@@ -69,6 +69,10 @@ int main(int argc, char **argv) {
   click(ux(430), uy(100)); printf("Abgriff: %g (erwartet 2 = FX SEND)\n", pv(17));   // ab 1.7: drei Stellungen, untere Hälfte = eine weiter nach unten
   { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang FX SEND mit Lautsprecher: %d (erwartet 1)\n", m > 1e-3 && m < 4 && std::isfinite(m) ? 1 : 0); }
   click(ux(430), uy(70)); printf("Abgriff: %g (erwartet 1)\n", pv(17)); click(ux(430), uy(70)); printf("Abgriff: %g (erwartet 0)\n", pv(17));
+  click(ux(550), uy(100)); printf("Bass CK: %g (erwartet 1 = 3,9 uF)\n", pv(18));   // ab 1.8: Kathodenkondensatoren V1B, V2A, V3B
+  { double m = 0; for (int i = 0; i < 40; i++) { audio(4); m = std::max(m, outPk); } printf("Ausgang mit 3,9 uF: %d (erwartet 1)\n", m > 1e-3 && m < 4 && std::isfinite(m) ? 1 : 0); }
+  send(ButtonPress, ux(550), uy(85), 4); tick(); printf("Bass CK nach Mausrad hoch: %g (erwartet 0)\n", pv(18)); click(ux(550), uy(70)); printf("Bass CK oben: %g (erwartet 0)\n", pv(18));
+  click(ux(550), uy(100)); click(ux(550), uy(100)); printf("Bass CK zweimal unten: %g (erwartet 1)\n", pv(18));
   send(ButtonPress, ux(1010), uy(72), 4); tick(); send(ButtonPress, ux(1010), uy(72), 4); tick(); printf("INPUT nach Mausrad: %g (erwartet über 100)\n", pv(11));
   click(ux(1010), uy(72)); click(ux(1010), uy(72)); printf("INPUT nach Doppelklick: %g (erwartet 100)\n", pv(11));   // ab 1.7 (1.6 setzte 292 mV)
   send(ButtonPress, kx(1184), kx(146), 4); tick(); send(ButtonPress, kx(1184), kx(146), 4); tick(); printf("Master Overdrive: %g (erwartet 3.4)\n", pv(6));

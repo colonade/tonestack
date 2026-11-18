@@ -1,5 +1,5 @@
 Lametta B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.23
+Version 1.24
 
 Two formats, one engine
   Lametta_B100II.clap and Lametta_B100II.vst3 contain the same code and sound identical
@@ -124,6 +124,11 @@ Input level (INPUT, since 1.19)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.24
+  The value popup at the knobs is gone (it appeared while turning a knob
+  or with the mouse over a control); with it the switch VALUE POPUP in the
+  header line of the model strip. Sound unchanged.
 
 1.23
   Fixed: a double-click on INPUT set 292 mV instead of the default
@@ -294,13 +299,9 @@ Idle
   tells REAPER it may stop calling it (CLAP "sleep") and outputs silence
   itself; the CPU line then shows "idle (silent input)".
 
-VALUE POPUP (new in 1.20)
-  In the header line of the model strip, "VALUE POPUP ON / OFF" switches the
-  small value display that appears at a knob while the mouse is over it or
-  while turning. Click to toggle. The choice is stored for all tonestack
-  plugins of this user (Linux: ~/.config/tonestack/ui.conf, macOS:
-  ~/Library/Application Support/tonestack/ui.conf), not per project.
-  No change in sound.
+VALUE POPUP (removed in 1.24)
+  The value popup at the knobs and its switch in the header line of the
+  model strip are gone (since 1.24).
 
 Notes
   True stereo: left and right are processed by two independent engines. A

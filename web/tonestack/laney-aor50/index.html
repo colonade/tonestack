@@ -272,6 +272,7 @@ table.chk td.z{color:var(--ink2)}
 .fjack .fjring{fill:none;stroke:transparent;stroke-width:3}
 .fjack.an .fjring{stroke:#E0382A}
 .ftip{position:absolute;transform:translate(-50%,-100%);max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;background:#F4EFE3;color:#111;font:600 .8rem/1.2 var(--f);padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.35);z-index:2}
+.ftip{display:none!important}   /* ab Web 2026-11-18-1: kein Wert-Popup mehr an der Frontplatte (Wunsch des Nutzers) */
 .front figcaption{font-size:.82rem;color:var(--ink2);margin-top:6px}
 .frontrows{display:none}
 .fview{position:relative;overflow:hidden;line-height:0;border-radius:6px;border:1px solid var(--line);background:#0c0c0c;margin-top:8px}
@@ -793,6 +794,10 @@ function fitRange(curves, minLo, minHi, span) {
 const yOf = d => { const [a,b] = yr; return T + (b - Math.min(b, Math.max(a, d))) / (b-a) * (Ht-T-B); };
 const svg = $('plot');
 const el = (n, a, parent=svg) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+// Zeiger (ab Web 2026-11-18-1): runde Enden, geometrisch geglättet, darunter ein weicher Saum in derselben Farbe (1,5-fache Breite, 28 %) –
+// gegen Treppenkanten am gedrehten Strich (Hinweis des Nutzers).
+const zeiger = (par, a) => { const w = +a['stroke-width'] || 3, o = a['stroke-opacity'] === undefined ? 1 : +a['stroke-opacity'];
+  el('line', {...a, 'stroke-width':w * 1.5, 'stroke-opacity':0.28 * o, 'stroke-linecap':'round'}, par); return el('line', {...a, 'stroke-linecap':'round'}, par); };
 const pathOf = arr => arr.map((d,i) => (i ? 'L' : 'M') + xOf(FREQS[i]).toFixed(1) + ' ' + yOf(d).toFixed(1)).join('');
 const cache = new Map(); const cached = (key, fn) => { if (!cache.has(key)) cache.set(key, fn()); return cache.get(key); };
 function drawGrid() {
@@ -978,7 +983,7 @@ function makeView(box, svg, tip, xr) {
     if (!inView(FRONT[k].rx)) continue;
     const g = FRONT[k], p = ptrSpec(g), grp = el('g', {class:'fk', 'data-k':k, tabindex:'0', role:'slider', 'aria-label':KINFO[k][0], 'aria-valuemin':'0', 'aria-valuemax':'10'}, svg);
     el('circle', {class:'fhit', cx:g.rx, cy:g.ry, r:g.R * 1.05, fill:'transparent'}, grp);
-    const ln = el('line', {x1:g.px, y1:g.py - p.r0, x2:g.px, y2:g.py - p.r1, stroke:p.c, 'stroke-width':p.w}, grp);
+    const ln = el('g', {'shape-rendering':'geometricPrecision', 'pointer-events':'none'}, grp); zeiger(ln, {x1:g.px, y1:g.py - p.r0, x2:g.px, y2:g.py - p.r1, stroke:p.c, 'stroke-width':p.w});
     el('circle', {class:'fring', cx:g.rx, cy:g.ry, r:g.R * 0.8}, grp);
     el('circle', {class:'fdim', cx:g.rx, cy:g.ry, r:g.R * 1.22}, grp);
     FPTR[k].push(ln); FGRP[k].push(grp);

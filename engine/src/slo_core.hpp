@@ -37,6 +37,8 @@ struct Parts {
   double rk3 = 39e3, ra3 = 100e3, ca3 = 0.001e-6, cc3 = 0.02e-6, rpop = 2.2e6;
   double rcl1 = 470e3, rcl2 = 39e3, rcl3 = 470e3, cnbr = 470e-12, pngain = 500e3, rac = 100e3, rkc = 2.2e3, ccc = 0.02e-6, rcm = 2.2e6, ccm = 120e-12, rgm = 330e3;
   double rgs4 = 220e3, ra4 = 220e3, rk4 = 1.8e3, ck4 = 1e-6, rcf1 = 100e3, rfx = 1e3, cfx = 1e-6, rret = 1e6, ra5 = 220e3, rk5 = 2.2e3, ck5 = 25e-6, rcf2 = 100e3;
+  // Umbau BASS CK (ab 1.8, Anregung des Kritikers für Bass): Kathodenkondensatoren V1B, V2A, V3B statt ck1/ck2/ck4 (Grenzfrequenz mit 1,8k: 88 → 23 Hz)
+  double ckBass = 3.9e-6;
   // Klangregelung, Master, Phasenumkehr
   double ct = 470e-12, rsl = 47e3, cb = 0.02e-6, cm = 0.02e-6, ptreb = 250e3, pbass = 1e6, pmid = 25e3, pmv = 1e6, cpi = 0.02e-6;
   double rgl = 1e6, rkpi = 470, rtail = 10e3, rnt = 4.7e3, cac = 0.1e-6, cpr = 0.1e-6, ppres = 25e3, rpa = 82e3, rpb = 100e3, csn = 47e-12, rnfb = 39e3;
@@ -60,6 +62,7 @@ struct Parts {
 struct Setting {
   double gain = 0.5, ngain = 0.5, bass = 0.5, mid = 0.5, treb = 0.5, master = 0.3, nmaster = 0.3, pres = 0.5;   // Reglerstellungen 0…1 (vor der Kennlinie)
   bool od = true, crunch = false, bright = false;   // Kanal OVERDRIVE; NORMAL: Crunch/Clean und Bright
+  bool bassCk = false;   // ab 1.8: Kathodenkondensatoren V1B, V2A, V3B 3,9 µF statt 1 µF (Umbau für Bass)
 };
 enum { O_SPK = 0, O_SEND = 1, O_B1 = 2, O_NO = 3 };
 // Mehrtakt (ab 1.3): Ausgänge der Teilnetze. Vorstufe: Kathode V4A, Effekt-Send, B3; Endstufe: Lautsprecher, B3 (Speisepunkt der Phasenumkehr), B2
@@ -87,11 +90,11 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   auto ldr = [&](const std::string &a, const std::string &b, bool on) { o.r(a, b, on ? v.ldr_on : v.ldr_off); };
   if (PRE) {
   // Eingang, V1B
-  o.src("in", 1.0, 0); o.r("in", "0", v.rin); o.r("in", "g1", v.rgs1); B.mon[M_V1B] = tri("g1", "p1", "k1"); o.r("B5", "p1", v.ra1); o.r("k1", "0", v.rk1); o.c("k1", "0", v.ck1); o.c("p1", "n1", v.cc1);
+  o.src("in", 1.0, 0); o.r("in", "0", v.rin); o.r("in", "g1", v.rgs1); B.mon[M_V1B] = tri("g1", "p1", "k1"); o.r("B5", "p1", v.ra1); o.r("k1", "0", v.rk1); o.c("k1", "0", s.bassCk ? v.ckBass : v.ck1); o.c("p1", "n1", v.cc1);
   mark();
   // OVERDRIVE: Abschwächer mit Höhenanhebung, GAIN, V2A, Abschwächer, kalte Stufe V2B
   o.r("n1", "gt", v.rod1); o.c("n1", "gt", v.cod1); pot("gt", "gw", "0", v.pgain, s.gain); o.c("gt", "gw", v.cbr); o.r("gw", "g2", v.rgs2);
-  B.mon[M_V2A] = tri("g2", "p2", "k2"); o.r("B4", "p2", v.ra2); o.r("k2", "0", v.rk2); o.c("k2", "0", v.ck2); o.c("p2", "n2", v.cc2); o.r("n2", "g3", v.rod2); o.r("g3", "0", v.rod3);
+  B.mon[M_V2A] = tri("g2", "p2", "k2"); o.r("B4", "p2", v.ra2); o.r("k2", "0", v.rk2); o.c("k2", "0", s.bassCk ? v.ckBass : v.ck2); o.c("p2", "n2", v.cc2); o.r("n2", "g3", v.rod2); o.r("g3", "0", v.rod3);
   mark();
   ldr("g3", "0", !s.od);   // LDR1: im NORMAL-Betrieb liegt das Gitter der kalten Stufe an Masse
   tri("g3", "p3", "k3"); o.r("B4", "p3", v.ra3); o.c("B4", "p3", v.ca3); o.r("k3", "0", v.rk3); o.c("p3", "n3", v.cc3); o.r("n3", "0", v.rpop); ldr("n3", "M", s.od);   // LDR2
@@ -104,7 +107,7 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
   pot("nt", "gc", "0", v.pngain, s.ngain); B.mon[M_V1A] = tri("gc", "pc", "kc"); o.r("B5", "pc", v.rac); o.r("kc", "0", v.rkc); o.c("pc", "nm", v.ccc); o.r("nm", "M", v.rcm); o.c("nm", "M", v.ccm); o.r("M", "0", v.rgm);
   mark();
   // V3B und Kathodenfolger V3A, Effektweg (100 k / 1 k), V4B und Kathodenfolger V4A
-  o.r("M", "g4", v.rgs4); B.mon[M_V3B] = tri("g4", "p4", "k4"); o.r("B3", "p4", v.ra4); o.r("k4", "0", v.rk4); o.c("k4", "0", v.ck4);
+  o.r("M", "g4", v.rgs4); B.mon[M_V3B] = tri("g4", "p4", "k4"); o.r("B3", "p4", v.ra4); o.r("k4", "0", v.rk4); o.c("k4", "0", s.bassCk ? v.ckBass : v.ck4);
   tri("p4", "B3", "f1", false); o.r("f1", "fx", v.rcf1); o.r("fx", "0", v.rfx); o.c("fx", "send", v.cfx); o.r("send", "0", v.rret);
   mark();
   B.mon[M_V4B] = tri("send", "p5", "k5"); o.r("B3", "p5", v.ra5); o.r("k5", "0", v.rk5); o.c("k5", "0", v.ck5); tri("p5", "B3", "f2", false); o.r("f2", "0", v.rcf2);
@@ -156,7 +159,10 @@ inline Built build(const Parts &v, const Setting &s, const std::vector<std::stri
 struct Core {
   double fs = 48000; Parts v; Setting cur; dk::Net net; dk::Runner run; Built bl; dk::Compiler comp; const std::vector<std::string> *dbg = nullptr; int part = 0; bool tapGa = false;   // part, tapGa: siehe build
   void apply(const Setting &s) { cur = s; bl = build(v, s, dbg, part, tapGa); net = std::move(bl.net); { std::vector<dk::Dev> old = std::move(run.dev); run.dev = bl.dev; dk::Runner::keepMem(run.dev, old); }
-    run.devGrp = bl.grp; run.fn = devFn; run.set(comp.compile(net, fs)); }
+    run.devGrp = bl.grp; run.fn = devFn; const std::vector<double> gc0 = run.s.gc; run.set(comp.compile(net, fs));
+    // BASS CK (ab 1.8): ein Kondensator mit anderem Wert behält Spannung und Spannungsänderung (Gedächtnis h = −gc·v − i, beide mit C skaliert) –
+    // wie ein zugeschalteter, auf dieselbe Spannung geladener Kondensator: kein Sprung, kein Einschwingen. Andere Schalter ändern keine Kapazität (gc gleich, nichts geschieht).
+    if (gc0.size() == run.s.gc.size() && (int)run.h.size() >= (int)gc0.size()) for (size_t k = 0; k < gc0.size(); k++) if (run.s.gc[k] != gc0[k] && gc0[k] > 0) run.h[k] *= run.s.gc[k] / gc0[k]; }
   void init(double fs_, const Parts &pv, const Setting &s) { fs = fs_; v = pv; run = dk::Runner(); run.dampFull = true; run.reuseStep = true; run.reuseRho = 0.1; apply(s);   // gemeinsamer Solve gleich gedämpft, Zerlegung innerhalb eines Abtastwerts weiterverwenden (wie SVT-CL)
    
     // Startwerte: eingeschwungene Ruhespannungen aller Knoten (mit diesem Kern nach 40 s gerechnet; die Siebkette braucht sonst mehrere Sekunden)
@@ -279,9 +285,9 @@ struct Amp {
     initPre(pv, s, cancel); spkF.design(spkParams(), fsB); cp.preGain = cp0.preGain = PRE_GAIN; c.spkF = c0.spkF = cp.spkF = cp0.spkF = spkF; preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; sendMix = send ? 1 : 0;
     ready = true; }
   int latency() const { return os > 1 ? LAT : 0; }
-  static bool sameSw(const Setting &a, const Setting &b) { return a.od == b.od && a.crunch == b.crunch && a.bright == b.bright; }
+  static bool sameSw(const Setting &a, const Setting &b) { return a.od == b.od && a.crunch == b.crunch && a.bright == b.bright && a.bassCk == b.bassCk; }
   static bool sameAll(const Setting &a, const Setting &b) { return sameSw(a, b) && a.gain == b.gain && a.ngain == b.ngain && a.bass == b.bass && a.mid == b.mid && a.treb == b.treb && a.master == b.master && a.nmaster == b.nmaster && a.pres == b.pres; }
-  void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, curS())) { Setting n = curS(); n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; applyAct(n); vgk0[1] = c0.run.vp[monPort(1)]; vgkP[1] = cp0.run.vp[monPortP(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
+  void setTarget(const Setting &s) { tgt = s; if (!sameSw(s, curS())) { Setting n = curS(); n.od = s.od; n.crunch = s.crunch; n.bright = s.bright; n.bassCk = s.bassCk; applyAct(n); vgk0[1] = c0.run.vp[monPort(1)]; vgkP[1] = cp0.run.vp[monPortP(1)]; } }   // Schalter sofort (Netz neu, Zustände bleiben), Regler gleiten (15 ms)
   void snap() { preMix = pre ? 1 : 0; spkMix = spk ? 1 : 0; sendMix = send ? 1 : 0; applyAct(tgt); cnt = 0; }
   void resettle(double secs, const std::atomic<bool> *cancel = nullptr) { snap(); if (fullOn()) { settleAll(secs, cancel); c0 = c; e0 = e; pb0 = pb; vB20 = vB2; iPI0 = iPI; readBias(); }
     if (preOn()) { settleP(secs, cancel); cp0 = cp; pbP0 = pbP; readP(); } }   // Hintergrund (Plugin): auf den aktuellen Stellungen einschwingen

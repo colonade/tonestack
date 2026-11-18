@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.14
+Version 1.15
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -307,13 +307,9 @@ Input level (INPUT, since 1.6)
 1.0
   - First release. No speaker.
 
-VALUE POPUP (new in 1.9)
-  In the header line of the model strip, "VALUE POPUP ON / OFF" switches the
-  small value display that appears at a knob while the mouse is over it or
-  while turning. Click to toggle. The choice is stored for all tonestack
-  plugins of this user (Linux: ~/.config/tonestack/ui.conf, macOS:
-  ~/Library/Application Support/tonestack/ui.conf), not per project.
-  No change in sound.
+VALUE POPUP (removed in 1.15)
+  The value popup at the knobs and its switch in the header line of the
+  model strip are gone (since 1.15).
 
 Notes
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).
@@ -363,3 +359,8 @@ Notes
 1.14
   Fixed: a double-click on INPUT set 292 mV instead of the default
   100 mV (since 1.13). Sound unchanged.
+
+1.15
+  The value popup at the knobs is gone (it appeared while turning a knob
+  or with the mouse over a control); with it the switch VALUE POPUP in the
+  header line of the model strip. Sound unchanged.

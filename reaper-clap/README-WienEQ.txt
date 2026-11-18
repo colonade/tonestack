@@ -1,5 +1,5 @@
 Wien EQ (after adt-audio TM205) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   Wien_EQ.clap and Wien_EQ.vst3 contain the same code and sound identical.
@@ -109,6 +109,9 @@ CPU
   silence at the input the plugin goes idle.
 
 Changes
+  1.5  The value popup at the knobs is gone (it appeared while turning a
+       knob or with the mouse over a control); with it the switch VALUE POPUP.
+       BAND LIST now sits where VALUE POPUP was. Sound unchanged.
   1.4  As on the original (front panel, description, technical data):
        LOW is a soft bell (Q 1/3) at 40 / 60 / 100 / 160 Hz; HIGH is a
        shelf at 20 kHz without a button and a soft bell (Q 1/3) at 12 / 8 /

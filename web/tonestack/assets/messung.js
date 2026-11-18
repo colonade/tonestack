@@ -3,6 +3,8 @@
 // Pegel: der Prüfton hat seine Spitze bei INPUT (wie die lauteste Stelle einer Datei). Die Seite stellt bereit:
 //   window.TSMESS = { render(buf, onProgress) → Promise<Float32Array> (Ausgang, gleiche Länge, Latenz ausgeglichen), busy() → bool }
 // Anregung des Kritikers (Vergleich mit LTspice): Einstellungen, Pegel und Fenster sind dann eindeutig.
+// Ab Web 2026-11-18-1: ganz unten auf der Seite (vor dem Fuß, nach dem Abschnitt, den die Kompaktansicht beim Laden anlegt) und eingeklappt
+// (Wunsch des Nutzers); auf- und zuklappen wie die anderen Abschnitte (Klassen zuk/zu, Kopf .ph).
 (() => {
   'use strict';
   const M = window.TSMESS, anchor = document.getElementById('sec-plot'); if (!M || !anchor) return;
@@ -15,15 +17,25 @@
 #sec-mess th:first-child,#sec-mess td:first-child{text-align:left}
 #sec-mess canvas{width:100%;height:260px;display:block;margin-top:8px;border:1px solid var(--line,#8884);border-radius:8px}
 #sec-mess .mnote{font-size:.85rem;opacity:.8;margin:6px 0 0}
-#sec-mess .mwrap{overflow-x:auto}`;
+#sec-mess .mwrap{overflow-x:auto}
+#sec-mess>.ph{cursor:pointer}
+#sec-mess.zu>:not(.ph),#sec-mess [hidden]{display:none}`;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-  const sec = document.createElement('section'); sec.className = 'panel'; sec.id = 'sec-mess'; sec.setAttribute('aria-labelledby', 'ph-mess');
-  sec.innerHTML = `<h2 id="ph-mess">Messung · Klirr mit Prüfton</h2>
+  const sec = document.createElement('section'); sec.id = 'sec-mess'; sec.setAttribute('aria-labelledby', 'ph-mess');
+  sec.className = 'zu'; sec.innerHTML = `<div class="ph"><h2 id="ph-mess">Messung · Klirr mit Prüfton</h2></div>
 <p class="mnote">Ein Sinus läuft einmal durch die Schaltung, mit allen Einstellungen dieser Seite (auch den Modell-Schaltern) und so wie beim Speichern als WAV. Seine Spitze ist der Wert von INPUT. Ausgewertet werden 65536 Werte bei 48 kHz nach 2 s Einschwingen, mit Blackman-Harris-Fenster.</p>
 <div class="mrow"><label>Frequenz <select id="mfreq">${FREQS.map(f => `<option value="${f}"${f === 400 ? ' selected' : ''}>${f} Hz</option>`).join('')}</select></label>
 <span id="mlev"></span><button class="btn" type="button" id="mgo">Messen</button><button class="btn" type="button" id="mcopy" disabled>Werte kopieren</button><span id="mstat" aria-live="polite"></span></div>
 <div class="mwrap"><table id="mtab" hidden></table></div><canvas id="mcan" hidden></canvas>`;
-  anchor.after(sec);
+  const place = () => { const ft = document.querySelector('footer'), all = [...document.querySelectorAll('section.panel')].filter(x => x !== sec);
+    if (ft) ft.before(sec); else if (all.length) all[all.length - 1].after(sec); else anchor.after(sec); };   // ganz unten, vor dem Fuß
+  // Klasse panel erst nach der Kompaktansicht (läuft bei DOMContentLoaded vor diesem Skript): sonst klappt sie den Abschnitt selbst mit (doppelt) und hängt ihren
+  // eigenen Abschnitt dahinter; danach noch einmal ganz nach unten
+  const done = () => { sec.classList.add('panel', 'zuk'); place(); };
+  place(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', done); else done();
+  { const h = sec.querySelector(':scope>.ph'); h.tabIndex = 0; h.setAttribute('role', 'button'); h.setAttribute('aria-expanded', 'false');
+    const tg = () => { const zu = sec.classList.toggle('zu'); h.setAttribute('aria-expanded', String(!zu)); if (!zu && last) draw(last); };
+    h.addEventListener('click', tg); h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tg(); } }); }
   const lev = () => { const t = $('avinv'); $('mlev').textContent = 'Pegel: ' + (t ? t.textContent : '?') + ' (INPUT)'; };
   lev(); { const a = $('avin'); if (a) a.addEventListener('input', lev); }
   // FFT (Radix 2, an Ort und Stelle)

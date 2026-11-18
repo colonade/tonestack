@@ -138,7 +138,7 @@ struct Gui {
     // ---- Modellstreifen ----
     const double u = uscale(); cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 420, 20);
+    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const double t1 = 74.4 / rel(); char hb[64] = "", fb[64] = ""; int nh = 0, nf = 0;
       for (int i = 0; i < 4; i++) { if (on(P_OUT1 + i)) sapp(hb, sizeof hb, nh, "%s%.0f", nh ? " + " : "", t1 * (i + 1)); if (on(P_FB1 + i)) sapp(fb, sizeof fb, nf, "%s%d", nf ? "+" : "", i + 1); }
@@ -174,7 +174,6 @@ struct Gui {
         if (button == 4 || button == 5) { if (h >= 100) { int k = h - 100; setKnob(k, knob01(KPARAM[k], getP(KPARAM[k])) + (button == 4 ? 0.02 : -0.02)); return true; }
           if (h >= 0 && h < 3) { setP(P_MODE, std::max(0, std::min(2, mode() + (button == 4 ? -1 : 1)))); return true; } return false; }
         if (button != 1) return false;
-        { double plx = x / uscale(), ply = (y - FH * scale()) / uscale(); if (tsw::prefHit(plx, ply, 420, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } }
         if (h >= 100) { int k = h - 100; if (k == lastClickId && now - lastClick < 0.35) setP(KPARAM[k], knobDefault(KPARAM[k])); else { drag = k; dragY0 = y; dragV0 = knob01(KPARAM[k], getP(KPARAM[k])); if (gesture) gesture(KPARAM[k], true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         if (h >= 0) { press(h); showTip = true; return true; }
         return false; }

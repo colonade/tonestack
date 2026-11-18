@@ -1,5 +1,5 @@
 GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.9
+Version 1.10
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -147,6 +147,11 @@ Input level (INPUT, since 1.4)
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
 
+1.10
+  The value popup at the knobs is gone (it appeared while turning a knob
+  or with the mouse over a control); with it the switch VALUE POPUP in the
+  header line of the model strip. Sound unchanged.
+
 1.9
   Fixed: a double-click on INPUT set 292 mV instead of the default
   100 mV (since 1.8). Sound unchanged.
@@ -219,13 +224,9 @@ Input level (INPUT, since 1.4)
 1.0
   - First release.
 
-VALUE POPUP (new in 1.7)
-  In the header line of the model strip, "VALUE POPUP ON / OFF" switches the
-  small value display that appears at a knob while the mouse is over it or
-  while turning. Click to toggle. The choice is stored for all tonestack
-  plugins of this user (Linux: ~/.config/tonestack/ui.conf, macOS:
-  ~/Library/Application Support/tonestack/ui.conf), not per project.
-  No change in sound.
+VALUE POPUP (removed in 1.10)
+  The value popup at the knobs and its switch in the header line of the
+  model strip are gone (since 1.10).
 
 Notes
   Built on Ubuntu 24.04 against glibc 2.39 (needs 2.38 or newer).

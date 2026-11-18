@@ -85,6 +85,10 @@ Knotenspannungen des eingeschwungenen Netzes); Startwerte aller Kondensatoren au
 in Grundstellung (OVERDRIVE) bei 1 kHz gleich der Lautsprecherklemme; im NORMAL-Kanal ebenso (gleiche Endstufe). Im Mehrtakt (4x) läuft der Abgriff wie f2 durch
 den Zwischenfilter auf die Rate der Endstufe. Geprüft in `engine/tests/slopre.cpp`. Mit SPEAKER aus und TAP AMP rechnet der Kern bitgleich wie 1.4.
 
+## Umbau BASS CK (ab 1.8, nicht im Plan)
+Anregung des Kritikers für den SLO-100 als Bass-Verzerrer: die Kathodenkondensatoren von V1B, V2A und V3B (Plan: je 1 µF an 1,8 kΩ, Grenzfrequenz 88 Hz) schaltbar auf 3,9 µF (23 Hz). V2B (39 kΩ ohne Kondensator) und V4B (25 µF) bleiben. `Setting::bassCk`, `Parts::ckBass`; Grundstellung 1 µF wie im Plan.
+Umschalten: das Netz wird neu übersetzt (wie bei den anderen Schaltern); `Core::apply` skaliert das Gedächtnis jedes Kondensators, dessen Wert sich ändert, mit dem Verhältnis der Kapazitäten (Spannung und Spannungsänderung bleiben, wie ein zugeschalteter, vorgeladener Kondensator). Ruhespannungen gleich, in Stille kein Knacks (engine/tests/slobassck.cpp).
+
 ## Nicht gerechnet
 Rauschen und Brummen, Trägheit der Fotowiderstände, Geräte im Effektweg, SLAVE-Ausgang, Impedanzwahl (immer 8 Ω), DEPTH (das Original hat keinen), STANDBY/POWER.
 

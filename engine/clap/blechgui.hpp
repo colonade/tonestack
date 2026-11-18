@@ -117,7 +117,7 @@ struct Gui {
     // ---- Modellstreifen ----
     const double u = uscale(); cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU + PLOTU); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "VALUE POPUP", tsw::prefs().tips, 420, 20);
+    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false);
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { double t = shown; char b[260]; std::snprintf(b, sizeof b, "PLATE NOW  RT60 %.2f s at 125 Hz · %.2f s at 500 Hz · %.2f s at 2 kHz · %.2f s at 8 kHz%s", blech::t60At(plate, 125, t), t, blech::t60At(plate, 2000, t), blech::t60At(plate, 8000, t),
         motor ? "   ·   damper moving" : ""); setrgb(c, 0xdcdee2); tsw::text(c, b, 16, 50, 13.5, true); }
@@ -153,7 +153,6 @@ struct Gui {
       case 0: {
         if (button == 4 || button == 5) { int k = hitKnob(x, y); if (k == 50) setP(P_BASS, std::max(0, std::min(3, bass() + (button == 4 ? 1 : -1)))); else if (k >= 0) setKnob(k, knob01(KPARAM[k], getP(KPARAM[k])) + (button == 4 ? 0.02 : -0.02)); return true; }
         if (button != 1) return false;
-        { double plx = x / uscale(), ply = (y - FH * scale()) / uscale(); if (tsw::prefHit(plx, ply, 420, 20, 125)) { tsw::prefs().tips = !tsw::prefs().tips; tsw::prefSave(); return true; } }
         int k = hitKnob(x, y);
         if (k == 50) { double s = scale(), a = std::atan2(x / s - BLBASS[0], -(y / s - BLBASS[1])) * 180 / PI; int pos = std::max(0, std::min(3, (int)std::lround((a + 45) / 30))); if (std::hypot(x / s - BLBASS[0], y / s - BLBASS[1]) < 22) pos = (bass() + 1) % 4; setP(P_BASS, pos); return true; }
         if (k >= 0) { if (k == lastClickId && now - lastClick < 0.35) setP(KPARAM[k], k == 0 ? 2.0 : k == 1 ? 30.0 : 0.0); else { drag = k; dragY0 = y; dragV0 = knob01(KPARAM[k], getP(KPARAM[k])); if (gesture) gesture(KPARAM[k], true); } showTip = true; lastClick = now; lastClickId = k; return true; }

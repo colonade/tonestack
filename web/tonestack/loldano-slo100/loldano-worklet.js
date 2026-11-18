@@ -7,10 +7,11 @@
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.os = 0; this.ready = false; }
     f64(ptr, n) { return new Float64Array(this.x.memory.buffer, ptr, n); }
     // p = { s: {gain, ngain, bass, mid, treb, master, nmaster, pres} 0…1 (gain/master = OVERDRIVE, ngain/nmaster = NORMAL), od (Kanal OVERDRIVE), crunch, bright,
-    //       vin (V Spitze bei 0 dBFS), os (1, 2 oder 4; 8 nur für den Download), spk (Vintage 30, ab 1.5), pre (Abgriff: 0 AMP, 1 nach der Vorstufe ab 1.5, 2 FX SEND ab 1.7) }
+    //       vin (V Spitze bei 0 dBFS), os (1, 2 oder 4; 8 nur für den Download), spk (Vintage 30, ab 1.5), pre (Abgriff: 0 AMP, 1 nach der Vorstufe ab 1.5, 2 FX SEND ab 1.7), bck (BASS CK, ab 1.8) }
     setTarget(p) { if (!p) return; const s = p.s || {}, t = this.f64(this.x.lo_target_buffer(), 16), num = (v, d) => Number.isFinite(+v) ? +v : d;
       [s.gain, s.ngain, s.bass, s.mid, s.treb, s.master, s.nmaster, s.pres].forEach((v, i) => t[i] = Math.min(1, Math.max(0, num(v, 0.5))));
       t[8] = p.od === false ? 0 : 1; t[9] = p.crunch ? 1 : 0; t[10] = p.bright ? 1 : 0; t[11] = num(p.vin, 0.1) > 0 ? num(p.vin, 0.1) : 0.1; t[12] = p.spk ? 1 : 0; t[13] = p.pre === 2 ? 2 : p.pre ? 1 : 0;   // 2: FX SEND (ab 1.7)
+      t[14] = p.bck ? 1 : 0;   // ab 1.8: BASS CK (Kathodenkondensatoren V1B, V2A, V3B 3,9 µF)
       const os = [1, 2, 4, 8].includes(p.os) ? p.os : 2;
       if (!this.ready || os !== this.os) { this.x.lo_init(this.fs, os); this.os = os; }   // Neuaufbau mit Einschwingen der Schaltung (etwa 1–3 s Rechenzeit)
       this.x.lo_set_target(); this.ready = true; }

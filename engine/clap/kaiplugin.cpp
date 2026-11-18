@@ -2,7 +2,7 @@
 // veröffentlichten Verfahren, kaiserin_core.hpp, docs/kaiserin/ENTWURF.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Eingang mono (bei Stereo die Summe für den Hall, trocken je Kanal), Ausgang stereo; keine Latenz.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.0"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "kaiserin_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
