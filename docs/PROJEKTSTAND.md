@@ -1,4 +1,4 @@
-# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-18)
+# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-19)
 
 Lies diese Datei zuerst, wenn das Projekt in einem neuen Gespräch weitergeht. Sie fasst alles zusammen, was aus dem bisherigen Verlauf wichtig ist.
 
