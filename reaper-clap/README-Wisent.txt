@@ -1,5 +1,12 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
+
+New in 1.5: the switch LINK (model) next to the HEAD knobs locks the four
+heads together: turning one HEAD knob moves all four in proportion, so the
+rhythm stays (for example 1 : 2 : 3 : 4) until a head reaches 20 or 770 ms.
+Off by default; projects saved with earlier versions load with LINK off.
+The lettering "MODEL (not on the unit)" above the model controls is gone.
+Sound unchanged.
 
 New in 1.4: HEAD 1 to HEAD 4 (model): each playback head can be moved along
 the drum, 20 to 770 ms at 50 Hz (original 74 / 149 / 223 / 298 ms); beyond
@@ -143,6 +150,11 @@ Controls
                  knob slides the head there in about 0.15 s, the pitch
                  glides like on a tape echo. Double-click = original.
                  Heads may pass each other.
+  LINK           (from 1.5, model) on: turning one HEAD knob turns all four
+                 in proportion (each head keeps its ratio to the others);
+                 the movement stops when a head reaches 20 or 770 ms. A
+                 double-click on a HEAD knob then sets all four to the
+                 original. Off: each knob moves its own head only.
 
 Measured (engine/tests/wisenttest.cpp)
   Operating points against the schematic: V4A 68 V (80), mixer 113 V
@@ -168,9 +180,9 @@ Interface
   The front panel is an own drawing (no photo, no logo): magic eye, INPUT,
   LENGTH OF SWELL, VOLUME, BASS, TREBLE, ECHO/REPEAT/SWELL, the head
   buttons (upper row feedback, lower row playback, with the delay of each
-  head), and the model controls DRY, VARISPEED, WOBBLE, LEVEL, OUTPUT and
-  the mains switch. Below
-  it: mode, active heads, record level and drum speed, and (from 1.4) the
-  knobs HEAD 1 to HEAD 4 with the delay of each head at the current speed.
+  head), and the model controls HEAD 1 to HEAD 4 (from 1.4) with the switch
+  LINK (from 1.5), DRY, VARISPEED, WOBBLE, LEVEL, OUTPUT and the mains
+  switch. Below it: mode, active heads with the delay of each head at the
+  current speed, record level and drum speed.
   Drag a knob up/down, mouse wheel for fine steps, double-click = default.
   Click a button to press or release it.

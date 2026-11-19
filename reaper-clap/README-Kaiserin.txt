@@ -1,5 +1,5 @@
 Kaiserin Reverb (after Empress Effects Reverb) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Kaiserin_Reverb.clap and Kaiserin_Reverb.vst3 contain the same code and
@@ -97,6 +97,8 @@ Interface
   The mouse wheel on the mode buttons steps through the modes.
 
 Changes
+  1.2  The lettering "MODEL (not on the unit)" in the header line of the model
+       strip is gone; the plugin version stays there. Sound unchanged.
   1.1  The value popup at the knobs is gone (it appeared while turning a
        knob or with the mouse over a control); with it the switch VALUE POPUP
        in the header line of the model strip. Sound unchanged.

@@ -3,21 +3,21 @@
 # italienischer Geräte der Sechziger: kein Foto, kein Logo, keine Nachbildung der Binson-Frontplatte. Magisches Auge (Aufnahmepegel, EM84),
 # Knöpfe INPUT, LENGTH OF SWELL, VOLUME, BASS, TREBLE, Tasten ECHO/REPEAT/SWELL, zwei Reihen Kopftasten (oben Rückkopplung, unten Wiedergabe),
 # dazu DRY (Trimmer TD, im Gerät innen), VARISPEED (späterer Umbau), WOBBLE (Taumeln, ab 1.2), LEVEL, OUTPUT und Netzfrequenz 50/60 Hz (Modell, nicht am Gerät);
-# ab 1.4 vorn im Modellteil vier kleinere Knöpfe HEAD 1–4 (Lage der Wiedergabeköpfe), gleiche Gestaltung.
-# Schreibt engine/gen/wisentpanel.jpg (2770 × 240, ohne Zeiger und Tasten), wisentgeo.json, wisentpanel_jpg.h, wisentgeo_gen.h und die Seitensymbole
+# ab 1.4 vorn im Modellteil vier kleinere Knöpfe HEAD 1–4 (Lage der Wiedergabeköpfe), gleiche Gestaltung; ab 1.5 daneben Kippschalter LINK
+# (Köpfe gekoppelt). Schreibt engine/gen/wisentpanel.jpg (2850 × 240, ohne Zeiger und Tasten), wisentgeo.json, wisentpanel_jpg.h, wisentgeo_gen.h und die Seitensymbole
 #   python3 engine/tools/wisent_panel.py [repo]
 import json, os, sys, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 R = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', '..')
 GEN = os.path.join(R, 'engine', 'gen')
-W, H, S = 2770, 240, 2
+W, H, S = 2850, 240, 2
 FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FN = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf'
 PANEL = (58, 64, 62); INK = (232, 226, 206); DIM = (170, 168, 152); GOLD = (206, 172, 98)
 KY = 128; KR = 30
 KNOBS = [('input', 470, 'INPUT', '0', '10'), ('swell', 590, 'LENGTH OF SWELL', '0', '10'), ('volume', 710, 'VOLUME', '0', '10'),
-         ('bass', 830, 'BASS', '−', '+'), ('treble', 950, 'TREBLE', '−', '+'), ('level', 2410, 'LEVEL', '20 mV', '2 V'), ('out', 2530, 'OUTPUT', '−24', '+24 dB'),
-         ('dry', 2050, 'DRY (TD)', '0', '10'), ('speed', 2170, 'VARISPEED', '¼×', '2×'), ('wob', 2290, 'WOBBLE', '0', '10'),
+         ('bass', 830, 'BASS', '−', '+'), ('treble', 950, 'TREBLE', '−', '+'), ('level', 2490, 'LEVEL', '20 mV', '2 V'), ('out', 2610, 'OUTPUT', '−24', '+24 dB'),
+         ('dry', 2130, 'DRY (TD)', '0', '10'), ('speed', 2250, 'VARISPEED', '¼×', '2×'), ('wob', 2370, 'WOBBLE', '0', '10'),
          ('h1', 1640, 'HEAD 1', '20', '770'), ('h2', 1730, 'HEAD 2', '20', '770'), ('h3', 1820, 'HEAD 3', '20', '770'), ('h4', 1910, 'HEAD 4', '20', '770')]   # Reihenfolge = Parameter der Oberfläche (KPARAM)
 KRH = 25                              # Kopfknöpfe (ab 1.4) etwas kleiner
 def kr(k): return KRH if k.startswith('h') else KR
@@ -26,7 +26,8 @@ MODE = [(1085, 76), (1085, 128), (1085, 180)]   # ECHO, REPEAT, SWELL (Mitte; Ta
 BW, BH = 74, 34
 HEADX = [1262, 1342, 1422, 1502]; HFB, HOUT = 100, 172   # Kopftasten: obere Reihe Rückkopplung, untere Wiedergabe (Taste 56 × 30)
 HW, HH = 56, 30
-MAINS = (2655, 128)                   # Kippschalter 50/60 Hz
+MAINS = (2735, 128)                   # Kippschalter 50/60 Hz
+LINK = (1995, 128)                    # ab 1.5: Kippschalter LINK (Kopfknöpfe gekoppelt, oben = an)
 def font(px, f=FB): return ImageFont.truetype(f, int(round(px * S)))
 def draw():
     im = Image.new('RGB', (W * S, H * S)); d = ImageDraw.Draw(im)
@@ -78,8 +79,10 @@ def draw():
     for i, x in enumerate(HEADX): ctext(x, 44, str(i + 1), 14, FB)   # Zeiten darunter zeichnet die Oberfläche (50/60 Hz)
     ctext(1085, 22, 'MODE', 12, FB)
     # Trennlinie Modell
-    d.line([(1560 * S, 30 * S), (1560 * S, (H - 30) * S)], fill=GOLD, width=2 * S); ctext((1560 + W) / 2, 22, 'MODEL  (not on the unit)', 11, FB, DIM)
-    ctext(1775, 196, 'head position · ms at 50 Hz', 10, FN, DIM); d.line([(1975 * S, 50 * S), (1975 * S, (H - 50) * S)], fill=(90, 96, 92), width=S)   # ab 1.4
+    d.line([(1560 * S, 30 * S), (1560 * S, (H - 30) * S)], fill=GOLD, width=2 * S)   # Schriftzug „MODEL (not on the unit)“ entfernt (19.11.2026)
+    ctext(1775, 196, 'head position · ms at 50 Hz', 10, FN, DIM); d.line([(2055 * S, 50 * S), (2055 * S, (H - 50) * S)], fill=(90, 96, 92), width=S)   # ab 1.4
+    lx, ly = LINK; ctext(lx, 52, 'LINK', 12.5, FB); ctext(lx, 80, 'on', 11, FN, DIM); ctext(lx, 164, 'off', 11, FN, DIM)   # ab 1.5
+    d.ellipse([(lx - 16) * S, (ly - 16) * S, (lx + 16) * S, (ly + 16) * S], fill=(200, 200, 190), outline=(90, 90, 84), width=2 * S); ctext(lx, 196, 'heads together', 10, FN, DIM)
     mx, my = MAINS; ctext(mx, 52, 'MAINS', 12.5, FB); ctext(mx, 80, '60 Hz', 11, FN, DIM); ctext(mx, 164, '50 Hz', 11, FN, DIM)
     d.ellipse([(mx - 16) * S, (my - 16) * S, (mx + 16) * S, (my + 16) * S], fill=(200, 200, 190), outline=(90, 90, 84), width=2 * S)
     ctext(mx, 196, 'drum speed', 10, FN, DIM)
@@ -88,7 +91,7 @@ def main():
     im = draw().resize((W, H), Image.LANCZOS); os.makedirs(GEN, exist_ok=True); jp = os.path.join(GEN, 'wisentpanel.jpg'); im.save(jp, quality=90)
     geo = {'W': W, 'H': H, 'knobs': [{'k': k, 'x': x, 'y': KY, 'r': kr(k)} for k, x, _, _, _ in KNOBS], 'eye': {'x': EYE[0], 'y': EYE[1], 'w': EYE[2], 'h': EYE[3]},
            'mode': [{'x': x, 'y': y, 'w': BW, 'h': BH} for x, y in MODE], 'fb': [{'x': x, 'y': HFB, 'w': HW, 'h': HH} for x in HEADX], 'out': [{'x': x, 'y': HOUT, 'w': HW, 'h': HH} for x in HEADX],
-           'mains': {'x': MAINS[0], 'y': MAINS[1]}}
+           'mains': {'x': MAINS[0], 'y': MAINS[1]}, 'link': {'x': LINK[0], 'y': LINK[1]}}
     json.dump(geo, open(os.path.join(GEN, 'wisentgeo.json'), 'w'))
     data = open(jp, 'rb').read()
     with open(os.path.join(GEN, 'wisentpanel_jpg.h'), 'w') as f:
@@ -103,6 +106,7 @@ def main():
         f.write('static const double WSMODE[3][2] = {%s}; static const double WSBTN[2] = {%d, %d};   // ECHO, REPEAT, SWELL\n' % (', '.join('{%d, %d}' % m for m in MODE), BW, BH))
         f.write('static const double WSHEADX[4] = {%s}; static const double WSHFB = %d, WSHOUT = %d; static const double WSHBTN[2] = {%d, %d};   // Kopftasten\n' % (', '.join(str(x) for x in HEADX), HFB, HOUT, HW, HH))
         f.write('static const double WSMAINS[2] = {%d, %d};   // Netzfrequenz\n' % MAINS)
+        f.write('static const double WSLINK[2] = {%d, %d};   // LINK (ab 1.5)\n' % LINK)
     crop = im.crop((240, 30, 520, 230)).resize((280, 200)); sq = Image.new('RGB', (280, 280), PANEL); sq.paste(crop, (0, 40))
     ICO = os.path.join(R, 'web', 'tonestack', 'assets', 'icons'); os.makedirs(ICO, exist_ok=True)
     for n in (180, 192, 512): sq.resize((n, n), Image.LANCZOS).save(os.path.join(ICO, 'wisent-echoreck-%d.png' % n), optimize=True)

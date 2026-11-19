@@ -1,5 +1,5 @@
 GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.10
+Version 1.11
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -146,6 +146,10 @@ Input level (INPUT, since 1.4)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.11
+  The lettering "MODEL (not on the amp)" in the header line of the model
+  strip is gone; the plugin version stays there. Sound unchanged.
 
 1.10
   The value popup at the knobs is gone (it appeared while turning a knob

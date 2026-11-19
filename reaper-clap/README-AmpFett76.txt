@@ -1,5 +1,5 @@
 AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   AmpFett_76.clap and AmpFett_76.vst3 contain the same code and sound
@@ -128,6 +128,9 @@ CPU and latency
   goes idle.
 
 Changes
+  1.5  The lettering "MODEL (not on the unit)" in the header line of the model
+       strip is gone; it now reads "CALI76 EXTENSIONS" and the plugin
+       version. Sound unchanged.
   1.4  The value popup at the knobs is gone (it appeared while turning a
        knob or with the mouse over a control); with it the switch VALUE POPUP
        in the header line of the model strip. Sound unchanged.

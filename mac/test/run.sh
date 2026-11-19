@@ -28,7 +28,7 @@ clang++ "${FL[@]}" -DTS_GUI_HDR='"wisentgui.hpp"' -DTS_NS=wisentgui -DTS_FW=FW -
 /tmp/render_slo "$O/slo.png" 0=4 1=7 2=6 3=4 4=6 5=3 6=4 7=6 8=1 9=1 10=0 11=100 12=1 13=0 14=0
 /tmp/render_kai "$O/kaiserin.png" 0=1 1=6 2=7 3=5 4=4 5=6 6=3 7=5 8=0
 /tmp/render_blech "$O/blech.png" 0=2.6 1=2 2=35 3=20 4=0
-/tmp/render_wisent "$O/wisent.png" 0=3 1=6 2=8 3=5 4=6 5=1 6=0 7=1 8=0 9=0 10=0 11=1 12=0 13=0 14=200 15=0 16=0 17=6.7 18=1 19=3 20=74.4 21=148.8 22=300 23=500
+/tmp/render_wisent "$O/wisent.png" 0=3 1=6 2=8 3=5 4=6 5=1 6=0 7=1 8=0 9=0 10=0 11=1 12=0 13=0 14=200 15=0 16=0 17=6.7 18=1 19=3 20=74.4 21=148.8 22=300 23=500 24=1
 # Zeichenzeit unter Rosetta (x86_64-Teil derselben Programme), Bilder nur zum Vergleich
 if arch -x86_64 /usr/bin/true 2>/dev/null; then
   arch -x86_64 /tmp/render_laney /tmp/rosetta_laney.png 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
@@ -43,5 +43,5 @@ if arch -x86_64 /usr/bin/true 2>/dev/null; then
   arch -x86_64 /tmp/render_slo /tmp/rosetta_slo.png 0=4 1=7 2=6 3=4 4=6 5=3 6=4 7=6 8=1 9=1 10=0 11=100 12=1 13=0 14=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_kai /tmp/rosetta_kai.png 0=1 1=6 2=7 3=5 4=4 5=6 6=3 7=5 8=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_blech /tmp/rosetta_blech.png 0=2.6 1=2 2=35 3=20 4=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
-  arch -x86_64 /tmp/render_wisent /tmp/rosetta_wisent.png 0=3 1=6 2=8 3=5 4=6 5=1 6=0 7=1 8=0 9=0 10=0 11=1 12=0 13=0 14=200 15=0 16=0 17=6.7 18=1 19=3 20=74.4 21=148.8 22=300 23=500 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
+  arch -x86_64 /tmp/render_wisent /tmp/rosetta_wisent.png 0=3 1=6 2=8 3=5 4=6 5=1 6=0 7=1 8=0 9=0 10=0 11=1 12=0 13=0 14=200 15=0 16=0 17=6.7 18=1 19=3 20=74.4 21=148.8 22=300 23=500 24=1 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
 else echo "RESULT kind=draw arch=x86_64 rosetta=missing"; fi

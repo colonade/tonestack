@@ -1,5 +1,5 @@
 Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.8
+Version 1.9
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -380,6 +380,10 @@ Notes
   New test engine/tests/slothd: k2/k3 at V3B, V4A and the speaker
   (NORMAL clean, PREAMP 10, 100 and 140 mV, 400 Hz) must stay within
   0.3 dB of the values measured on 16 November 2026.
+
+1.9
+  The lettering "MODEL (not on the amp)" in the header line of the model
+  strip is gone; the plugin version stays there. Sound unchanged.
 
 1.8
   New switch BASS CK in the model strip: cathode capacitors of V1B, V2A

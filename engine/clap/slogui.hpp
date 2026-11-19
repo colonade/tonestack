@@ -148,7 +148,7 @@ struct Gui {
     char vt[2][40]; tsin::valueText(vt[0], 40, v[P_VIN], v[P_INREF] > 0.5); std::snprintf(vt[1], 40, "%+.1f dB", v[P_OUT]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the amp)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 220, 20, 12, false);
+    setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 16, 20, 12, false);   /* ohne „MODEL (not on the …)“ (Wunsch des Nutzers, 19.11.2026) */
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *to[3] = {"1X", "2X", "4X"}; tsw::toggle(c, SW_X[0], SW_Y, 3, os, "OVERSAMPLING", to, osActive != os ? "switching ..." : os == 2 ? "needs > 1 core" : "while playing", rendering); }
     { int r = std::max(0, std::min(2, (int)std::lround(v[P_ROS]))); const char *tr[3] = {"AS LIVE", "8X", "16X"}; tsw::toggle(c, SW_X[1], SW_Y, 3, r, "RENDER", tr, rendering ? "rendering now" : "offline bounce"); }

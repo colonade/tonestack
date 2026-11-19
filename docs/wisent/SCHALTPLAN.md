@@ -108,6 +108,7 @@ Ab 1.4 leiert die Trommel dabei auch (ausgeschlagene Lagerung, Wunsch des Nutzer
 
 ## Kopfstellungen HEAD 1–4 (ab 1.4, Modell, nicht am Gerät)
 Wunsch des Nutzers: Köpfe verschiebbar, Echozeiten bis etwa 1000 ms; Wahl „ein Regler je Kopf“. Je Wiedergabekopf eine Lage längs der Trommel, eingestellt als Verzögerung bei 50 Hz ohne Varispeed, 20 … 770 ms (`Core::HEAD_MIN/HEAD_MAX`; Original `HEAD_MS0` · 1, 2, 3, 4 = 74,4 / 148,8 / 223,2 / 297,6 ms). Grenze: Köpfe und Löschmagnet müssen auf den Umfang (375 mm, 0,82 s je Umdrehung bei 50 Hz) passen. Über 770 ms nur mit VARISPEED (0,75×: 1027 ms). In `Drum` als Vielfache `hm` des Kopfabstands (Original genau 1, 2, 3, 4 → bitgleich zu 1.3), gleitet in etwa 0,15 s (Tonhöhe gleitet mit). Echomuster für die Anzeigen (`Core::patternT`) aus Ereignissen mit genauen Laufzeiten, Ausgabe auf 1-ms-Raster.
+LINK (ab 1.5, Modell; Wunsch des Nutzers „ein schalter der die Kopfe zueinander sperrt“, Wahl „Im Verhältnis“): Kippschalter neben den Kopfknöpfen, Parameter 24. Ein: Dreht man einen HEAD-Knopf, werden alle vier mit demselben Faktor multipliziert (Ausgang: die Stellungen zu Beginn des Ziehens), begrenzt so, dass jeder Kopf in 20 … 770 ms bleibt; landen alle vier auf ±0,3 ms am Original, genau das Original. Doppelklick stellt dann alle vier auf das Original. Nur Bedienung (Oberfläche und Seite), der Kern bekommt wie bisher vier Stellungen; Grundstellung aus, alte Projekte laden mit LINK aus.
 
 ## Prüfung (engine/tests/wisenttest.cpp)
 - Ruhespannungen siehe oben.
