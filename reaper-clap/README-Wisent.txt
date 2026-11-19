@@ -1,5 +1,13 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.3
+Version 1.4
+
+New in 1.4: HEAD 1 to HEAD 4 (model): each playback head can be moved along
+the drum, 20 to 770 ms at 50 Hz (original 74 / 149 / 223 / 298 ms); beyond
+770 ms with VARISPEED (0.75x: up to 1027 ms). WOBBLE now also makes the
+drum wow (up to +/-1 % speed once per turn), so the pitch of the echoes
+wavers. Projects saved with earlier versions load with the original head
+positions; with the original positions and WOBBLE 0 the sound is
+unchanged (bit for bit).
 
 New in 1.3: the value popup at the knobs is gone (it appeared while turning
 a knob or with the mouse over a control); with it the switch VALUE POPUP in
@@ -119,6 +127,22 @@ Controls
                  frequency response and echo pattern in the page show the
                  true-running drum. Up to about 7 % of a core more CPU at
                  WOBBLE 10.
+                 From 1.4 the drum also wows (worn bearing): the speed
+                 varies once per turn by up to +/-1 % (WOBBLE 10). An echo
+                 hears the speed at playback against the speed at
+                 recording, so its pitch wavers more the farther the head:
+                 at 50 Hz and WOBBLE 10 about +/-0.6 % via head 1,
+                 +/-1.1 % via head 2, +/-1.8 % via head 4.
+  HEAD 1 to 4    (from 1.4, model) position of each playback head along the
+                 drum, set as the delay at 50 Hz and 1x speed, 20 to 770 ms
+                 (original 74.4 / 148.8 / 223.2 / 297.6 ms, 34 mm apart).
+                 All heads and the erase magnet have to fit on the 375 mm
+                 circumference (one turn takes 0.82 s at 50 Hz), so 770 ms
+                 is the limit at normal speed; with VARISPEED 0.75x a head
+                 at 770 ms comes after 1027 ms (a little duller). Turning a
+                 knob slides the head there in about 0.15 s, the pitch
+                 glides like on a tape echo. Double-click = original.
+                 Heads may pass each other.
 
 Measured (engine/tests/wisenttest.cpp)
   Operating points against the schematic: V4A 68 V (80), mixer 113 V
@@ -126,6 +150,9 @@ Measured (engine/tests/wisenttest.cpp)
   latency (60 Hz: 62 / 124 / 186 / 248 ms). Feedback with one head, second
   against first repeat: -15 dB at LENGTH OF SWELL 0, -4 dB at 5, 0 dB at 9.
   Small-signal echo pattern against the time domain within 0.1 dB.
+  Heads moved to 50 / 400 / 600 / 770 ms: echoes after 50.5 / 400.5 /
+  600.3 / 770.9 ms (VARISPEED 0.75x: up to 1027.7 ms). WOBBLE 10: pitch of
+  the echo via head 2 +/-1.03 % (expected +/-1.08 %).
   Aliasing under normal drive below -68 dB.
 
 Mono, latency, CPU
@@ -143,6 +170,7 @@ Interface
   buttons (upper row feedback, lower row playback, with the delay of each
   head), and the model controls DRY, VARISPEED, WOBBLE, LEVEL, OUTPUT and
   the mains switch. Below
-  it: mode, active heads, record level and drum speed.
+  it: mode, active heads, record level and drum speed, and (from 1.4) the
+  knobs HEAD 1 to HEAD 4 with the delay of each head at the current speed.
   Drag a knob up/down, mouse wheel for fine steps, double-click = default.
   Click a button to press or release it.

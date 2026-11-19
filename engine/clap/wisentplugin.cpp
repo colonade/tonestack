@@ -2,15 +2,16 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
 #ifndef TS_NO_GUI
 #include "wisentgui.hpp"
 #else
-namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_COUNT }; }
+namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_H1, P_H2, P_H3, P_H4, P_COUNT }; }
 #endif
+#include <array>
 #include <deque>
 #include <chrono>
 #include <cstdio>
@@ -37,14 +38,18 @@ static const PDef PD[P_COUNT] = { {"Input", 0, 10, 2.5, 0, 0}, {"Length of swell
   {"Feedback head 1", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 2", 0, 1, 1, N_ONOFF, 2}, {"Feedback head 3", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 4", 0, 1, 0, N_ONOFF, 2},
   {"Level (mV at 0 dBFS)", 20, 2000, 200, 0, 0}, {"Output (dB)", -24, 24, 0, 0, 0}, {"Mains (drum speed)", 0, 1, 0, N_MAINS, 2},
   {"Dry (trimmer TD)", 0, 10, 6.7, 0, 0}, {"Varispeed (mod)", 0.25, 2, 1, 0, 0},   // 1.1: hinten angehängt (gespeicherte Projekte von 1.0 bleiben gültig)
-  {"Wobble (worn drum)", 0, 10, 0, 0, 0} };   // 1.2: Taumeln der Scheibe (Verschleiß), hinten angehängt
+  {"Wobble (worn drum)", 0, 10, 0, 0, 0},   // 1.2: Taumeln der Scheibe (Verschleiß), hinten angehängt; ab 1.4 leiert die Trommel dabei auch
+  // 1.4: Lage der vier Wiedergabeköpfe (Modell), als Verzögerung in ms bei 50 Hz ohne Varispeed; Original 74,4 / 148,8 / 223,2 / 297,6 ms
+  {"Head 1 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 1, 0, 0}, {"Head 2 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 2, 0, 0},
+  {"Head 3 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 3, 0, 0}, {"Head 4 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 4, 0, 0} };
 
 struct Plugin {
   PortCfg ports;
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; wisent::Core *core = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true}, fresh{true}, active{false};
   std::atomic<double> load{0}, eye{0}; std::vector<float> a, oa; long quiet = 0; std::atomic<bool> sleeping{false}; wisent::Setting cur; double outG = 1;
-  wisentgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1400, guiH = 0;
+  wisentgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1640, guiH = 0;
   std::string diagMode, diagTxt; int diagCnt = 0;
+  std::array<double, 4> heads() const { return {val[P_H1].load(), val[P_H2].load(), val[P_H3].load(), val[P_H4].load()}; }   // Kopfstellungen (ms bei 50 Hz, ab 1.4)
   wisent::Setting target() const { wisent::Setting s; s.input = val[P_INPUT].load() / 10; s.swell = val[P_SWELL].load() / 10; s.volume = val[P_VOLUME].load() / 10; s.bass = val[P_BASS].load() / 10; s.treble = val[P_TREBLE].load() / 10; s.dry = val[P_DRY].load() / 10;
     s.mode = std::max(0, std::min(2, (int)std::lround(val[P_MODE].load()))); for (int k = 0; k < 4; k++) { s.out[k] = val[P_OUT1 + k].load() > 0.5; s.fb[k] = val[P_FB1 + k].load() > 0.5; } return s; }
 };
@@ -117,7 +122,7 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
   stopAll(pl); delete pl; }
 // Hauptfaden: Netze übersetzen, Ruhezustand einschwingen (etwa 0,1 s), Trommel anlegen (etwa 1 s Draht bei doppelter Rate)
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); pl->fs = sr; stopAll(pl);
-  try { pl->cur = pl->target(); pl->core = new wisent::Core(); pl->core->init(sr, pl->cur, pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_LEVEL].load() / 1000, pl->val[P_SPEED].load()); }
+  try { pl->cur = pl->target(); pl->core = new wisent::Core(); pl->core->init(sr, pl->cur, pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_LEVEL].load() / 1000, pl->val[P_SPEED].load()); pl->core->setHeads(pl->heads().data(), true); }
   catch (...) { stopAll(pl); return false; }
   for (auto *v : {&pl->a, &pl->oa}) v->assign(maxf + 16, 0); pl->fresh = true; pl->active = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { Plugin *pl = P(p); pl->active = false; stopAll(pl); }
@@ -128,7 +133,7 @@ static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->aud
 // Reglerstellungen gleiten (etwa 70 ms über den ganzen Weg), Netze werden höchstens alle 32 Abtastwerte (bei 48 kHz; gleiche Zeit bei anderen Raten) neu übersetzt (meist Rang-1-Änderungen);
 // Tasten wirken sofort
 static void follow(Plugin *pl) { if (wisent::glideTo(pl->cur, pl->target())) pl->core->apply(pl->cur);
-  pl->core->setSpeed(pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_SPEED].load()); pl->core->setWobble(pl->val[P_WOB].load() / 10); pl->core->vin = pl->val[P_LEVEL].load() / 1000; pl->outG = std::pow(10.0, pl->val[P_OUTDB].load() / 20); }
+  pl->core->setSpeed(pl->val[P_MAINS].load() > 0.5 ? 60 : 50, pl->val[P_SPEED].load()); pl->core->setWobble(pl->val[P_WOB].load() / 10); pl->core->setHeads(pl->heads().data()); pl->core->vin = pl->val[P_LEVEL].load() / 1000; pl->outG = std::pow(10.0, pl->val[P_OUTDB].load() / 20); }
 static bool settled(const Plugin *pl) { return wisent::sameKnobs(pl->cur, pl->target()); }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
@@ -223,7 +228,8 @@ static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
 // Schwelle der Schleife über der Geschwindigkeit (wisent::loopThreshold, ein Rückkopplungskopf; hier etwas darunter)
 static uint32_t g_tail(const clap_plugin_t *p) { Plugin *pl = P(p); int m = (int)std::lround(pl->val[P_MODE].load()); double sw = pl->val[P_SWELL].load() / 10;
   double thr = wisent::loopThreshold((pl->val[P_MAINS].load() > 0.5 ? 1.2 : 1.0) * pl->val[P_SPEED].load()) - 0.02;
-  if (m != 0 && sw >= thr) return UINT32_MAX; double t = m == 0 ? 0.4 / std::max(0.25, pl->val[P_SPEED].load()) : 0.4 + 30 * std::pow(sw / std::min(1.0, thr), 3); return (uint32_t)std::lround(t * pl->fs); }
+  if (m != 0 && sw >= thr) return UINT32_MAX; double hmx = 0; for (int k = 0; k < 4; k++) hmx = std::max(hmx, pl->val[P_H1 + k].load()); const double rl = (pl->val[P_MAINS].load() > 0.5 ? 1.2 : 1.0) * std::max(0.25, pl->val[P_SPEED].load());
+  double t = m == 0 ? std::max(0.4 / std::max(0.25, pl->val[P_SPEED].load()), hmx / 1000 / rl + 0.1) : std::max(0.4, hmx / 1000 / rl + 0.1) + 30 * std::pow(sw / std::min(1.0, thr), 3); return (uint32_t)std::lround(t * pl->fs); }   // ab 1.4: späteste Kopfstellung
 static const clap_plugin_tail_t EXT_TAIL = {g_tail};
 #if !defined(TS_NO_GUI) && !defined(__APPLE__)
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;

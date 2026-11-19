@@ -104,6 +104,11 @@ integriert, bei ±20 Breiten (höchstens 4 ms) abgeschnitten, aus einer Tabelle 
 WOBBLE 10: Echo bei 1 kHz schwankt über eine Umdrehung um 7,16 dB (Rechnung 7,17 dB). Drehzahl und Gleichlauf unverändert; die Anzeigen (Frequenzgang,
 Echomuster) zeigen die plane Trommel. WOBBLE 0 rechnet bitgleich wie 1.1.
 
+Ab 1.4 leiert die Trommel dabei auch (ausgeschlagene Lagerung, Wunsch des Nutzers „der wobble regler macht noch zu wenig“, Wahl „Tonhöhe mit schwanken“): Bahngeschwindigkeit v(t) = v·(1 + s·sin 2πφ) mit s bis 1 % (`Core::WOBSPD`, WOBBLE 10), φ die Phase der Umdrehung. Ein Echo über einen Kopf im Abstand τ hört v(t)/v(t−τ); gerechnet als Verzögerung τ − s·trev/(2π)·(cos 2π(φ − τ/trev) − cos 2πφ) in `Drum::read` (zusätzlich zum Gleichlauf). Tonhöhe ±2s·sin(π τ/trev): bei 50 Hz Kopf 1 ±0,6 %, Kopf 2 ±1,1 %, Kopf 4 ±1,8 % (wisenttest wobpitch, Kopf 2 gemessen ±1,03 %). WOBBLE 0 bitgleich zu 1.3.
+
+## Kopfstellungen HEAD 1–4 (ab 1.4, Modell, nicht am Gerät)
+Wunsch des Nutzers: Köpfe verschiebbar, Echozeiten bis etwa 1000 ms; Wahl „ein Regler je Kopf“. Je Wiedergabekopf eine Lage längs der Trommel, eingestellt als Verzögerung bei 50 Hz ohne Varispeed, 20 … 770 ms (`Core::HEAD_MIN/HEAD_MAX`; Original `HEAD_MS0` · 1, 2, 3, 4 = 74,4 / 148,8 / 223,2 / 297,6 ms). Grenze: Köpfe und Löschmagnet müssen auf den Umfang (375 mm, 0,82 s je Umdrehung bei 50 Hz) passen. Über 770 ms nur mit VARISPEED (0,75×: 1027 ms). In `Drum` als Vielfache `hm` des Kopfabstands (Original genau 1, 2, 3, 4 → bitgleich zu 1.3), gleitet in etwa 0,15 s (Tonhöhe gleitet mit). Echomuster für die Anzeigen (`Core::patternT`) aus Ereignissen mit genauen Laufzeiten, Ausgabe auf 1-ms-Raster.
+
 ## Prüfung (engine/tests/wisenttest.cpp)
 - Ruhespannungen siehe oben.
 - Echozeiten bei 50 Hz: 74,9/149,2/223,7/298,2 ms (Soll 74,4/148,8/223,2/297,6 ms + 3 Abtastwerte Laufzeit); bei 60 Hz 62,5/124,5/186,4/248,5 ms.

@@ -47,6 +47,8 @@ jobs:
           ./engine/build/wisenttest tone
           ./engine/build/wisenttest lat | tail -2
           ./engine/build/wisenttest wob | tail -3
+          ./engine/build/wisenttest heads | tail -5
+          ./engine/build/wisenttest wobpitch | tail -3
           ./engine/build/b15pre | tail -1
           ./engine/build/svtpre | tail -1
           ./engine/build/slopre | tail -1
