@@ -20,6 +20,7 @@
 #include <atomic>
 #include <cstdint>
 #include <complex>
+#include <map>
 #include <string>
 #include <vector>
 namespace wisent {
@@ -173,6 +174,12 @@ struct Drum {
   // Wiedergabe-FIR: d/dt × Abstandsverlust × Spaltverlust, linearphasig, ±TW lang (Tukey-Fenster); gleiche Dauer bei jeder Rate
   static constexpr double TW = 1.2e-3; int nf = 0, M = 0; std::vector<double> fir; std::vector<std::vector<double>> firT;
   double tau1 = 0.074, trev = 0.82;
+  // Kopfpositionen (ab 1.4, Modell): Lage der vier Wiedergabeköpfe in Vielfachen des Kopfabstands gap (Original 1, 2, 3, 4); Verzögerung je Kopf hm·tau1.
+  // hm gleitet zu hmT (etwa 0,15 s, wie ein verschobener Kopf: Tonhöhe gleitet mit). Mit den Originalstellungen rechnet read() wie bis 1.3 (bitgleich).
+  double hm[4] = {1, 2, 3, 4}, hmT[4] = {1, 2, 3, 4}, aH = 0;
+  // Taumeln mit Leiern (ab 1.4): ausgeschlagene Lagerung, die Bahngeschwindigkeit schwankt einmal je Umdrehung um ±wobS (relativ). Ein Echo über
+  // einen Kopf im Abstand τ hört v(t)/v(t−τ): Verzögerung τ − wobS·trev/(2π)·(cos 2π(φ − τ/trev) − cos 2πφ). wobS = 0: wie 1.3.
+  double wobS = 0;
   double v50 = 0.457, vT = 0.457, aV = 0;
   // Taumeln (ab 1.2, Verschleiß; nicht am Gerät): die Scheibe läuft nicht plan, der Abstand Kopf–Draht wächst einmal je Umdrehung um bis zu wob (m) über dsp,
   // sinusförmig zwischen 0 und wob. Starre Scheibe auf fester Achse: jede Stelle des Drahts behält ihren Abstand, beim Aufnehmen wie beim Abspielen;
@@ -198,7 +205,7 @@ struct Drum {
   static double vMin(double v50) { return v50 * std::pow(RS, -I0); } static double vMax(double v50) { return v50 * std::pow(RS, NT - 1 - I0); }
   // Trommel einrichten (Puffer für die langsamste Geschwindigkeit), Startdrehzahl nach hz und vs
   void setup(double fs_, double hz, double vs = 1) {
-    fs = fs_; aV = 1 - std::exp(-1 / (0.4 * fs)); N = (int)std::ceil((circ / vMin(v50) + 0.05) * fs) + 8; buf.assign(N, 0.f); fbuf.assign(N, 0.f); w = 0; lp = 0; ph = 0;
+    fs = fs_; aV = 1 - std::exp(-1 / (0.4 * fs)); aH = 1 - std::exp(-1 / (0.15 * fs)); N = (int)std::ceil((circ / vMin(v50) + 0.05) * fs) + 8; buf.assign(N, 0.f); fbuf.assign(N, 0.f); w = 0; lp = 0; ph = 0;
     M = (int)std::ceil(TW * fs); nf = 2 * M + 1; fir.assign(nf, 0.0); firT.assign(NT, {});
     const double g50 = design(v50, firT[I0], 0); for (int i = 0; i < NT; i++) if (i != I0) design(v50 * std::pow(RS, i - I0), firT[i], g50);
     wobSetup(); speed(hz, vs, true); }
@@ -241,8 +248,11 @@ struct Drum {
   // Kopfspannungen für den nächsten Abtastwert (Gleichlauf: Exzentrizität der Trommel, einmal je Umdrehung)
   void read(double *emf) {
     if (v != vT) { v += aV * (vT - v); if (std::fabs(v - vT) < 1e-7) v = vT; mixFir(); }
+    for (int k = 0; k < 4; k++) if (hm[k] != hmT[k]) { hm[k] += aH * (hmT[k] - hm[k]); if (std::fabs(hm[k] - hmT[k]) < 1e-9) hm[k] = hmT[k]; }
     ph += 1 / (trev * fs); if (ph >= 1) ph -= 1; const double wow = wowA * std::sin(2 * PI * ph);
-    for (int k = 0; k < 4; k++) { double d = (k + 1) * tau1 * (1 + wow) * fs - M; int di = (int)d; double fr = d - di;
+    for (int k = 0; k < 4; k++) { double d = hm[k] * tau1 * (1 + wow) * fs - M;
+      if (wobS > 0) { const double t0 = hm[k] * tau1; d -= wobS * trev / (2 * PI) * (std::cos(2 * PI * (ph - t0 / trev)) - std::cos(2 * PI * ph)) * fs; }
+      int di = (int)d; double fr = d - di;
       auto at = [&](int j) { int q = w - 1 - j; while (q < 0) q += N; return (double)fbuf[q]; };
       double ym1 = at(di - 1), y0 = at(di), y1 = at(di + 1), y2 = at(di + 2);   // kubisch (Hermite)
       double c1 = 0.5 * (y1 - ym1), c2 = ym1 - 2.5 * y0 + 2 * y1 - 0.5 * y2, c3 = 0.5 * (y2 - ym1) + 1.5 * (y0 - y1); emf[k] = ((c3 * fr + c2) * fr + c1) * fr + y0; } }
@@ -273,8 +283,15 @@ struct Core {
   // Netzfrequenz (50/60 Hz) und Varispeed (0,25 … 2, Umbau); die Trommel gleitet in etwa 0,4 s zur neuen Drehzahl
   void setSpeed(double h, double x) { x = std::isfinite(x) ? std::min(2.0, std::max(0.25, x)) : 1.0; if (h != hz || x != vs) { hz = h; vs = x; drum.speed(hz, vs); } }
   // Taumeln (ab 1.2): x = 0 … 1 (Regler WOBBLE), größter zusätzlicher Abstand Kopf–Draht WOBMAX
-  static constexpr double WOBMAX = 30e-6;
-  void setWobble(double x) { drum.wob = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) * WOBMAX : 0; }
+  // Ab 1.4 leiert die Trommel dabei auch (WOBSPD: ±1 % Bahngeschwindigkeit bei WOBBLE 10; Echo über Kopf 2 im Original etwa ±1 % Tonhöhe)
+  static constexpr double WOBMAX = 30e-6, WOBSPD = 0.01;
+  void setWobble(double x) { const double w = std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0; drum.wob = w * WOBMAX; drum.wobS = w * WOBSPD; }
+  // Kopfpositionen (ab 1.4, Modell): ms je Kopf bei 50 Hz ohne Varispeed (Original HEAD_MS0 · 1, 2, 3, 4), HEAD_MIN … HEAD_MAX (die Köpfe müssen zwischen
+  // Aufnahmekopf und Löschmagnet auf den Umfang passen: 375 mm, Umdrehung 0,82 s); now: ohne Gleiten
+  static constexpr double HEAD_MS0 = 1000 * 34e-3 / 0.457, HEAD_MIN = 20, HEAD_MAX = 770;
+  static double headMult(double ms) { const double m = (std::isfinite(ms) ? std::min(HEAD_MAX, std::max(HEAD_MIN, ms)) : HEAD_MS0) / HEAD_MS0, r = std::round(m);
+    return std::fabs(m - r) < 1e-9 ? r : m; }   // Originalstellung genau 1, 2, 3, 4 (bitgleich zu 1.3)
+  void setHeads(const double *ms, bool now = false) { for (int k = 0; k < 4; k++) { drum.hmT[k] = headMult(ms[k]); if (now) drum.hm[k] = drum.hmT[k]; } }
   void apply(const Setting &s) { cur = s; rec.apply(buildRec(v, s), fs2); pb.apply(buildPb(v, s), fs); }
   void stepRec(double x, double g, double ramp, double *yr) { double ur[RU_NO] = {x, v.b1 * ramp, v.b2 * ramp, v.b3 * ramp, g}; rec.run.step(ur, yr); }
   void stepPb(double *yp, double ramp = 1.0) { double up[PU_NO] = {dry, emf[0], emf[1], emf[2], emf[3], v.b2 * ramp}; pb.run.step(up, yp); g5b = yp[PO_G5B]; }
@@ -326,6 +343,17 @@ struct Core {
   Gains gains(double f, int k) { Gains g; std::complex<double> d = drumH(f); g.rec = rec.response(fs2, f, RU_IN, "trs"); g.dry = rec.response(fs2, f, RU_IN, "dry") * pb.response(fs, f, PU_DRY, "out") * gOut;
     g.echo = g.rec * d * pb.response(fs, f, PU_H0 + k, "out") * gOut; g.loop = d * pb.response(fs, f, PU_H0 + k, "g5b") * rec.response(fs2, f, RU_G5B, "trs"); return g; }
   // Echomuster für einen kurzen Ton der Frequenz f (Kleinsignal): Pegel (Betrag je Eingang) zur Zeit n·τ1 für n = 0 … N−1 (n = 0: trocken)
+  // Ab 1.4 (beliebige Kopfstellungen): Echomuster auf einem Zeitraster dt (s), out[n] = Betrag zur Zeit n·dt (n = 0: trocken). Gerechnet als Folge von
+  // Ereignissen mit genauen Laufzeiten (Summen der Kopfzeiten, gleiche Summen zusammengefasst, Phase bei f), erst die Ausgabe kommt auf das Raster
+  // (Echos im selben Rasterfeld addieren sich mit ihrer Phase). Ereignisse unter 1e-6 des Aufnahmestroms (−120 dB) fallen weg; höchstens 300 000.
+  void patternT(double f, double dt, int N, double *out) { std::complex<double> E[4], Lp[4], ph[4]; double tk[4]; Gains g0 = gains(f, 0);
+    for (int k = 0; k < 4; k++) { Gains g = k ? gains(f, k) : g0; E[k] = g.echo / g.rec; Lp[k] = g.loop; tk[k] = drum.hmT[k] * drum.gap / drum.vT; ph[k] = std::polar(1.0, -2 * PI * f * tk[k]); }
+    std::vector<std::complex<double>> o(N, 0.0); o[0] = g0.dry; const double tmax = N * dt, thr = 1e-6 * std::abs(g0.rec);
+    struct Ev { double t; std::complex<double> r; }; std::map<long long, Ev> q; q[0] = {0.0, g0.rec}; long cnt = 0;
+    while (!q.empty() && cnt < 300000) { const Ev e = q.begin()->second; q.erase(q.begin()); cnt++; if (std::abs(e.r) < thr) continue;
+      for (int k = 0; k < 4; k++) { const double t = e.t + tk[k]; const long n = std::lround(t / dt); if (n >= N || t >= tmax) continue; const std::complex<double> a = ph[k] * e.r;
+        o[n] += E[k] * a; const std::complex<double> b = Lp[k] * a; if (std::abs(b) < thr) continue; Ev &d = q[std::llround(t * 1e7)]; d.t = t; d.r += b; } }
+    for (int n = 0; n < N; n++) out[n] = std::abs(o[n]); }
   void pattern(double f, int N, double *out) { std::complex<double> E[4], Lp[4]; Gains g0 = gains(f, 0); for (int k = 0; k < 4; k++) { Gains g = k ? gains(f, k) : g0; E[k] = g.echo / g.rec; Lp[k] = g.loop; }
     std::vector<std::complex<double>> r(N, 0.0); r[0] = g0.rec;
     for (int n = 0; n < N; n++) { if (n) for (int k = 0; k < 4 && k < n; k++) r[n] += Lp[k] * r[n - k - 1];

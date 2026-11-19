@@ -33,6 +33,32 @@ int main(int argc, char **argv) {
       size_t pk = 0; double m = 0; for (size_t i = (size_t)(0.03 * fs); i < y.size(); i++) if (std::fabs(y[i]) > m) { m = std::fabs(y[i]); pk = i; }
       std::printf("  Kopf %d: %.1f ms", k + 1, 1000.0 * pk / fs); double want = (k + 1) * 34e-3 / (0.457 * hz / 50); if (std::fabs(pk / fs - want) > 0.003) bad++; }
     std::printf("\n"); }
+  // Kopfstellungen (ab 1.4): Originalstellung bitgleich zu ohne Aufruf; verschobene Köpfe: Echozeit = Stellung (50 Hz), mit Varispeed 0,75 bis über 1 s;
+  // Verschieben im Lauf gleitet (kein Sprung über die größte Änderung des Signals hinaus)
+  if (all || w == "heads") { { Core a, b; Setting s; a.init(fs, s); b.init(fs, s); const double ms0[4] = {Core::HEAD_MS0, Core::HEAD_MS0 * 2, Core::HEAD_MS0 * 3, Core::HEAD_MS0 * 4}; b.setHeads(ms0, true);
+      bool same = true; for (int i = 0; i < (int)(1.5 * fs); i++) { const double x = 0.3 * std::sin(2 * PI * 330 * i / fs) * (i < fs / 2 ? 1 : 0); if (a.tick(x) != b.tick(x)) same = false; }
+      std::printf("Kopfstellung Original gegen ohne Aufruf: %s\n", same ? "bitgleich" : "ABWEICHUNG"); if (!same) bad++; }
+    const double pos[4] = {50, 400, 600, 770};
+    for (double vs : {1.0, 0.75}) { Core c; Setting s; s.mode = M_ECHO; for (int k = 0; k < 4; k++) s.out[k] = s.fb[k] = false; s.volume = 1; c.init(fs, s, 50, 0.2, vs); c.setHeads(pos, true);
+      std::printf("Köpfe 50/400/600/770 ms, Varispeed %.2f:", vs);
+      for (int k = 0; k < 4; k++) { Setting t = s; t.out[k] = true; c.apply(t); c.drum.clear(); std::vector<double> y((size_t)(1.2 * fs));
+        for (size_t i = 0; i < y.size(); i++) { double x = i < 48 ? 0.3 * std::sin(2 * PI * 1000 * i / fs) : 0; y[i] = c.tick(x); }
+        size_t pk = 0; double m = 0; for (size_t i = (size_t)(0.03 * fs); i < y.size(); i++) if (std::fabs(y[i]) > m) { m = std::fabs(y[i]); pk = i; }
+        const double want = pos[k] / 1000 / vs; std::printf("  Kopf %d: %.1f ms (Soll %.1f)", k + 1, 1000.0 * pk / fs, 1000 * want); if (std::fabs(pk / fs - want) > 0.003) bad++; }
+      std::printf("\n"); }
+    { Core c; Setting s; s.mode = M_ECHO; for (int k = 0; k < 4; k++) { s.out[k] = k == 1; s.fb[k] = false; } c.init(fs, s); const int n = (int)(2 * fs); std::vector<double> y(n);
+      double ms[4] = {Core::HEAD_MS0, Core::HEAD_MS0 * 2, Core::HEAD_MS0 * 3, Core::HEAD_MS0 * 4};
+      for (int i = 0; i < n; i++) { if (i == n / 2) { ms[1] = 500; c.setHeads(ms); } y[i] = c.tick(0.2 * std::sin(2 * PI * 220 * i / fs)); }
+      double d0 = 0, d1 = 0; for (int i = 1; i < n / 2; i++) d0 = std::max(d0, std::fabs(y[i] - y[i - 1])); for (int i = n / 2; i < n; i++) d1 = std::max(d1, std::fabs(y[i] - y[i - 1]));
+      const bool ok = d1 < 1.5 * d0; if (!ok) bad++; std::printf("Kopf 2 im Lauf 149 → 500 ms: größter Schritt %.4f (vorher %.4f)%s\n", d1, d0, ok ? "" : "   ABWEICHUNG"); } }
+  // Taumeln mit Leiern (ab 1.4): Tonhöhe des Echos (Kopf 2, ohne trockenes Signal) schwankt um ±wobS·2·sin(π·τ/trev); WOBBLE 10: etwa ±1,08 %
+  if (all || w == "wobpitch") for (double wv : {0.0, 1.0}) { Core c; Setting s; s.mode = M_ECHO; s.dry = 0; for (int k = 0; k < 4; k++) { s.out[k] = k == 1; s.fb[k] = false; } c.init(fs, s); c.setWobble(wv);
+    const int n = (int)(4 * fs); std::vector<double> y(n); for (int i = 0; i < n; i++) y[i] = c.tick(0.05 * std::sin(2 * PI * 1000 * i / fs));
+    std::vector<double> zc; for (int i = (int)fs; i < n; i++) if (y[i - 1] < 0 && y[i] >= 0) zc.push_back(i - 1 + y[i - 1] / (y[i - 1] - y[i]));
+    double fmin = 1e9, fmax = 0; for (size_t j = 20; j < zc.size(); j += 10) { const double f = 20 * fs / (zc[j] - zc[j - 20]); fmin = std::min(fmin, f); fmax = std::max(fmax, f); }
+    const double dev = (fmax - fmin) / 2 / 1000 * 100, want = wv * Core::WOBSPD * 2 * std::sin(PI * c.drum.tau1 * 2 / c.drum.trev) * 100;
+    const bool ok = wv == 0 ? dev < 0.1 : std::fabs(dev - want) < 0.15 * want + 0.08; if (!ok) bad++;   // WOBBLE 0: nur der Gleichlauf (0,05 %, gibt bei Kopf 2 etwa ±0,06 %)
+    std::printf("WOBBLE %.0f: Tonhöhe des Echos (Kopf 2) ±%.2f %% (erwartet %s±%.2f %%)%s\n", wv * 10, dev, wv == 0 ? "unter " : "", wv == 0 ? 0.1 : want, ok ? "" : "   ABWEICHUNG"); }
   if (all || w == "loop") { std::printf("REPEAT, Kopf 1 in Ausgang und Rückkopplung: Verhältnis 2./1. Wiederholung (dB) über LENGTH OF SWELL\n ");
     for (double sw : {0.0, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0}) { Core c; Setting s; s.mode = M_REPEAT; for (int k = 0; k < 4; k++) s.out[k] = s.fb[k] = k == 0; s.swell = sw; s.input = 0.5; c.init(fs, s);
       std::vector<double> y((size_t)(0.4 * fs)); for (size_t i = 0; i < y.size(); i++) { double x = i < 480 ? 0.02 * std::sin(2 * PI * 1000 * i / fs) * std::sin(PI * i / 480) : 0; y[i] = c.tick(x); }
