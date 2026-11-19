@@ -1,6 +1,7 @@
 // Oberfläche des Wisent Echoreck (Cairo): oben die gezeichnete Frontplatte (engine/tools/wisent_panel.py) mit magischem Auge (Aufnahmepegel),
 // Knöpfen, Tasten ECHO/REPEAT/SWELL, zwei Reihen Kopftasten (oben Rückkopplung, unten Wiedergabe) und dem Schalter 50/60 Hz; darunter ein Streifen
-// mit Betriebsart, Echozeiten und Aufnahmepegel. Ab 1.4 im Modellteil der Frontplatte vier Knöpfe HEAD 1–4 (Lage der Wiedergabeköpfe).
+// mit Betriebsart, Echozeiten und Aufnahmepegel. Ab 1.4 im Modellteil der Frontplatte vier Knöpfe HEAD 1–4 (Lage der Wiedergabeköpfe), ab 1.5 Kippschalter LINK:
+// dann drehen alle vier im Verhältnis mit (Rhythmus bleibt), begrenzt, sobald ein Kopf an 20 oder 770 ms stößt; Doppelklick stellt alle auf das Original.
 #pragma once
 #ifndef TS_VERSION
 #define TS_VERSION "?"
@@ -30,7 +31,7 @@
 
 namespace wisentgui {
 constexpr double PI = 3.14159265358979323846;
-enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_H1, P_H2, P_H3, P_H4, P_COUNT };   // wie im Plugin
+enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_H1, P_H2, P_H3, P_H4, P_LINK, P_COUNT };   // wie im Plugin
 constexpr int NK = 14;
 static const int KPARAM[NK] = {P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_LEVEL, P_OUTDB, P_DRY, P_SPEED, P_WOB, P_H1, P_H2, P_H3, P_H4};   // ab 1.4: HEAD 1–4
 constexpr double FW = WSW, FH = WSH, STRIPU = 92;
@@ -51,7 +52,7 @@ struct Gui {
   double eye = 0;   // Aufnahmepegel je Sättigung (vom Audio-Faden, geglättet)
   ~Gui() { if (img) cairo_surface_destroy(img); if (base) cairo_surface_destroy(base); }
   template <class... A> static void sapp(char *b, size_t cap, int &n, const char *f, A... a) { if (n < 0 || (size_t)n >= cap - 1) return; int k = std::snprintf(b + n, cap - n, f, a...); if (k > 0) n = (int)std::min((size_t)(n + k), cap - 1); }
-  int drag = -1; double dragY0 = 0, dragV0 = 0; int hover = -1; bool showTip = false; double lastClick = 0; int lastClickId = -2;
+  int drag = -1; double dragY0 = 0, dragV0 = 0, dragB[4] = {}; int hover = -1; bool showTip = false; double lastClick = 0; int lastClickId = -2;
   double scale() const { return (double)W / FW; }
   double uscale() const { return (double)W / tsw::UW; }
   void loadImg() {
@@ -85,6 +86,7 @@ struct Gui {
   int mode() const { return std::max(0, std::min(2, (int)std::lround(getP(P_MODE)))); }
   bool on(int p) const { return getP(p) > 0.5; }
   bool hz60() const { return getP(P_MAINS) > 0.5; }
+  bool linked() const { return getP(P_LINK) > 0.5; }
   double headMs(int i) const { return getP(P_H1 + i) / rel(); }   // Echozeit je Kopf bei der aktuellen Drehzahl (ab 1.4: Kopfstellung)
   double rel() const { return (hz60() ? 1.2 : 1.0) * std::max(0.25, getP(P_SPEED)); }   // Bandgeschwindigkeit gegen 50 Hz ohne Varispeed
   void knobText(int i, char *b, size_t n) const { int p = KPARAM[i]; double v = getP(p);
@@ -98,7 +100,7 @@ struct Gui {
   int hitButton(double x, double y) const {
     for (int i = 0; i < 3; i++) if (std::fabs(x - WSMODE[i][0]) <= WSBTN[0] / 2 + 3 && std::fabs(y - WSMODE[i][1]) <= WSBTN[1] / 2 + 3) return i;
     for (int i = 0; i < 4; i++) { if (std::fabs(x - WSHEADX[i]) <= WSHBTN[0] / 2 + 3) { if (std::fabs(y - WSHFB) <= WSHBTN[1] / 2 + 3) return 10 + i; if (std::fabs(y - WSHOUT) <= WSHBTN[1] / 2 + 3) return 20 + i; } }
-    if (std::hypot(x - WSMAINS[0], y - WSMAINS[1]) < 40) return 30; return -1; }
+    if (std::hypot(x - WSMAINS[0], y - WSMAINS[1]) < 40) return 30; if (std::hypot(x - WSLINK[0], y - WSLINK[1]) < 40) return 31; return -1; }
   void key(cairo_t *c, double x, double y, double w, double h, bool down, const char *t, double px) {
     cairo_save(c); double dy = down ? 3 : 0; setrgb(c, down ? 0xb8ad8e : 0xe8dfc4); tsw::rrect(c, x - w / 2, y - h / 2 + dy, w, h - 3, 4); cairo_fill(c);
     setrgb(c, down ? 0x8c8268 : 0xb4aa8c); cairo_rectangle(c, x - w / 2 + 3, y + h / 2 - 6 + dy, w - 6, 3); cairo_fill(c);
@@ -132,6 +134,10 @@ struct Gui {
     { const double mx = WSMAINS[0], my = WSMAINS[1]; double a = hz60() ? -1 : 1; setrgb(c, 0xd8d8cc); cairo_set_line_width(c, 9); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND); cairo_move_to(c, mx, my); cairo_line_to(c, mx, my + a * 30); cairo_stroke(c);
       setrgb(c, 0xf2f2ea); cairo_new_path(c); cairo_arc(c, mx, my + a * 30, 7, 0, 2 * PI); cairo_fill(c);
       if (hover == 30) { setrgb(c, 0xd09a10); cairo_set_line_width(c, 2.5); cairo_new_path(c); cairo_arc(c, mx, my, 38, 0, 2 * PI); cairo_stroke(c); } }
+    // Kippschalter LINK (ab 1.5): oben = Kopfknöpfe gekoppelt
+    { const double mx = WSLINK[0], my = WSLINK[1]; double a = linked() ? -1 : 1; setrgb(c, 0xd8d8cc); cairo_set_line_width(c, 9); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND); cairo_move_to(c, mx, my); cairo_line_to(c, mx, my + a * 30); cairo_stroke(c);
+      setrgb(c, 0xf2f2ea); cairo_new_path(c); cairo_arc(c, mx, my + a * 30, 7, 0, 2 * PI); cairo_fill(c);
+      if (hover == 31) { setrgb(c, 0xd09a10); cairo_set_line_width(c, 2.5); cairo_new_path(c); cairo_arc(c, mx, my, 38, 0, 2 * PI); cairo_stroke(c); } }
     for (int i = 0; i < NK; i++) { const double *g = WSKNOB[i]; cairo_save(c); cairo_translate(c, g[0], g[1]); cairo_rotate(c, (-150 + 300 * knob01(KPARAM[i], getP(KPARAM[i]))) * PI / 180);
       setrgb(c, 0x2a2622); cairo_set_line_width(c, 4); cairo_set_line_cap(c, CAIRO_LINE_CAP_ROUND); cairo_move_to(c, 0, -g[2] * 0.15); cairo_line_to(c, 0, -g[2] * 0.68); cairo_stroke(c); cairo_restore(c);
       if (i == drag || i == hover - 100) { setrgb(c, 0xd09a10); cairo_set_line_width(c, 3); cairo_new_path(c); cairo_arc(c, g[0], g[1], g[2] * 1.15, 0, 2 * PI); cairo_stroke(c); } }
@@ -139,7 +145,7 @@ struct Gui {
     // ---- Modellstreifen ----
     const double u = uscale(); cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false);
+    setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 16, 20, 12, false);   /* ohne „MODEL (not on the …)“ (Wunsch des Nutzers, 19.11.2026) */
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { char hb[64] = "", fb[64] = ""; int nh = 0, nf = 0;
       for (int i = 0; i < 4; i++) { if (on(P_OUT1 + i)) sapp(hb, sizeof hb, nh, "%s%.0f", nh ? " + " : "", headMs(i)); if (on(P_FB1 + i)) sapp(fb, sizeof fb, nf, "%s%d", nf ? "+" : "", i + 1); }
@@ -156,9 +162,19 @@ struct Gui {
   int hitKnob(double px, double py) const { double s = scale(), x = px / s, y = py / s; for (int i = 0; i < NK; i++) { double dx = x - WSKNOB[i][0], dy = y - WSKNOB[i][1]; if (dx * dx + dy * dy <= WSKNOB[i][2] * WSKNOB[i][2] * 1.69) return i; } return -1; }
   // Ziel unter der Maus: Knopf 100 + i, Taste 0 … 30, sonst −1
   int hit(double px, double py) const { int k = hitKnob(px, py); if (k >= 0) return 100 + k; double s = scale(); return hitButton(px / s, py / s); }
-  void press(int b) { if (b < 3) setP(P_MODE, b); else if (b < 20) setP(P_FB1 + b - 10, on(P_FB1 + b - 10) ? 0 : 1); else if (b < 30) setP(P_OUT1 + b - 20, on(P_OUT1 + b - 20) ? 0 : 1); else setP(P_MAINS, hz60() ? 0 : 1); }
+  void press(int b) { if (b < 3) setP(P_MODE, b); else if (b < 20) setP(P_FB1 + b - 10, on(P_FB1 + b - 10) ? 0 : 1); else if (b < 30) setP(P_OUT1 + b - 20, on(P_OUT1 + b - 20) ? 0 : 1); else if (b == 31) setP(P_LINK, linked() ? 0 : 1); else setP(P_MAINS, hz60() ? 0 : 1); }
   static int kp(int i) { return KPARAM[i]; }
-  void setKnob(int i, double u01) { setP(kp(i), fromKnob(kp(i), u01)); }
+  static bool isHead(int i) { return kp(i) >= P_H1 && kp(i) <= P_H4; }
+  // LINK (ab 1.5): neuer Wert des bedienten Kopfs v gegen Ausgang b[k] → Faktor f für alle vier, so begrenzt, dass jeder Kopf in 20 … 770 ms bleibt;
+  // ohne Rundung (Verhältnisse bleiben genau); liegen danach alle vier am Original (±0,3 ms), genau das Original
+  void setLinked(int k, double v, const double *b) { double f = v / b[k], lo = 0, hi = 1e9;
+    for (int j = 0; j < 4; j++) { lo = std::max(lo, wisent::Core::HEAD_MIN / b[j]); hi = std::min(hi, wisent::Core::HEAD_MAX / b[j]); } f = std::max(lo, std::min(hi, f));
+    double nv[4]; bool orig = true; for (int j = 0; j < 4; j++) { nv[j] = b[j] * f; if (std::fabs(nv[j] - knobDefault(P_H1 + j)) > 0.3) orig = false; }
+    for (int j = 0; j < 4; j++) setP(P_H1 + j, orig ? knobDefault(P_H1 + j) : nv[j]); }
+  void headBase(double *b) const { for (int j = 0; j < 4; j++) b[j] = getP(P_H1 + j); }
+  void setKnob(int i, double u01) { if (isHead(i) && linked()) { const int k = kp(i) - P_H1; double b[4]; if (drag == i) for (int j = 0; j < 4; j++) b[j] = dragB[j]; else headBase(b); setLinked(k, fromKnob(kp(i), u01), b); return; }
+    setP(kp(i), fromKnob(kp(i), u01)); }
+  void gestureHeads(int i, bool on) { if (!gesture) return; if (isHead(i) && linked()) for (int j = 0; j < 4; j++) gesture(P_H1 + j, on); else gesture(kp(i), on); }
 #ifndef __APPLE__
   bool handle(XEvent &ev) { switch (ev.type) { case Expose: return true; case ButtonPress: return onMouse(0, ev.xbutton.x, ev.xbutton.y, (int)ev.xbutton.button, ev.xbutton.time / 1000.0);
       case MotionNotify: return onMouse(1, ev.xmotion.x, ev.xmotion.y, 0, 0); case ButtonRelease: return onMouse(2, ev.xbutton.x, ev.xbutton.y, (int)ev.xbutton.button, ev.xbutton.time / 1000.0);
@@ -171,11 +187,11 @@ struct Gui {
         if (button == 4 || button == 5) { if (h >= 100) { int k = h - 100; setKnob(k, knob01(kp(k), getP(kp(k))) + (button == 4 ? 0.02 : -0.02)); return true; }
           if (h >= 0 && h < 3) { setP(P_MODE, std::max(0, std::min(2, mode() + (button == 4 ? -1 : 1)))); return true; } return false; }
         if (button != 1) return false;
-        if (h >= 100) { int k = h - 100; if (k == lastClickId && now - lastClick < 0.35) setP(kp(k), knobDefault(kp(k))); else { drag = k; dragY0 = y; dragV0 = knob01(kp(k), getP(kp(k))); if (gesture) gesture(kp(k), true); } showTip = true; lastClick = now; lastClickId = k; return true; }
+        if (h >= 100) { int k = h - 100; if (k == lastClickId && now - lastClick < 0.35) { if (isHead(k) && linked()) for (int j = 0; j < 4; j++) setP(P_H1 + j, knobDefault(P_H1 + j)); else setP(kp(k), knobDefault(kp(k))); } else { drag = k; dragY0 = y; dragV0 = knob01(kp(k), getP(kp(k))); headBase(dragB); gestureHeads(k, true); } showTip = true; lastClick = now; lastClickId = k; return true; }
         if (h >= 0) { press(h); showTip = true; return true; }
         return false; }
       case 1: { if (drag >= 0) { setKnob(drag, dragV0 + (dragY0 - y) / 250 / scale()); return true; } int h = hit(x, y); bool ch = h != hover; hover = h; showTip = h >= 0; return ch; }
-      case 2: if (button == 1 && drag >= 0) { if (gesture) gesture(kp(drag), false); drag = -1; return true; } return false;
+      case 2: if (button == 1 && drag >= 0) { gestureHeads(drag, false); drag = -1; return true; } return false;
       case 3: { bool ch = hover >= 0; hover = -1; if (drag < 0) showTip = false; return ch; }
       default: return false; } }
   std::string lastSig;

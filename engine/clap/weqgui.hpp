@@ -145,7 +145,7 @@ struct Gui {
     const double u = uscale(); char vo[40]; std::snprintf(vo, 40, "%+.1f dB", v[P_OUT]);
     cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU); cairo_fill(c); setrgb(c, 0x2a2d33); cairo_rectangle(c, 0, 0, tsw::UW, 1); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false); tsw::prefDraw(c, "BAND LIST", tsw::prefs().bands, 420, 20);   /* ab 1.5: VALUE POPUP entfernt */
+    setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 16, 20, 12, false);   /* ohne „MODEL (not on the …)“ (Wunsch des Nutzers, 19.11.2026) */ tsw::prefDraw(c, "BAND LIST", tsw::prefs().bands, 420, 20);   /* ab 1.5: VALUE POPUP entfernt */
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { const char *rl[3] = {"+/-6 dB", "+/-12 dB", "+/-20 dB"}; tsw::toggle(c, SW_X, SW_Y, 3, range(), "RANGE", rl, "TM205 versions"); }
     // Bänder als Text: Frequenz, Güte, dB

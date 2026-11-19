@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 3.50
+Version 3.51
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -159,6 +159,10 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.51
+  The lettering "MODEL (not on the amp)" in the header line of the model
+  strip is gone; the plugin version stays there. Sound unchanged.
 
 3.50
   The value popup at the knobs is gone (it appeared while turning a knob

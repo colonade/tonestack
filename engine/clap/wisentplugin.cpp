@@ -2,14 +2,14 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
 #ifndef TS_NO_GUI
 #include "wisentgui.hpp"
 #else
-namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_H1, P_H2, P_H3, P_H4, P_COUNT }; }
+namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_TREBLE, P_MODE, P_OUT1, P_FB1 = P_OUT1 + 4, P_LEVEL = P_FB1 + 4, P_OUTDB, P_MAINS, P_DRY, P_SPEED, P_WOB, P_H1, P_H2, P_H3, P_H4, P_LINK, P_COUNT }; }
 #endif
 #include <array>
 #include <deque>
@@ -41,7 +41,9 @@ static const PDef PD[P_COUNT] = { {"Input", 0, 10, 2.5, 0, 0}, {"Length of swell
   {"Wobble (worn drum)", 0, 10, 0, 0, 0},   // 1.2: Taumeln der Scheibe (Verschleiß), hinten angehängt; ab 1.4 leiert die Trommel dabei auch
   // 1.4: Lage der vier Wiedergabeköpfe (Modell), als Verzögerung in ms bei 50 Hz ohne Varispeed; Original 74,4 / 148,8 / 223,2 / 297,6 ms
   {"Head 1 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 1, 0, 0}, {"Head 2 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 2, 0, 0},
-  {"Head 3 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 3, 0, 0}, {"Head 4 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 4, 0, 0} };
+  {"Head 3 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 3, 0, 0}, {"Head 4 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 4, 0, 0},
+  // 1.5: LINK – auf der Oberfläche drehen die Kopfknöpfe gemeinsam im Verhältnis (ohne Wirkung auf den Klang; Automation einzelner Köpfe bleibt einzeln)
+  {"Head link (heads move together)", 0, 1, 0, N_ONOFF, 2} };
 
 struct Plugin {
   PortCfg ports;

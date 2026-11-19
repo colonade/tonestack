@@ -117,7 +117,7 @@ struct Gui {
     // ---- Modellstreifen ----
     const double u = uscale(); cairo_save(c); cairo_translate(c, 0, FH * s); cairo_scale(c, u, u);
     setrgb(c, 0x191b1f); cairo_rectangle(c, 0, 0, tsw::UW, STRIPU + PLOTU); cairo_fill(c);
-    setrgb(c, 0x8d919a); tsw::text(c, "MODEL  (not on the unit)", 16, 20, 13, true); setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 230, 20, 12, false);
+    setrgb(c, 0x6c7079); tsw::text(c, "PLUGIN VERSION " TS_VERSION, 16, 20, 12, false);   /* ohne „MODEL (not on the …)“ (Wunsch des Nutzers, 19.11.2026) */
     if (diag) { std::string d = diag(); setrgb(c, 0x8d919a); tsw::text(c, d.c_str(), tsw::UW - 16, 20, 12, false, 2); }
     { double t = shown; char b[260]; std::snprintf(b, sizeof b, "PLATE NOW  RT60 %.2f s at 125 Hz · %.2f s at 500 Hz · %.2f s at 2 kHz · %.2f s at 8 kHz%s", blech::t60At(plate, 125, t), t, blech::t60At(plate, 2000, t), blech::t60At(plate, 8000, t),
         motor ? "   ·   damper moving" : ""); setrgb(c, 0xdcdee2); tsw::text(c, b, 16, 50, 13.5, true); }

@@ -1,6 +1,6 @@
 // Lametta B100-II = Nachbau des Yamaha B100-115II (PA-Board, Endstufe, Lautsprecher) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.24"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.25"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "yamaha_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"

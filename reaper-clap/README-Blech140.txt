@@ -1,5 +1,5 @@
 Blech 140 (after EMT 140 plate reverb) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Blech_140.clap and Blech_140.vst3 contain the same code and sound
@@ -89,6 +89,8 @@ Interface
   BASS CUT: click a position; clicking the centre steps on; mouse wheel.
 
 Changes
+  1.2  The lettering "MODEL (not on the unit)" in the header line of the model
+       strip is gone; the plugin version stays there. Sound unchanged.
   1.1  The value popup at the knobs is gone (it appeared while turning a
        knob or with the mouse over a control); with it the switch VALUE POPUP
        in the header line of the model strip. Sound unchanged.

@@ -1,5 +1,5 @@
 Lametta B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.24
+Version 1.25
 
 Two formats, one engine
   Lametta_B100II.clap and Lametta_B100II.vst3 contain the same code and sound identical
@@ -124,6 +124,10 @@ Input level (INPUT, since 1.19)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.25
+  The lettering "MODEL (not on the amp)" in the header line of the model
+  strip is gone; the plugin version stays there. Sound unchanged.
 
 1.24
   The value popup at the knobs is gone (it appeared while turning a knob

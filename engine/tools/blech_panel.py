@@ -56,7 +56,7 @@ def draw():
     d.ellipse([(bx - 26) * S, (by - 26) * S, (bx + 26) * S, (by + 26) * S], fill=(30, 30, 30))
     ctext(bx, 190, '0 off · 1–3 less bass', 10, FN, DIM)
     # Trennlinie Modell
-    d.line([(1220 * S, 30 * S), (1220 * S, (H - 30) * S)], fill=(120, 122, 120), width=2 * S); ctext(1450, 22, 'MODEL  (not on the unit)', 11, FB, DIM)
+    d.line([(1220 * S, 30 * S), (1220 * S, (H - 30) * S)], fill=(120, 122, 120), width=2 * S)   # Schriftzug „MODEL (not on the unit)“ entfernt (19.11.2026)
     ctext(1830, 100, 'MONO IN', 12, FB, DIM); ctext(1830, 118, 'STEREO OUT', 12, FB, DIM); ctext(1830, 140, 'two pickups', 10, FN, DIM)
     # Knöpfe
     for k, x, lab, lft, rgt, kr in KNOBS:
