@@ -1,6 +1,8 @@
 #!/bin/bash
-# Baut web/tonestack-apache.zip für den Server: Seiten aus web/tonestack/ plus die Downloads des aktuellen Releases
-# (Linux-ZIPs und Mac-Installerpaket) in download/. Die Links in web/tonestack/index.html (Mac) und web/tonestack/plugins/index.html
+# Baut die Webseite: Seiten aus web/tonestack/ plus die Downloads des aktuellen Releases (Linux-ZIPs und Mac-Installerpaket) in download/.
+# Ab 2026-11-20 liegt die Seite auf GitHub Pages (https://tonestack.fluxstatus.de/, Workflow .github/workflows/pages.yml):
+#   SITE=<ordner> bash scripts/pack-web.sh   schreibt die fertige Seite in <ordner> (ohne .htaccess und LIESMICH.txt, die nur der Apache brauchte)
+# Ohne SITE wie bisher web/tonestack-apache.zip (für einen eigenen Apache oder zum Ansehen offline). Die Links in web/tonestack/index.html (Mac) und web/tonestack/plugins/index.html
 # (Linux, ab 2026-11-15) müssen zu den Dateinamen passen.
 #   bash scripts/pack-web.sh            (Downloads aus dem GitHub-Release, braucht gh)
 #   LOCAL=1 bash scripts/pack-web.sh    (Downloads aus dist/)
@@ -25,6 +27,9 @@ for p in "$T/tonestack/download"/tonestack-Plugins-Mac_*.pkg; do [ -f "$p" ] && 
 for f in $(grep -oh 'href="\(\.\./\)\?download/[^"]*"' web/tonestack/index.html web/tonestack/plugins/index.html | cut -d'"' -f2 | sed 's|^\.\./||'); do
   [ -f "$T/tonestack/$f" ] || { echo "FEHLER: eine Seite verlinkt $f, im Release nicht vorhanden" >&2; exit 1; }; done
 ( cd "$T/tonestack/download" && sha256sum -- * > SHA256SUMS.txt )
+if [ -n "${SITE:-}" ]; then
+  rm -f "$T/tonestack/.htaccess" "$T/tonestack/LIESMICH.txt"; mkdir -p "$SITE"; [ -z "$(ls -A "$SITE")" ] || { echo "FEHLER: $SITE ist nicht leer" >&2; exit 1; }
+  chmod -R u=rwX,go=rX "$T/tonestack"; cp -r "$T/tonestack/." "$SITE/"; ls "$SITE/download"; echo "Seite in $SITE"; exit 0; fi
 chmod -R u=rwX,go=rX "$T/tonestack"; rm -f web/tonestack-apache.zip web/tonestack-apache.zip.sha256; (cd "$T" && zip -qr9 "$R/web/tonestack-apache.zip" tonestack)
 ( cd web && sha256sum tonestack-apache.zip > tonestack-apache.zip.sha256 )
 ls "$T/tonestack/download"; echo "web/tonestack-apache.zip"; cat web/tonestack-apache.zip.sha256

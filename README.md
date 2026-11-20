@@ -6,10 +6,10 @@ Vollständige Quellen: Web, Plugins (CLAP, VST3, Audio Unit für den Mac), C++-R
 
 | Ordner | Inhalt | bearbeitbar als |
 |---|---|---|
-| `web/tonestack/` | Apache-Fassung (Übersicht, Lametta, Laney) wie auf borg.fluxstatus.de; `download/` wird erst beim Packen (`scripts/pack-web.sh`) mit den Release-Dateien gefüllt; `LIESMICH.txt` beschreibt die Dateien | HTML/JS direkt; Rechenkerne als `*-worklet.js`, WebAssembly-Kerne als Base64 in den `index.html` eingebettet |
+| `web/tonestack/` | Webseite (Übersicht und alle Simulatoren), veröffentlicht auf GitHub Pages unter https://tonestack.fluxstatus.de/; `download/` wird erst beim Packen (`scripts/pack-web.sh`) mit den Release-Dateien gefüllt; `LIESMICH.txt` beschreibt die Dateien | HTML/JS direkt; Rechenkerne als `*-worklet.js`, WebAssembly-Kerne als Base64 in den `index.html` eingebettet |
 | `reaper-clap/` | READMEs der Plugins (gelten für CLAP, VST3 und Mac; kommen als `README.txt` in die ZIPs) und `THIRD-PARTY-LICENSES.txt`; Quellen in `engine/` | Text |
 | `mac/` | Mac-Bau (läuft auf GitHub Actions, `.github/workflows/plugins.yml`): `package.sh`, `make_pkg.sh` (Installerpaket), `LIESMICH-Mac.txt`, Prüfbilder (`test/`) | Shell |
-| `scripts/` | `install-tonestack.sh` (Apache), `update-tonestack.sh` (Web, Plugins), `pack-plugins.sh`, `release.sh`, `pack-web.sh`, `versions.sh` | Shell |
+| `scripts/` | `update-tonestack.sh` (Plugins; Web nur für einen eigenen Apache), `install-tonestack.sh` (eigener Apache), `pack-plugins.sh`, `release.sh`, `pack-web.sh`, `versions.sh` | Shell |
 | `docs/` | `PROJEKTSTAND.md` (Übergabe), Bass-Umbau (Kondensatoren) als PDF | – |
 
 ## Rechenkerne (C++): `engine/`
@@ -41,7 +41,7 @@ Neue Plugin-Fassung ausliefern:
 1. Version `TS_VERSION` in `engine/clap/plugin.cpp` bzw. `yplugin.cpp`, in `engine/vst3/CMakeLists.txt` und im README (`reaper-clap/`) anheben; Links und Versionen in `web/tonestack/index.html`, `VERSION` in `web/tonestack/sw.js`.
 2. Lokal prüfen: `VST3=1 bash engine/build.sh`, `bash scripts/pack-plugins.sh` (→ `dist/`), `bash engine/verify.sh`.
 3. Committen und pushen. Der Bau auf GitHub (`.github/workflows/plugins.yml`) baut Linux (CLAP, VST3) und Mac (Audio Unit, VST3, Installerpaket), prüft und veröffentlicht alles als Release `laney-<V>_b100ii-<V>_…`; ältere Releases werden gelöscht (`scripts/release.sh`).
-4. `bash scripts/pack-web.sh` → `web/tonestack-apache.zip` (Seiten plus Release-Dateien in `download/`).
+4. Die Webseite veröffentlicht `.github/workflows/pages.yml` nach dem Release von selbst (GitHub Pages).
 
 Installation beim Nutzer: `update-tonestack.sh --nur plugins` (CLAP nach `~/.clap`, VST3 nach `~/.vst3`).
 
@@ -51,6 +51,8 @@ Installation beim Nutzer: `update-tonestack.sh --nur plugins` (CLAP nach `~/.cla
 
 Signaturschlüssel und andere Zugangsdaten gehören **nicht** in dieses Repository (siehe `.gitignore`).
 
-## Web einspielen
+## Webseite (GitHub Pages)
 
-`bash scripts/pack-web.sh` baut `web/tonestack-apache.zip`; einspielen mit `scripts/update-tonestack.sh --nur web` (erstmalig: `scripts/install-tonestack.sh`).
+`.github/workflows/pages.yml` veröffentlicht die Seite auf https://tonestack.fluxstatus.de/: nach jedem erfolgreichen Plugin-Bau auf `main`, bei Pushes mit Änderungen unter `web/` und von Hand (Actions → Pages → Run workflow). Er baut die Seite mit `SITE=_site bash scripts/pack-web.sh` (Seiten plus Release-Dateien in `download/`, gegen die Prüfsummen des Releases geprüft). Voraussetzung: Settings → Pages → Source „GitHub Actions“, eigene Domain dort eingetragen, DNS-Eintrag CNAME `tonestack` → `colonade.github.io`.
+
+Eine Fassung für einen eigenen Apache baut `bash scripts/pack-web.sh` weiterhin als `web/tonestack-apache.zip` (einspielen mit `scripts/update-tonestack.sh --nur web`, erstmalig `scripts/install-tonestack.sh`); `.htaccess` und `LIESMICH.txt` gehören nur dazu.
