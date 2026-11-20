@@ -1,6 +1,10 @@
 KLANGREGLER-SIMULATOREN – Installation auf einem Apache-Webserver
 ==================================================================
 
+Die Seite selbst liegt ab 2026-11-20 auf GitHub Pages: https://tonestack.fluxstatus.de/
+Diese Anleitung gilt nur, wenn jemand die Seite auf einem eigenen Apache betreiben will
+(Paket: bash scripts/pack-web.sh -> web/tonestack-apache.zip).
+
 Inhalt
 ------
 index.html                     Übersichtsseite mit Links zu allen acht Verstärker-Simulatoren, dem Wien EQ und dem AmpFett 76
