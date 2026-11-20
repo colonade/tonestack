@@ -9,7 +9,7 @@ Vollständige Quellen: Web, Plugins (CLAP, VST3, Audio Unit für den Mac), C++-R
 | `web/tonestack/` | Webseite (Übersicht und alle Simulatoren), veröffentlicht auf GitHub Pages unter https://tonestack.fluxstatus.de/; `download/` wird erst beim Packen (`scripts/pack-web.sh`) mit den Release-Dateien gefüllt; `LIESMICH.txt` beschreibt die Dateien | HTML/JS direkt; Rechenkerne als `*-worklet.js`, WebAssembly-Kerne als Base64 in den `index.html` eingebettet |
 | `reaper-clap/` | READMEs der Plugins (gelten für CLAP, VST3 und Mac; kommen als `README.txt` in die ZIPs) und `THIRD-PARTY-LICENSES.txt`; Quellen in `engine/` | Text |
 | `mac/` | Mac-Bau (läuft auf GitHub Actions, `.github/workflows/plugins.yml`): `package.sh`, `make_pkg.sh` (Installerpaket), `LIESMICH-Mac.txt`, Prüfbilder (`test/`) | Shell |
-| `scripts/` | `update-tonestack.sh` (Plugins; Web nur für einen eigenen Apache), `install-tonestack.sh` (eigener Apache), `pack-plugins.sh`, `release.sh`, `pack-web.sh`, `versions.sh` | Shell |
+| `scripts/` | `update-tonestack.sh` (Plugins; Web nur für einen eigenen Apache), `install-tonestack.sh` (eigener Apache), `borg-umleitung.sh` (alte Apache-Adresse auf die neue umleiten), `pack-plugins.sh`, `release.sh`, `pack-web.sh`, `versions.sh` | Shell |
 | `docs/` | `PROJEKTSTAND.md` (Übergabe), Bass-Umbau (Kondensatoren) als PDF | – |
 
 ## Rechenkerne (C++): `engine/`
