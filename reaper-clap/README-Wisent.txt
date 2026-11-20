@@ -1,5 +1,8 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+Version 1.6
+
+New in 1.6: the tooltips of LEVEL, WOBBLE and OUTPUT no longer end in
+"(model)". Sound unchanged.
 
 New in 1.5: the switch LINK (model) next to the HEAD knobs locks the four
 heads together: turning one HEAD knob moves all four in proportion, so the
@@ -104,7 +107,7 @@ Controls
   BASS, TREBLE   passive tone control of the echo; clockwise = more. The
                  middle position is not flat.
   ECHO / REPEAT / SWELL, head buttons: see "Matrix" above.
-  Model (not on the unit):
+  Additions:
   LEVEL          the voltage at the input for 0 dBFS (20 mV to 2 V peak,
                  default 200 mV, about a guitar).
   OUTPUT         -24 to +24 dB. The output is calibrated so the dry signal

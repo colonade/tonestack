@@ -471,7 +471,7 @@ function knobDe(k, kn = S.knobs) { const v = kn[k];
   switch (k) {
     case 'decay': return `${dec(v, 2)} s bei 500 Hz (Tiefen ${dec(t60(125, v), 1)} s bei 125 Hz, Höhen ${dec(t60(4000, v), 2)} s bei 4 kHz)`;
     case 'mix': return `Hall ${dec(v, 1)} %, trocken ${dec(100 - v, 1)} %`;
-    case 'pre': return `${Math.round(v)} ms (Modell, nicht am Gerät)`;
+    case 'pre': return `${Math.round(v)} ms`;
     default: return `${fmt(v)} dB`; } }
 // Einstellung für den Rechenkern (Seite → Worklet/Rechen-Thread): DECAY in s, MIX/OUTPUT/PRE 0 … 1 wie im Kern, Ausklang in s (Impulsantwort 8 s)
 const setting = (kn = S.knobs, bass = S.bass) => ({ decay: kn.decay, mix: kn.mix / 100, out: (kn.out + 24) / 48, pre: k01('pre', kn.pre), bass, tail: 8 + kn.pre / 1000 + 0.2 });

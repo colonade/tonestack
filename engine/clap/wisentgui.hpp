@@ -92,10 +92,10 @@ struct Gui {
   void knobText(int i, char *b, size_t n) const { int p = KPARAM[i]; double v = getP(p);
     switch (p) { case P_INPUT: std::snprintf(b, n, "INPUT %.1f (record level, log)", v); break; case P_SWELL: { double t = wisent::loopThreshold(rel()); if (t > 1) std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; at this speed the loop does not run away)", v); else std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; one feedback head runs away from about %.1f)", v, 10 * t); break; }
       case P_VOLUME: std::snprintf(b, n, "VOLUME %.1f (echo level, log)", v); break; case P_BASS: std::snprintf(b, n, "BASS %.1f (5 = middle)", v); break; case P_TREBLE: std::snprintf(b, n, "TREBLE %.1f (5 = middle)", v); break;
-      case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input (model)", v); break; case P_DRY: std::snprintf(b, n, "DRY %.1f: trimmer TD inside the unit, dry level (plan setting 6.7)", v); break;
+      case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input", v); break; case P_DRY: std::snprintf(b, n, "DRY %.1f: trimmer TD inside the unit, dry level (plan setting 6.7)", v); break;
       case P_SPEED: std::snprintf(b, n, "VARISPEED %.2fx: drum speed, a later modification (PE 603 T: fixed); heads at %.0f / %.0f / %.0f / %.0f ms", v, headMs(0), headMs(1), headMs(2), headMs(3)); break;
-      case P_WOB: std::snprintf(b, n, "WOBBLE %.1f: worn drum, spacing +%.0f um and speed +/-%.1f %% once per turn (model)", v, v * 3, v / 10); break;
-      default: std::snprintf(b, n, "OUTPUT %+.1f dB (model)", v); } }
+      case P_WOB: std::snprintf(b, n, "WOBBLE %.1f: worn drum, spacing +%.0f um and speed +/-%.1f %% once per turn", v, v * 3, v / 10); break;
+      default: std::snprintf(b, n, "OUTPUT %+.1f dB", v); } }
   // Tasten: 0–2 Betriebsart, 10–13 Rückkopplung, 20–23 Wiedergabe, 30 Netzfrequenz
   int hitButton(double x, double y) const {
     for (int i = 0; i < 3; i++) if (std::fabs(x - WSMODE[i][0]) <= WSBTN[0] / 2 + 3 && std::fabs(y - WSMODE[i][1]) <= WSBTN[1] / 2 + 3) return i;

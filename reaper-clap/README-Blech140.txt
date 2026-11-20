@@ -1,5 +1,5 @@
 Blech 140 (after EMT 140 plate reverb) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   Blech_140.clap and Blech_140.vst3 contain the same code and sound
@@ -54,7 +54,7 @@ Controls
             meter needle shows the plate currently in use (red mark: DECAY).
   BASS CUT  0 to 3: first-order high-pass on the reverb at 20 (off), 100,
             200, 400 Hz (frequencies assumed).
-  Model (not on the unit, where the console mixes):
+  Additions (on the unit the console mixes):
   MIX       share of reverb, 0 - 100 % (default 30 %).
   PRE-DELAY 0 - 200 ms before the plate.
   OUTPUT    -24 to +24 dB, 0 dB in the middle.
@@ -89,6 +89,8 @@ Interface
   BASS CUT: click a position; clicking the centre steps on; mouse wheel.
 
 Changes
+  1.3  The PRE-DELAY value shown at the knob no longer carries the note that
+       the control is an addition. Sound unchanged.
   1.2  The lettering "MODEL (not on the unit)" in the header line of the model
        strip is gone; the plugin version stays there. Sound unchanged.
   1.1  The value popup at the knobs is gone (it appeared while turning a

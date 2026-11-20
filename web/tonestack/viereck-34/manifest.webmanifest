@@ -1,0 +1,29 @@
+{
+  "name": "Viereck 34",
+  "short_name": "Viereck 34",
+  "description": "Viereck 34: Tilt-Klangregelung nach dem Schaltplan des Quad 34 (TILT, BASS Step/Lift, BALANCE, Filter F1/F2/SLOPE, Drehpunkt einstellbar); mit Anhören eigener Audiodateien.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#EEF1EC",
+  "icons": [
+    {
+      "src": "../assets/icons/viereck-34-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/viereck-34-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/viereck-34-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

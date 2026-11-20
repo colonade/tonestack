@@ -1,5 +1,5 @@
 Wien EQ (after adt-audio TM205) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.6
+Version 1.7
 
 Two formats, one engine
   Wien_EQ.clap and Wien_EQ.vst3 contain the same code and sound identical.
@@ -76,8 +76,7 @@ Parameters
   (40 / 60 / 100 / 160 Hz bell = the two buttons); High: Frequency (20 kHz
   shelf / 12 / 8 / 4 kHz bell; switching crossfades over 20 ms);
   EQ on (on / off, crossfaded over 20 ms with an equally delayed dry signal);
-  Range (+-6 / +-12 / +-20 dB); Output level (-24 ... +24 dB, model, not on
-  the unit). One set of controls for both channels, as on the unit.
+  Range (+-6 / +-12 / +-20 dB); Output level (-24 ... +24 dB). One set of controls for both channels, as on the unit.
   Defaults: all gains 0, Q and frequency at center, no button pressed, EQ
   on, +-12 dB, output 0 dB.
 
@@ -87,8 +86,8 @@ User interface
   the unit: knobs to turn (drag vertically,
   mouse wheel, double-click = center; the gain knobs have a center detent),
   buttons to click (pressed: dark with a yellow edge), EQ ON with a green
-  lamp (clicking the lamp switches too). Below the panel the model strip
-  (not on the unit): RANGE, the five bands as text (frequency, Q, bandwidth,
+  lamp (clicking the lamp switches too). Below the panel the model strip:
+  RANGE, the five bands as text (frequency, Q, bandwidth,
   dB), OUTPUT; below that the frequency response (computed from the analog
   transfer functions; reference line: flat = EQ off). Window resizable.
   Needs libcairo2 and libX11.
@@ -109,6 +108,8 @@ CPU
   silence at the input the plugin goes idle.
 
 Changes
+  1.7  The OUTPUT tooltip no longer carries the note that the control is
+       an addition; this README says less about it too. Sound unchanged.
   1.6  The lettering "MODEL (not on the unit)" in the header line of the model
        strip is gone; the plugin version stays there. Sound unchanged.
   1.5  The value popup at the knobs is gone (it appeared while turning a

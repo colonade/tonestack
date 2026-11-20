@@ -2,7 +2,7 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.6"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "ports.hpp"
