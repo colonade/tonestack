@@ -85,7 +85,7 @@ struct Gui {
   void knobText(int i, char *b, size_t n) const { int p = KPARAM[i]; double v = getP(p);
     if (p == P_DECAY) std::snprintf(b, n, "DECAY %.2f s at 500 Hz (damper plate; low %.1f s at 125 Hz, high %.2f s at 4 kHz)", v, blech::t60At(plate, 125, v), blech::t60At(plate, 4000, v));
     else if (p == P_MIX) std::snprintf(b, n, "MIX %.0f %% reverb (dry %.0f %%)", v, 100 - v);
-    else if (p == P_PRE) std::snprintf(b, n, "PRE-DELAY %.0f ms (model, not on the unit)", v);
+    else if (p == P_PRE) std::snprintf(b, n, "PRE-DELAY %.0f ms", v);
     else std::snprintf(b, n, "OUTPUT %+.1f dB", v); }
   cairo_surface_t *base = nullptr; double baseS = 0;
   void drawTo(cairo_t *c) {

@@ -170,7 +170,7 @@ struct Gui {
       if (i < NK) { const double *g = WEQKNOB[i]; ax = g[0] * s; ay = (g[1] - g[2] * 1.12) * s; knobText(i, buf, sizeof buf); }
       else if (i >= 40 && i < 45) { const double *B = WEQBTN[i - 40]; ax = B[0] * s; ay = (B[1] - B[3]) * s; const char *nm[5] = {"LOW 60 Hz", "LOW 100 Hz", "HIGH 12 kHz", "HIGH 8 kHz", "EQ ON"};
         std::snprintf(buf, sizeof buf, i == 44 ? "%s: %s (click: EQ in / out, like the relay bypass)" : "%s: %s (both pressed: %s, none: %s)", nm[i - 40], btnOn(i - 40) ? "pressed" : "released", i < 42 ? "160 Hz" : "4 kHz", i < 42 ? "40 Hz" : "20 kHz"); }
-      else { ax = KN_X * u; ay = FH * s + (KN_Y - 30) * u; std::snprintf(buf, sizeof buf, "OUTPUT %s (model, not on the unit)", vo); }
+      else { ax = KN_X * u; ay = FH * s + (KN_Y - 30) * u; std::snprintf(buf, sizeof buf, "OUTPUT %s", vo); }
       tsw::tip(c, buf, ax, ay, u, W); }
   }
   // ---- Treffer ----
