@@ -4,97 +4,173 @@
 #   sudo bash borg-umleitung.sh [Optionen]
 #
 # Optionen:
-#   --ziel PFAD     alter Installationsordner   (Standard: /var/www/html/tonestack)
-#   --url PFAD      alter URL-Pfad              (Standard: /tonestack)
-#   --neu URL       neue Adresse                (Standard: https://tonestack.fluxstatus.de)
-#   --basis URL     alte Adresse für die Prüfung (Standard: http://localhost; z. B. https://borg.fluxstatus.de)
-#   --trotzdem      auch umleiten, wenn die neue Adresse (noch) nicht antwortet
-#   --nur-pruefen   nichts ändern, nur die Umleitung prüfen
-#   --hilfe         diese Hilfe
+#   --ziel PFAD      alter Installationsordner, unter /var/www/ oder /srv/ (Standard: /var/www/html/tonestack)
+#   --url PFAD       alter URL-Pfad                 (Standard: /tonestack)
+#   --neu URL        neue Adresse                   (Standard: https://tonestack.fluxstatus.de)
+#   --basis URL      alte Adresse für die Prüfung   (Standard: https://borg.fluxstatus.de; https nehmen, wenn http auf https umleitet)
+#   --trotzdem       auch umleiten, wenn die neue Adresse (noch) nicht antwortet
+#   --nur-pruefen    nichts ändern, nur die Umleitung prüfen (ohne root)
+#   --rueckgaengig   Umleitung entfernen und die gesicherte alte Seite zurückholen
+#   --hilfe          diese Hilfe
 #
 # Was das Skript tut:
-#   1. prüft, ob die neue Adresse antwortet (sonst Abbruch, außer mit --trotzdem)
-#   2. sichert den alten Ordner nach /var/backups/tonestack/ (tar.gz) und leert ihn bis auf
-#      sw.js: ein Service Worker, der den alten Offline-Speicher im Browser löscht, sich abmeldet
-#      und offene Seiten auf die neue Adresse lädt (ein umgeleiteter sw.js würde vom Browser
-#      nicht angenommen, alte Offline-Kopien blieben sonst stehen)
-#   3. legt /etc/apache2/conf-available/tonestack-umleitung.conf an: dauerhafte Umleitung (301)
-#      jeder Seite <url>/… auf <neu>/… mit demselben Pfad, außer <url>/sw.js
-#   4. prüft die Apache-Konfiguration (bei Fehler zurück), lädt Apache neu und prüft per curl
-# Rückgängig: sudo a2disconf tonestack-umleitung && sudo systemctl reload apache2, Sicherung zurückspielen.
+#   1. prüft die neue Adresse (Übersicht und eine Unterseite) und die Apache-Konfiguration vor jeder Änderung
+#   2. legt /etc/apache2/conf-available/tonestack-umleitung.conf an: dauerhafte Umleitung (301) jeder Adresse
+#      <url>/… auf <neu>/… mit demselben Pfad und Abfrageteil, außer <url>/sw.js; prüft die Konfiguration erneut
+#   3. verschiebt den alten Ordner nach /var/backups/tonestack/vor-umleitung-<zeit>/ (nichts wird gelöscht) und legt
+#      an seiner Stelle nur sw.js an: ein Service Worker, der in Browsern mit offenem alten Tab den alten
+#      Offline-Speicher löscht, sich abmeldet und den Tab unter der neuen Adresse lädt
+#   4. lädt Apache neu und prüft per curl (Status 301, genaues Ziel, sw.js nicht umgeleitet)
+#   Bei einem Fehler in 2.–4. wird alles zurückgenommen (Ordner, Konfiguration, Neuladen).
+#
+# Grenzen:
+#   - Die Konfiguration gilt serverweit: in jedem VirtualHost wird <url>/… umgeleitet. Eigene RewriteRule/Redirect
+#     in einem VirtualHost haben Vorrang.
+#   - Browser, die die alte Seite offline gespeichert haben, laden den Aufräum-Service-Worker nur, wenn ein alter Tab
+#     offen ist (Chromium prüft nach einer Umleitung auf eine fremde Adresse nicht auf Updates). Online führt die
+#     Umleitung trotzdem richtig weiter; die alte Offline-Kopie bleibt nur als toter Speicher stehen.
+#   - Gespeicherte Voreinstellungen gehören zur alten Adresse und sind auf der neuen nicht sichtbar: vorher auf der
+#     alten Seite unter „Voreinstellungen“ exportieren und auf der neuen importieren. Als App installierte Seiten neu installieren.
 set -euo pipefail
-ZIEL="/var/www/html/tonestack"; URLPFAD="/tonestack"; NEU="https://tonestack.fluxstatus.de"; BASIS="http://localhost"; TROTZDEM=0; NUR=0
+ZIEL="/var/www/html/tonestack"; URLPFAD="/tonestack"; NEU="https://tonestack.fluxstatus.de"; BASIS="https://borg.fluxstatus.de"
+TROTZDEM=0; AKTION="umleiten"
 fehler() { echo "FEHLER: $*" >&2; exit 1; }
+wert() { [ -n "${2:-}" ] || fehler "Option $1 braucht einen Wert (--hilfe)"; }
 while [ $# -gt 0 ]; do case "$1" in
-  --ziel) ZIEL="${2%/}"; shift 2;; --url) URLPFAD="/${2#/}"; URLPFAD="${URLPFAD%/}"; shift 2;; --neu) NEU="${2%/}"; shift 2;;
-  --basis) BASIS="${2%/}"; shift 2;; --trotzdem) TROTZDEM=1; shift;; --nur-pruefen) NUR=1; shift;;
-  --hilfe|-h) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0;; *) fehler "unbekannte Option $1 (--hilfe)";; esac; done
-# Eingaben landen in der Apache-Konfiguration: nur einfache Zeichen
-ZIEL="$(realpath -m -- "$ZIEL")"
-[[ "$ZIEL" =~ ^/[A-Za-z0-9._/-]+$ ]] || fehler "ungültiger Ordner '$ZIEL'"
-case "$ZIEL" in /|/var|/var/www|/var/www/html|/srv|/home|/root|/tmp|/opt|/etc|/etc/*|/usr|/usr/*|/bin|/bin/*|/sbin|/sbin/*|/lib|/lib/*|/boot|/boot/*|/proc|/proc/*|/sys|/sys/*|/dev|/dev/*) fehler "Ordner '$ZIEL' ist gesperrt";; esac
-[[ "$URLPFAD" =~ ^/[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$ ]] || fehler "ungültiger URL-Pfad '$URLPFAD'"
-[[ "$NEU" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~-]+)*$ ]] || fehler "ungültige neue Adresse '$NEU' (nur https://host[/pfad])"
-[[ "$BASIS" =~ ^https?://[A-Za-z0-9.:-]+$ ]] || fehler "ungültige Basis '$BASIS' (http(s)://host)"
-CONF="/etc/apache2/conf-available/tonestack-umleitung.conf"
-RX="$(printf '%s' "$URLPFAD" | sed 's/[.]/\\./g')"   # Punkte im Pfad als Zeichen
+  --ziel) wert "$1" "${2:-}"; ZIEL="${2%/}"; shift 2;;
+  --url) wert "$1" "${2:-}"; URLPFAD="/${2#/}"; URLPFAD="${URLPFAD%/}"; shift 2;;
+  --neu) wert "$1" "${2:-}"; NEU="${2%/}"; shift 2;;
+  --basis) wert "$1" "${2:-}"; BASIS="${2%/}"; shift 2;;
+  --trotzdem) TROTZDEM=1; shift;;
+  --nur-pruefen) AKTION="pruefen"; shift;;
+  --rueckgaengig) AKTION="zurueck"; shift;;
+  --hilfe|-h) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
+  *) fehler "unbekannte Option $1 (--hilfe)";; esac; done
 
-pruefen() {   # Umleitungen (Weiterleitungen folgen, z. B. erst http → https auf dem alten Host) und sw.js per curl
+# Eingaben prüfen: sie landen in der Apache-Konfiguration und im JavaScript; der Ordner wird verschoben
+LABEL='[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?'
+[[ "$ZIEL" == /* ]] || fehler "--ziel muss ein absoluter Pfad sein"
+[[ "$ZIEL" =~ ^/(var/www|srv)(/[A-Za-z0-9._-]+)+$ ]] || fehler "Ordner '$ZIEL' nicht erlaubt (nur unter /var/www/ oder /srv/, einfache Zeichen)"
+[ "$ZIEL" != /var/www/html ] || fehler "Ordner '$ZIEL' nicht erlaubt"
+[ "$(realpath -m -- "$ZIEL")" = "$ZIEL" ] || fehler "Ordner '$ZIEL' enthält einen symbolischen Verweis, „.“ oder „..“"
+[[ "$URLPFAD" =~ ^/[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$ ]] || fehler "ungültiger URL-Pfad '$URLPFAD'"
+[[ "$NEU" =~ ^https://($LABEL\.)+[A-Za-z]{2,}(/[A-Za-z0-9._~-]+)*$ ]] || fehler "ungültige neue Adresse '$NEU' (nur https://name.tld[/pfad])"
+[[ "$BASIS" =~ ^https?://$LABEL(\.$LABEL)*(:[0-9]{1,5})?$ ]] || fehler "ungültige Basis '$BASIS' (http(s)://host[:port])"
+host_von() { local h="${1#*://}"; h="${h%%/*}"; h="${h%%:*}"; printf '%s' "${h,,}"; }
+NEUHOST="$(host_von "$NEU")"
+[ "$NEUHOST" != "$(host_von "$BASIS")" ] || fehler "neue Adresse liegt auf dem alten Host – das wäre eine Umleitungsschleife"
+HIER="$(hostname -f 2>/dev/null || true)"; [ "$NEUHOST" != "${HIER,,}" ] || fehler "neue Adresse ist dieser Rechner – das wäre eine Umleitungsschleife"
+CONF="/etc/apache2/conf-available/tonestack-umleitung.conf"; CONFAN="/etc/apache2/conf-enabled/tonestack-umleitung.conf"
+SICHERUNGEN="/var/backups/tonestack"
+RX="$(printf '%s' "$URLPFAD" | sed 's/[.]/\\./g')"   # Punkte im Pfad als Zeichen
+MARKE="tonestack ist umgezogen"
+
+art_von_ziel() {   # alt | umgestellt | fehlt | fremd
+  if [ ! -e "$ZIEL" ]; then echo fehlt; return; fi
+  if [ -L "$ZIEL" ] || [ ! -d "$ZIEL" ]; then echo fremd; return; fi
+  if [ -f "$ZIEL/sw.js" ] && grep -q "$MARKE" "$ZIEL/sw.js" && [ -z "$(find "$ZIEL" -mindepth 1 ! -name sw.js ! -name .htaccess -print -quit)" ]; then echo umgestellt; return; fi
+  if [ -f "$ZIEL/sw.js" ] && grep -q '"tonestack-"' "$ZIEL/sw.js" && [ -d "$ZIEL/laney-aor50" ] && [ -f "$ZIEL/index.html" ]; then echo alt; return; fi
+  echo fremd; }
+
+apache_neu_laden() {
+  if command -v systemctl >/dev/null && systemctl is-active --quiet apache2 2>/dev/null; then systemctl reload apache2
+  else apache2ctl graceful 2>/dev/null || apache2ctl start; fi; }
+
+pruefen() {   # ohne Weiterleitungen zu folgen: jede alte Adresse muss selbst mit 301 auf genau das neue Ziel zeigen
   local b="$BASIS$URLPFAD" p code loc want typ ok=0
-  for p in "" "/" "/laney-aor50/" "/plugins/" "/download/SHA256SUMS.txt"; do
-    read -r code loc < <(curl -s -L --max-redirs 5 --max-time 20 -o /dev/null -w '%{http_code} %{url_effective}\n' "$b$p" || true)
+  for p in "" "/" "/laney-aor50/" "/laney-aor50/?x=1&y=2" "/plugins/" "/download/SHA256SUMS.txt"; do
+    read -r code loc < <(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}\n' "$b$p" || true)
     case "$p" in "") want="$NEU/";; *) want="$NEU$p";; esac
-    if [ "$loc" = "$want" ] && { [ "$code" = 200 ] || [ "$TROTZDEM" = 1 ]; }; then echo "  ok     $URLPFAD$p → $loc ($code)"
-    else echo "  FALSCH $URLPFAD$p → ${loc:-?} ($code), erwartet $want (200)"; ok=1; fi; done
-  read -r code typ loc < <(curl -s -L --max-redirs 5 --max-time 20 -o /dev/null -w '%{http_code} %{content_type} %{url_effective}\n' "$b/sw.js" || true)
-  if [ "$code" = 200 ] && [[ "$typ" == *javascript* ]] && [[ "$loc" == *"$URLPFAD/sw.js" ]] && [[ "$loc" != "$NEU"* ]] && curl -s -L --max-redirs 5 "$b/sw.js" | grep -q "umgezogen"; then
-    echo "  ok     $URLPFAD/sw.js: Aufräum-Service-Worker ($loc, $typ)"
-  else echo "  FALSCH $URLPFAD/sw.js: $code $typ $loc (erwartet 200, JavaScript, nicht umgeleitet)"; ok=1; fi
+    if [ "${code:-}" = 301 ] && [ "${loc:-}" = "$want" ]; then echo "  ok     $URLPFAD$p → 301 $loc"
+    else echo "  FALSCH $URLPFAD$p → ${code:-000} ${loc:-ohne Ziel} (erwartet 301 $want)"; ok=1; fi; done
+  read -r code typ < <(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{content_type}\n' "$b/sw.js" || true)
+  if [ "${code:-}" = 200 ] && [[ "${typ:-}" == *javascript* ]] && curl -s --max-time 20 "$b/sw.js" 2>/dev/null | grep -q "$MARKE"; then
+    echo "  ok     $URLPFAD/sw.js → 200 Aufräum-Service-Worker ($typ)"
+  else echo "  FALSCH $URLPFAD/sw.js → ${code:-000} ${typ:-} (erwartet 200, JavaScript, Aufräum-Service-Worker, nicht umgeleitet)"; ok=1; fi
   return $ok; }
 
-if [ "$NUR" = 1 ]; then echo "Prüfung von $BASIS$URLPFAD"; if pruefen; then echo "Umleitung in Ordnung"; exit 0; else echo "Umleitung fehlerhaft"; exit 1; fi; fi
+if [ "$AKTION" = pruefen ]; then
+  echo "Prüfung von $BASIS$URLPFAD"; if pruefen; then echo "Umleitung in Ordnung"; exit 0; else echo "Umleitung fehlerhaft"; exit 1; fi; fi
+
 [ "$(id -u)" = 0 ] || fehler "bitte mit sudo starten"
-command -v apache2ctl >/dev/null || fehler "apache2ctl fehlt (kein Apache?)"
-command -v curl >/dev/null || fehler "curl fehlt"
-code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$NEU/" || true)"; code="${code:-000}"
-if [ "$code" = 200 ]; then echo "Neue Adresse $NEU/ antwortet (200)"
-elif [ "$TROTZDEM" = 1 ]; then echo "Warnung: $NEU/ antwortet mit $code – leite trotzdem um"
-else fehler "$NEU/ antwortet mit $code; erst die neue Seite einrichten (oder --trotzdem)"; fi
-[ -d "$ZIEL" ] || mkdir -p "$ZIEL"
+for t in apache2ctl a2enconf a2disconf a2enmod curl; do command -v "$t" >/dev/null || fehler "$t fehlt (Apache 2.4 auf Debian/Ubuntu nötig)"; done
+apache2ctl configtest >/dev/null 2>&1 || { apache2ctl configtest || true; fehler "Apache-Konfiguration ist schon vor jeder Änderung fehlerhaft – erst beheben"; }
+ART="$(art_von_ziel)"
+
+if [ "$AKTION" = zurueck ]; then
+  [ "$ART" = umgestellt ] || fehler "$ZIEL ist nicht umgestellt (Zustand: $ART) – nichts zurückzunehmen"
+  SICH="$(find "$SICHERUNGEN" -maxdepth 1 -type d -name 'vor-umleitung-*' 2>/dev/null | sort | tail -n 1)"
+  if [ -z "$SICH" ] || [ ! -f "$SICH/sw.js" ] || [ ! -d "$SICH/laney-aor50" ]; then fehler "keine Sicherung der alten Seite in $SICHERUNGEN/vor-umleitung-*/ gefunden"; fi
+  [ -e "$CONFAN" ] && a2disconf -q tonestack-umleitung >/dev/null; rm -f "$CONF"
+  rm -f "$ZIEL/sw.js" "$ZIEL/.htaccess"; rmdir "$ZIEL"; mv "$SICH" "$ZIEL"
+  apache2ctl configtest >/dev/null 2>&1 || { apache2ctl configtest || true; fehler "Apache-Konfiguration fehlerhaft nach dem Zurücknehmen"; }
+  apache_neu_laden; echo "Umleitung entfernt, alte Seite aus $SICH zurück in $ZIEL"; exit 0; fi
+
+[ "$ART" != fremd ] || fehler "$ZIEL sieht weder wie die alte Seite noch wie eine Umleitung aus – nichts geändert"
+
+# 1. neue Adresse
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$NEU/laney-aor50/" || true)"; code="${code:-000}"
+if [ "$code" = 200 ] && curl -s --max-time 20 "$NEU/" 2>/dev/null | grep -q "laney-aor50/"; then echo "Neue Adresse $NEU/ antwortet (Übersicht und Unterseite)"
+elif [ "$TROTZDEM" = 1 ]; then echo "Warnung: $NEU/ antwortet nicht richtig ($code) – leite trotzdem um"
+else fehler "$NEU/ antwortet nicht richtig ($code); erst die neue Seite einrichten (oder --trotzdem)"; fi
+
+# Rücknahme bei Fehlern ab hier
+ALTCONF=""; [ -f "$CONF" ] && ALTCONF="$(cat "$CONF")"
+WARAN=0; [ -e "$CONFAN" ] && WARAN=1
+NEUDIR=""; SICH=""; VERSCHOBEN=0
+zuruecknehmen() {
+  trap - ERR; set +e
+  echo "Fehler – nehme die Änderungen zurück" >&2
+  if [ "$VERSCHOBEN" = 1 ]; then rm -f "$ZIEL/sw.js" "$ZIEL/.htaccess"; rmdir "$ZIEL" && mv "$SICH" "$ZIEL" && echo "  alte Seite zurück in $ZIEL" >&2
+  elif [ "$VERSCHOBEN" = 2 ]; then rm -f "$ZIEL/sw.js" "$ZIEL/.htaccess"; rmdir "$ZIEL"; fi
+  [ -n "$NEUDIR" ] && rm -rf -- "$NEUDIR"
+  if [ -n "$ALTCONF" ]; then printf '%s\n' "$ALTCONF" > "$CONF"; else rm -f "$CONF"; fi
+  if [ "$WARAN" = 1 ]; then a2enconf -q tonestack-umleitung >/dev/null 2>&1; else a2disconf -q tonestack-umleitung >/dev/null 2>&1; fi
+  if apache2ctl configtest >/dev/null 2>&1; then apache_neu_laden >/dev/null 2>&1; echo "  Apache-Konfiguration wie vorher" >&2
+  else echo "  ACHTUNG: Apache-Konfiguration fehlerhaft, bitte prüfen: apache2ctl configtest" >&2; fi
+  exit 1; }
+trap zuruecknehmen ERR; set -E
+
 a2enmod -q alias >/dev/null; a2enmod -q headers >/dev/null
-# 2. Sicherung und Aufräum-Service-Worker
-mkdir -p /var/backups/tonestack; chmod 700 /var/backups/tonestack
-SICH="/var/backups/tonestack/vor-umleitung-$(date +%Y%m%d-%H%M%S).tar.gz"
-tar czf "$SICH" -C "$(dirname "$ZIEL")" "$(basename "$ZIEL")"; echo "Sicherung: $SICH"
-find "$ZIEL" -mindepth 1 -delete
-cat > "$ZIEL/sw.js" <<EOF
-// tonestack ist umgezogen nach $NEU/ – dieser Service Worker löscht den alten Offline-Speicher dieser Adresse,
-// meldet sich ab und lädt offene Seiten unter der neuen Adresse.
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", e => e.waitUntil((async () => {
-  const scope = self.registration.scope;
-  for (const k of await caches.keys()) if ((k.startsWith("tonestack-") && k.endsWith("@" + scope)) || /^\\d{4}-\\d\\d-\\d\\d(-\\d+)?\$/.test(k)) await caches.delete(k);
-  await self.registration.unregister();
-  for (const c of await self.clients.matchAll({ type: "window" })) {
-    const p = new URL(c.url).pathname.slice(new URL(scope).pathname.length);
-    c.navigate("$NEU/" + p).catch(() => {}); }
-})()));
-EOF
-printf '%s\n' '<IfModule mod_headers.c>' '  <Files "sw.js">' '    Header set Cache-Control "no-cache"' '  </Files>' '</IfModule>' > "$ZIEL/.htaccess"
-chmod 644 "$ZIEL/sw.js" "$ZIEL/.htaccess"
-# 3. Umleitung
-ALT=""; [ -f "$CONF" ] && ALT="$(cat "$CONF")"
+# 2. Umleitung
 cat > "$CONF" <<EOF
 # Klangregler-Simulatoren: umgezogen nach $NEU/ (angelegt von borg-umleitung.sh)
-# Jede Seite unter $URLPFAD/ dauerhaft (301) auf dieselbe Seite unter $NEU/, außer sw.js (räumt den alten Offline-Speicher auf).
+# Jede Adresse unter $URLPFAD/ dauerhaft (301) auf dieselbe unter $NEU/ (Abfrageteil bleibt), außer sw.js (räumt den alten Offline-Speicher auf).
 RedirectMatch 301 "^$RX\$" "$NEU/"
 RedirectMatch 301 "^$RX/(?!sw\\.js\$)(.*)\$" "$NEU/\$1"
 EOF
 a2enconf -q tonestack-umleitung >/dev/null
-if ! apache2ctl configtest >/dev/null 2>&1; then
-  apache2ctl configtest || true
-  if [ -n "$ALT" ]; then printf '%s\n' "$ALT" > "$CONF"; else a2disconf -q tonestack-umleitung >/dev/null; rm -f "$CONF"; fi
-  fehler "Apache-Konfiguration fehlerhaft – Umleitung nicht aktiviert (Ordner ist geleert, Sicherung: $SICH)"; fi
-if command -v systemctl >/dev/null && systemctl is-active --quiet apache2 2>/dev/null; then systemctl reload apache2; else apache2ctl graceful 2>/dev/null || apache2ctl start; fi
+apache2ctl configtest >/dev/null 2>&1 || { apache2ctl configtest || true; false; }
+
+# 3. Aufräum-Service-Worker vorbereiten, alten Ordner verschieben
+NEUDIR="$(mktemp -d "$(dirname "$ZIEL")/.tonestack-umleitung.XXXXXX")"
+cat > "$NEUDIR/sw.js" <<EOF
+// $MARKE nach $NEU/ – dieser Service Worker löscht den alten Offline-Speicher dieser Adresse,
+// lädt offene Seiten unter der neuen Adresse (gleicher Pfad, Abfrageteil und Anker) und meldet sich ab.
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", e => e.waitUntil((async () => {
+  const scope = self.registration.scope, basis = new URL(scope).pathname;
+  for (const k of await caches.keys()) if ((k.startsWith("tonestack-") && k.endsWith("@" + scope)) || /^\\d{4}-\\d\\d-\\d\\d(-\\d+)?\$/.test(k)) await caches.delete(k);
+  const wege = [];
+  for (const c of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) {
+    const u = new URL(c.url); if (!u.pathname.startsWith(basis)) continue;   // nur Seiten der alten Installation
+    const p = u.pathname.slice(basis.length);
+    wege.push(c.navigate("$NEU/" + p + u.search + u.hash).catch(() => {})); }
+  await Promise.all(wege);
+  await self.registration.unregister();
+})()));
+EOF
+printf '%s\n' '<IfModule mod_headers.c>' '  <Files "sw.js">' '    Header set Cache-Control "no-cache"' '  </Files>' '</IfModule>' > "$NEUDIR/.htaccess"
+chmod 755 "$NEUDIR"; chmod 644 "$NEUDIR/sw.js" "$NEUDIR/.htaccess"
+case "$ART" in
+  alt) mkdir -p "$SICHERUNGEN"; chmod 700 "$SICHERUNGEN"; SICH="$SICHERUNGEN/vor-umleitung-$(date +%Y%m%d-%H%M%S)"
+       mv "$ZIEL" "$SICH"; VERSCHOBEN=1; mv "$NEUDIR" "$ZIEL"; NEUDIR=""; echo "Alte Seite gesichert: $SICH";;
+  umgestellt) install -m 644 "$NEUDIR/sw.js" "$ZIEL/sw.js"; install -m 644 "$NEUDIR/.htaccess" "$ZIEL/.htaccess"; rm -rf -- "$NEUDIR"; NEUDIR="";;
+  fehlt) mkdir -p "$(dirname "$ZIEL")"; mv "$NEUDIR" "$ZIEL"; NEUDIR=""; VERSCHOBEN=2;;
+esac
+# 4. Neu laden und prüfen
+apache_neu_laden
+trap - ERR
 echo "Prüfung von $BASIS$URLPFAD"
-if pruefen; then echo "Umleitung aktiv: $URLPFAD/… → $NEU/…"; else echo "Umleitung fehlerhaft (Konfiguration: $CONF)"; exit 1; fi
+if pruefen; then echo "Umleitung aktiv: $URLPFAD/… → $NEU/…  (rückgängig: sudo bash $0 --rueckgaengig)"
+else echo "Prüfung fehlgeschlagen. Ist $BASIS die richtige Adresse dieses Servers (--basis)? Rückgängig: sudo bash $0 --rueckgaengig"; exit 1; fi
