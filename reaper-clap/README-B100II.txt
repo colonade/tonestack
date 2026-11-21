@@ -1,5 +1,5 @@
-Lametta B100-II Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.25
+Lametta B100-II Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.26
 
 Two formats, one engine
   Lametta_B100II.clap and Lametta_B100II.vst3 contain the same code and sound identical
@@ -29,7 +29,7 @@ Installation (VST3)
   VST, then "Re-scan". The plugin appears under VST3 as "Lametta B100-II Bass Amp".
 
 What it is
-  The same engine as the web simulator (https://borg.fluxstatus.de/tonestack/
+  The same engine as the web simulator (https://tonestack.fluxstatus.de/
   lametta-b100ii/), translated to C++: the whole PA board of the B100-115II
   from the 1979 service manual - TR101 source follower input, tone controls
   (treble, middle, bass), TR102, volume, TR103/TR104, TR105 with the five
@@ -124,6 +124,14 @@ Input level (INPUT, since 1.19)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.26
+  Windows version (VST3 and CLAP with the same front panel, installer and
+  ZIP). Project state and values typed into the host no longer depend on the
+  number format of the system (decimal comma). Windows: the window follows a
+  change of the display scaling while it is open, and the mouse wheel also
+  works when Windows sends it to the focused window. Packages now include
+  the GPL licence text (LICENSE.txt). Sound unchanged.
 
 1.25
   The lettering "MODEL (not on the amp)" in the header line of the model

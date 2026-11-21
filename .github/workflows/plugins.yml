@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/versions.sh', '.github/workflows/plugins.yml']
+    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
 permissions:
   contents: read
 jobs:
@@ -69,7 +69,7 @@ jobs:
           set -o pipefail
           bash engine/win/build.sh "$RUNNER_TEMP/win-cairo" 2>&1 | tee win.log || { python3 mac/annot.py Windows-Bau win.log 40 'error|Error|FEHLER|Traceback|No such'; exit 1; }
           python3 engine/win/mkrefs.py wintest
-          cp -r engine/build/win/VST3 engine/build/win/CLAP engine/build/win/plugtest.exe engine/build/win/wingui.exe engine/win/wincheck.py wintest/
+          cp -r engine/build/win/VST3 engine/build/win/CLAP engine/build/win/plugtest.exe engine/build/win/wingui.exe engine/win/wincheck.py scripts/plugins.txt wintest/
       - name: Packen
         run: |
           set -euo pipefail
@@ -78,6 +78,9 @@ jobs:
           bash scripts/pack-windows.sh
           (cd dist && sha256sum *_CLAP-*.zip *_VST3-*.zip tonestack-plugins_*_amd64.deb > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt)
           (cd dist && sha256sum *_Windows-*.zip tonestack-Plugins-Windows.exe > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt)
+          # Quelltext von Cairo/pixman (statisch in den Windows-Plugins, LGPL-2.1 bzw. MIT) neben die Windows-Pakete
+          for f in cairo_1.18.0.orig.tar.xz cairo_1.18.0-3build1.debian.tar.xz cairo_1.18.0-3build1.dsc pixman_0.42.2.orig.tar.gz pixman_0.42.2-1build1.diff.gz pixman_0.42.2-1build1.dsc; do cp "$RUNNER_TEMP/win-cairo/src/$f" dist/; done
+          (cd dist && sha256sum cairo_1.18.0* pixman_0.42.2* > SHA256SUMS-sources.txt && cat SHA256SUMS-sources.txt)
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         with:
           name: tonestack-linux
@@ -93,6 +96,9 @@ jobs:
             dist/*_Windows-*.zip
             dist/tonestack-Plugins-Windows.exe
             dist/SHA256SUMS-windows.txt
+            dist/cairo_1.18.0*
+            dist/pixman_0.42.2*
+            dist/SHA256SUMS-sources.txt
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         with:
           name: tonestack-wintest
@@ -217,16 +223,18 @@ jobs:
         with:
           name: tonestack-wintest
           path: wintest
-      - name: VST3-Validator bauen (VST3-SDK 3.8.0, Visual Studio)
+      - name: VST3-Validator und editorhost bauen (VST3-SDK 3.8.0, Visual Studio)
         run: |
           set -euo pipefail
           git clone -q --depth 1 --branch v3.8.0_build_66 --recurse-submodules --shallow-submodules https://github.com/steinbergmedia/vst3sdk.git "$RUNNER_TEMP/vst3sdk"
+          h="$(git -C "$RUNNER_TEMP/vst3sdk" rev-parse HEAD)"; [ "$h" = 9fad9770f2ae8542ab1a548a68c1ad1ac690abe0 ] || { echo "::error::vst3sdk v3.8.0_build_66 zeigt auf $h statt 9fad977 (Tag verschoben?)"; exit 1; }   # Untermodule legt der Commit fest
           G="Visual Studio 18 2026"; cmake --help | grep -qF "$G" || G="Visual Studio 17 2022"   # windows-2025 hat seit Mitte 2026 VS 2026 statt 2022
           cmake -S "$RUNNER_TEMP/vst3sdk" -B "$RUNNER_TEMP/sdkb" -G "$G" -A x64 -DSMTG_ENABLE_VST3_HOSTING_EXAMPLES=ON -DSMTG_ENABLE_VST3_PLUGIN_EXAMPLES=OFF -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_CREATE_PLUGIN_LINK=OFF -DSMTG_RUN_VST_VALIDATOR=OFF > sdkcfg.log
-          cmake --build "$RUNNER_TEMP/sdkb" --config Release --target validator -- -m -v:minimal > sdkbuild.log || { tail -40 sdkbuild.log; exit 1; }
+          cmake --build "$RUNNER_TEMP/sdkb" --config Release --target validator editorhost -- -m -v:minimal > sdkbuild.log || { tail -40 sdkbuild.log; exit 1; }
           find "$RUNNER_TEMP/sdkb" -name validator.exe | head -1 > validator.txt; cat validator.txt; [ -s validator.txt ]
-      - name: Prüfen (Validator, Rechnung gegen Linux, Oberfläche)
-        run: python wintest/wincheck.py wintest "$(cat validator.txt)" winbilder
+          find "$RUNNER_TEMP/sdkb" -name editorhost.exe | head -1 > editorhost.txt; cat editorhost.txt; [ -s editorhost.txt ]
+      - name: Prüfen (Validator, Rechnung gegen Linux, Oberfläche, VST3-Oberfläche im Host)
+        run: python wintest/wincheck.py wintest "$(cat validator.txt)" winbilder "$(cat editorhost.txt)"
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         if: always()
         with:
@@ -268,7 +276,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt) && (cd win-art && sha256sum -c SHA256SUMS-windows.txt)
+          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt) && (cd win-art && sha256sum -c SHA256SUMS-windows.txt && sha256sum -c SHA256SUMS-sources.txt)
           n=$(ls win-bilder/win-*.png | wc -l); [ "$n" = 14 ] || { echo "::error::14 Windows-Prüfbilder erwartet, gefunden: $n"; exit 1; }
           cp win-art/* win-bilder/win-*.png rel/
           n=$(ls mac-art/tonestack-Plugins-Mac*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }

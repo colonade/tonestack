@@ -1,5 +1,5 @@
-Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.9
+Loldano SLO-100 Guitar Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.10
 
 Two formats, one engine
   Loldano_SLO100.clap and Loldano_SLO100.vst3 contain the same code and
@@ -154,8 +154,8 @@ User interface
   logo; "Loldano" lettering in Damion, SIL Open Font License): INPUT,
   toggle switches BRIGHT, CRUNCH/CLEAN and the channel switch (lever up =
   BRIGHT, CRUNCH, OVERDRIVE), the eight knobs. Knobs: drag vertically,
-  mouse wheel, double-click = default. Below the panel the model strip
-  (not on the amp): OVERSAMPLING, RENDER (oversampling for offline
+  mouse wheel, double-click = default. Below the panel the model strip:
+  OVERSAMPLING, RENDER (oversampling for offline
   rendering, from 1.2), SPEAKER (ON / OFF) and TAP (AMP / PREAMP / FX SEND)
   (from 1.5, FX SEND from 1.7), BASS CK (1 uF / 3.9 uF, from 1.8), the
   DRIVE meters (grid swing of V1B
@@ -380,6 +380,14 @@ Notes
   New test engine/tests/slothd: k2/k3 at V3B, V4A and the speaker
   (NORMAL clean, PREAMP 10, 100 and 140 mV, 400 Hz) must stay within
   0.3 dB of the values measured on 16 November 2026.
+
+1.10
+  Windows version (VST3 and CLAP with the same front panel, installer and
+  ZIP). Project state and values typed into the host no longer depend on the
+  number format of the system (decimal comma). Windows: the window follows a
+  change of the display scaling while it is open, and the mouse wheel also
+  works when Windows sends it to the focused window. Packages now include
+  the GPL licence text (LICENSE.txt). Sound unchanged.
 
 1.9
   The lettering "MODEL (not on the amp)" in the header line of the model

@@ -6,6 +6,7 @@
 #elif defined(_WIN32)
 #include "cairo_win.hpp"
 #include <direct.h>
+#include <cwchar>
 #else
 #include <cairo/cairo.h>
 #endif
@@ -20,42 +21,52 @@
 
 #ifdef _WIN32
 #define TS_SANS "Segoe UI"   // Windows: Systemschrift (DirectWrite kennt „Sans“ nicht)
+#ifndef _WINBASE_   // ohne <windows.h> (dessen Makros stören die Oberflächen); gleiche Deklaration wie in winbase.h
+extern "C" __declspec(dllimport) int __stdcall MoveFileExW(const wchar_t *, const wchar_t *, unsigned long);
+#endif
 #else
 #define TS_SANS "Sans"
 #endif
 namespace tsw {
 // Einstellungen der Oberfläche, die für alle tonestack-Plugins eines Benutzers gelten (nicht je Projekt): Wertanzeige am Knopf, Bandliste des Wien EQ.
 // Datei: Linux $XDG_CONFIG_HOME/tonestack/ui.conf (sonst ~/.config/…), macOS ~/Library/Application Support/tonestack/ui.conf,
-// Windows %APPDATA%\tonestack\ui.conf; Zeilen „name=0|1“.
+// Windows %APPDATA%\tonestack\ui.conf (Pfade dort als UTF-16, damit auch Benutzernamen außerhalb der ANSI-Codepage gehen); Zeilen „name=0|1“.
+// Gespeichert wird über eine Zwischendatei, die die alte ersetzt (Windows: MoveFileExW mit Ersetzen, wie rename unter Linux/macOS in einem Schritt).
 // Lässt sich die Datei nicht schreiben (abgeschottete Hosts), gilt die Wahl bis zum Ende des Programms. Gelesen wird höchstens einmal je Sekunde,
 // damit offene Fenster anderer Plugins der Wahl folgen.
 struct Prefs { bool tips = true, bands = true; };
-inline std::string prefDir() {
 #ifdef _WIN32
-  const char *a = std::getenv("APPDATA"); return a && *a ? std::string(a) + "/tonestack" : std::string();
+typedef std::wstring pstr;
+inline pstr prefDir() { const wchar_t *a = _wgetenv(L"APPDATA"); return a && *a ? pstr(a) + L"\\tonestack" : pstr(); }
+inline FILE *popen_(const pstr &p, bool wr) { return _wfopen(p.c_str(), wr ? L"w" : L"r"); }
+inline void pmkdir(const pstr &p) { _wmkdir(p.c_str()); }
+inline void preplace(const pstr &from, const pstr &to) { if (!MoveFileExW(from.c_str(), to.c_str(), 1 /* MOVEFILE_REPLACE_EXISTING */)) _wremove(from.c_str()); }
+inline pstr pjoin(const pstr &d, const char *n) { pstr r = d + L"\\"; for (; *n; n++) r += (wchar_t)*n; return r; }
 #else
-  const char *h = std::getenv("HOME");
-#endif
+typedef std::string pstr;
+inline pstr prefDir() { const char *h = std::getenv("HOME");
 #if defined(__APPLE__)
   return h ? std::string(h) + "/Library/Application Support/tonestack" : std::string();
-#elif !defined(_WIN32)
+#else
   const char *x = std::getenv("XDG_CONFIG_HOME"); if (x && *x) return std::string(x) + "/tonestack"; return h ? std::string(h) + "/.config/tonestack" : std::string();
 #endif
 }
+inline FILE *popen_(const pstr &p, bool wr) { return std::fopen(p.c_str(), wr ? "w" : "r"); }
+inline void pmkdir(const pstr &p) { ::mkdir(p.c_str(), 0755); }
+inline void preplace(const pstr &from, const pstr &to) { if (std::rename(from.c_str(), to.c_str()) != 0) std::remove(from.c_str()); }
+inline pstr pjoin(const pstr &d, const char *n) { return d + "/" + n; }
+#endif
 inline Prefs &prefs() { static Prefs p; static bool fileOk = true; static std::chrono::steady_clock::time_point last{}; auto now = std::chrono::steady_clock::now();
-  if (fileOk && (last == std::chrono::steady_clock::time_point{} || now - last > std::chrono::seconds(1))) { last = now; std::string d = prefDir();
-    if (d.empty()) fileOk = false; else if (FILE *f = std::fopen((d + "/ui.conf").c_str(), "r")) { char k[32]; int v; while (std::fscanf(f, " %31[a-z]=%d", k, &v) == 2) { if (std::string(k) == "tips") p.tips = v != 0; else if (std::string(k) == "bands") p.bands = v != 0; } std::fclose(f); } }
+  if (fileOk && (last == std::chrono::steady_clock::time_point{} || now - last > std::chrono::seconds(1))) { last = now; pstr d = prefDir();
+    if (d.empty()) fileOk = false; else if (FILE *f = popen_(pjoin(d, "ui.conf"), false)) { char k[32]; int v; while (std::fscanf(f, " %31[a-z]=%d", k, &v) == 2) { if (std::string(k) == "tips") p.tips = v != 0; else if (std::string(k) == "bands") p.bands = v != 0; } std::fclose(f); } }
   return p; }
-#ifdef _WIN32
-inline int ts_mkdir(const char *p) { return _mkdir(p); }
-#else
-inline int ts_mkdir(const char *p) { return ::mkdir(p, 0755); }
+inline void prefSave() { pstr d = prefDir(); if (d.empty()) return;
+#ifndef _WIN32
+  { size_t k = d.rfind('/'); if (k != std::string::npos && k > 0) pmkdir(d.substr(0, k)); }   // ~/.config bzw. ~/Library/Application Support (%APPDATA% gibt es immer)
 #endif
-inline void prefSave() { std::string d = prefDir(); if (d.empty()) return; { size_t k = d.rfind('/'); if (k != std::string::npos && k > 0) ts_mkdir(d.substr(0, k).c_str()); } ts_mkdir(d.c_str()); std::string tmp = d + "/ui.conf.tmp"; if (FILE *f = std::fopen(tmp.c_str(), "w")) { const Prefs &p = prefs(); std::fprintf(f, "tips=%d\nbands=%d\n", p.tips ? 1 : 0, p.bands ? 1 : 0); std::fclose(f);
-#ifdef _WIN32
-  std::remove((d + "/ui.conf").c_str());   // rename ersetzt unter Windows keine vorhandene Datei
-#endif
-  std::rename(tmp.c_str(), (d + "/ui.conf").c_str()); } }
+  pmkdir(d); pstr tmp = pjoin(d, "ui.conf.tmp");
+  if (FILE *f = popen_(tmp, true)) { const Prefs &p = prefs(); bool ok = std::fprintf(f, "tips=%d\nbands=%d\n", p.tips ? 1 : 0, p.bands ? 1 : 0) > 0; ok = std::fclose(f) == 0 && ok;
+    if (ok) preplace(tmp, pjoin(d, "ui.conf")); } }
 constexpr double UW = 1200;   // Breite des unteren Bereichs in UI-Einheiten
 constexpr double TPI = 3.14159265358979323846;
 inline void rgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }

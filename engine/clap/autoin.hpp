@@ -46,7 +46,7 @@ inline double vinFromU(double u) { return std::round(std::pow(VIN_MAX, std::max(
 inline double dBu(double mv) { return 20 * std::log10(std::max(1e-6, mv) / 1000 / std::sqrt(2.0) / 0.7745966692); }
 // Texte für Oberfläche und Host
 inline void valueText(char *b, int n, double mv, bool fixed) { (void)fixed; std::snprintf(b, n, "%.0f mV \xc2\xb7 %+.1f dBu", mv, dBu(mv)); }   // Bezug steht in der Zeile darunter
-inline void hostText(char *b, int n, double mv) { std::snprintf(b, n, "%.0f mV (%+.1f dBu)", mv, dBu(mv)); }   // Host: Wert zuerst (atof liest ihn zurück)
+inline void hostText(char *b, int n, double mv) { std::snprintf(b, n, "%.0f mV (%+.1f dBu)", mv, dBu(mv)); }   // Host: Wert zuerst (tsnum::parse liest ihn zurück)
 inline void extraText(char *b, int n, double pkdb, bool fixed) {
   if (fixed) std::snprintf(b, n, "at 0 dBFS (old) \xc2\xb7 click: auto");
   else if (pkdb < -900) std::snprintf(b, n, "at your peak (not heard yet)");

@@ -69,11 +69,13 @@ one Blech_140 blech140 "$BLV" component; one Blech_140 blech140 "$BLV" vst3
 one Wisent_Echoreck wisent "$WIV" component; one Wisent_Echoreck wisent "$WIV" vst3
 one Viereck_34 viereck "$VRV" component; one Viereck_34 viereck "$VRV" vst3
 sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" -e "s/@KAV@/$KAV/g" -e "s/@BLV@/$BLV/g" -e "s/@WIV@/$WIV/g" -e "s/@VRV@/$VRV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+cp "$HERE/../LICENSE" "$W/res/LICENSE.txt"   # GPL-3.0 der Plugins (ab 2026-11-21 als Lizenzseite im Installer)
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
   <title>tonestack Verstärker-Plugins</title>
   <welcome file="welcome.html" mime-type="text/html"/>
+  <license file="LICENSE.txt" mime-type="text/plain"/>
   <options customize="always" require-scripts="false" hostArchitectures="arm64,x86_64"/>
   <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
   <os-version min="11.0"/>

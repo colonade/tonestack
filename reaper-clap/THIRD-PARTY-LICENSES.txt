@@ -1,5 +1,6 @@
-Third-party licenses for the tonestack plugins (Laney AOR 50 Preamp, Lametta B100-II Bass Amp)
-The plugin code itself is by tonestack. The binaries contain the following third-party code:
+Third-party licenses for the tonestack plugins (all amp and effect simulators)
+The plugin code itself is by tonestack and licensed under the GNU GPL version 3 (LICENSE.txt).
+The binaries contain the following third-party code:
 
   All formats:    CLAP SDK headers (MIT), stb_image (MIT / public domain, used for the panel photo)
   VST3 only:      clap-wrapper (MIT), VST3 SDK 3.8 (MIT), {fmt} (MIT with binary exception),

@@ -1,5 +1,5 @@
-Lametta B100-III Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.12
+Lametta B100-III Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.13
 
 Two formats, one engine
   Lametta_B100III.clap and Lametta_B100III.vst3 contain the same code and
@@ -96,8 +96,8 @@ User interface
   center), the indicator lamp of each PARAMETRIC EQ field as a click target
   to switch that EQ on (red) or off - on the amp this is done with the
   footswitch. The three CROSSOVER knobs only feed the LPF/HPF OUTPUT jacks
-  for external power amps and are dimmed. Below the panel the model strip
-  (not on the amp): OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, the
+  for external power amps and are dimmed. Below the panel the model strip:
+  OVERSAMPLING, POWER AMP (CLIP / LINEAR), POT TAPER, the
   DRIVE meters (input stage, volume + tone stages, EQ 1, EQ 2 relative to
   their limits, 100 % = clipping; output power into 8 ohm, mark = 100 W),
   INPUT (instrument level) and OUTPUT. Below that the small-signal frequency
@@ -154,6 +154,14 @@ Input level (INPUT, since 1.4)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.13
+  Windows version (VST3 and CLAP with the same front panel, installer and
+  ZIP). Project state and values typed into the host no longer depend on the
+  number format of the system (decimal comma). Windows: the window follows a
+  change of the display scaling while it is open, and the mouse wheel also
+  works when Windows sends it to the focused window. Packages now include
+  the GPL licence text (LICENSE.txt). Sound unchanged.
 
 1.12
   The lettering "MODEL (not on the amp)" in the header line of the model
