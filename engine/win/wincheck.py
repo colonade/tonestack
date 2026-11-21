@@ -7,7 +7,7 @@
 #    (andere Mathematikbibliothek: msvcrt statt glibc; gemessen −70 … −340 dB)
 # 3. Oberfläche im echten Fenster (wingui.exe): alle Prüfpunkte, Bild als PNG → BILDORDNER/win-<kurz>.png
 # 4. VST3-Oberfläche in einem echten VST3-Host (editorhost aus dem VST3-SDK; so lädt auch Cubase): Fenster mit der Ansicht, Größe passt,
-#    Vergrößern des Host-Fensters (onSize), 80 Mausaktionen, Schließen; Fehlermeldungen des Hosts (Dialog) und Abstürze gelten als Fehler
+#    Größe des Host-Fensters ändern (onSize, Seitenverhältnis), 80 Mausaktionen, Schließen; Fehlermeldungen des Hosts (Dialog) und Abstürze gelten als Fehler
 # Rückgabe 1 bei einem Fehler; Fehler zusätzlich als GitHub-Hinweis (::error::).
 import math, os, re, struct, subprocess, sys, zlib
 import ctypes, random, time
@@ -44,7 +44,7 @@ def vst3host(ehost, bundle, name):
     u.GetWindowThreadProcessId.argtypes = [W.HWND, ctypes.POINTER(W.DWORD)]; u.GetClassNameW.argtypes = [W.HWND, W.LPWSTR, ctypes.c_int]
     u.GetWindowTextW.argtypes = [W.HWND, W.LPWSTR, ctypes.c_int]; u.GetClientRect.argtypes = [W.HWND, ctypes.POINTER(W.RECT)]
     u.GetWindowRect.argtypes = [W.HWND, ctypes.POINTER(W.RECT)]; u.IsWindowVisible.argtypes = [W.HWND]; u.IsWindow.argtypes = [W.HWND]
-    u.SetWindowPos.argtypes = [W.HWND, W.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, W.UINT]
+    u.GetSystemMetrics.argtypes = [ctypes.c_int]; u.SetWindowPos.argtypes = [W.HWND, W.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, W.UINT]
     u.PostMessageW.argtypes = [W.HWND, W.UINT, W.WPARAM, W.LPARAM]; u.ClientToScreen.argtypes = [W.HWND, ctypes.POINTER(W.POINT)]
     def wins(pid):
         res = []
@@ -81,11 +81,16 @@ def vst3host(ehost, bundle, name):
         if not res("fenster mit ansicht", view is not None, "" if view else why): return
         time.sleep(1.0)
         tw, th = csize(top); vw, vh = csize(view)
-        res("groesse", vw >= 300 and vh >= 100 and abs(vw - tw) <= 1 and abs(vh - th) <= 1, "Ansicht %dx%d, Host-Fenster %dx%d" % (vw, vh, tw, th))
         r = W.RECT(); u.GetWindowRect(top, ctypes.byref(r)); ow, oh = r.right - r.left, r.bottom - r.top
-        u.SetWindowPos(top, None, 0, 0, ow + vw // 2, oh + vh // 2, 0x0002 | 0x0004 | 0x0010)   # SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
+        sw = u.GetSystemMetrics(0)   # SM_CXSCREEN: Windows begrenzt Hauptfenster auf etwa die Bildschirmbreite (GitHub-Rechner 1024 × 768)
+        clipped = tw < vw and ow >= sw
+        res("groesse", vw >= 300 and vh >= 100 and abs(vh - th) <= 1 and (abs(vw - tw) <= 1 or clipped),
+            "Ansicht %dx%d, Host-Fenster %dx%d%s" % (vw, vh, tw, th, " (vom Bildschirm begrenzt)" if clipped and abs(vw - tw) > 1 else ""))
+        # Host-Fenster auf 900 Pixel Innenbreite (passt auf jeden Bildschirm, über jeder Untergrenze): onSize → adjust_size → set_size
+        want = 900; wh = int(want * vh / vw) + 40
+        u.SetWindowPos(top, None, 0, 0, want + (ow - tw), wh + (oh - th), 0x0002 | 0x0004 | 0x0010)   # SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
         time.sleep(1.0); tw2, th2 = csize(top); vw2, vh2 = csize(view)
-        res("vergroessern (onSize)", vw2 >= vw * 1.3 and abs(vw2 - tw2) <= 2 and vh2 <= th2 + 2 and abs(vw2 * vh / vw - vh2) <= 3,
+        res("groesse aendern (onSize)", tw2 == want and abs(vw2 - want) <= 2 and abs(vw2 * vh / vw - vh2) <= 3 and vh2 <= th2 + 2,
             "Host-Fenster %dx%d, Ansicht %dx%d (vorher %dx%d)" % (tw2, th2, vw2, vh2, vw, vh))
         rnd = random.Random(7); vw, vh = csize(view)
         for k in range(80):
