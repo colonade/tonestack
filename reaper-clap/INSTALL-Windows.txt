@@ -1,0 +1,29 @@
+tonestack plugins for Windows (x86-64, Windows 10/11) - installation
+
+Easiest: run tonestack-Plugins-Windows.exe (installer, choose the plugins you
+want). It puts the VST3 plugins into
+  C:\Program Files\Common Files\VST3\<Name>.vst3
+and the CLAP plugins into
+  C:\Program Files\Common Files\CLAP\<Name>.clap
+and adds an uninstaller (Settings > Apps > tonestack plugins).
+
+By hand (from a <Name>_Windows-<Version>.zip):
+  - copy the folder <Name>.vst3 as a whole into C:\Program Files\Common Files\VST3\
+  - copy <Name>.clap into C:\Program Files\Common Files\CLAP\ (create the folder
+    if it does not exist)
+Close the DAW before installing or updating: replacing a plugin file that a
+running host has loaded can make the host crash.
+
+Cubase / Nuendo: VST3 only (Cubase does not load CLAP). After installing open
+Studio > VST Plug-in Manager and rescan; if a plugin shows up as blocked, the
+manager tells why.
+REAPER, Bitwig Studio, Studio One and others: VST3 or CLAP, rescan the plugins.
+
+Not signed: the installer and the plugins carry no Microsoft-recognised
+signature. Windows SmartScreen may say "Windows protected your PC": click
+"More info" and "Run anyway". Checksums: SHA256SUMS-windows.txt in the release.
+
+Front panels are drawn with Cairo (built in, nothing else to install); the
+window can be resized by dragging the host window's corner. The plugin README
+(README.txt) describes the controls; its "Installation" section is the one for
+Linux - on Windows use the steps above.

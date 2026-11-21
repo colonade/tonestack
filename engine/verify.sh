@@ -19,10 +19,25 @@ zs = sorted(glob.glob(os.path.join(R, 'dist', '*.zip')))
 if not zs: print('dist/: keine Plugin-Pakete (bash scripts/pack-plugins.sh oder gh release download)')
 for z in zs:
     with zipfile.ZipFile(z) as zf:
+        win = '_Windows-' in os.path.basename(z)   # Windows-Pakete gegen engine/build/win (bash engine/win/build.sh)
         for n in zf.namelist():
-            if n.endswith('.clap'): a = os.path.join(B, n)
+            if win and n.endswith('.clap'): a = os.path.join(B, 'win', 'CLAP', n)
+            elif win and n.endswith('.vst3') and '/x86_64-win/' in n: a = os.path.join(B, 'win', 'VST3', n)
+            elif win: continue
+            elif n.endswith('.clap'): a = os.path.join(B, n)
             elif n.endswith('.so') and '.vst3/' in n: a = os.path.join(B, 'vst3', n)
             else: continue
-            if not os.path.exists(a): print(os.path.basename(z) + ' / ' + n + ': nicht gebaut'); continue
+            if not os.path.exists(a): print(os.path.basename(z) + ' / ' + n + ': nicht gebaut' + (' (bash engine/win/build.sh)' if win else '')); continue
             print(os.path.basename(z) + ' / ' + n.split('/')[0] + ': ' + ('identisch mit dem Bau' if zf.read(n) == open(a, 'rb').read() else 'ABWEICHEND vom Bau'))
+import subprocess, tarfile, io   # DEB-Paket (scripts/pack-deb.sh): /usr/lib/clap und /usr/lib/vst3 gegen den Linux-Bau
+for d in sorted(glob.glob(os.path.join(R, 'dist', '*.deb'))):
+    t = tarfile.open(fileobj=io.BytesIO(subprocess.run(['dpkg-deb', '--fsys-tarfile', d], capture_output=True, check=True).stdout))
+    for m in t.getmembers():
+        n = m.name[2:] if m.name.startswith('./') else m.name
+        if not m.isfile(): continue
+        if n.startswith('usr/lib/clap/'): a = os.path.join(B, n[len('usr/lib/clap/'):])
+        elif n.startswith('usr/lib/vst3/'): a = os.path.join(B, 'vst3', n[len('usr/lib/vst3/'):])
+        else: continue
+        if not os.path.exists(a): print(os.path.basename(d) + ' / ' + n + ': nicht gebaut'); continue
+        print(os.path.basename(d) + ' / ' + os.path.basename(n) + ': ' + ('identisch mit dem Bau' if t.extractfile(m).read() == open(a, 'rb').read() else 'ABWEICHEND vom Bau'))
 PY

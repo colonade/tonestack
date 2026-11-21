@@ -7,7 +7,17 @@
 //   plugtest PLUGIN params                                            Parameterliste
 // Ausgaben auf stdout; Rückgabe 0 = gelaufen (Bewertung macht das Auswerteskript).
 #include "clap-1.2.2/include/clap/clap.h"
+#ifdef _WIN32   // auch für Windows übersetzbar (MinGW, engine/win/build.sh): Plugin-DLL über LoadLibrary
+#include <windows.h>
+#include <cstdio>
+static void *dlopen(const char *p, int) { return (void *)LoadLibraryA(p); }
+static void *dlsym(void *h, const char *n) { return (void *)GetProcAddress((HMODULE)h, n); }
+static int dlclose(void *h) { return FreeLibrary((HMODULE)h) ? 0 : 1; }
+static const char *dlerror() { static char b[64]; std::snprintf(b, sizeof b, "Windows-Fehler %lu", (unsigned long)GetLastError()); return b; }
+#define RTLD_NOW 0
+#else
 #include <dlfcn.h>
+#endif
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -19,6 +29,9 @@
 #include <thread>
 #include <atomic>
 #include <algorithm>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static std::vector<clap_event_param_value_t> EVS;
 static uint32_t ev_size(const clap_input_events_t *) { return (uint32_t)EVS.size(); }

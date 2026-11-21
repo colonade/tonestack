@@ -1,0 +1,3 @@
+; Windows-CLAP: nur clap_entry exportieren
+EXPORTS
+  clap_entry

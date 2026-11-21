@@ -6,8 +6,12 @@
 #ifndef TS_VERSION
 #define TS_VERSION "?"
 #endif
-#ifdef __APPLE__
+#include "platform.hpp"   // TS_OWNVIEW: eigene Ansicht (macOS, Windows)
+#if defined(__APPLE__)
 #include "cairo_cg.hpp"
+#include "macview.h"
+#elif defined(_WIN32)
+#include "cairo_win.hpp"   // echtes Cairo, Ansicht aus winview.cpp
 #include "macview.h"
 #else
 #include <X11/Xlib.h>
@@ -41,7 +45,7 @@ inline double fromKnob(int p, double u) { u = std::max(0.0, std::min(1.0, u)); i
 inline double knobDefault(int p) { if (p >= P_H1 && p <= P_H4) return wisent::Core::HEAD_MS0 * (p - P_H1 + 1); switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 10; case P_LEVEL: return 200; case P_OUTDB: return 0; case P_DRY: return 6.7; case P_SPEED: return 1; case P_WOB: return 0; default: return 5; } }
 static const char *MODEN[3] = {"ECHO", "REPEAT", "SWELL"};
 
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
 struct Gui : tsmac::Client {
   void *win = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0; std::function<void()> onTick;
 #else
@@ -60,7 +64,7 @@ struct Gui {
       img = cairo_image_surface_create(CAIRO_FORMAT_RGB24, iw, ih); unsigned char *dst = cairo_image_surface_get_data(img); int stride = cairo_image_surface_get_stride(img);
       for (int y = 0; y < ih; y++) for (int x = 0; x < iw; x++) { unsigned char *s = px + (y * iw + x) * 3; unsigned char *t = dst + y * stride + x * 4; t[0] = s[2]; t[1] = s[1]; t[2] = s[0]; t[3] = 255; }
       cairo_surface_mark_dirty(img); stbi_image_free(px); } }
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
   bool attach(void *parentView, int w, int h) { W = w; H = h; loadImg(); win = tsmac::create(parentView, w, h, this); return win != nullptr; }
   void show() { tsmac::show(win); }
   void hide() { tsmac::hide(win); }
@@ -110,7 +114,7 @@ struct Gui {
   cairo_surface_t *base = nullptr; double baseS = 0;
   void drawTo(cairo_t *c) {
     double s = scale(); setrgb(c, 0x0a0a0a); cairo_paint(c);
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
     if (!base || baseS != s) { if (base) cairo_surface_destroy(base); base = cairo_image_surface_create(CAIRO_FORMAT_RGB24, (int)std::ceil(FW * s), (int)std::ceil(FH * s)); baseS = s;
       cairo_t *b = cairo_create(base); cairo_scale(b, s, s); cairo_set_source_surface(b, img, 0, 0); cairo_rectangle(b, 0, 0, FW, FH); cairo_fill(b); cairo_destroy(b); }
     cairo_set_source_surface(c, base, 0, 0); cairo_rectangle(c, 0, 0, FW * s, FH * s); cairo_fill(c);
@@ -175,7 +179,7 @@ struct Gui {
   void setKnob(int i, double u01) { if (isHead(i) && linked()) { const int k = kp(i) - P_H1; double b[4]; if (drag == i) for (int j = 0; j < 4; j++) b[j] = dragB[j]; else headBase(b); setLinked(k, fromKnob(kp(i), u01), b); return; }
     setP(kp(i), fromKnob(kp(i), u01)); }
   void gestureHeads(int i, bool on) { if (!gesture) return; if (isHead(i) && linked()) for (int j = 0; j < 4; j++) gesture(P_H1 + j, on); else gesture(kp(i), on); }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   bool handle(XEvent &ev) { switch (ev.type) { case Expose: return true; case ButtonPress: return onMouse(0, ev.xbutton.x, ev.xbutton.y, (int)ev.xbutton.button, ev.xbutton.time / 1000.0);
       case MotionNotify: return onMouse(1, ev.xmotion.x, ev.xmotion.y, 0, 0); case ButtonRelease: return onMouse(2, ev.xbutton.x, ev.xbutton.y, (int)ev.xbutton.button, ev.xbutton.time / 1000.0);
       case LeaveNotify: return onMouse(3, 0, 0, 0, 0); default: return false; } }
@@ -196,7 +200,7 @@ struct Gui {
       default: return false; } }
   std::string lastSig;
   std::string signature() const { char b[400]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i)); sapp(b, sizeof b, n, "%d|%d|%d|%d|%.3f", drag, hover, showTip ? 1 : 0, W, eye); std::string s(b, n); if (diag) s += diag(); return s; }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
   void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }
     if (!win) return; std::string sig = signature(); if (redraw || sig != lastSig) { lastSig = sig; draw(); } }
