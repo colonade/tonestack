@@ -5,8 +5,12 @@
 #ifndef TS_VERSION
 #define TS_VERSION "?"
 #endif
-#ifdef __APPLE__
+#include "platform.hpp"   // TS_OWNVIEW: eigene Ansicht (macOS, Windows)
+#if defined(__APPLE__)
 #include "cairo_cg.hpp"
+#include "macview.h"
+#elif defined(_WIN32)
+#include "cairo_win.hpp"   // echtes Cairo, Ansicht aus winview.cpp
 #include "macview.h"
 #else
 #include <X11/Xlib.h>
@@ -53,7 +57,7 @@ inline double freqAt(int i) { return 20 * std::pow(1000.0, (double)i / (NF - 1))
 static const char *REFLABEL = "knobs at 5, switches off";
 inline double potTaper(double x, int mode) { if (x <= 0) return 0; if (x >= 1) return 1; if (mode == 2) return x; const double m = mode == 1 ? 0.10 : 0.15; double b = (1 - m) / m; b = b * b; return (std::pow(b, x) - 1) / (b - 1); }   // wie im Kern (ohne dessen Header, für mac/test/render.mm)
 
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
 struct Gui : tsmac::Client {
   void *win = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0; std::function<void()> onTick;
 #else
@@ -78,7 +82,7 @@ struct Gui {
       for (int y = 0; y < ih; y++) for (int x = 0; x < iw; x++) { unsigned char *s = px + (y * iw + x) * 3; unsigned char *t = dst + y * stride + x * 4; t[0] = s[2]; t[1] = s[1]; t[2] = s[0]; t[3] = 255; }
       cairo_surface_mark_dirty(img); stbi_image_free(px); }
   }
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
   bool attach(void *parentView, int w, int h) { W = w; H = h; loadImg(); win = tsmac::create(parentView, w, h, this); return win != nullptr; }
   void show() { tsmac::show(win); }
   void hide() { tsmac::hide(win); }
@@ -111,7 +115,7 @@ struct Gui {
     else std::snprintf(buf, n, "%s  %.1f  (pot %.0f %%, linear)", KNAME[i], v, v * 10); }
   // Schalter auf der Frontplatte (Druckschalter des Geräts): Hebel oben = eingeschaltet
   bool swUp(int k, const double *v) const { return v[SWP[k]] > 0.5; }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
     cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy); }
 #endif
@@ -120,7 +124,7 @@ struct Gui {
     double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
     bool spk = v[P_SPK] > 0.5, direct = v[P_DIRECT] > 0.5;
     setrgb(c, 0x0a0a0a); cairo_paint(c);
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
     // Foto einmal je Fenstergröße vorskaliert (ab Laney 3.31 / Yamaha 1.12 / AmpFett 1.12; vorher je Bild neu skaliert)
     if (!base || baseS != s) { if (base) cairo_surface_destroy(base); base = cairo_image_surface_create(CAIRO_FORMAT_RGB24, (int)std::ceil(FW * s), (int)std::ceil(FH * s)); baseS = s;
       cairo_t *b = cairo_create(base); cairo_scale(b, s, s); cairo_set_source_surface(b, img, 0, 0); cairo_rectangle(b, 0, 0, FW, FH); cairo_fill(b); cairo_destroy(b); }
@@ -204,7 +208,7 @@ struct Gui {
   int knobParam(int i) const { return i < NK ? KPARAM[i] : i == 9 ? P_VIN : P_OUT; }
   double knobVal(int i) const { if (i < NK) return getP(KPARAM[i]); return i == 9 ? tsin::vinU(getP(P_VIN)) * 10 : (getP(P_OUT) + 36) / 60 * 10; }
   void setKnob(int i, double u) { u = std::max(0.0, std::min(10.0, u)); if (i < NK) setP(KPARAM[i], std::round(u * 10) / 10); else if (i == 9) setP(P_VIN, tsin::vinFromU(u / 10)); else setP(P_OUT, std::round((u / 10 * 60 - 36) * 2) / 2); }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   bool handle(XEvent &ev) {
     switch (ev.type) {
       case Expose: return true;
@@ -240,7 +244,7 @@ struct Gui {
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i)); sapp(b, sizeof b, n, "%.1f|", inPk);
     for (int i = 0; i < 5; i++) sapp(b, sizeof b, n, "%d|", (int)std::lround(std::log10(1 + std::min(std::max(meter[i], 0.0), 999.0)) * 60));   /* nur sichtbare Änderungen neu zeichnen */
     sapp(b, sizeof b, n, "%d|%d|%d|%d|%d|%d|%d", meterOn ? 1 : 0, osActive, drag, hover, showTip ? 1 : 0, W, curveStale ? (int)(std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count() * 10) : 0); std::string s(b, n); if (diag) s += diag(); return s; }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
   void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }
     if (!win) return; std::string sig = signature(); if (redraw || sig != lastSig) { lastSig = sig; draw(); } }

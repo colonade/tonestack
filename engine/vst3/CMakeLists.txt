@@ -7,6 +7,9 @@
 #   → engine/build/vst3/Laney_AOR50.vst3, Lametta_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Lametta_G100.vst3, Lametta_B100III.vst3, AmpFett_SVTCL.vst3, Wien_EQ.vst3, AmpFett_76.vst3, Loldano_SLO100.vst3, Kaiserin_Reverb.vst3, Blech_140.vst3, Wisent_Echoreck.vst3, Viereck_34.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
 # macOS (Xcode-Befehlszeilenwerkzeuge, cmake, ninja): dieselben Befehle; gebaut werden VST3 und Audio Unit (AUv2, .component)
 # für Apple Silicon und Intel, mit Frontplatte (NSView + CoreGraphics: clap/macview.mm, clap/cairo_cg.hpp).
+# Windows (x86-64, ab 2026-11-21): unter Linux mit MinGW-w64 übersetzt (engine/win/build.sh, Werkzeugkette engine/win/mingw64.cmake),
+# gebaut werden VST3 und CLAP, mit Frontplatte (HWND + Cairo: clap/winview.cpp, clap/cairo_win.hpp); Cairo und pixman statisch
+# aus TS_CAIRO_PREFIX (engine/win/build-cairo.sh), Laufzeitbibliotheken statisch (keine DLL außer denen von Windows).
 cmake_minimum_required(VERSION 3.21)
 if (APPLE)
   set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
@@ -35,7 +38,12 @@ FetchContent_Declare(clap-wrapper
   GIT_TAG 806bba0a5f792e3966b99c1561ab9952d3316d7c)
 FetchContent_MakeAvailable(clap-wrapper)
 
-if (NOT APPLE)
+if (WIN32)
+  set(TS_CAIRO_PREFIX "" CACHE PATH "Ordner mit include/cairo und lib/libcairo.a, lib/libpixman-1.a (engine/win/build-cairo.sh)")
+  if (NOT EXISTS "${TS_CAIRO_PREFIX}/lib/libcairo.a")
+    message(FATAL_ERROR "Cairo für Windows fehlt: -DTS_CAIRO_PREFIX=… (engine/win/build-cairo.sh)")
+  endif()
+elseif (NOT APPLE)
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(GUI REQUIRED IMPORTED_TARGET cairo x11)
 endif()
@@ -45,6 +53,8 @@ function(tonestack_plugin name src entry outname bundle version aucode)
   if (APPLE)
     add_library(${name}-impl STATIC ${E}/clap/${src} ${E}/clap/macview.mm)
     set_source_files_properties(${E}/clap/macview.mm TARGET_DIRECTORY ${name}-impl PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  elseif (WIN32)
+    add_library(${name}-impl STATIC ${E}/clap/${src} ${E}/clap/winview.cpp)
   else()
     add_library(${name}-impl STATIC ${E}/clap/${src})
   endif()
@@ -55,6 +65,12 @@ function(tonestack_plugin name src entry outname bundle version aucode)
     target_compile_definitions(${name}-impl PRIVATE TS_VIEW_CLASS=TSView_${name})   # eigener Klassenname je Plugin
     target_link_libraries(${name}-impl PUBLIC clap "-framework Cocoa" "-framework CoreGraphics" "-framework CoreText")
     set(FORMATS CLAP VST3 AUV2)
+  elseif (WIN32)
+    target_include_directories(${name}-impl PRIVATE ${TS_CAIRO_PREFIX}/include/cairo)
+    target_compile_definitions(${name}-impl PRIVATE CAIRO_WIN32_STATIC_BUILD=1)
+    target_link_libraries(${name}-impl PUBLIC clap ${TS_CAIRO_PREFIX}/lib/libcairo.a ${TS_CAIRO_PREFIX}/lib/libpixman-1.a
+      gdi32 msimg32 dwrite d2d1 windowscodecs user32 ole32 uuid)
+    set(FORMATS CLAP VST3)
   else()
     target_link_libraries(${name}-impl PUBLIC PkgConfig::GUI clap)   # clap: Header für die Einstiegsdatei
     set(FORMATS CLAP VST3)
@@ -72,8 +88,14 @@ function(tonestack_plugin name src entry outname bundle version aucode)
     AUV2_MANUFACTURER_CODE "Tnst"
     AUV2_SUBTYPE_CODE "${aucode}"
     AUV2_INSTRUMENT_TYPE "aufx"
+    WINDOWS_FOLDER_VST3 TRUE   # Windows: Ordner-Bundle wie unter Linux/macOS (Steinberg-Empfehlung seit VST 3.6.10)
     ASSET_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-  if (NOT APPLE)
+  if (WIN32)
+    # alles statisch (libstdc++, libgcc, winpthreads): die DLL braucht nur Windows-eigene Bibliotheken
+    target_link_options(${name}_vst3 PRIVATE -static -static-libgcc -static-libstdc++ -Wl,--no-insert-timestamp ${E}/win/vst3.def)   # .def: nur die Einstiege exportieren
+    target_link_options(${name}_clap PRIVATE -static -static-libgcc -static-libstdc++ -Wl,--no-insert-timestamp ${E}/win/clap.def)
+    set_target_properties(${name}_vst3 ${name}_clap PROPERTIES PREFIX "")   # MinGW setzte sonst „lib“ davor
+  elseif (NOT APPLE)
     # wie die CLAP-Fassung: libstdc++/libgcc statisch, damit nur glibc ≥ 2.38 nötig ist
     target_link_options(${name}_vst3 PRIVATE -static-libgcc -static-libstdc++ -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
   endif()

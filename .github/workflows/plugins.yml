@@ -1,6 +1,7 @@
-# Plugins bauen und veröffentlichen: Linux (CLAP, VST3; Ubuntu 24.04) und Mac (Audio Unit für Logic, VST3; macOS 15).
+# Plugins bauen und veröffentlichen: Linux (CLAP, VST3, Debian-Paket; Ubuntu 24.04), Windows (VST3, CLAP, Installer; unter Linux mit MinGW
+# übersetzt, auf einem Windows-Rechner geprüft) und Mac (Audio Unit für Logic, VST3; macOS 15).
 # Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
-# Ergebnis: Artefakte "tonestack-linux" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V>_loldano-<V>_kaiserin-<V>_blech140-<V>_wisent-<V>_viereck34-<V> (ältere werden gelöscht).
+# Ergebnis: Artefakte "tonestack-linux", "tonestack-windows" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V>_loldano-<V>_kaiserin-<V>_blech140-<V>_wisent-<V>_viereck34-<V> (ältere werden gelöscht).
 # Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
 # Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
 name: Plugins
@@ -8,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/release.sh', 'scripts/versions.sh', '.github/workflows/plugins.yml']
+    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/versions.sh', '.github/workflows/plugins.yml']
 permissions:
   contents: read
 jobs:
@@ -24,7 +25,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Werkzeuge
-        run: sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake zip
+        run: |
+          # deb-src für die Cairo-/pixman-Quellen der Windows-Fassung (engine/win/build-cairo.sh)
+          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake zip g++-mingw-w64-x86-64-posix meson pkg-config nsis
       - name: Bauen (CLAP, VST3, Testwerkzeuge)
         run: |
           set -o pipefail
@@ -60,17 +64,39 @@ jobs:
           ./engine/build/slobassck | tail -1
           ./engine/build/ecc83ds | tail -4
           for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck Viereck_34; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
+      - name: Windows bauen (MinGW-w64, Cairo statisch)
+        run: |
+          set -o pipefail
+          bash engine/win/build.sh "$RUNNER_TEMP/win-cairo" 2>&1 | tee win.log || { python3 mac/annot.py Windows-Bau win.log 40 'error|Error|FEHLER|Traceback|No such'; exit 1; }
+          python3 engine/win/mkrefs.py wintest
+          cp -r engine/build/win/VST3 engine/build/win/CLAP engine/build/win/plugtest.exe engine/build/win/wingui.exe engine/win/wincheck.py wintest/
       - name: Packen
         run: |
           set -euo pipefail
           bash scripts/pack-plugins.sh
-          (cd dist && sha256sum *.zip > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt)
+          bash scripts/pack-deb.sh
+          bash scripts/pack-windows.sh
+          (cd dist && sha256sum *_CLAP-*.zip *_VST3-*.zip tonestack-plugins_*_amd64.deb > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt)
+          (cd dist && sha256sum *_Windows-*.zip tonestack-Plugins-Windows.exe > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt)
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         with:
           name: tonestack-linux
           path: |
-            dist/*.zip
+            dist/*_CLAP-*.zip
+            dist/*_VST3-*.zip
+            dist/tonestack-plugins_*_amd64.deb
             dist/SHA256SUMS-linux.txt
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
+        with:
+          name: tonestack-windows
+          path: |
+            dist/*_Windows-*.zip
+            dist/tonestack-Plugins-Windows.exe
+            dist/SHA256SUMS-windows.txt
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
+        with:
+          name: tonestack-wintest
+          path: wintest
   mac:
     concurrency:   # neuer Lauf bricht den Bau eines älteren ab (Wunsch des Nutzers: nur das neueste Paket bauen, Mac-Bauzeit sparen); laufende Veröffentlichung bleibt unberührt
       group: plugins-mac-${{ github.ref }}
@@ -174,9 +200,41 @@ jobs:
             out/*.pkg
             out/*.png
             out/SHA256SUMS.txt
+  windows:
+    # Prüfung der Windows-Fassung auf echtem Windows: Steinberg-Validator (aus dem VST3-SDK 3.8.0 gebaut), Rechnung gegen Linux, Oberfläche im Fenster
+    needs: linux
+    concurrency:
+      group: plugins-windows-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: windows-2025
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: tonestack-wintest
+          path: wintest
+      - name: VST3-Validator bauen (VST3-SDK 3.8.0, Visual Studio)
+        run: |
+          set -euo pipefail
+          git clone -q --depth 1 --branch v3.8.0_build_66 --recurse-submodules --shallow-submodules https://github.com/steinbergmedia/vst3sdk.git "$RUNNER_TEMP/vst3sdk"
+          cmake -S "$RUNNER_TEMP/vst3sdk" -B "$RUNNER_TEMP/sdkb" -G "Visual Studio 17 2022" -A x64 -DSMTG_ENABLE_VST3_HOSTING_EXAMPLES=ON -DSMTG_ENABLE_VST3_PLUGIN_EXAMPLES=OFF -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_CREATE_PLUGIN_LINK=OFF -DSMTG_RUN_VST_VALIDATOR=OFF > sdkcfg.log
+          cmake --build "$RUNNER_TEMP/sdkb" --config Release --target validator -- -m -v:minimal > sdkbuild.log || { tail -40 sdkbuild.log; exit 1; }
+          find "$RUNNER_TEMP/sdkb" -name validator.exe | head -1 > validator.txt; cat validator.txt; [ -s validator.txt ]
+      - name: Prüfen (Validator, Rechnung gegen Linux, Oberfläche)
+        run: python wintest/wincheck.py wintest "$(cat validator.txt)" winbilder
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
+        if: always()
+        with:
+          name: tonestack-windows-bilder
+          path: winbilder/*.png
+          if-no-files-found: ignore
   publish:
-    # Linux- und Mac-Dateien ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
-    needs: [linux, mac]
+    # Linux-, Windows- und Mac-Dateien ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
+    needs: [linux, windows, mac]
     if: github.ref == 'refs/heads/main'
     concurrency:   # Veröffentlichungen nacheinander, eine spätere ersetzt eine noch wartende (sonst könnte ein älterer Lauf das neuere Release löschen)
       group: plugins-publish
@@ -196,12 +254,22 @@ jobs:
         with:
           name: tonestack-mac
           path: mac-art
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: tonestack-windows
+          path: win-art
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: tonestack-windows-bilder
+          path: win-bilder
       - name: Prüfen und veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt)
+          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt) && (cd win-art && sha256sum -c SHA256SUMS-windows.txt)
+          n=$(ls win-bilder/win-*.png | wc -l); [ "$n" = 14 ] || { echo "::error::14 Windows-Prüfbilder erwartet, gefunden: $n"; exit 1; }
+          cp win-art/* win-bilder/win-*.png rel/
           n=$(ls mac-art/tonestack-Plugins-Mac*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
           cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/b100ii.png rel/mac-b100ii.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png; cp mac-art/b3.png rel/mac-b100iii.png; cp mac-art/svt.png rel/mac-svtcl.png; cp mac-art/weq.png rel/mac-wieneq.png; cp mac-art/u76.png rel/mac-ampfett76.png; cp mac-art/slo.png rel/mac-loldano.png; cp mac-art/kaiserin.png rel/mac-kaiserin.png; cp mac-art/blech.png rel/mac-blech140.png; cp mac-art/wisent.png rel/mac-wisent.png; cp mac-art/viereck.png rel/mac-viereck.png
           (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)

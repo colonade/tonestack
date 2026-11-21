@@ -5,8 +5,12 @@
 #ifndef TS_VERSION
 #define TS_VERSION "?"
 #endif
-#ifdef __APPLE__
+#include "platform.hpp"   // TS_OWNVIEW: eigene Ansicht (macOS, Windows)
+#if defined(__APPLE__)
 #include "cairo_cg.hpp"
+#include "macview.h"
+#elif defined(_WIN32)
+#include "cairo_win.hpp"   // echtes Cairo, Ansicht aus winview.cpp
 #include "macview.h"
 #else
 #include <X11/Xlib.h>
@@ -53,7 +57,7 @@ inline double midFreq(int k, double x) { return weq::midFreq(k, x); }
 inline double midQ(double x) { return weq::midQ(x); }
 inline double qOct(double q) { return 2 * std::asinh(1 / (2 * q)) / std::log(2.0); }   // Bandbreite des Bandpasses in Oktaven (−3 dB)
 
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
 struct Gui : tsmac::Client {
   void *win = nullptr; cairo_surface_t *img = nullptr; int W = 0, H = 0; std::function<void()> onTick;
 #else
@@ -76,7 +80,7 @@ struct Gui {
       for (int y = 0; y < ih; y++) for (int x = 0; x < iw; x++) { unsigned char *s = px + (y * iw + x) * 3; unsigned char *t = dst + y * stride + x * 4; t[0] = s[2]; t[1] = s[1]; t[2] = s[0]; t[3] = 255; }
       cairo_surface_mark_dirty(img); stbi_image_free(px); }
   }
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
   bool attach(void *parentView, int w, int h) { W = w; H = h; loadImg(); win = tsmac::create(parentView, w, h, this); return win != nullptr; }
   void show() { tsmac::show(win); }
   void hide() { tsmac::hide(win); }
@@ -111,7 +115,7 @@ struct Gui {
     if (isGain(p)) std::snprintf(buf, n, "%s  %+.1f dB  (knob %+.2f, range +/-%d dB)", KNAME[i], gainDb(v / 5, range()), v, range() == 0 ? 6 : range() == 1 ? 12 : 20);
     else if (p == P_M1F || p == P_M2F || p == P_M3F) { double f = midFreq((p - P_M1F) / 3, v / 10); std::snprintf(buf, n, f >= 1000 ? "%s  %.2f kHz" : "%s  %.0f Hz", KNAME[i], f >= 1000 ? f / 1000 : f); }
     else { double q = midQ(v / 10); std::snprintf(buf, n, "%s  %.2f  (bandwidth %.2f octaves; left = broad, right = narrow)", KNAME[i], q, qOct(q)); } }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   void draw() { if (!xs) return; cairo_t *c = cairo_create(xs); cairo_push_group(c); drawTo(c);
     cairo_pop_group_to_source(c); cairo_set_operator(c, CAIRO_OPERATOR_SOURCE); cairo_paint(c); cairo_destroy(c); cairo_surface_flush(xs); XFlush(dpy); }
 #endif
@@ -119,7 +123,7 @@ struct Gui {
   void drawTo(cairo_t *c) {
     double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
     setrgb(c, 0x0a0a0a); cairo_paint(c);
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
     if (!base || baseS != s) { if (base) cairo_surface_destroy(base); base = cairo_image_surface_create(CAIRO_FORMAT_RGB24, (int)std::ceil(FW * s), (int)std::ceil(FH * s)); baseS = s;
       cairo_t *b = cairo_create(base); cairo_scale(b, s, s); cairo_set_source_surface(b, img, 0, 0); cairo_rectangle(b, 0, 0, FW, FH); cairo_fill(b); cairo_destroy(b); }
     cairo_set_source_surface(c, base, 0, 0); cairo_rectangle(c, 0, 0, FW * s, FH * s); cairo_fill(c);
@@ -185,7 +189,7 @@ struct Gui {
   // Gain: Rastung bei 0 (Stellungen innerhalb ±0,15 schnappen auf 0, wie die Rastung am Gerät)
   void setKnob(int i, double uu) { uu = std::max(0.0, std::min(10.0, uu)); if (i < NK) { int p = KPARAM[i]; double r = std::round(uu * 100) / 100; if (isGain(p)) { r -= 5; if (std::fabs(r) < 0.15) r = 0; } setP(p, r); }
     else setP(P_OUT, std::round((uu / 10 * 48 - 24) * 2) / 2); }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   bool handle(XEvent &ev) {
     switch (ev.type) {
       case Expose: return true;
@@ -218,7 +222,7 @@ struct Gui {
   std::string lastSig;
   std::string signature() const { char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
     sapp(b, sizeof b, n, "%d|%d|%d|%d", drag, hover, showTip ? 1 : 0, W); std::string s(b, n); if (diag) s += diag(); return s; }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   void gone() { if (xs) { cairo_surface_destroy(xs); xs = nullptr; } win = 0; }
   void pump() { if (!dpy) return; bool redraw = false; while (XPending(dpy)) { XEvent ev; XNextEvent(dpy, &ev); if (win && ev.type == DestroyNotify && ev.xdestroywindow.window == win) { gone(); continue; } if (win && ev.xany.window == win && handle(ev)) redraw = true; }
     if (!win) return; std::string sig = signature(); if (redraw || sig != lastSig) { lastSig = sig; draw(); } }

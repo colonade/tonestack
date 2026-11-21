@@ -4,5 +4,5 @@ extern "C" {
 bool kai_entry_init(const char *path);
 void kai_entry_deinit();
 const void *kai_entry_factory(const char *id);
-CLAP_EXPORT const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, kai_entry_init, kai_entry_deinit, kai_entry_factory};
+CLAP_EXPORT extern const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, kai_entry_init, kai_entry_deinit, kai_entry_factory};
 }

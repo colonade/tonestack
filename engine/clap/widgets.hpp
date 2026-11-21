@@ -1,8 +1,11 @@
 // Gemeinsame Bedienelemente der Plugin-Oberflächen (unterer Bereich): Kippschalter, Drehwahlschalter, Textausgabe.
 // Koordinaten in "UI-Einheiten": bei Standardgröße (1200 Pixel breit) ist 1 Einheit = 1 Pixel, Schriftgrößen also in Pixeln.
 #pragma once
-#ifdef __APPLE__
+#if defined(__APPLE__)
 #include "cairo_cg.hpp"
+#elif defined(_WIN32)
+#include "cairo_win.hpp"
+#include <direct.h>
 #else
 #include <cairo/cairo.h>
 #endif
@@ -15,16 +18,27 @@
 #include <chrono>
 #include <sys/stat.h>
 
+#ifdef _WIN32
+#define TS_SANS "Segoe UI"   // Windows: Systemschrift (DirectWrite kennt „Sans“ nicht)
+#else
+#define TS_SANS "Sans"
+#endif
 namespace tsw {
 // Einstellungen der Oberfläche, die für alle tonestack-Plugins eines Benutzers gelten (nicht je Projekt): Wertanzeige am Knopf, Bandliste des Wien EQ.
-// Datei: Linux $XDG_CONFIG_HOME/tonestack/ui.conf (sonst ~/.config/…), macOS ~/Library/Application Support/tonestack/ui.conf; Zeilen „name=0|1“.
+// Datei: Linux $XDG_CONFIG_HOME/tonestack/ui.conf (sonst ~/.config/…), macOS ~/Library/Application Support/tonestack/ui.conf,
+// Windows %APPDATA%\tonestack\ui.conf; Zeilen „name=0|1“.
 // Lässt sich die Datei nicht schreiben (abgeschottete Hosts), gilt die Wahl bis zum Ende des Programms. Gelesen wird höchstens einmal je Sekunde,
 // damit offene Fenster anderer Plugins der Wahl folgen.
 struct Prefs { bool tips = true, bands = true; };
-inline std::string prefDir() { const char *h = std::getenv("HOME");
-#ifdef __APPLE__
-  return h ? std::string(h) + "/Library/Application Support/tonestack" : std::string();
+inline std::string prefDir() {
+#ifdef _WIN32
+  const char *a = std::getenv("APPDATA"); return a && *a ? std::string(a) + "/tonestack" : std::string();
 #else
+  const char *h = std::getenv("HOME");
+#endif
+#if defined(__APPLE__)
+  return h ? std::string(h) + "/Library/Application Support/tonestack" : std::string();
+#elif !defined(_WIN32)
   const char *x = std::getenv("XDG_CONFIG_HOME"); if (x && *x) return std::string(x) + "/tonestack"; return h ? std::string(h) + "/.config/tonestack" : std::string();
 #endif
 }
@@ -32,11 +46,20 @@ inline Prefs &prefs() { static Prefs p; static bool fileOk = true; static std::c
   if (fileOk && (last == std::chrono::steady_clock::time_point{} || now - last > std::chrono::seconds(1))) { last = now; std::string d = prefDir();
     if (d.empty()) fileOk = false; else if (FILE *f = std::fopen((d + "/ui.conf").c_str(), "r")) { char k[32]; int v; while (std::fscanf(f, " %31[a-z]=%d", k, &v) == 2) { if (std::string(k) == "tips") p.tips = v != 0; else if (std::string(k) == "bands") p.bands = v != 0; } std::fclose(f); } }
   return p; }
-inline void prefSave() { std::string d = prefDir(); if (d.empty()) return; { size_t k = d.rfind('/'); if (k != std::string::npos && k > 0) ::mkdir(d.substr(0, k).c_str(), 0755); } ::mkdir(d.c_str(), 0755); std::string tmp = d + "/ui.conf.tmp"; if (FILE *f = std::fopen(tmp.c_str(), "w")) { const Prefs &p = prefs(); std::fprintf(f, "tips=%d\nbands=%d\n", p.tips ? 1 : 0, p.bands ? 1 : 0); std::fclose(f); std::rename(tmp.c_str(), (d + "/ui.conf").c_str()); } }
+#ifdef _WIN32
+inline int ts_mkdir(const char *p) { return _mkdir(p); }
+#else
+inline int ts_mkdir(const char *p) { return ::mkdir(p, 0755); }
+#endif
+inline void prefSave() { std::string d = prefDir(); if (d.empty()) return; { size_t k = d.rfind('/'); if (k != std::string::npos && k > 0) ts_mkdir(d.substr(0, k).c_str()); } ts_mkdir(d.c_str()); std::string tmp = d + "/ui.conf.tmp"; if (FILE *f = std::fopen(tmp.c_str(), "w")) { const Prefs &p = prefs(); std::fprintf(f, "tips=%d\nbands=%d\n", p.tips ? 1 : 0, p.bands ? 1 : 0); std::fclose(f);
+#ifdef _WIN32
+  std::remove((d + "/ui.conf").c_str());   // rename ersetzt unter Windows keine vorhandene Datei
+#endif
+  std::rename(tmp.c_str(), (d + "/ui.conf").c_str()); } }
 constexpr double UW = 1200;   // Breite des unteren Bereichs in UI-Einheiten
 constexpr double TPI = 3.14159265358979323846;
 inline void rgb(cairo_t *c, int hex, double a = 1) { cairo_set_source_rgba(c, ((hex >> 16) & 255) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, a); }
-inline void font(cairo_t *c, double px, bool bold) { cairo_select_font_face(c, "Sans", CAIRO_FONT_SLANT_NORMAL, bold ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_WEIGHT_NORMAL); cairo_set_font_size(c, px); }
+inline void font(cairo_t *c, double px, bool bold) { cairo_select_font_face(c, TS_SANS, CAIRO_FONT_SLANT_NORMAL, bold ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_WEIGHT_NORMAL); cairo_set_font_size(c, px); }
 // Text an der Grundlinie y; align 0 links, 1 Mitte, 2 rechts
 inline double text(cairo_t *c, const char *t, double x, double y, double px, bool bold, int align = 0) {
   font(c, px, bold); cairo_text_extents_t e; cairo_text_extents(c, t, &e);

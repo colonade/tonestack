@@ -20,10 +20,10 @@ namespace wisentgui { struct Gui; enum { P_INPUT, P_SWELL, P_VOLUME, P_BASS, P_T
 #include <mutex>
 #include <atomic>
 #include <string>
-#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#if !defined(TS_NO_GUI) && !defined(TS_OWNVIEW)
 #include "x11safe.hpp"
 #endif
-#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#if !defined(TS_NO_GUI) && !defined(TS_OWNVIEW)
 #define TSX_GUARD tsx::Guard xg_
 #else
 #define TSX_GUARD (void)0
@@ -50,6 +50,9 @@ struct Plugin {
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; wisent::Core *core = nullptr; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true}, fresh{true}, active{false};
   std::atomic<double> load{0}, eye{0}; std::vector<float> a, oa; long quiet = 0; std::atomic<bool> sleeping{false}; wisent::Setting cur; double outG = 1;
   wisentgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1640, guiH = 0;
+#ifdef _WIN32
+  double guiScale = 1;   // Windows: Anzeigeskalierung des Hosts (set_scale); Fenstergrößen sind dort Gerätepixel
+#endif
   std::string diagMode, diagTxt; int diagCnt = 0;
   std::array<double, 4> heads() const { return {val[P_H1].load(), val[P_H2].load(), val[P_H3].load(), val[P_H4].load()}; }   // Kopfstellungen (ms bei 50 Hz, ab 1.4)
   wisent::Setting target() const { wisent::Setting s; s.input = val[P_INPUT].load() / 10; s.swell = val[P_SWELL].load() / 10; s.volume = val[P_VOLUME].load() / 10; s.bass = val[P_BASS].load() / 10; s.treble = val[P_TREBLE].load() / 10; s.dry = val[P_DRY].load() / 10;
@@ -111,12 +114,12 @@ static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 static bool pl_init(const clap_plugin_t *) { return true; }
 static void stopAll(Plugin *pl) { delete pl->core; pl->core = nullptr; }
 static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
-#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#if !defined(TS_NO_GUI) && !defined(TS_OWNVIEW)
   { auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; } }
 #endif
 #ifndef TS_NO_GUI
   { TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   tsx::close(pl->dpy); pl->dpy = nullptr;
 #endif
   }
@@ -174,23 +177,18 @@ static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std
 static void gui_gesture(Plugin *pl, int id, bool begin) { if (id < 0 || id >= P_COUNT) return;
   { std::lock_guard<std::mutex> lk(pl->qm); if (begin) { if (pl->gestId >= 0) pl->guiQ.push_back({pl->gestId, 0, 2}); pl->gestId = id; pl->guiQ.push_back({id, 0, 1}); } else if (pl->gestId == id) { pl->gestId = -1; pl->guiQ.push_back({id, 0, 2}); } else return; }
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
-#ifdef __APPLE__
-#define TS_WINAPI CLAP_WINDOW_API_COCOA
-#else
-#define TS_WINAPI CLAP_WINDOW_API_X11
-#endif
 static bool g_supported(const clap_plugin_t *, const char *api, bool floating) { return !std::strcmp(api, TS_WINAPI) && !floating; }
 static bool g_preferred(const clap_plugin_t *, const char **api, bool *floating) { *api = TS_WINAPI; *floating = false; return true; }
 static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { Plugin *pl = P(p); TSX_GUARD; if (std::strcmp(api, TS_WINAPI) || floating) return false;
   { std::lock_guard<std::recursive_mutex> glk(pl->gm);
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   if (!pl->dpy) pl->dpy = tsx::open(); if (!pl->dpy) return false;
 #endif
   if (!pl->gui) { pl->gui = new wisentgui::Gui(); pl->gui->getP = [pl](int i) { return pl->val[i].load(); }; pl->gui->setP = [pl](int i, double v) { gui_setp(pl, i, v); }; pl->gui->gesture = [pl](int i, bool b) { gui_gesture(pl, i, b); }; pl->gui->diag = [pl]() { return pl->diagTxt; };
   }
   pl->guiH = pl->guiW * wisentgui::TOTALH / wisentgui::FW;
   }
-#ifdef __APPLE__
+#ifdef TS_OWNVIEW
   { std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) pl->gui->onTick = [pl]() { gui_tick(pl); }; }
 #else
   auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId == CLAP_INVALID_ID) ht->register_timer(pl->host, 33, &pl->timerId);
@@ -198,7 +196,7 @@ static bool g_create(const clap_plugin_t *p, const char *api, bool floating) { P
   return true; }
 static void g_destroy(const clap_plugin_t *p) { Plugin *pl = P(p); TSX_GUARD; if (pl->gestId >= 0) gui_gesture(pl, pl->gestId, false); auto *ht = (const clap_host_timer_support_t*)pl->host->get_extension(pl->host, CLAP_EXT_TIMER_SUPPORT); if (ht && pl->timerId != CLAP_INVALID_ID) { ht->unregister_timer(pl->host, pl->timerId); pl->timerId = CLAP_INVALID_ID; }
   std::lock_guard<std::recursive_mutex> glk(pl->gm); if (pl->gui) { pl->gui->destroy(); delete pl->gui; pl->gui = nullptr; }
-#ifndef __APPLE__
+#ifndef TS_OWNVIEW
   if (pl->dpy) { XSync(pl->dpy, False); }
 #endif
   }
@@ -206,15 +204,19 @@ static void upd_diag(Plugin *pl) { char b[160]; std::snprintf(b, sizeof b, "CPU 
   { const char *m = std::strstr(b, " · "); std::string mode = m ? m : ""; if (++pl->diagCnt < 15 && mode == pl->diagMode && !pl->diagTxt.empty()) return; pl->diagCnt = 0; pl->diagMode = mode; pl->diagTxt = b; } }
 static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; upd_diag(pl);
   pl->gui->eye = pl->active && !pl->sleeping ? pl->eye.load() : 0; }
+#ifdef _WIN32   // bei 150 % Anzeigeskalierung startet die Oberfläche 1,5-mal so groß (CLAP: Größen unter Windows in Gerätepixeln)
+static bool g_set_scale(const clap_plugin_t *p, double s) { Plugin *pl = P(p); if (!(s >= 0.5 && s <= 4)) return false; double k = s / pl->guiScale; pl->guiScale = s; pl->guiW *= k; pl->guiH *= k; return true; }
+#else
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
+#endif
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }
 static bool g_resize_hints(const clap_plugin_t *, clap_gui_resize_hints_t *h) { h->can_resize_horizontally = true; h->can_resize_vertically = true; h->preserve_aspect_ratio = true; h->aspect_ratio_width = (uint32_t)wisentgui::FW; h->aspect_ratio_height = (uint32_t)wisentgui::TOTALH; return true; }
 static bool g_adjust_size(const clap_plugin_t *, uint32_t *w, uint32_t *h) { double ww = std::max(700.0, std::min(2600.0, (double)*w)); *w = (uint32_t)std::lround(ww); *h = (uint32_t)std::lround(ww * wisentgui::TOTALH / wisentgui::FW); return true; }
 static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
 static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
-#ifdef __APPLE__
-  return pl->gui->attach(win->cocoa, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
+#ifdef TS_OWNVIEW
+  return pl->gui->attach(win->ptr, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
 #else
   if (!pl->dpy) return false; return pl->gui->init(pl->dpy, (Window)win->x11, (int)std::lround(pl->guiW), (int)std::lround(pl->guiH)); }
 #endif
@@ -233,7 +235,7 @@ static uint32_t g_tail(const clap_plugin_t *p) { Plugin *pl = P(p); int m = (int
   if (m != 0 && sw >= thr) return UINT32_MAX; double hmx = 0; for (int k = 0; k < 4; k++) hmx = std::max(hmx, pl->val[P_H1 + k].load()); const double rl = (pl->val[P_MAINS].load() > 0.5 ? 1.2 : 1.0) * std::max(0.25, pl->val[P_SPEED].load());
   double t = m == 0 ? std::max(0.4 / std::max(0.25, pl->val[P_SPEED].load()), hmx / 1000 / rl + 0.1) : std::max(0.4, hmx / 1000 / rl + 0.1) + 30 * std::pow(sw / std::min(1.0, thr), 3); return (uint32_t)std::lround(t * pl->fs); }   // ab 1.4: späteste Kopfstellung
 static const clap_plugin_tail_t EXT_TAIL = {g_tail};
-#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#if !defined(TS_NO_GUI) && !defined(TS_OWNVIEW)
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
   try { if (pl->gui) { gui_tick(pl); pl->gui->pump(); } } catch (...) {} }
 static const clap_plugin_timer_support_t EXT_TIMER = {on_timer};
@@ -243,7 +245,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #ifndef TS_NO_GUI
   if (!std::strcmp(id, CLAP_EXT_GUI)) return &EXT_GUI;
 #endif
-#if !defined(TS_NO_GUI) && !defined(__APPLE__)
+#if !defined(TS_NO_GUI) && !defined(TS_OWNVIEW)
   if (!std::strcmp(id, CLAP_EXT_TIMER_SUPPORT)) return &EXT_TIMER;
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_TAIL)) return &EXT_TAIL; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }

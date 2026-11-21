@@ -1,0 +1,6 @@
+; Windows-VST3: nur die VST3-Einstiege und clap_entry (sucht der Wrapper im eigenen Modul) exportieren, nicht Cairo/pixman
+EXPORTS
+  GetPluginFactory
+  InitDll
+  ExitDll
+  clap_entry

@@ -1,5 +1,6 @@
 #!/bin/bash
-# Baut die Webseite: Seiten aus web/tonestack/ plus die Downloads des aktuellen Releases (Linux-ZIPs und Mac-Installerpaket) in download/.
+# Baut die Webseite: Seiten aus web/tonestack/ plus die Downloads des aktuellen Releases (Linux- und Windows-ZIPs, Debian-Paket,
+# Windows-Installer, Mac-Installerpaket) in download/.
 # Ab 2026-11-20 liegt die Seite auf GitHub Pages (https://tonestack.fluxstatus.de/, Workflow .github/workflows/pages.yml):
 #   SITE=<ordner> bash scripts/pack-web.sh   schreibt die fertige Seite in <ordner> (ohne .htaccess und LIESMICH.txt, die nur der Apache brauchte)
 # Ohne SITE wie bisher web/tonestack-apache.zip (für einen eigenen Apache oder zum Ansehen offline). Die Links in web/tonestack/index.html (Mac) und web/tonestack/plugins/index.html
@@ -12,10 +13,10 @@ set -euo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
 REPO="${REPO:-colonade/tonestack}"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp -r web/tonestack "$T/"; rm -rf "$T/tonestack/download"; mkdir -p "$T/tonestack/download"
-if [ "${LOCAL:-0}" = 1 ]; then cp dist/*.zip dist/*.pkg "$T/tonestack/download/"
-else   # über die REST-Schnittstelle (gh api), nur .zip und .pkg
+if [ "${LOCAL:-0}" = 1 ]; then cp dist/*.zip dist/*.pkg dist/*.exe dist/*.deb "$T/tonestack/download/"
+else   # über die REST-Schnittstelle (gh api), nur .zip, .pkg, .exe, .deb
   mkdir -p "$T/sums"
-  gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name | test("\\.(zip|pkg)$|^SHA256SUMS.*\\.txt$")) | "\(.id) \(.name)"' | while read -r id name; do
+  gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name | test("\\.(zip|pkg|exe|deb)$|^SHA256SUMS.*\\.txt$")) | "\(.id) \(.name)"' | while read -r id name; do
     case "$name" in SHA256SUMS*) o="$T/sums/$name";; *) o="$T/tonestack/download/$name";; esac
     gh api -H "Accept: application/octet-stream" "repos/$REPO/releases/assets/$id" > "$o"; done
   ls "$T"/sums/SHA256SUMS*.txt >/dev/null 2>&1 || { echo "FEHLER: Release ohne SHA256SUMS-*.txt" >&2; exit 1; }
