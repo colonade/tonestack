@@ -1,11 +1,12 @@
 // Laney AOR 50 Vorverstärker als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit)
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "3.51"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "3.52"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #define AOR_REVERB 1   // Federhall im Effektweg (ab 3.35, siehe laney_rev.hpp)
 #define LPA_REUSE   // ab 3.47: Laney-Endstufe mit wiederverwendeter Zerlegung innerhalb eines Abtastwerts (laney_pa.hpp); vor dem ersten Einbinden
 #define B15_TAB     // ab 3.47: Röhrenkennlinien (Dempwolf, Gitterstrom) als Tabelle (b15_core.hpp)
 #include "core.hpp"
 #include "platform.hpp"
+#include "numtext.hpp"
 #include "ports.hpp"
 #include "autoin.hpp"
 #include "swapfade.hpp"
@@ -117,7 +118,7 @@ static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { for (int k = 0; k < d.nn; k++) if (std::strncmp(txt, d.names[k], std::strlen(d.names[k])) == 0) { *out = k; return true; } }
-  *out = std::atof(txt); return true; }
+  *out = tsnum::parse(txt); return std::isfinite(*out); }
 static void apply_events(Plugin *pl, const clap_input_events_t *in) {
   if (!in) return; uint32_t n = in->size(in);
   for (uint32_t i = 0; i < n; i++) { const clap_event_header_t *h = in->get(in, i);
@@ -143,11 +144,11 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
-  len += tsin::saveLine(buf + len, (int)sizeof buf - len, P(p)->ain.pk.load()); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+  len += tsin::saveLine(buf + len, (int)sizeof buf - len, P(p)->ain.pk.load()); tsnum::fixDot(buf, len); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }   // Zustand ist knapp 1 KB; mehr ist kaputt
   bool seen[P_COUNT] = {}; P(p)->ain.pk = 0;
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
-    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = std::atof(line.substr(q + 1).c_str()); if (id == tsin::STATE_ID) { P(p)->ain.pk = tsin::clampPk(v); continue; } if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
+    size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = tsnum::parse(line.substr(q + 1).c_str()); if (id == tsin::STATE_ID) { P(p)->ain.pk = tsin::clampPk(v); continue; } if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   // Projekte älterer Fassungen: Parameter, die es damals nicht gab, so setzen, wie die alte Fassung klang (nicht die heutige Grundstellung)
   for (int i = 0; i < P_COUNT; i++) if (!seen[i]) { double v = PD[i].def; if (i == P_PRES) v = 5; else if (i == P_TUBE1 || i == P_TUBE2 || i == P_TUBE3 || i == P_SPK || i == P_SOFT || i == P_PAD || i == P_MIS) v = 0; P(p)->val[i].store(v); }
   if (!seen[P_INREF]) P(p)->val[P_INREF].store(1.0);   // Projekte vor dem Eingangsbezug: fest 0 dBFS (klingen wie damals)
@@ -297,14 +298,20 @@ static void upd_diag(Plugin *pl) {   // Textzeile: CPU-Wert höchstens zweimal j
 // Anzeigen (Last, Röhrenaussteuerung bzw. Endstufen-Spitze) für die Oberfläche auffrischen; Linux: Host-Timer, macOS: Takt der NSView
 static void gui_tick(Plugin *pl) { std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock() || !pl->gui) return; pl->gui->inPk = tsin::pkDb(pl->ain.pk.load()); if (pl->curveRedo.exchange(false)) pl->gui->curveKey.clear(); upd_diag(pl); for (int i = 0; i < 5; i++) pl->gui->meter[i] = std::max(pl->pk[i].load(), pl->gui->meter[i] * 0.85); }
 #ifdef _WIN32   // bei 150 % Anzeigeskalierung startet die Oberfläche 1,5-mal so groß (CLAP: Größen unter Windows in Gerätepixeln)
-static bool g_set_scale(const clap_plugin_t *p, double s) { Plugin *pl = P(p); if (!(s >= 0.5 && s <= 4)) return false; double k = s / pl->guiScale; pl->guiScale = s; pl->guiW *= k; pl->guiH *= k; return true; }
+static bool g_set_scale(const clap_plugin_t *p, double s) { Plugin *pl = P(p); if (!(s >= 0.5 && s <= 4)) return false; double k = s / pl->guiScale; if (k == 1) return true; pl->guiScale = s; pl->guiW *= k; pl->guiH *= k;
+  // Fenster schon offen (z. B. auf einen Monitor mit anderer Skalierung gezogen): neue Größe beim Host anfordern, er antwortet mit set_size
+  bool open; { std::lock_guard<std::recursive_mutex> glk(pl->gm); open = pl->gui && pl->gui->win; }
+  if (open) { auto *hg = (const clap_host_gui_t*)pl->host->get_extension(pl->host, CLAP_EXT_GUI); if (hg && hg->request_resize) hg->request_resize(pl->host, (uint32_t)std::lround(pl->guiW), (uint32_t)std::lround(pl->guiH)); }
+  return true; }
+static double gscale(const clap_plugin_t *p) { return P(p)->guiScale; }   // Größengrenzen in Gerätepixeln wachsen mit der Skalierung
 #else
+static double gscale(const clap_plugin_t *) { return 1; }
 static bool g_set_scale(const clap_plugin_t *, double) { return false; }
 #endif
 static bool g_get_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { Plugin *pl = P(p); *w = (uint32_t)std::lround(pl->guiW); *h = (uint32_t)std::lround(pl->guiH); return true; }
 static bool g_can_resize(const clap_plugin_t *) { return true; }
 static bool g_resize_hints(const clap_plugin_t *, clap_gui_resize_hints_t *h) { h->can_resize_horizontally = true; h->can_resize_vertically = true; h->preserve_aspect_ratio = true; h->aspect_ratio_width = (uint32_t)FW; h->aspect_ratio_height = (uint32_t)aorgui::TOTALH; return true; }
-static bool g_adjust_size(const clap_plugin_t *, uint32_t *w, uint32_t *h) { double ww = std::max(600.0, std::min(2600.0, (double)*w)); *w = (uint32_t)std::lround(ww); *h = (uint32_t)std::lround(ww * aorgui::TOTALH / FW); return true; }
+static bool g_adjust_size(const clap_plugin_t *p, uint32_t *w, uint32_t *h) { double ww = std::max(600.0 * gscale(p), std::min(2600.0 * gscale(p), (double)*w)); *w = (uint32_t)std::lround(ww); *h = (uint32_t)std::lround(ww * aorgui::TOTALH / FW); return true; }
 static bool g_set_size(const clap_plugin_t *p, uint32_t w, uint32_t h) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); pl->guiW = w; pl->guiH = h; if (pl->gui && pl->gui->win) { pl->gui->resize((int)w, (int)h); pl->gui->draw(); } return true; }
 static bool g_set_parent(const clap_plugin_t *p, const clap_window_t *win) { Plugin *pl = P(p); TSX_GUARD; std::lock_guard<std::recursive_mutex> glk(pl->gm); if (!pl->gui) return false; if (pl->gui->win) pl->gui->destroy();
 #ifdef TS_OWNVIEW

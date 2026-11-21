@@ -12,7 +12,7 @@ cd "$Z/src"
 [ -d pixman-0.42.2 ] || apt-get source -q pixman=0.42.2-1build1 >/dev/null
 [ -d cairo-1.18.0 ] || apt-get source -q cairo=1.18.0-3build1 >/dev/null
 [ -d pixman-0.42.2 ] && [ -d cairo-1.18.0 ] || { echo "FEHLER: Quellen pixman 0.42.2 / cairo 1.18.0 fehlen" >&2; exit 1; }
-sed "s|@PFX@|$Z/prefix|" > "$Z/mingw64.ini" <<'EOF'
+cat > "$Z/mingw64.ini" <<'EOF'
 [binaries]
 c = 'x86_64-w64-mingw32-gcc-posix'
 cpp = 'x86_64-w64-mingw32-g++-posix'

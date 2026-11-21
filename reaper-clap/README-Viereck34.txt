@@ -1,5 +1,5 @@
-Viereck 34 Tilt (after Quad 34) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.0
+Viereck 34 Tilt (after Quad 34) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.1
 
 Two formats, one engine
   Viereck_34.clap and Viereck_34.vst3 contain the same code and sound
@@ -107,4 +107,10 @@ CPU
   input the plugin goes idle.
 
 Changes
+  1.1  Windows version (VST3 and CLAP with the same front panel, installer and
+       ZIP). Project state and values typed into the host no longer depend on
+       the number format of the system (decimal comma). Windows: the window
+       follows a change of the display scaling while it is open, and the mouse
+       wheel also works when Windows sends it to the focused window. Packages
+       now include the GPL licence text (LICENSE.txt). Sound unchanged.
   1.0  First version.

@@ -199,7 +199,7 @@ ls "$NEU"/download/*.zip >/dev/null 2>&1 || info "Hinweis: im ZIP liegt kein dow
 # nur bekannte Dateitypen (nichts, was Apache als Programm ausführen könnte), und in der .htaccess nur die Anweisungen,
 # die die Seiten wirklich brauchen (kein AddHandler/SetHandler/Action/ExecCGI/php_…)
 FREMD="$(find "$NEU" ! -type f ! -type d -print -quit)"; [ -z "$FREMD" ] || fehler "Im ZIP liegt eine Verknüpfung oder Sonderdatei: ${FREMD#"$TMP"/} – nicht installiert."
-FREMD="$(find "$NEU" -type f ! -name .htaccess ! -regex '.*\.\(html\|js\|css\|json\|webmanifest\|png\|jpg\|jpeg\|svg\|ico\|woff2\|txt\|zip\|pkg\)$' -print -quit)"
+FREMD="$(find "$NEU" -type f ! -name .htaccess ! -regex '.*\.\(html\|js\|css\|json\|webmanifest\|png\|jpg\|jpeg\|svg\|ico\|woff2\|txt\|zip\|pkg\|exe\|deb\|xz\|gz\|dsc\)$' -print -quit)"
 [ -z "$FREMD" ] || fehler "Unerwarteter Dateityp im ZIP: ${FREMD#"$TMP"/} – nicht installiert."
 # Ab 2026-11-15 auch die Werte: Apache benutzt einen Dateityp ohne eigenen Handler als Handler (z. B. AddType application/x-httpd-php .html
 # oder server-status) – darum nur die Dateitypen, Filter und Zeichensätze, die die Seiten brauchen.

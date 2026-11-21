@@ -5,11 +5,16 @@ The Windows plugins additionally contain:
 
 1. cairo 1.18.0 (2D graphics; https://www.cairographics.org/), used under the GNU Lesser General Public License
    version 2.1 (cairo may be used under the LGPL 2.1 or the Mozilla Public License 1.1, see the cairo notice below).
-   Source used: Ubuntu source package cairo 1.18.0-3build1; build script engine/win/build-cairo.sh in
-   https://github.com/colonade/tonestack. The complete source of the plugins (GPL-3.0) and the build scripts are
-   published there, so the plugins can be rebuilt and relinked with a modified cairo.
+   Source used: Ubuntu source package cairo 1.18.0-3build1 (unmodified; built with engine/win/build-cairo.sh in
+   https://github.com/colonade/tonestack). The exact source files (cairo_1.18.0.orig.tar.xz,
+   cairo_1.18.0-3build1.debian.tar.xz, cairo_1.18.0-3build1.dsc) are published together with the Windows plugins:
+   in every GitHub release (https://github.com/colonade/tonestack/releases/latest) and at
+   https://tonestack.fluxstatus.de/download/. The complete source of the plugins (GPL-3.0) and the build scripts
+   are in the repository, so the plugins can be rebuilt and relinked with a modified cairo.
 2. pixman 0.42.2 (pixel manipulation library used by cairo; MIT licence, text below).
-   Source used: Ubuntu source package pixman 0.42.2-1build1.
+   Source used: Ubuntu source package pixman 0.42.2-1build1 (pixman_0.42.2.orig.tar.gz, pixman_0.42.2-1build1.diff.gz,
+   pixman_0.42.2-1build1.dsc, published next to the cairo source); the build script only switches off the
+   dllexport markers in pixman/meson.build (static library).
 3. mingw-w64 runtime and winpthreads (MIT/expat licence, text below), libstdc++ and libgcc from GCC (GPL-3.0 with
    the GCC Runtime Library Exception, which permits static linking into programs under any licence).
 

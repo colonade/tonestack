@@ -1,6 +1,6 @@
 #!/bin/bash
 # Packt die Windows-Plugins aus engine/build/win (vorher: bash engine/win/build.sh) nach dist/:
-#   <Name>_Windows-<Version>.zip   (Ordner <Name>.vst3, <Name>.clap, README.txt, INSTALL-Windows.txt, THIRD-PARTY-LICENSES*.txt)
+#   <Name>_Windows-<Version>.zip   (Ordner <Name>.vst3, <Name>.clap, README.txt, INSTALL-Windows.txt, LICENSE.txt (GPL-3.0), THIRD-PARTY-LICENSES*.txt)
 #   tonestack-Plugins-Windows.exe  Installer (NSIS, makensis): Auswahl je Plugin, VST3 nach %CommonProgramFiles%\VST3, CLAP nach
 #                                  %CommonProgramFiles%\CLAP, Anleitungen nach %ProgramFiles%\tonestack, Deinstallation unter „Apps“
 # Reproduzierbar: feste Zeitstempel und Reihenfolge.
@@ -12,7 +12,7 @@ STAMP="2026-01-01 00:00:00 UTC"; mkdir -p "$T/inst/docs"; SECS=""; UNS=""; N=0
 pack() {   # $1 Name, $2 Version, $3 README, $4 Anzeigename
   for f in "$W/CLAP/$1.clap" "$W/VST3/$1.vst3"; do [ -e "$f" ] || { echo "fehlt: $f (erst bash engine/win/build.sh)" >&2; exit 1; }; done
   rm -f "$D/$1"_Windows-*.zip; local z="$T/$1"; mkdir -p "$z"
-  cp "$W/CLAP/$1.clap" "$z/"; cp -r "$W/VST3/$1.vst3" "$z/"; cp "reaper-clap/$3" "$z/README.txt"; cp reaper-clap/INSTALL-Windows.txt reaper-clap/THIRD-PARTY-LICENSES.txt reaper-clap/THIRD-PARTY-LICENSES-Windows.txt "$z/"
+  cp "$W/CLAP/$1.clap" "$z/"; cp -r "$W/VST3/$1.vst3" "$z/"; cp "reaper-clap/$3" "$z/README.txt"; cp reaper-clap/INSTALL-Windows.txt reaper-clap/THIRD-PARTY-LICENSES.txt reaper-clap/THIRD-PARTY-LICENSES-Windows.txt "$z/"; cp LICENSE "$z/LICENSE.txt"
   find "$z" -exec touch -h -d "$STAMP" {} +
   (cd "$z" && find . -mindepth 1 | LC_ALL=C sort | TZ=UTC zip -q -X -9 "$R/$D/$1_Windows-$2.zip" -@)
   mkdir -p "$T/inst/$1"; cp "$W/CLAP/$1.clap" "$T/inst/$1/"; cp -r "$W/VST3/$1.vst3" "$T/inst/$1/"; cp "reaper-clap/$3" "$T/inst/docs/README-$1.txt"
@@ -32,21 +32,9 @@ SectionEnd"
   Delete \"\$COMMONFILES64\\CLAP\\$1.clap\"
   Delete \"\$INSTDIR\\README-$1.txt\""
   echo "$D/$1_Windows-$2.zip"; }
-pack Laney_AOR50 "$LANEY" README.txt "Laney AOR 50 Preamp"
-pack Lametta_B100II "$YAMAHA" README-B100II.txt "Lametta B100-II Bass Amp"
-pack AmpFett_B15NF "$B15" README-B15NF.txt "AmpFett B-15NF Bass Amp"
-pack GK_800RB "$GK" README-GK.txt "GK 800RB Bass Amp"
-pack Lametta_G100 "$G100" README-G100.txt "Lametta G100-212II Guitar Amp"
-pack Lametta_B100III "$B100III" README-B100III.txt "Lametta B100-III Bass Amp"
-pack AmpFett_SVTCL "$SVTCL" README-SVTCL.txt "AmpFett SVT-CL Bass Amp"
-pack Wien_EQ "$WIENEQ" README-WienEQ.txt "Wien EQ"
-pack AmpFett_76 "$AMPFETT76" README-AmpFett76.txt "AmpFett 76 Limiting Amplifier"
-pack Loldano_SLO100 "$LOLDANO" README-Loldano.txt "Loldano SLO-100 Guitar Amp"
-pack Kaiserin_Reverb "$KAISERIN" README-Kaiserin.txt "Kaiserin Reverb"
-pack Blech_140 "$BLECH" README-Blech140.txt "Blech 140 Plate Reverb"
-pack Wisent_Echoreck "$WISENT" README-Wisent.txt "Wisent Echoreck Drum Echo"
-pack Viereck_34 "$VIERECK" README-Viereck34.txt "Viereck 34 Tilt EQ"
-cp reaper-clap/INSTALL-Windows.txt reaper-clap/THIRD-PARTY-LICENSES.txt reaper-clap/THIRD-PARTY-LICENSES-Windows.txt "$T/inst/docs/"
+while IFS='|' read -r NAME VV README SHORT DISP; do case "$NAME" in ''|'#'*) continue;; esac
+  pack "$NAME" "${!VV}" "$README" "$DISP"; done < scripts/plugins.txt
+cp reaper-clap/INSTALL-Windows.txt reaper-clap/THIRD-PARTY-LICENSES.txt reaper-clap/THIRD-PARTY-LICENSES-Windows.txt "$T/inst/docs/"; cp LICENSE "$T/inst/docs/LICENSE.txt"
 cat > "$T/inst/tonestack.nsi" <<EOF
 ; tonestack-Plugins für Windows (erzeugt von scripts/pack-windows.sh)
 Unicode true
@@ -57,14 +45,21 @@ OutFile "out.exe"
 InstallDir "\$PROGRAMFILES64\\tonestack"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
-!define MUI_WELCOMEPAGE_TEXT "Amp and effect simulators after the original schematics, as VST3 and CLAP plugins with front panels.\$\\r\$\\n\$\\r\$\\nVST3: \$COMMONFILES64\\VST3\$\\r\$\\nCLAP: \$COMMONFILES64\\CLAP\$\\r\$\\n\$\\r\$\\nPlease close your DAW (Cubase, REAPER, ...) before continuing: replacing a plugin that a running host has loaded can make it crash."
+!define MUI_WELCOMEPAGE_TEXT "\$(welcome)"
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_LICENSEPAGE_BUTTON "\$(^NextBtn)"
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "\$(licbottom)"
+!insertmacro MUI_PAGE_LICENSE "docs\\LICENSE.txt"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "German"
+LangString welcome \${LANG_ENGLISH} "Amp and effect simulators after the original schematics, as VST3 and CLAP plugins with front panels.\$\\r\$\\n\$\\r\$\\nVST3: \$COMMONFILES64\\VST3\$\\r\$\\nCLAP: \$COMMONFILES64\\CLAP\$\\r\$\\n\$\\r\$\\nPlease close your DAW (Cubase, REAPER, ...) before continuing: replacing a plugin that a running host has loaded can make it crash."
+LangString welcome \${LANG_GERMAN} "Verstärker- und Effekt-Simulatoren nach den Original-Schaltplänen, als VST3- und CLAP-Plugins mit Frontplatte.\$\\r\$\\n\$\\r\$\\nVST3: \$COMMONFILES64\\VST3\$\\r\$\\nCLAP: \$COMMONFILES64\\CLAP\$\\r\$\\n\$\\r\$\\nBitte vorher die DAW (Cubase, REAPER, ...) schließen: tauscht man ein Plugin aus, das ein laufender Host geladen hat, kann er abstürzen."
+LangString licbottom \${LANG_ENGLISH} "The plugins are free software under the GNU GPL version 3. You do not have to accept this licence to use them; it grants you the rights to copy, change and pass them on."
+LangString licbottom \${LANG_GERMAN} "Die Plugins sind freie Software unter der GNU GPL Version 3. Zum Benutzen müssen Sie die Lizenz nicht annehmen; sie gibt Ihnen das Recht, sie zu kopieren, zu ändern und weiterzugeben."
 Function .onInit
   \${IfNot} \${RunningX64}
     MessageBox MB_ICONSTOP "These plugins need 64-bit Windows (x86-64)."
@@ -80,12 +75,14 @@ Section "-common"
   File "docs\\INSTALL-Windows.txt"
   File "docs\\THIRD-PARTY-LICENSES.txt"
   File "docs\\THIRD-PARTY-LICENSES-Windows.txt"
+  File "docs\\LICENSE.txt"
   WriteUninstaller "\$INSTDIR\\uninstall.exe"
   WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "DisplayName" "tonestack plugins"
   WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "Publisher" "tonestack"
   WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "URLInfoAbout" "https://tonestack.fluxstatus.de/"
   WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "UninstallString" '"\$INSTDIR\\uninstall.exe"'
   WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "InstallLocation" "\$INSTDIR"
+  WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "DisplayVersion" "$SUMVER"
   WriteRegDWORD HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "NoModify" 1
   WriteRegDWORD HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\tonestack" "NoRepair" 1
 SectionEnd
@@ -95,6 +92,7 @@ $UNS
   Delete "\$INSTDIR\\INSTALL-Windows.txt"
   Delete "\$INSTDIR\\THIRD-PARTY-LICENSES.txt"
   Delete "\$INSTDIR\\THIRD-PARTY-LICENSES-Windows.txt"
+  Delete "\$INSTDIR\\LICENSE.txt"
   Delete "\$INSTDIR\\uninstall.exe"
   RMDir "\$INSTDIR"
   RMDir "\$COMMONFILES64\\CLAP"

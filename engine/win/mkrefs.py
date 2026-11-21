@@ -3,8 +3,10 @@
 #   python3 engine/win/mkrefs.py ZIELORDNER
 # ZIELORDNER/in.f32 (3 s, 48 kHz, gezupfte Basstöne mit Obertönen, Spitze 0,6) und ZIELORDNER/ref/<Plugin>-<n>.f32 je Einstellung.
 import math, os, struct, subprocess, sys
-PLUGINS = ["Laney_AOR50", "Lametta_B100II", "AmpFett_B15NF", "GK_800RB", "Lametta_G100", "Lametta_B100III", "AmpFett_SVTCL",
-           "Wien_EQ", "AmpFett_76", "Loldano_SLO100", "Kaiserin_Reverb", "Blech_140", "Wisent_Echoreck", "Viereck_34"]
+def plugins():   # scripts/plugins.txt (erste Spalte)
+    f = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts", "plugins.txt")
+    return [l.split("|")[0] for l in (x.strip() for x in open(f, encoding="utf-8")) if l and not l.startswith("#")]
+PLUGINS = plugins()
 SETTINGS = ["", "0=3,1=7,2=2"]   # Grundstellung und eine andere Stellung (wie beim Vergleich mit dem Release)
 def main():
     z = sys.argv[1]; e = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); os.makedirs(os.path.join(z, "ref"), exist_ok=True)

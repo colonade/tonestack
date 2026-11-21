@@ -4,6 +4,9 @@
 // Ziehen hält die Maus fest (SetCapture). Eigener Takt 30/s (SetTimer) für Anzeigen und Neuzeichnen, nur bei sichtbarem Fenster.
 // Die Fensterklasse wird je geladener DLL mit eigenem Namen angelegt (Adresse eines eigenen Symbols) und mit der letzten Ansicht wieder
 // abgemeldet: eine DLL gibt beim Entladen ihre Klassen nicht von selbst frei, eine verwaiste Klasse zeigte auf entladenen Code.
+// Mausrad: Windows schickt WM_MOUSEWHEEL je nach Einstellung („Inaktive Fenster beim Daraufzeigen scrollen“) an das Fenster unter dem Zeiger
+// oder an das Fenster mit dem Tastaturfokus – das ist im Host nie die Ansicht (sie nimmt den Fokus nicht, damit Tastenkürzel des Hosts gehen).
+// Ein Maus-Hook des Oberflächen-Fadens (nur solange eine Ansicht dieser DLL besteht) leitet das Rad an die Ansicht unter dem Zeiger um.
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -21,7 +24,7 @@
 namespace {
 struct View { HWND hw = nullptr; tsmac::Client *client = nullptr; cairo_surface_t *buf = nullptr; int bw = 0, bh = 0; bool tracking = false, down = false; LPARAM lastPos = 0; double wheelAcc = 0; };
 const UINT_PTR kTimer = 1;
-wchar_t clsName[64]; int clsRefs = 0;   // nur im Oberflächen-Faden benutzt
+wchar_t clsName[64]; int clsRefs = 0; HHOOK wheelHook = nullptr;   // nur im Oberflächen-Faden benutzt
 HINSTANCE moduleOf() { HMODULE m = nullptr; GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)(void *)&moduleOf, &m); return m; }
 View *viewOf(HWND h) { return (View *)GetWindowLongPtrW(h, GWLP_USERDATA); }
 double secs() { return GetMessageTime() / 1000.0; }   // Zeit der Nachricht (Doppelklick-Erkennung der Oberfläche)
@@ -36,6 +39,15 @@ void paint(HWND h, HDC given = nullptr) { PAINTSTRUCT ps; HDC dc = given ? given
       bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;   // Cairo RGB24 = BGRx im Speicher, oben zuerst (negative Höhe)
       SetDIBitsToDevice(dc, 0, 0, (DWORD)w, (DWORD)hh, 0, 0, 0, (UINT)hh, cairo_image_surface_get_data(v->buf), &bi, DIB_RGB_COLORS); } }
   if (!given) EndPaint(h, &ps); }
+// Mausrad (delta in 1/120 Rasten, pt in Bildschirmkoordinaten) als Tasten 4/5 an die Oberfläche
+void wheel(View *v, int delta, POINT pt) { if (!v || !v->hw) return; ScreenToClient(v->hw, &pt); LPARAM cl = MAKELPARAM(pt.x, pt.y);
+  v->wheelAcc += delta / (double)WHEEL_DELTA;
+  while (v->wheelAcc >= 1) { v->wheelAcc -= 1; send(v, 0, cl, 4); } while (v->wheelAcc <= -1) { v->wheelAcc += 1; send(v, 0, cl, 5); } }
+bool ours(HWND h) { wchar_t n[64]; return h && GetClassNameW(h, n, 64) > 0 && std::wcscmp(n, clsName) == 0 && viewOf(h); }
+LRESULT CALLBACK wheelHookProc(int code, WPARAM wp, LPARAM lp) {
+  if (code == HC_ACTION && wp == WM_MOUSEWHEEL) { const MOUSEHOOKSTRUCTEX *m = (const MOUSEHOOKSTRUCTEX *)lp; HWND under = WindowFromPoint(m->pt);
+    if (under != m->hwnd && ours(under)) { wheel(viewOf(under), (short)HIWORD(m->mouseData), m->pt); return 1; } }   // ging an ein anderes Fenster (Fokus): umleiten, nicht zustellen
+  return CallNextHookEx(wheelHook, code, wp, lp); }
 LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
   View *v = viewOf(h);
   switch (msg) {
@@ -49,9 +61,7 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_LBUTTONUP: { bool was = v && v->down; if (v) v->down = false; if (GetCapture() == h) ReleaseCapture(); if (was) send(v, 2, lp, 1); return 0; }
     case WM_CAPTURECHANGED: if (v && v->down && (HWND)lp != h) { v->down = false; send(v, 2, v->lastPos, 1); } return 0;   // Ziehen abgebrochen (anderes Fenster)
     case WM_MOUSELEAVE: if (v) { v->tracking = false; if (!v->down) send(v, 3, 0, 0); } return 0;
-    case WM_MOUSEWHEEL: if (v) { POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}; ScreenToClient(h, &p); LPARAM cl = MAKELPARAM(p.x, p.y);
-        v->wheelAcc += GET_WHEEL_DELTA_WPARAM(wp) / (double)WHEEL_DELTA;
-        while (v->wheelAcc >= 1) { v->wheelAcc -= 1; send(v, 0, cl, 4); } while (v->wheelAcc <= -1) { v->wheelAcc += 1; send(v, 0, cl, 5); } } return 0;
+    case WM_MOUSEWHEEL: wheel(v, GET_WHEEL_DELTA_WPARAM(wp), POINT{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}); return 0;
     case WM_TIMER: if (wp == kTimer && v && v->client && IsWindowVisible(h) && v->client->tick()) InvalidateRect(h, nullptr, FALSE); return 0;
     case WM_NCDESTROY: if (v) { KillTimer(h, kTimer); v->hw = nullptr; } SetWindowLongPtrW(h, GWLP_USERDATA, 0); break;   // z. B. mit dem Fenster des Hosts zerstört
   }
@@ -59,8 +69,9 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 bool registerClass() { if (clsRefs > 0) { clsRefs++; return true; }
   std::swprintf(clsName, 64, L"tonestack_view_%llx", (unsigned long long)(uintptr_t)&clsRefs);
   WNDCLASSEXW wc{}; wc.cbSize = sizeof wc; wc.lpfnWndProc = proc; wc.hInstance = moduleOf(); wc.hCursor = LoadCursor(nullptr, IDC_ARROW); wc.lpszClassName = clsName;
-  if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false; clsRefs = 1; return true; }
-void unregisterClass() { if (clsRefs > 0 && --clsRefs == 0) UnregisterClassW(clsName, moduleOf()); }
+  if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false; clsRefs = 1;
+  wheelHook = SetWindowsHookExW(WH_MOUSE, wheelHookProc, nullptr, GetCurrentThreadId()); return true; }   // ohne Hook geht das Rad nur bei „unter dem Zeiger“
+void unregisterClass() { if (clsRefs > 0 && --clsRefs == 0) { if (wheelHook) { UnhookWindowsHookEx(wheelHook); wheelHook = nullptr; } UnregisterClassW(clsName, moduleOf()); } }
 }
 
 namespace tsmac {

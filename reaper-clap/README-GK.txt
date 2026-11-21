@@ -1,5 +1,5 @@
-GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.11
+GK 800RB Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.12
 
 Two formats, one engine
   GK_800RB.clap and GK_800RB.vst3 contain the same code and sound
@@ -51,7 +51,7 @@ What it is
   100 W high) are linear blocks with the feedback network of the schematic
   (gain 61.7) and a soft clip at their rail limits (about 49 V and 40 V
   peak into the load). Same engine as the web simulator
-  (https://borg.fluxstatus.de/tonestack/gk-800rb/).
+  (https://tonestack.fluxstatus.de/gk-800rb/).
   Checked against the manual: the test levels printed on the schematic
   (2 mV at 200 Hz, all knobs at 10) are met within about 1 dB at each
   stage, the -10 dB pad and BOOST 0 ratios of the test procedure within
@@ -83,7 +83,7 @@ User interface
   to turn (drag vertically, mouse wheel, double-click = 5), the push
   buttons of the amp as switches to click (-10 dB, LO CUT, CONTOUR,
   HI BOOST, BOOST on/off, BI-AMP), BOOST and POWER LEDs. Below the panel
-  the model strip (not on the amp): SPEAKER, OVERSAMPLING, OUTPUT
+  the model strip: SPEAKER, OVERSAMPLING, OUTPUT
   (SPEAKER / DIRECT), POWER AMPS (CLIP / LINEAR), the DRIVE meters (swing
   of the input stage, the hardest driven EQ stage and the J113 relative to
   their limits, 100 % = clipping; output power of the 300 W and 100 W amp
@@ -146,6 +146,14 @@ Input level (INPUT, since 1.4)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.12
+  Windows version (VST3 and CLAP with the same front panel, installer and
+  ZIP). Project state and values typed into the host no longer depend on the
+  number format of the system (decimal comma). Windows: the window follows a
+  change of the display scaling while it is open, and the mouse wheel also
+  works when Windows sends it to the focused window. Packages now include
+  the GPL licence text (LICENSE.txt). Sound unchanged.
 
 1.11
   The lettering "MODEL (not on the amp)" in the header line of the model

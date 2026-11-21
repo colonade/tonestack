@@ -1,5 +1,5 @@
-AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.5
+AmpFett 76 (after UREI 1176LN) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.6
 
 Two formats, one engine
   AmpFett_76.clap and AmpFett_76.vst3 contain the same code and sound
@@ -48,7 +48,7 @@ Parameters
     Ratio: 4:1, 8:1, 12:1, 20:1, all buttons, variable
     Meter: GR, +8, +4, Off (the needle shows gain reduction, or the output
       level with 0 VU = +8 / +4 dBu)
-  Model strip (not on the unit):
+  Model strip:
     Variable ratio (4 ... 20:1; the tap slides along both ratio ladders and
       equals the buttons at 4, 8, 12 and 20)
     Dry (0 ... 10: input signal mixed to the output, parallel compression)
@@ -128,6 +128,12 @@ CPU and latency
   goes idle.
 
 Changes
+  1.6  Windows version (VST3 and CLAP with the same front panel, installer and
+       ZIP). Project state and values typed into the host no longer depend on
+       the number format of the system (decimal comma). Windows: the window
+       follows a change of the display scaling while it is open, and the mouse
+       wheel also works when Windows sends it to the focused window. Packages
+       now include the GPL licence text (LICENSE.txt). Sound unchanged.
   1.5  The lettering "MODEL (not on the unit)" in the header line of the model
        strip is gone; it now reads "CALI76 EXTENSIONS" and the plugin
        version. Sound unchanged.

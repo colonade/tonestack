@@ -4,7 +4,10 @@
 // 1. Oberfläche anlegen (API „win32“), in ein Hauptfenster setzen, zeigen, 1,5 s Nachrichten verarbeiten (eigener Takt der Oberfläche)
 // 2. Bild aufnehmen (WM_PRINTCLIENT an die Ansicht) → bild.bmp; Kennzahlen: Anteil nicht schwarzer Pixel, Zahl der Farben
 // 3. 300 Mausaktionen an Zufallsstellen (Klick, Ziehen, Mausrad) per Nachricht an die Ansicht; Parameteränderungen über flush gezählt
-// 4. Größe ändern (1,5-fach) und Bild prüfen; 20-mal verbergen/zeigen und zerstören/neu anlegen
+// 4. Mausrad als echte Eingabe (SendInput) mit Zustellung „unter dem Zeiger“ und „an das Fokusfenster“ (dort leitet der Maus-Hook der Ansicht um);
+//    ohne echte Eingabe (kein Desktop) übersprungen
+// 5. Anzeigeskalierung bei offenem Fenster: set_scale muss beim Host eine neue Größe anfordern; Größengrenzen wachsen mit der Skalierung
+// 6. Größe ändern (1,5-fach) und Bild prüfen; 20-mal verbergen/zeigen und zerstören/neu anlegen
 // Ausgabe: Zeilen „RESULT …“, Rückgabe 0 = alles bestanden.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <windows.h>
@@ -15,6 +18,7 @@
 #include <vector>
 #include <random>
 #include <chrono>
+#include <cmath>
 
 static int fails = 0;
 static void result(const char *what, bool ok, const std::string &detail) { std::printf("RESULT %-28s %s %s\n", what, ok ? "ok" : "FEHLER", detail.c_str()); if (!ok) fails++; }
@@ -22,7 +26,8 @@ static const clap_plugin_t *P = nullptr; static const clap_plugin_params_t *PAR 
 static void host_flush_req(const clap_host_t *) { flushes++; }
 static void host_rescan(const clap_host_t *, clap_param_rescan_flags) {} static void host_clear(const clap_host_t *, clap_id, clap_param_clear_flags) {}
 static const clap_host_params_t HP = {host_rescan, host_clear, host_flush_req};
-static void g_hints(const clap_host_t *) {} static bool g_resize(const clap_host_t *, uint32_t, uint32_t) { return true; } static bool g_show(const clap_host_t *) { return true; }
+static long resizeReq = 0; static uint32_t reqW = 0, reqH = 0;
+static void g_hints(const clap_host_t *) {} static bool g_resize(const clap_host_t *, uint32_t w, uint32_t h) { resizeReq++; reqW = w; reqH = h; return true; } static bool g_show(const clap_host_t *) { return true; }
 static bool g_hide(const clap_host_t *) { return true; } static void g_closed(const clap_host_t *, bool) {}
 static const clap_host_gui_t HG = {g_hints, g_resize, g_show, g_hide, g_closed};
 static const void *host_ext(const clap_host_t *, const char *id) { if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &HP; if (!std::strcmp(id, CLAP_EXT_GUI)) return &HG; return nullptr; }
@@ -84,6 +89,32 @@ int main(int argc, char **argv) {
   for (uint32_t i = 0; i < np; i++) { clap_param_info_t inf; PAR->get_info(P, i, &inf); double v; PAR->get_value(P, inf.id, &v); if (v != v0[i]) changed++; }
   std::snprintf(b, sizeof b, "Parameter geaendert %d von %u, Gesten %ld, Werte %ld, flush-Anfragen %ld", changed, np, gestures, values, flushes);
   result("maus", changed > 0 && gestures > 0 && values > 0, b);
+  // Mausrad über echte Eingabe
+  { const UINT GETR = 0x201C, SETR = 0x201D;   // SPI_GET/SETMOUSEWHEELROUTING (Windows 10): 0 Fokus, 2 unter dem Zeiger
+    DWORD old = 2; bool haveR = SystemParametersInfoW(GETR, 0, &old, 0) != 0;
+    auto setR = [&](DWORD r) { DWORD now = 99; SystemParametersInfoW(SETR, 0, (PVOID)(UINT_PTR)r, 0); SystemParametersInfoW(GETR, 0, &now, 0);
+      if (now != r) { SystemParametersInfoW(SETR, 0, &r, 0); SystemParametersInfoW(GETR, 0, &now, 0); } return now == r; };
+    for (int k = 0; k < 5 && GetForegroundWindow() != top; k++) { ShowWindow(top, SW_RESTORE); SetForegroundWindow(top); BringWindowToTop(top); pump(50); }
+    SetFocus(top);   // Fokus beim Hauptfenster (wie im Host), nicht bei der Ansicht
+    RECT cr; GetWindowRect(c, &cr); int sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN);
+    auto spin = [&]() { long before = values; for (int gy = 1; gy <= 5; gy++) for (int gx = 1; gx <= 8; gx++) {
+        int x = cr.left + (int)((cr.right - cr.left) * gx / 9.0), y = cr.top + (int)((cr.bottom - cr.top) * gy / 6.0); if (x < 0 || y < 0 || x >= sw || y >= sh) continue;
+        SetCursorPos(x, y); INPUT in{}; in.type = INPUT_MOUSE; in.mi.dwFlags = MOUSEEVENTF_WHEEL; in.mi.mouseData = (DWORD)(gx & 1 ? WHEEL_DELTA : -WHEEL_DELTA); SendInput(1, &in, sizeof in); pump(25); }
+      pump(100); return values - before; };
+    bool fg = GetForegroundWindow() == top; long hover = haveR && setR(2) ? spin() : -1;
+    if (!fg || hover <= 0) result("mausrad", true, std::string("uebersprungen (") + (!fg ? "Fenster nicht im Vordergrund" : hover < 0 ? "Einstellung nicht lesbar" : "keine echte Eingabe") + ")");
+    else { long focus = setR(0) ? spin() : -1; result("mausrad", focus > 0, "Werte unter dem Zeiger " + std::to_string(hover) + ", ueber den Fokus " + (focus < 0 ? std::string("(Einstellung nicht setzbar)") : std::to_string(focus))); }
+    if (haveR) setR(old); }
+  // Anzeigeskalierung bei offenem Fenster
+  { uint32_t aw = 100000, ah = 100000; gui->adjust_size(P, &aw, &ah); long r0 = resizeReq; bool sOk = gui->set_scale(P, 1.25); long r1 = resizeReq;
+    uint32_t ew = (uint32_t)std::lround(w * 1.25); bool reqOk = sOk && r1 == r0 + 1 && (reqW + 2 >= ew && reqW <= ew + 2);
+    uint32_t qW = reqW, qH = reqH; if (reqOk) { gui->set_size(P, qW, qH); pump(150); }
+    RECT rr; GetClientRect(c, &rr); bool sizeOk = reqOk && rr.right == (LONG)qW && rr.bottom == (LONG)qH;
+    uint32_t bw = 100000, bh = 100000; gui->adjust_size(P, &bw, &bh);   // Obergrenze bei 1,25 = 1,25 × Obergrenze bei 1
+    bool limOk = bw + 2 >= aw * 5 / 4 && bw <= aw * 5 / 4 + 2;
+    gui->set_scale(P, 1.0); bool backOk = resizeReq == r1 + 1 && reqW + 2 >= w && reqW <= w + 2; if (backOk) { gui->set_size(P, reqW, reqH); pump(150); }
+    std::snprintf(b, sizeof b, "1,25: angefordert %ux%u (erwartet Breite %u), Fenster %ldx%ld, Obergrenze %u -> %u, zurueck %ux%u", qW, qH, ew, rr.right, rr.bottom, aw, bw, reqW, reqH);
+    result("skalierung", sOk && reqOk && sizeOk && limOk && backOk, b); }
   // Größe 1,5-fach
   uint32_t w2 = w * 3 / 2, h2 = h * 3 / 2; gui->adjust_size(P, &w2, &h2); gui->set_size(P, w2, h2); SetWindowPos(top, nullptr, 0, 0, (int)w2 + 40, (int)h2 + 80, SWP_NOMOVE | SWP_NOZORDER); pump(500);
   ok = snap(top, nullptr, iw, ih, filled, colors); std::snprintf(b, sizeof b, "%dx%d gefuellt %.1f %%", iw, ih, filled * 100);

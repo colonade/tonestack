@@ -4,7 +4,13 @@ R="$(cd "$(dirname "$0")/.." && pwd)"
 v() { sed -n 's/^#define TS_VERSION "\([0-9.]*\)".*/\1/p' "$R/engine/clap/$1" | head -n1; }   # nur die erste Zeile
 L="$(v plugin.cpp)"; Y="$(v yplugin.cpp)"; B="$(v b15plugin.cpp)"; G="$(v gkplugin.cpp)"; G1="$(v g100plugin.cpp)"; B3="$(v b3plugin.cpp)"; SV="$(v svtplugin.cpp)"; WQ="$(v weqplugin.cpp)"; U7="$(v u76plugin.cpp)"; LO="$(v sloplugin.cpp)"; KA="$(v kaiplugin.cpp)"; BL="$(v blechplugin.cpp)"; WI="$(v wisentplugin.cpp)"; VR="$(v viereckplugin.cpp)"
 for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR"; do [[ "$x" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "Versionen nicht gefunden oder ungültig: '$L' '$Y' '$B' '$G' '$G1' '$B3' '$SV' '$WQ' '$U7' '$LO' '$KA' '$BL' '$WI' '$VR'" >&2; exit 1; }; done
-# Debian-Paket (alle Plugins in einem, ab 2026-11-21): Version 1.<Summe aus 1000·Haupt- + Nebenversion aller Plugins> – steigt mit jeder Plugin-Version,
-# bleibt gleich, solange sich keine ändert (gleicher Inhalt, gleiche Paketversion)
-S=0; for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR"; do S=$((S + 1000 * ${x%%.*} + 10#${x#*.})); done
-echo "LANEY=$L YAMAHA=$Y B15=$B GK=$G G100=$G1 B100III=$B3 SVTCL=$SV WIENEQ=$WQ AMPFETT76=$U7 LOLDANO=$LO KAISERIN=$KA BLECH=$BL WISENT=$WI VIERECK=$VR TAG=laney-${L}_b100ii-${Y}_b15nf-${B}_gk800rb-${G}_g100-${G1}_b100iii-${B3}_svtcl-${SV}_wieneq-${WQ}_ampfett76-${U7}_loldano-${LO}_kaiserin-${KA}_blech140-${BL}_wisent-${WI}_viereck34-${VR} PKG=tonestack-Plugins-Mac.pkg DEBVER=1.$S WINEXE=tonestack-Plugins-Windows.exe"
+# Gesamtnummer aller Plugins (ab 2026-11-21): 1.<Summe aus 1000·Haupt- + Nebenversion>[.<Summe der dritten Stellen>] – steigt mit jeder Plugin-Version
+# (auch bei x.y.z) und bleibt gleich, solange sich keine ändert. Debian-Paket: SUMVER-DEBREV; DEBREV nur erhöhen, wenn sich das Paket ohne neue
+# Plugin-Version ändert (Abhängigkeiten, Beschreibung, Dokumentation), bei der nächsten Plugin-Version wieder 1. Windows-Installer: SUMVER als Anzeigeversion.
+DEBREV=1
+S=0; P=0; for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR"; do
+  M="${x%%.*}"; r="${x#*.}"; N="${r%%.*}"; if [ "$r" = "$N" ]; then Q=0; else Q="${r#*.}"; fi
+  [[ "$Q" =~ ^[0-9]+$ ]] || { echo "Version mit mehr als drei Stellen: $x" >&2; exit 1; }
+  S=$((S + 1000 * 10#$M + 10#$N)); P=$((P + 10#$Q)); done
+SUMVER="1.$S"; [ "$P" = 0 ] || SUMVER="$SUMVER.$P"
+echo "LANEY=$L YAMAHA=$Y B15=$B GK=$G G100=$G1 B100III=$B3 SVTCL=$SV WIENEQ=$WQ AMPFETT76=$U7 LOLDANO=$LO KAISERIN=$KA BLECH=$BL WISENT=$WI VIERECK=$VR TAG=laney-${L}_b100ii-${Y}_b15nf-${B}_gk800rb-${G}_g100-${G1}_b100iii-${B3}_svtcl-${SV}_wieneq-${WQ}_ampfett76-${U7}_loldano-${LO}_kaiserin-${KA}_blech140-${BL}_wisent-${WI}_viereck34-${VR} PKG=tonestack-Plugins-Mac.pkg SUMVER=$SUMVER DEBVER=$SUMVER-$DEBREV WINEXE=tonestack-Plugins-Windows.exe"

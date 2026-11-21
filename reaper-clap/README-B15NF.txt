@@ -1,5 +1,5 @@
-AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.31
+AmpFett B-15NF Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.32
 
 Two formats, one engine
   AmpFett_B15NF.clap and AmpFett_B15NF.vst3 contain the same code and sound
@@ -45,7 +45,7 @@ What it is
   The idle voltages match the voltage table of the factory within the
   meter tolerance (anodes, cathodes, screens, bias, B+); full power is about
   30 W into 8 ohm. Same engine as the web simulator
-  (https://borg.fluxstatus.de/tonestack/ampfett-b15nf/).
+  (https://tonestack.fluxstatus.de/ampfett-b15nf/).
   Estimated (not in the schematic): transformer inductances and core
   saturation, mains transformer resistance, speaker data, screen grid
   current split of the 6L6GC. Tube models fitted to data sheets (6SL7 Dempwolf form,
@@ -71,7 +71,7 @@ User interface
   Front panel drawn after photos of the original (no photo, no logo):
   knobs to turn (drag vertically, mouse wheel, double-click = 5), click a
   jack to plug in there, click the POWER switch (STANDBY and GROUND were
-  removed in 1.15). Below the panel the model strip (not on the amp):
+  removed in 1.15). Below the panel the model strip:
   SPEAKER, OVERSAMPLING, SUPPLY (DC / 60 Hz / 50 Hz, see below), POT
   TAPER, TAP (AMP / PREAMP, see "Signal tap"), the DRIVE meters (grid swing of V1A/V2A, V1B/V2B, the phase
   inverter and the 6L6GC relative to their bias - 100 % = the grid reaches
@@ -458,6 +458,14 @@ Notes
 1.29
   Fixed: a double-click on INPUT set 292 mV instead of the default
   100 mV (since 1.28). Sound unchanged.
+
+1.32
+  Windows version (VST3 and CLAP with the same front panel, installer and
+  ZIP). Project state and values typed into the host no longer depend on the
+  number format of the system (decimal comma). Windows: the window follows a
+  change of the display scaling while it is open, and the mouse wheel also
+  works when Windows sends it to the focused window. Packages now include
+  the GPL licence text (LICENSE.txt). Sound unchanged.
 
 1.31
   The lettering "MODEL (not on the amp)" in the header line of the model

@@ -1,5 +1,5 @@
-AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER (Linux x86-64)
-Version 1.16
+AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
+Version 1.17
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -111,7 +111,7 @@ User interface
   positions), TREBLE, MASTER (lever up = on). Since 1.3 without the right
   part of the panel (STANDBY / POWER / FAULT lamp, STANDBY and POWER
   switches); the panel is narrower and the default window 1200 wide. Knobs: drag vertically, mouse wheel, double-click = center. Below the
-  panel the model strip (not on the amp): OUTPUT TAP (4 / 2 ohm), POT TAPER, POWER SUPPLY (SIMPLE / 50 HZ /
+  panel the model strip: OUTPUT TAP (4 / 2 ohm), POT TAPER, POWER SUPPLY (SIMPLE / 50 HZ /
   60 HZ; since 1.12 labelled SUPPLY), BAL OUT (OFF / T1 EST.), SPEAKER (ON / OFF) and
   TAP (AMP / PREAMP) (since 1.12), the DRIVE meters (grid swing of V1B input, V1A gain, V2B
   midrange, power amp input, 6550 grids, 100 % = grid reaches 0 V; output
@@ -359,6 +359,14 @@ Notes
 1.14
   Fixed: a double-click on INPUT set 292 mV instead of the default
   100 mV (since 1.13). Sound unchanged.
+
+1.17
+  Windows version (VST3 and CLAP with the same front panel, installer and
+  ZIP). Project state and values typed into the host no longer depend on the
+  number format of the system (decimal comma). Windows: the window follows a
+  change of the display scaling while it is open, and the mouse wheel also
+  works when Windows sends it to the focused window. Packages now include
+  the GPL licence text (LICENSE.txt). Sound unchanged.
 
 1.16
   The lettering "MODEL (not on the amp)" in the header line of the model
