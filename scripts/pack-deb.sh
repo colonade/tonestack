@@ -2,17 +2,17 @@
 # Debian/Ubuntu-Paket mit allen Linux-Plugins (CLAP und VST3) aus engine/build (vorher: VST3=1 bash engine/build.sh):
 #   bash scripts/pack-deb.sh   → dist/tonestack-plugins_<DEBVER>_amd64.deb   (DEBVER = SUMVER-DEBREV aus scripts/versions.sh; Liste: scripts/plugins.txt)
 # Ziele: /usr/lib/clap/<Name>.clap und /usr/lib/vst3/<Name>.vst3 (dort suchen CLAP- und VST3-Hosts unter Linux von selbst),
-# Anleitungen in /usr/share/doc/tonestack-plugins/. Braucht glibc ≥ 2.38 (Debian 13, Ubuntu 24.04 und neuer), libcairo2, libx11-6.
+# Anleitungen in /usr/share/doc/tonestack-plugins/. postinst meldet das Ergebnis (alle Dateien da, Liste der Plugins, Handkopien in ~/.clap und ~/.vst3). Braucht glibc ≥ 2.38 (Debian 13, Ubuntu 24.04 und neuer), libcairo2, libx11-6.
 # Reproduzierbar: feste Zeitstempel, sortiert, root als Besitzer – gleicher Inhalt ergibt dieselben Bytes.
 set -euo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
 B=engine/build; D=dist; mkdir -p "$D"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 P="$T/pkg"; DOC="$P/usr/share/doc/tonestack-plugins"; mkdir -p "$P/DEBIAN" "$P/usr/lib/clap" "$P/usr/lib/vst3" "$DOC"
-LISTE=""
+LISTE=""; NAMEN=""; N=0
 add() {   # $1 Name, $2 Version, $3 README
   for f in "$B/$1.clap" "$B/vst3/$1.vst3"; do [ -e "$f" ] || { echo "fehlt: $f (erst VST3=1 bash engine/build.sh)" >&2; exit 1; }; done
   cp "$B/$1.clap" "$P/usr/lib/clap/"; cp -r "$B/vst3/$1.vst3" "$P/usr/lib/vst3/"; cp "reaper-clap/$3" "$DOC/README-$1.txt"
-  LISTE="$LISTE $1 $2,"; }
+  LISTE="$LISTE $1 $2,"; NAMEN="$NAMEN $1"; N=$((N + 1)); }
 while IFS='|' read -r NAME VV README SHORT DISP; do case "$NAME" in ''|'#'*) continue;; esac
   add "$NAME" "${!VV}" "$README"; done < scripts/plugins.txt
 # glibc-Anspruch aus den Dateien selbst
@@ -70,8 +70,47 @@ $INHALT
  Wer die Plugins vorher von Hand nach ~/.clap bzw. ~/.vst3 kopiert hat, sollte
  diese Kopien entfernen, sonst findet der Host jedes Plugin zweimal.
 EOF
+# Rückmeldung nach dem Einrichten (dpkg, apt und gdebi zeigen sie an): sind alle Dateien da? Dazu Hinweis auf Handkopien im Home dessen,
+# der installiert (sudo: SUDO_USER, grafische Installer über pkexec: PKEXEC_UID) – nur melden, nichts löschen.
+cat > "$P/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+[ "$1" = configure ] || exit 0
+fehlt=""
+for n in @NAMEN@; do
+  [ -s "/usr/lib/clap/$n.clap" ] || fehlt="$fehlt /usr/lib/clap/$n.clap"
+  [ -s "/usr/lib/vst3/$n.vst3/Contents/x86_64-linux/$n.so" ] || fehlt="$fehlt /usr/lib/vst3/$n.vst3"
+done
+if [ -n "$fehlt" ]; then echo "tonestack: FEHLER – Installation unvollständig, es fehlt:$fehlt" >&2; exit 1; fi
+echo "tonestack: Installation erfolgreich – @N@ Plugins (Paket @DEBVER@) als CLAP in /usr/lib/clap und als VST3 in /usr/lib/vst3:"
+@LISTE@
+echo "Den Host neu starten oder die Plugins neu suchen lassen, dann stehen sie in seiner Liste."
+home=""
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then home="$(getent passwd "$SUDO_USER" | cut -d: -f6)" || home=""
+elif [ -n "${PKEXEC_UID:-}" ] && [ "$PKEXEC_UID" != 0 ]; then home="$(getent passwd "$PKEXEC_UID" | cut -d: -f6)" || home=""; fi
+if [ -n "$home" ] && [ -d "$home" ]; then
+  kopf=""
+  for n in @NAMEN@; do for f in "$home/.clap/$n.clap" "$home/.vst3/$n.vst3"; do
+    if [ -e "$f" ]; then
+      if [ -z "$kopf" ]; then echo "Hinweis: von Hand kopierte Plugins gefunden – der Host fände sie doppelt. Bitte entfernen:"; kopf=1; fi
+      echo "  $f"
+    fi
+  done; done
+fi
+exit 0
+EOF
+ZEILEN="$(echo "${LISTE# }" | sed 's/,$//' | fold -s -w 74 | sed 's/ *$//; s/^/echo "  /; s/$/"/' | sed ':a;N;$!ba;s/\n/\\n/g')"
+sed -i "s|@NAMEN@|${NAMEN# }|g; s|@N@|$N|g; s|@DEBVER@|$DEBVER|g; s|^@LISTE@\$|$ZEILEN|" "$P/DEBIAN/postinst"
+if grep -q @ "$P/DEBIAN/postinst"; then echo "postinst: Platzhalter übrig" >&2; exit 1; fi
+sh -n "$P/DEBIAN/postinst"
+cat > "$P/DEBIAN/postrm" <<'EOF'
+#!/bin/sh
+set -e
+if [ "$1" = remove ]; then echo "tonestack: Plugins entfernt (/usr/lib/clap, /usr/lib/vst3)."; fi
+exit 0
+EOF
 ( cd "$P" && find usr -type f -print0 | LC_ALL=C sort -z | xargs -0 md5sum ) > "$P/DEBIAN/md5sums"
-find "$P" -type d -exec chmod 755 {} +; find "$P" -type f -exec chmod 644 {} +; chmod 755 "$P"/usr/lib/clap/*.clap "$P"/usr/lib/vst3/*/Contents/x86_64-linux/*.so
+find "$P" -type d -exec chmod 755 {} +; find "$P" -type f -exec chmod 644 {} +; chmod 755 "$P"/DEBIAN/postinst "$P"/DEBIAN/postrm "$P"/usr/lib/clap/*.clap "$P"/usr/lib/vst3/*/Contents/x86_64-linux/*.so
 find "$P" -exec touch -h -d "2026-01-01 00:00:00 UTC" {} +
 OUT="$D/tonestack-plugins_${DEBVER}_amd64.deb"; rm -f "$D"/tonestack-plugins_*_amd64.deb
 SOURCE_DATE_EPOCH=1767225600 dpkg-deb --root-owner-group -Zxz --build "$P" "$OUT" >/dev/null

@@ -1,4 +1,4 @@
-# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-21)
+# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-22)
 
 Lies diese Datei zuerst, wenn das Projekt in einem neuen Gespräch weitergeht. Sie fasst alles zusammen, was aus dem bisherigen Verlauf wichtig ist.
 
@@ -36,6 +36,10 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - Gitterstopper: Laney ohne eigene vor V102B/V103B, 470 kΩ/1 MΩ liegen schon davor (Versuch 2026-10-29: < 0,3 dB); Loldano 68 k/470 k/220 k nach Plan.
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
+
+## In Arbeit: Cultec EQ-1A (Pultec EQP-1A) und Rückmeldung des DEB (2026-11-22, nur Zweig wisent-1.0)
+- Cultec EQ-1A: Abschrift und Wahl der Filterwerte gegen die Werkskurven in `docs/cultec/SCHALTPLAN.md` und `werkskurven.json` (Commit 3604971). Nur EQP-1A (MEQ-5 nicht, Annahme mitgeteilt). Kern, Plugin, Frontplatte (selbst gezeichnet), Webseite folgen.
+- Nutzer: „Das Debian Paket sollte eine Rückmeldung geben, ob die Installation geklappt hat.“ (gdebi zeigte nur „wird eingerichtet …“). `scripts/pack-deb.sh` legt jetzt `DEBIAN/postinst` an: prüft bei `configure` jede CLAP- und VST3-Datei (fehlt eine: FEHLER mit Liste, Ausgang 1), meldet „Installation erfolgreich – N Plugins (Paket DEBVER)“ mit allen Namen und Versionen, Hinweis „Host neu starten oder Plugins neu suchen lassen“, und listet Handkopien gleichen Namens in `~/.clap` und `~/.vst3` dessen, der installiert (SUDO_USER, bei grafischen Installern PKEXEC_UID; nur melden, nichts löschen). `DEBIAN/postrm` meldet bei `remove` „Plugins entfernt“. Hier geprüft: `dpkg -i` mit Handkopien (beide gemeldet), `-r`, erneut `-i`, `-P`; postinst ohne installierte Dateien → FEHLER, Ausgang 1; lintian ohne neue Meldungen; verify.sh unverändert identisch. **Geht erst mit dem nächsten Release (Cultec) hinaus**: das DEB 1.16208-1 liegt schon im Release, ein geändertes Paket gleichen Namens sperrt release.sh, und ein DEBREV 2 ließe das alte DEB im Release stehen (Dateien dort lassen sich von hier nicht löschen) und änderte SHA256SUMS-linux.txt.
 
 ## Code-Review Windows/DEB umgesetzt: Laney 3.52, B100-II 1.26, B-15NF 1.32, GK 1.12, G100 1.17, B100-III 1.13, SVT-CL 1.17, Wien EQ 1.8, AmpFett 76 1.6, Loldano 1.10, Kaiserin 1.3, Blech 1.4, Wisent 1.7, Viereck 1.1 (2026-11-21, Web 2026-11-21-2)
 Nutzer: „Code review bitte“, dann „Bitte alles umsetzen“ (18 Punkte). Klang aller 14 Plugins bitgleich zu den Vorversionen (plugtest render, drei Einstellungen, 42 × cmp gleich).
