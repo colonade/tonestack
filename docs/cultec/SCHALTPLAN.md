@@ -26,7 +26,7 @@ Verbindlich ist der Kern `engine/src/cultec_core.hpp`; diese Datei hält fest, w
 | Teil | Wert / Anschluss |
 |---|---|
 | Eingangsübertrager | Triad HS-56, 600 Ω (1-6, Brücke 3-4 = Mittelanzapfung), Sekundär 7–12 mit 620 Ω abgeschlossen (9–10 verbunden) |
-| Zwischenübertrager | Triad HS-29 (1:2, 20 k : 80 k bzw. 5 k : 20 k; Primär 1–4 mit 2–3 verbunden, Sekundär 5–8 mit Mittelanzapfung 6–7 an Masse), über 5–8: 270 pF ∥ 43 kΩ |
+| Zwischenübertrager | Triad HS-29 (1:2, 20 k : 80 k bzw. 5 k : 20 k; Primär 1–4 mit 2–3 verbunden, Sekundär 5–8 mit Mittelanzapfung 6–7 an Masse), über 5–8: 270 pF **in Reihe mit** 43 kΩ (Zobel-Glied; bei 4-facher Vergrößerung des Werksplans geprüft – nicht parallel, wie zuerst abgeschrieben) |
 | V1 12AX7 (Gegentakt) | Gitter 2 ← HS-29/5, Gitter 7 ← HS-29/8; Anoden 1, 6 je 200 kΩ (1 W) an +250 V (+140 V an der Anode), 20 pF zwischen den Anoden; Kathoden 3, 8 (+1,3 V) mit 820 Ω untereinander, je 360 Ω zur Gegenkopplungswicklung |
 | Kopplung | je 0,25 µF auf die Gitter 2, 7 der 12AU7; Gitterableitung je 1 MΩ an +31 V (Teiler 470 kΩ von +250 V, 62 kΩ an Masse, 40 µF/450 V) |
 | V2 12AU7 (Gegentakt) | Kathoden 3, 8 je 4700 Ω (1 W, „selected alike“) ∥ 50 µF/50 V an Masse (+40 V); Anoden 1, 6 an Peerless S-217-D 1 und 6 |
