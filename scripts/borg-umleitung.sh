@@ -76,6 +76,14 @@ apache_neu_laden() {
   if command -v systemctl >/dev/null && systemctl is-active --quiet apache2 2>/dev/null; then systemctl reload apache2
   else apache2ctl graceful 2>/dev/null || apache2ctl start; fi; }
 
+# Seite laden (ohne Weiterleitungen zu folgen), bis zu drei Versuche bei Verbindungsfehlern; Ergebnis in HCODE, HTYP, HKOERPER.
+# Ohne Pipe zu grep: unter pipefail scheitert „curl | grep -q“, wenn grep beim ersten Treffer aufhört und curl danach noch schreibt
+# (Fehler 23) – je nach Ankunft der Daten mal ja, mal nein (2026-11-22 einmal beim Nutzer gesehen).
+holen() { local t; t="$(mktemp)"; HCODE=000; HTYP=""
+  for _ in 1 2 3; do read -r HCODE HTYP < <(curl -s -o "$t" --max-time 20 -w '%{http_code} %{content_type}\n' "$1" || true); HCODE="${HCODE:-000}"
+    [ "$HCODE" = 000 ] || break; sleep 2; done
+  HKOERPER="$(cat "$t")"; rm -f "$t"; }
+
 pruefen() {   # ohne Weiterleitungen zu folgen: jede alte Adresse muss selbst mit 301 auf genau das neue Ziel zeigen
   local b="$BASIS$URLPFAD" p code loc want typ ok=0
   for p in "" "/" "/laney-aor50/" "/laney-aor50/?x=1&y=2" "/plugins/" "/download/SHA256SUMS.txt"; do
@@ -83,8 +91,8 @@ pruefen() {   # ohne Weiterleitungen zu folgen: jede alte Adresse muss selbst mi
     case "$p" in "") want="$NEU/";; *) want="$NEU$p";; esac
     if [ "${code:-}" = 301 ] && [ "${loc:-}" = "$want" ]; then echo "  ok     $URLPFAD$p → 301 $loc"
     else echo "  FALSCH $URLPFAD$p → ${code:-000} ${loc:-ohne Ziel} (erwartet 301 $want)"; ok=1; fi; done
-  read -r code typ < <(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{content_type}\n' "$b/sw.js" || true)
-  if [ "${code:-}" = 200 ] && [[ "${typ:-}" == *javascript* ]] && curl -s --max-time 20 "$b/sw.js" 2>/dev/null | grep -q "$MARKE"; then
+  holen "$b/sw.js"; code="$HCODE"; typ="$HTYP"
+  if [ "$code" = 200 ] && [[ "$typ" == *javascript* ]] && [[ "$HKOERPER" == *"$MARKE"* ]]; then
     echo "  ok     $URLPFAD/sw.js → 200 Aufräum-Service-Worker ($typ)"
   else echo "  FALSCH $URLPFAD/sw.js → ${code:-000} ${typ:-} (erwartet 200, JavaScript, Aufräum-Service-Worker, nicht umgeleitet)"; ok=1; fi
   return $ok; }
@@ -109,10 +117,11 @@ if [ "$AKTION" = zurueck ]; then
 [ "$ART" != fremd ] || fehler "$ZIEL sieht weder wie die alte Seite noch wie eine Umleitung aus – nichts geändert"
 
 # 1. neue Adresse
-code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$NEU/laney-aor50/" || true)"; code="${code:-000}"
-if [ "$code" = 200 ] && curl -s --max-time 20 "$NEU/" 2>/dev/null | grep -q "laney-aor50/"; then echo "Neue Adresse $NEU/ antwortet (Übersicht und Unterseite)"
-elif [ "$TROTZDEM" = 1 ]; then echo "Warnung: $NEU/ antwortet nicht richtig ($code) – leite trotzdem um"
-else fehler "$NEU/ antwortet nicht richtig ($code); erst die neue Seite einrichten (oder --trotzdem)"; fi
+holen "$NEU/laney-aor50/"; code="$HCODE"; holen "$NEU/"; code0="$HCODE"; inhalt=nein; [[ "$HKOERPER" == *laney-aor50/* ]] && inhalt=ja
+befund="Unterseite $code, Übersicht $code0, Verweis auf laney-aor50/ in der Übersicht: $inhalt"
+if [ "$code" = 200 ] && [ "$code0" = 200 ] && [ "$inhalt" = ja ]; then echo "Neue Adresse $NEU/ antwortet (Übersicht und Unterseite)"
+elif [ "$TROTZDEM" = 1 ]; then echo "Warnung: $NEU/ antwortet nicht richtig ($befund) – leite trotzdem um"
+else fehler "$NEU/ antwortet nicht richtig ($befund); erst die neue Seite einrichten (oder --trotzdem)"; fi
 
 # Rücknahme bei Fehlern ab hier
 ALTCONF=""; [ -f "$CONF" ] && ALTCONF="$(cat "$CONF")"
