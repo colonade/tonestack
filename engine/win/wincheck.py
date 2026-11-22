@@ -82,10 +82,10 @@ def vst3host(ehost, bundle, name):
         time.sleep(1.0)
         tw, th = csize(top); vw, vh = csize(view)
         r = W.RECT(); u.GetWindowRect(top, ctypes.byref(r)); ow, oh = r.right - r.left, r.bottom - r.top
-        sw = u.GetSystemMetrics(0)   # SM_CXSCREEN: Windows begrenzt Hauptfenster auf etwa die Bildschirmbreite (GitHub-Rechner 1024 × 768)
-        clipped = tw < vw and ow >= sw
-        res("groesse", vw >= 300 and vh >= 100 and abs(vh - th) <= 1 and (abs(vw - tw) <= 1 or clipped),
-            "Ansicht %dx%d, Host-Fenster %dx%d%s" % (vw, vh, tw, th, " (vom Bildschirm begrenzt)" if clipped and abs(vw - tw) > 1 else ""))
+        sw, sh = u.GetSystemMetrics(0), u.GetSystemMetrics(1)   # SM_CXSCREEN/SM_CYSCREEN: Windows begrenzt Hauptfenster auf etwa die Bildschirmgröße (GitHub-Rechner 1024 × 768)
+        clipped = tw < vw and ow >= sw; clippedH = th < vh and oh >= sh - 40   # Höhe: Taskleiste und Rahmen abgezogen (Cultec 1400 × 893 auf 768 Zeilen)
+        res("groesse", vw >= 300 and vh >= 100 and (abs(vh - th) <= 1 or clippedH) and (abs(vw - tw) <= 1 or clipped),
+            "Ansicht %dx%d, Host-Fenster %dx%d%s" % (vw, vh, tw, th, " (vom Bildschirm begrenzt)" if (clipped and abs(vw - tw) > 1) or (clippedH and abs(vh - th) > 1) else ""))
         # Host-Fenster auf 900 Pixel Innenbreite (passt auf jeden Bildschirm, über jeder Untergrenze): onSize → adjust_size → set_size
         want = 900; wh = int(want * vh / vw) + 40
         u.SetWindowPos(top, None, 0, 0, want + (ow - tw), wh + (oh - th), 0x0002 | 0x0004 | 0x0010)   # SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE

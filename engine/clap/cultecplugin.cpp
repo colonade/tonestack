@@ -51,7 +51,7 @@ struct Plugin {
   Pair *cur = nullptr; std::atomic<Pair*> pend{nullptr}, old{nullptr}; std::atomic<bool> wantOs{false}; std::mutex bm;   // bm: Bau eines neuen Paars (Hauptfaden)
   std::atomic<double> load{0}; std::vector<float> m1, m2; double outg = 1, outCur = -1; long quiet = 0; std::atomic<bool> sleeping{false}; cultec::Setting set;
   std::atomic<double> pk[3]; double pkHold[3] = {0, 0, 0};   // Ausgang (V), 12AU7, 12AX7
-  ctgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1400, guiH = 0;
+  ctgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1200, guiH = 0;   // 1200 × 765 (Frontplatte höher als bei den anderen)
 #ifdef _WIN32
   double guiScale = 1;   // Windows: Anzeigeskalierung des Hosts (set_scale); Fenstergrößen sind dort Gerätepixel
 #endif
