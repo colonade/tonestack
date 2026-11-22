@@ -27,6 +27,7 @@ static std::vector<Curve> loadCurves(const char *path, double &pkB, double &pkS)
   a = t.find("\"schmal_dB\""); if (a != std::string::npos) pkS = std::strtod(t.c_str() + t.find(':', a) + 1, nullptr);
   return out; }
 // Einstellung zu einer Werkskurve (Maximalkurven: Regler auf 10)
+static const char *curvesPath() { for (const char *c : {"docs/cultec/werkskurven.json", "../docs/cultec/werkskurven.json", "../../docs/cultec/werkskurven.json"}) { std::ifstream f(c); if (f) return c; } return "docs/cultec/werkskurven.json"; }
 static Setting curveSetting(const Curve &c) { Setting s; s.lb = s.la = s.hb = s.hc = 0; s.in = true;
   auto idx = [](const double *t, int n, double v) { for (int k = 0; k < n; k++) if (std::fabs(t[k] - v) < 1e-9) return k; return -1; };
   if (c.key == "bass_boost") { s.lb = 1; s.lf = idx(LF_HZ, NLF, std::atof(c.sub.c_str())); }
@@ -70,7 +71,7 @@ int main(int argc, char **argv) {
     std::printf("Flach (Regler 0), dB gegen 1 kHz:"); double fmin = 0, fmax = 0; for (double f : {10., 20., 30., 50., 100., 2e3, 5e3, 7e3, 1e4, 1.3e4, 1.5e4, 2e4, 3e4}) { double r = rel(Setting(), f); std::printf(" %g:%+.2f", f, r); if (f >= 20 && f <= 20000) { fmin = std::min(fmin, r); fmax = std::max(fmax, r); } } std::printf("\n");
     chk("flach 20 Hz–20 kHz: tiefster Wert (Werk −1 dB)", fmin, -1.0, 0); chk("flach 20 Hz–20 kHz: höchster Wert (Werk +0 dB)", fmax, 0, 0.3);
     if (std::strcmp(m, "flat")) {
-    double pkB, pkS; auto cv = loadCurves("../docs/cultec/werkskurven.json", pkB, pkS); double se = 0; int ne = 0;
+    double pkB, pkS; auto cv = loadCurves(curvesPath(), pkB, pkS); double se = 0; int ne = 0; if (cv.size() != 13) { std::printf("Werkskurven nicht gelesen (%s)\n", curvesPath()); bad++; }
     for (auto &k : cv) { Setting s = curveSetting(k); double e2 = 0; std::printf("  %-15s %-6s", k.key.c_str(), k.sub.c_str());
       for (auto &pt : k.pts) { double r = rel(s, pt.first), e = r - pt.second; e2 += e * e; se += e * e; ne++; std::printf(" %g:%+.1f/%+.1f", pt.first, r, pt.second); }
       std::printf("  | %.2f dB\n", std::sqrt(e2 / k.pts.size())); }
@@ -80,7 +81,7 @@ int main(int argc, char **argv) {
         std::printf(" %g k %+.1f@%.2fk", HF_KHZ[k], best, fb / 1000); pkd = std::max(pkd, std::fabs(best - (bw ? pkB : pkS))); fd = std::max(fd, std::fabs(std::log2(fb / (HF_KHZ[k] * 1000)))); } std::printf("\n"); }
     chk("Höhenboost: Spitze gegen Werk (dB, größte Abw.)", pkd, 0, 1.0); chk("Höhenboost schmal/breit: Lage (Oktaven)", fd, 0, 0.12); } }
   if (!std::strcmp(m, "fit")) {   // Anpassung geschätzter Größen an die Werkskurven (Nelder-Mead in log): HS-29 Lp und Eisenverluste, HS-56 Lp, Spulengüte
-    double pkB, pkS; auto cv = loadCurves("../docs/cultec/werkskurven.json", pkB, pkS); Core c = settled(p, Setting(), 48000, 3);
+    double pkB, pkS; auto cv = loadCurves(curvesPath(), pkB, pkS); Core c = settled(p, Setting(), 48000, 3);
     auto put = [&](Parts &q, const std::vector<double> &x) { q.is_lp = std::exp(x[0]); q.is_rc = std::exp(x[1]); q.in_lp = std::exp(x[2]); for (int k = 0; k < NHF; k++) q.qHF[k] = std::exp(x[3]); if (x.size() > 4) { q.lHF[0] = p.lHF[0] * std::exp(x[4]); q.cHF[0] = p.cHF[0] / std::exp(x[4]); } };
     auto cost = [&](const std::vector<double> &x) { Parts q = p; put(q, x); Core d = c; d.v = q; d.cur = Setting(); std::complex<double> r0 = d.response(1000); double e = 0;
       auto rel = [&](const Setting &s, double f) { d.cur = s; return db(std::abs(d.response(f) / r0)); };

@@ -6,7 +6,7 @@
 set -euo pipefail
 B="$1"; OUT="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"; LOV="$LOLDANO"; KAV="$KAISERIN"; BLV="$BLECH"; WIV="$WISENT"; VRV="$VIERECK"   # Versionen wie im Release
+eval "$(bash "$ROOT/scripts/versions.sh")"; LV="$LANEY"; YV="$YAMAHA"; BV="$B15"; GV="$GK"; G1V="$G100"; B3V="$B100III"; SVV="$SVTCL"; WQV="$WIENEQ"; U76V="$AMPFETT76"; LOV="$LOLDANO"; KAV="$KAISERIN"; BLV="$BLECH"; WIV="$WISENT"; VRV="$VIERECK"; CTV="$CULTEC"   # Versionen wie im Release
 W="$(mktemp -d)"; mkdir -p "$W/pkgs" "$W/res"
 # Nachlauf je Plugin (ab 2026-11-03): fasst nur die Dateien des gewählten Plugins an. Vorher lief für jedes Teilpaket dasselbe Skript und
 # verschob von Hand installierte Fassungen aller drei Plugins in den Papierkorb, auch wenn nur eines gewählt war.
@@ -43,7 +43,7 @@ killall AudioComponentRegistrar 2>/dev/null || true
 exit 0
 S
   } > "$W/scripts-$id/postinstall"; chmod +x "$W/scripts-$id/postinstall"; }
-post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76; post loldano Loldano_SLO100; post kaiserin Kaiserin_Reverb; post blech140 Blech_140; post wisent Wisent_Echoreck; post viereck Viereck_34
+post laney Laney_AOR50; post yamaha Lametta_B100II Yamaha_B100II; post b15nf AmpFett_B15NF Ampeg_B15NF; post gk800rb GK_800RB; post g100 Lametta_G100 Yamaha_G100; post b100iii Lametta_B100III Yamaha_B100III; post svtcl AmpFett_SVTCL; post wieneq Wien_EQ; post ampfett76 AmpFett_76; post loldano Loldano_SLO100; post kaiserin Kaiserin_Reverb; post blech140 Blech_140; post wisent Wisent_Echoreck; post viereck Viereck_34; post cultec Cultec_EQ1A
 one() {   # one <Name> <id> <Version> <component|vst3>
   local NAME="$1" ID="$2" V="$3" KIND="$4" DEST; [ "$KIND" = component ] && DEST=Components || DEST=VST3
   local SRC; SRC="$(find "$B" -maxdepth 3 -name "$NAME.$KIND" -type d | head -1)"; [ -n "$SRC" ] || { echo "FEHLER: $NAME.$KIND fehlt"; exit 1; }
@@ -68,7 +68,8 @@ one Kaiserin_Reverb kaiserin "$KAV" component; one Kaiserin_Reverb kaiserin "$KA
 one Blech_140 blech140 "$BLV" component; one Blech_140 blech140 "$BLV" vst3
 one Wisent_Echoreck wisent "$WIV" component; one Wisent_Echoreck wisent "$WIV" vst3
 one Viereck_34 viereck "$VRV" component; one Viereck_34 viereck "$VRV" vst3
-sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" -e "s/@KAV@/$KAV/g" -e "s/@BLV@/$BLV/g" -e "s/@WIV@/$WIV/g" -e "s/@VRV@/$VRV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
+one Cultec_EQ1A cultec "$CTV" component; one Cultec_EQ1A cultec "$CTV" vst3
+sed -e "s/@LV@/$LV/g" -e "s/@YV@/$YV/g" -e "s/@BV@/$BV/g" -e "s/@GV@/$GV/g" -e "s/@G1V@/$G1V/g" -e "s/@B3V@/$B3V/g" -e "s/@SVV@/$SVV/g" -e "s/@WQV@/$WQV/g" -e "s/@U76V@/$U76V/g" -e "s/@LOV@/$LOV/g" -e "s/@KAV@/$KAV/g" -e "s/@BLV@/$BLV/g" -e "s/@WIV@/$WIV/g" -e "s/@VRV@/$VRV/g" -e "s/@CTV@/$CTV/g" "$HERE/welcome.html" > "$W/res/welcome.html"
 cp "$HERE/../LICENSE" "$W/res/LICENSE.txt"   # GPL-3.0 der Plugins (ab 2026-11-21 als Lizenzseite im Installer)
 cat > "$W/dist.xml" <<X
 <?xml version="1.0" encoding="utf-8"?>
@@ -108,6 +109,7 @@ cat > "$W/dist.xml" <<X
     <line choice="blech140"/>
     <line choice="wisent"/>
     <line choice="viereck"/>
+    <line choice="cultec"/>
   </choices-outline>
   <choice id="laney" title="Laney AOR 50 Preamp $LV" description="Röhren-Vorverstärker mit Federhall, Endstufe und Lautsprecher. Audio Unit (Logic, GarageBand, MainStage) und VST3.">
     <pkg-ref id="de.tonestack.laney.component"/><pkg-ref id="de.tonestack.laney.vst3"/>
@@ -151,6 +153,9 @@ cat > "$W/dist.xml" <<X
   <choice id="viereck" title="Viereck 34 Tilt $VRV" description="Klangregelung nach dem Schaltplan des Quad 34: TILT (sieben Stellungen ±1 bis ±3 dB, dazu stufenlos und Drehpunkt 80 Hz … 4 kHz), BASS Step 300/170/100 Hz und Lift +3/+6/+9 dB, BALANCE, Filter F1/F2 mit SLOPE; stereo. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.viereck.component"/><pkg-ref id="de.tonestack.viereck.vst3"/>
   </choice>
+  <choice id="cultec" title="Cultec EQ-1A Program EQ $CTV" description="Passiver Programm-Equalizer mit Röhrenverstärker nach dem Schaltplan des Pultec EQP-1A: Tiefen BOOST/ATTEN bei 20/30/60/100 Hz, Höhen BOOST 3–16 kHz mit BANDWIDTH, Höhen ATTEN 5/10/20 kHz, IN/OUT; Übertrager und 12AX7/12AU7 im Gegentakt gerechnet; stereo. Audio Unit und VST3.">
+    <pkg-ref id="de.tonestack.cultec.component"/><pkg-ref id="de.tonestack.cultec.vst3"/>
+  </choice>
   <pkg-ref id="de.tonestack.laney.component" version="$LV">laney-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.laney.vst3" version="$LV">laney-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.yamaha.component" version="$YV">yamaha-component.pkg</pkg-ref>
@@ -179,6 +184,8 @@ cat > "$W/dist.xml" <<X
   <pkg-ref id="de.tonestack.wisent.vst3" version="$WIV">wisent-vst3.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.viereck.component" version="$VRV">viereck-component.pkg</pkg-ref>
   <pkg-ref id="de.tonestack.viereck.vst3" version="$VRV">viereck-vst3.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.cultec.component" version="$CTV">cultec-component.pkg</pkg-ref>
+  <pkg-ref id="de.tonestack.cultec.vst3" version="$CTV">cultec-vst3.pkg</pkg-ref>
 </installer-gui-script>
 X
 P="$OUT/$PKG"

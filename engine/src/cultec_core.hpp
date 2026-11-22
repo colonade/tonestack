@@ -149,14 +149,14 @@ struct Os {
     if (os == 1) { dl.assign(LAT, 0.0); h.clear(); return; }
     N = os * LAT + 1; h.assign(N, 0.0); const double fc = 0.48 / os, beta = 9, M = (N - 1) / 2.0; double sum = 0;
     for (int k = 0; k < N; k++) { double m = k - M, r = m / M, w = I0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / I0(beta); h[k] = (m == 0 ? 2 * fc : std::sin(2 * PI * fc * m) / (PI * m)) * w; sum += h[k]; }
-    for (auto &x : h) x /= sum; xb.assign(2 * N, 0.0); yb.assign(2 * N, 0.0); }
+    for (auto &x : h) x /= sum; xb.assign(2 * ((N + os - 1) / os), 0.0); yb.assign(2 * N, 0.0); }
   // ein Grundabtastwert: f(x) wird os-mal mit den hochgetasteten Werten gerufen und liefert die Ausgänge der hohen Rate
   template <class F> double run(double x, F &&f) {
     if (os == 1) { double y = f(x); double o = dl[di]; dl[di] = y; if (++di >= LAT) di = 0; return o; }
-    double out = 0;
+    double out = 0; const int M = (N + os - 1) / os;   // Polyphase: in Phase ph wirken nur die Abgriffe k = ph + j·os auf die Eingänge x[n − j]
+    xi = xi == 0 ? M - 1 : xi - 1; xb[xi] = xb[xi + M] = x * os;
     for (int ph = 0; ph < os; ph++) {
-      xi = xi == 0 ? N - 1 : xi - 1; xb[xi] = xb[xi + N] = ph == 0 ? x * os : 0.0;   // Nullen einfügen, Verstärkung os
-      double u = 0; for (int k = 0; k < N; k++) u += h[k] * xb[xi + k];
+      double u = 0; for (int j = 0, k = ph; k < N; j++, k += os) u += h[k] * xb[xi + j];
       double y = f(u); yi = yi == 0 ? N - 1 : yi - 1; yb[yi] = yb[yi + N] = y;
       if (ph == 0) for (int k = 0; k < N; k++) out += h[k] * yb[yi + k]; }   // Abgriff in Phase 0: Laufzeit genau (N − 1)/os = LAT
     return out; }

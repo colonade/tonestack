@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-21-2";
+const VERSION = "2026-11-22-1";
 // Eigener Speichername je Version und Installationsort (ab 2026-11-15-8): beim Aktualisieren werden nur die eigenen alten Speicher gelöscht,
 // nicht die anderer Web-Apps auf derselben Domain (bis 2026-11-15-7 wurden alle Speicher der Domain außer dem aktuellen gelöscht).
 const CACHE = "tonestack-" + VERSION + "@" + self.registration.scope;
@@ -103,6 +103,13 @@ const FILES = [
   "viereck-34/viereck-render.js",
   "assets/icons/viereck-34-192.png",
   "assets/icons/viereck-34-512.png",
+  "cultec-eq1a/",
+  "cultec-eq1a/index.html",
+  "cultec-eq1a/manifest.webmanifest",
+  "cultec-eq1a/cultec-worklet.js",
+  "cultec-eq1a/cultec-render.js",
+  "assets/icons/cultec-eq1a-192.png",
+  "assets/icons/cultec-eq1a-512.png",
   "ampfett-76/",
   "ampfett-76/index.html",
   "ampfett-76/manifest.webmanifest",

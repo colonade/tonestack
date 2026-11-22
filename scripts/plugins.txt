@@ -15,3 +15,4 @@ Kaiserin_Reverb|KAISERIN|README-Kaiserin.txt|kaiserin|Kaiserin Reverb
 Blech_140|BLECH|README-Blech140.txt|blech140|Blech 140 Plate Reverb
 Wisent_Echoreck|WISENT|README-Wisent.txt|wisent|Wisent Echoreck Drum Echo
 Viereck_34|VIERECK|README-Viereck34.txt|viereck|Viereck 34 Tilt EQ
+Cultec_EQ1A|CULTEC|README-Cultec.txt|cultec|Cultec EQ-1A Program EQ

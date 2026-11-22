@@ -4,7 +4,7 @@
 #
 #   cmake -S engine/vst3 -B engine/build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release
 #   cmake --build engine/build/vst3
-#   → engine/build/vst3/Laney_AOR50.vst3, Lametta_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Lametta_G100.vst3, Lametta_B100III.vst3, AmpFett_SVTCL.vst3, Wien_EQ.vst3, AmpFett_76.vst3, Loldano_SLO100.vst3, Kaiserin_Reverb.vst3, Blech_140.vst3, Wisent_Echoreck.vst3, Viereck_34.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
+#   → engine/build/vst3/Laney_AOR50.vst3, Lametta_B100II.vst3, AmpFett_B15NF.vst3, GK_800RB.vst3, Lametta_G100.vst3, Lametta_B100III.vst3, AmpFett_SVTCL.vst3, Wien_EQ.vst3, AmpFett_76.vst3, Loldano_SLO100.vst3, Kaiserin_Reverb.vst3, Blech_140.vst3, Wisent_Echoreck.vst3, Viereck_34.vst3, Cultec_EQ1A.vst3   (Ordner-Bundles, so nach ~/.vst3 kopieren)
 # macOS (Xcode-Befehlszeilenwerkzeuge, cmake, ninja): dieselben Befehle; gebaut werden VST3 und Audio Unit (AUv2, .component)
 # für Apple Silicon und Intel, mit Frontplatte (NSView + CoreGraphics: clap/macview.mm, clap/cairo_cg.hpp).
 # Windows (x86-64, ab 2026-11-21): unter Linux mit MinGW-w64 übersetzt (engine/win/build.sh, Werkzeugkette engine/win/mingw64.cmake),
@@ -125,7 +125,8 @@ ts_version(kaiplugin.cpp KAV)
 ts_version(blechplugin.cpp BLV)
 ts_version(wisentplugin.cpp WIV)
 ts_version(viereckplugin.cpp VRV)
-message(STATUS "tonestack: Laney ${LV}, Yamaha ${YV}, AmpFett ${BV}, GK ${GV}, G100 ${G1V}, B100-III ${B3V}, SVT-CL ${SVV}, Wien EQ ${WQV}, AmpFett 76 ${U76V}, Loldano ${LOV}, Kaiserin Reverb ${KAV}, Blech 140 ${BLV}, Wisent Echoreck ${WIV}, Viereck 34 ${VRV}")
+ts_version(cultecplugin.cpp CTV)
+message(STATUS "tonestack: Laney ${LV}, Yamaha ${YV}, AmpFett ${BV}, GK ${GV}, G100 ${G1V}, B100-III ${B3V}, SVT-CL ${SVV}, Wien EQ ${WQV}, AmpFett 76 ${U76V}, Loldano ${LOV}, Kaiserin Reverb ${KAV}, Blech 140 ${BLV}, Wisent Echoreck ${WIV}, Viereck 34 ${VRV}, Cultec EQ-1A ${CTV}")
 tonestack_plugin(laney  plugin.cpp  laney_entry.cpp  Laney_AOR50   de.tonestack.laney-aor50.vst3   ${LV} Lany)
 tonestack_plugin(yamaha yplugin.cpp yamaha_entry.cpp Lametta_B100II de.tonestack.lametta-b100ii.vst3 ${YV} B100)
 tonestack_plugin(b15    b15plugin.cpp b15_entry.cpp AmpFett_B15NF de.tonestack.ampfett-b15nf.vst3  ${BV} AFB1)
@@ -140,3 +141,4 @@ tonestack_plugin(kai    kaiplugin.cpp kai_entry.cpp Kaiserin_Reverb de.tonestack
 tonestack_plugin(blech  blechplugin.cpp blech_entry.cpp Blech_140 de.tonestack.blech-140.vst3 ${BLV} BL14)
 tonestack_plugin(wisent wisentplugin.cpp wisent_entry.cpp Wisent_Echoreck de.tonestack.wisent-echoreck.vst3 ${WIV} WSEC)
 tonestack_plugin(viereck viereckplugin.cpp viereck_entry.cpp Viereck_34 de.tonestack.viereck-34.vst3 ${VRV} VR34)
+tonestack_plugin(cultec cultecplugin.cpp cultec_entry.cpp Cultec_EQ1A de.tonestack.cultec-eq1a.vst3 ${CTV} CEQ1)

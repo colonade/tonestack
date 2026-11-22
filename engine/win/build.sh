@@ -21,6 +21,6 @@ for f in "$B"/CLAP/*.clap "$B"/VST3/*.vst3/Contents/x86_64-win/*.vst3; do n=$((n
   case "$f" in *.clap) want="clap_entry ";; *) want="ExitDll GetPluginFactory InitDll clap_entry ";; esac
   [ "$exp" = "$want" ] || { echo "FEHLER: $f exportiert: $exp" >&2; ok=0; }
 done
-[ "$n" = 28 ] || { echo "FEHLER: $n statt 28 Plugin-Dateien" >&2; ok=0; }
+[ "$n" = 30 ] || { echo "FEHLER: $n statt 30 Plugin-Dateien" >&2; ok=0; }
 [ "$ok" = 1 ] || exit 1
 echo "Windows: $n Plugin-Dateien in $B (nur Windows-Bibliotheken, nur Einstiege exportiert)"

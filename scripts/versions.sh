@@ -2,15 +2,15 @@
 # Gibt die Plugin-Versionen aus den Quellen aus: LANEY=3.18 YAMAHA=1.8 B15=1.1 GK=1.0 G100=1.0 B100III=1.0 SVTCL=1.0 WIENEQ=1.0 AMPFETT76=1.0 LOLDANO=1.0 KAISERIN=1.0 BLECH=1.0 WISENT=1.1 VIERECK=1.0 TAG=laney-3.18_b100ii-1.8_b15nf-1.1_gk800rb-1.0_g100-1.0_b100iii-1.0_svtcl-1.0_wieneq-1.0_ampfett76-1.0_loldano-1.0_kaiserin-1.0_blech140-1.0_wisent-1.1 PKG=tonestack-Plugins-Mac.pkg (Name fest, unabhängig vom Inhalt)  (zum Einlesen mit eval)
 R="$(cd "$(dirname "$0")/.." && pwd)"
 v() { sed -n 's/^#define TS_VERSION "\([0-9.]*\)".*/\1/p' "$R/engine/clap/$1" | head -n1; }   # nur die erste Zeile
-L="$(v plugin.cpp)"; Y="$(v yplugin.cpp)"; B="$(v b15plugin.cpp)"; G="$(v gkplugin.cpp)"; G1="$(v g100plugin.cpp)"; B3="$(v b3plugin.cpp)"; SV="$(v svtplugin.cpp)"; WQ="$(v weqplugin.cpp)"; U7="$(v u76plugin.cpp)"; LO="$(v sloplugin.cpp)"; KA="$(v kaiplugin.cpp)"; BL="$(v blechplugin.cpp)"; WI="$(v wisentplugin.cpp)"; VR="$(v viereckplugin.cpp)"
-for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR"; do [[ "$x" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "Versionen nicht gefunden oder ungültig: '$L' '$Y' '$B' '$G' '$G1' '$B3' '$SV' '$WQ' '$U7' '$LO' '$KA' '$BL' '$WI' '$VR'" >&2; exit 1; }; done
+L="$(v plugin.cpp)"; Y="$(v yplugin.cpp)"; B="$(v b15plugin.cpp)"; G="$(v gkplugin.cpp)"; G1="$(v g100plugin.cpp)"; B3="$(v b3plugin.cpp)"; SV="$(v svtplugin.cpp)"; WQ="$(v weqplugin.cpp)"; U7="$(v u76plugin.cpp)"; LO="$(v sloplugin.cpp)"; KA="$(v kaiplugin.cpp)"; BL="$(v blechplugin.cpp)"; WI="$(v wisentplugin.cpp)"; VR="$(v viereckplugin.cpp)"; CT="$(v cultecplugin.cpp)"
+for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR" "$CT"; do [[ "$x" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "Versionen nicht gefunden oder ungültig: '$L' '$Y' '$B' '$G' '$G1' '$B3' '$SV' '$WQ' '$U7' '$LO' '$KA' '$BL' '$WI' '$VR' '$CT'" >&2; exit 1; }; done
 # Gesamtnummer aller Plugins (ab 2026-11-21): 1.<Summe aus 1000·Haupt- + Nebenversion>[.<Summe der dritten Stellen>] – steigt mit jeder Plugin-Version
 # (auch bei x.y.z) und bleibt gleich, solange sich keine ändert. Debian-Paket: SUMVER-DEBREV; DEBREV nur erhöhen, wenn sich das Paket ohne neue
 # Plugin-Version ändert (Abhängigkeiten, Beschreibung, Dokumentation), bei der nächsten Plugin-Version wieder 1. Windows-Installer: SUMVER als Anzeigeversion.
 DEBREV=1
-S=0; P=0; for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR"; do
+S=0; P=0; for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR" "$CT"; do
   M="${x%%.*}"; r="${x#*.}"; N="${r%%.*}"; if [ "$r" = "$N" ]; then Q=0; else Q="${r#*.}"; fi
   [[ "$Q" =~ ^[0-9]+$ ]] || { echo "Version mit mehr als drei Stellen: $x" >&2; exit 1; }
   S=$((S + 1000 * 10#$M + 10#$N)); P=$((P + 10#$Q)); done
 SUMVER="1.$S"; [ "$P" = 0 ] || SUMVER="$SUMVER.$P"
-echo "LANEY=$L YAMAHA=$Y B15=$B GK=$G G100=$G1 B100III=$B3 SVTCL=$SV WIENEQ=$WQ AMPFETT76=$U7 LOLDANO=$LO KAISERIN=$KA BLECH=$BL WISENT=$WI VIERECK=$VR TAG=laney-${L}_b100ii-${Y}_b15nf-${B}_gk800rb-${G}_g100-${G1}_b100iii-${B3}_svtcl-${SV}_wieneq-${WQ}_ampfett76-${U7}_loldano-${LO}_kaiserin-${KA}_blech140-${BL}_wisent-${WI}_viereck34-${VR} PKG=tonestack-Plugins-Mac.pkg SUMVER=$SUMVER DEBVER=$SUMVER-$DEBREV WINEXE=tonestack-Plugins-Windows.exe"
+echo "LANEY=$L YAMAHA=$Y B15=$B GK=$G G100=$G1 B100III=$B3 SVTCL=$SV WIENEQ=$WQ AMPFETT76=$U7 LOLDANO=$LO KAISERIN=$KA BLECH=$BL WISENT=$WI VIERECK=$VR CULTEC=$CT TAG=laney-${L}_b100ii-${Y}_b15nf-${B}_gk800rb-${G}_g100-${G1}_b100iii-${B3}_svtcl-${SV}_wieneq-${WQ}_ampfett76-${U7}_loldano-${LO}_kaiserin-${KA}_blech140-${BL}_wisent-${WI}_viereck34-${VR}_cultec-${CT} PKG=tonestack-Plugins-Mac.pkg SUMVER=$SUMVER DEBVER=$SUMVER-$DEBREV WINEXE=tonestack-Plugins-Windows.exe"

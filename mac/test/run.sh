@@ -1,5 +1,5 @@
 #!/bin/bash
-# Prüfbilder der Mac-Oberflächen (Laney, Lametta B100-II, AmpFett B-15NF, GK 800RB, Lametta G100, Lametta B100-III, AmpFett SVT-CL, Wien EQ, AmpFett 76, Loldano, Kaiserin Reverb, Blech 140, Wisent Echoreck, Viereck 34) nach mac/test/out/*.png
+# Prüfbilder der Mac-Oberflächen (Laney, Lametta B100-II, AmpFett B-15NF, GK 800RB, Lametta G100, Lametta B100-III, AmpFett SVT-CL, Wien EQ, AmpFett 76, Loldano, Kaiserin Reverb, Blech 140, Wisent Echoreck, Viereck 34, Cultec EQ-1A) nach mac/test/out/*.png
 set -euo pipefail
 cd "$(dirname "$0")/../.."; E=engine; O=mac/test/out; mkdir -p "$O"
 FL=(-std=c++17 -O3 -arch arm64 -arch x86_64 -fobjc-arc -I$E/clap -I$E/src -I$E/gen -I$E/third_party -framework Foundation -framework CoreGraphics -framework CoreText -framework ImageIO -framework Cocoa)
@@ -17,6 +17,7 @@ clang++ "${FL[@]}" -DTS_GUI_HDR='"kaigui.hpp"' -DTS_NS=kaigui -DTS_FW=FW mac/tes
 clang++ "${FL[@]}" -DTS_GUI_HDR='"blechgui.hpp"' -DTS_NS=blechgui -DTS_FW=FW -DTS_NO_CURVES mac/test/render.mm $E/clap/macview.mm -o /tmp/render_blech
 clang++ "${FL[@]}" -DTS_GUI_HDR='"wisentgui.hpp"' -DTS_NS=wisentgui -DTS_FW=FW -DTS_NO_CURVES mac/test/render.mm $E/clap/macview.mm -o /tmp/render_wisent
 clang++ "${FL[@]}" -DTS_GUI_HDR='"viereckgui.hpp"' -DTS_NS=vrgui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_viereck
+clang++ "${FL[@]}" -DTS_GUI_HDR='"cultecgui.hpp"' -DTS_NS=ctgui -DTS_FW=FW mac/test/render.mm $E/clap/macview.mm -o /tmp/render_cultec
 /tmp/render_laney "$O/laney.png" 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5
 /tmp/render_yamaha "$O/b100ii.png" 0=0 5=0 6=2 7=-1 8=0 9=1 10=0 11=1 12=100 13=1 14=0
 /tmp/render_b15nf "$O/b15nf.png" 0=1 1=7 2=3.5 3=6 4=5 5=5 6=5 7=0 8=1 9=1 10=100 11=1 12=0
@@ -31,6 +32,7 @@ clang++ "${FL[@]}" -DTS_GUI_HDR='"viereckgui.hpp"' -DTS_NS=vrgui -DTS_FW=FW mac/
 /tmp/render_blech "$O/blech.png" 0=2.6 1=2 2=35 3=20 4=0
 /tmp/render_wisent "$O/wisent.png" 0=3 1=6 2=8 3=5 4=6 5=1 6=0 7=1 8=0 9=0 10=0 11=1 12=0 13=0 14=200 15=0 16=0 17=6.7 18=1 19=3 20=74.4 21=148.8 22=300 23=500 24=1
 /tmp/render_viereck "$O/viereck.png" 0=2 1=5 2=0.2 3=1 4=1 5=0 6=847.13 7=-10 8=0
+/tmp/render_cultec "$O/cultec.png" 0=6 1=3 2=1 3=7 4=4 5=4 6=2 7=2 8=1 9=18 10=2 11=0
 # Zeichenzeit unter Rosetta (x86_64-Teil derselben Programme), Bilder nur zum Vergleich
 if arch -x86_64 /usr/bin/true 2>/dev/null; then
   arch -x86_64 /tmp/render_laney /tmp/rosetta_laney.png 0=0 1=0 2=2 3=2 4=2 9=1 10=1 11=1 12=1 13=1 14=0 15=0 16=1 17=100 18=1 20=3 21=3 22=3 23=0 24=1 25=0 28=4 29=5 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
@@ -47,4 +49,5 @@ if arch -x86_64 /usr/bin/true 2>/dev/null; then
   arch -x86_64 /tmp/render_blech /tmp/rosetta_blech.png 0=2.6 1=2 2=35 3=20 4=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_wisent /tmp/rosetta_wisent.png 0=3 1=6 2=8 3=5 4=6 5=1 6=0 7=1 8=0 9=0 10=0 11=1 12=0 13=0 14=200 15=0 16=0 17=6.7 18=1 19=3 20=74.4 21=148.8 22=300 23=500 24=1 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
   arch -x86_64 /tmp/render_viereck /tmp/rosetta_viereck.png 0=2 1=5 2=0.2 3=1 4=1 5=0 6=847.13 7=-10 8=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
+  arch -x86_64 /tmp/render_cultec /tmp/rosetta_cultec.png 0=6 1=3 2=1 3=7 4=4 5=4 6=2 7=2 8=1 9=18 10=2 11=0 | grep RESULT | sed 's/kind=draw/kind=draw arch=x86_64/'
 else echo "RESULT kind=draw arch=x86_64 rosetta=missing"; fi

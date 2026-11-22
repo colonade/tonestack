@@ -1,0 +1,29 @@
+{
+  "name": "Cultec EQ-1A",
+  "short_name": "Cultec EQ-1A",
+  "description": "Cultec EQ-1A: Programm-Equalizer nach dem Schaltplan des Pultec EQP-1A gerechnet – passives LC-Netz, Eingangs-, Zwischen- und Ausgangsübertrager, 12AX7/12AU7 im Gegentakt mit Gegenkopplung; mit Anhören eigener Audiodateien.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#EEF1EC",
+  "icons": [
+    {
+      "src": "../assets/icons/cultec-eq1a-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/cultec-eq1a-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icons/cultec-eq1a-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
