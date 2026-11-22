@@ -45,3 +45,6 @@ docs/loldano/*
 *.PDF
 docs/wisent/*
 !docs/wisent/SCHALTPLAN.md
+docs/cultec/*
+!docs/cultec/SCHALTPLAN.md
+!docs/cultec/werkskurven.json
