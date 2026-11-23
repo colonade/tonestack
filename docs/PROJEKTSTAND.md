@@ -56,6 +56,9 @@ Nutzer: „bitte mit den anderen Teilen des Pultec weitermachen“. Lesart (dem 
   Paarwechsel, Hinweis, kein Fehler).
 - Web: MODELL-Auswahl, zweites Frontplattenbild eingebettet, Wahlschalter je Modell (lfr/hfr), Worklet und WASM (tgtB 10–12) mit Neuaufbau beim Wechsel;
   node-Vergleich WASM = Plugin; Chrome headless 1300/420 px angesehen.
+- Commit bacdb5a: Lauf 45148504415 im ersten Versuch grün (linux, windows, mac, publish). Release laney-3.52_…_viereck34-1.1_cultec-1.1: 88 Dateien, Größe und
+  Digest ok, SHA256SUMS-linux 31/31, -windows 16/16, -sources 6/6, -mac 1/1; DEB 1.17209-1. Hier: verify.sh 90 identisch mit dem Bau + 15 WebAssembly-Kerne
+  identisch mit der Seite, embed_wasm ohne Änderung.
 
 ## Cultec EQ-1A 1.0 = Programm-Equalizer nach dem Pultec EQP-1A; DEB meldet das Ergebnis der Installation (2026-11-22, Web 2026-11-22-1)
 Nutzer: Unterlagen zum Pultec geschickt (Werksunterlagen PultecEQP.pdf, recproaudio-Abschrift samt Teileliste, Gyraf-Zeichnung, Frontplattenfoto; alles nur lokal in docs/cultec, ignoriert), Name „Cultec EQ-1A“. MEQ-5 nicht gebaut (Frage unbeantwortet, Annahme mitgeteilt).
