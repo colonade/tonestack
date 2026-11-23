@@ -1,5 +1,5 @@
 // Offline-Zwischenspeicher. Nach Änderungen an den Seiten VERSION erhöhen.
-const VERSION = "2026-11-22-1";
+const VERSION = "2026-11-23-1";
 // Eigener Speichername je Version und Installationsort (ab 2026-11-15-8): beim Aktualisieren werden nur die eigenen alten Speicher gelöscht,
 // nicht die anderer Web-Apps auf derselben Domain (bis 2026-11-15-7 wurden alle Speicher der Domain außer dem aktuellen gelöscht).
 const CACHE = "tonestack-" + VERSION + "@" + self.registration.scope;

@@ -1,7 +1,7 @@
 // GUI-Test (Cultec EQ-1A): Plugin laden, Fenster in ein Elternfenster einbetten (Xvfb), Audio rechnen, Mausereignisse senden, Bild speichern.
 //   cultecguitest Cultec_EQ1A.clap bild.png
 // Prüft: Drehregler ziehen, Mausrad, Doppelklick (0 bzw. Mitte), Wahlschalter (Klick rechts/links, Rad, Ziehen), IN-Schalter, LEVEL, OUTPUT, OVERSAMPLING
-// (Umbau im Hauptfaden, danach weiter Ton). Rückgabe 1 bei Abweichung.
+// (Umbau im Hauptfaden, danach weiter Ton), ab 1.1 MODEL EQP-1R (zweites Bild …_r.png). Rückgabe 1 bei Abweichung.
 #include "clap-1.2.2/include/clap/clap.h"
 #include <X11/Xlib.h>
 #include <cairo/cairo.h>
@@ -78,6 +78,20 @@ int main(int argc, char **argv) {
   send(MotionNotify, kx(830), kx(160), 0); for (int i = 0; i < 6; i++) tick(); usleep(200000);
   char t[96]; for (uint32_t id = 0; id < params->count(p); id++) { double v; params->get_value(p, id, &v); clap_param_info_t inf; params->get_info(p, id, &inf); params->value_to_text(p, id, v, t, 96); printf("  %s = %s\n", inf.name, t); }
   cairo_surface_t *xs = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs, argv[2]); cairo_surface_destroy(xs);
+  // ab 1.1: MODEL EQP-1R (eigene Frontplatte, eigene Wahlschalter-Parameter 13/14; ATTEN SEL ohne Wirkung), Umbau im Hauptfaden, danach weiter Ton
+  { auto uy4 = [&](double v) { return (int)(420 * s + v * uu); };
+    const double lf0 = pv(2), hf0 = pv(5), hcs0 = pv(7);
+    click(ux(545), uy4(96)); chk("MODEL Klick unten: EQP-1R", pv(12), 1); for (int i = 0; i < 20; i++) tick();
+    click(kx(415) + 10, kx(330)); chk("EQP-1R CPS Klick rechts: 100 Hz", pv(13), 2); click(kx(415) - 10, kx(330)); click(kx(415) - 10, kx(330)); chk("EQP-1R CPS zweimal links: 30 Hz", pv(13), 0);
+    send(ButtonPress, kx(960), kx(330), 4); tick(); send(ButtonPress, kx(960), kx(330), 4); tick(); send(ButtonPress, kx(960), kx(330), 4); tick(); send(ButtonPress, kx(960), kx(330), 4); tick();
+    chk("EQP-1R KCS Mausrad 4× hoch: 12 kHz (Ende)", pv(14), 4);
+    click(kx(1320) + 10, kx(160)); chk("EQP-1R: Schild statt ATTEN SEL (ohne Wirkung)", pv(7), hcs0);
+    chk("EQP-1A-Wahlschalter unverändert: CPS", pv(2), lf0); chk("EQP-1A-Wahlschalter unverändert: KCS", pv(5), hf0);
+    audio(60); printf("Ausgang Spitze (EQP-1R): %.3f\n", outPk); if (!(outPk > 0.01 && outPk < 5)) bad++;
+    send(MotionNotify, kx(830), kx(160), 0); for (int i = 0; i < 6; i++) tick(); usleep(200000);
+    std::string p2 = argv[2]; size_t dot = p2.rfind('.'); p2 = (dot == std::string::npos ? p2 : p2.substr(0, dot)) + "_r.png";
+    cairo_surface_t *xs2 = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs2, p2.c_str()); cairo_surface_destroy(xs2);
+    click(ux(545), uy4(52)); chk("MODEL Klick oben: zurück EQP-1A", pv(12), 0); for (int i = 0; i < 20; i++) tick(); audio(40); if (!(outPk > 0.01 && outPk < 5)) { bad++; printf("kein Ton nach Rückwechsel\n"); } }
   gui->hide(p); gui->destroy(p); p->stop_processing(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d);
   printf("%s\n", bad ? "FEHLER" : "alle Prüfungen bestanden"); return bad ? 1 : 0;
 }

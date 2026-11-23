@@ -58,6 +58,7 @@ jobs:
           ./engine/build/wisenttest wobpitch | tail -3
           ./engine/build/viereck_test | tail -8
           ./engine/build/cultec_test | grep -E "\\[|ABWEICHUNG|fertig|FEHLER"
+          ./engine/build/cultec_test all r | grep -E "\\[|ABWEICHUNG|fertig|FEHLER"
           ./engine/build/b15pre | tail -1
           ./engine/build/svtpre | tail -1
           ./engine/build/slopre | tail -1

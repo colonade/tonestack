@@ -1,4 +1,4 @@
-# Cultec EQ-1A – Abschrift des Pultec EQP-1A
+# Cultec EQ-1A – Abschrift des Pultec EQP-1A (und ab 1.1 des EQP-1R)
 
 Nachbau des Pultec EQP-1A „Program Equalizer“ (Pulse Techniques, West Englewood N. J.): passives LC-Netz, Röhrenverstärker
 12AX7/12AU7 im Gegentakt mit Gegenkopplung über den Ausgangsübertrager. Name des Plugins „Cultec EQ-1A“ (Wahl des Nutzers, 2026-11-22).
@@ -12,7 +12,7 @@ Verbindlich ist der Kern `engine/src/cultec_core.hpp`; diese Datei hält fest, w
   3. **Werkskurven EQP-1A** für jede Stellung (36 Diagramme), 4. Einbau- und Bedienungsanleitung,
   5. „Tubes & Potentiometers in Pultec Equalizers“ (Potiwerte und Kennlinien je Modell),
   6. Werksplan des passiven Netzes des **EQP-1R** (nicht EQP-1A), 7. **Werksplan Verstärker EQP-1A, DWG E-72,658-2**,
-  8. Werksplan Verstärker EQP-1R (DWG E-112,353-7).
+  8. Werksplan Verstärker EQP-1R (DWG E-112,353-7). Seiten 6 und 8 sind ab Plugin 1.1 das zweite Modell (Abschnitt „Zweites Modell: EQP-1R“).
 - **recproaudio.com** (Nutzer): Abschrift des passiven Netzes EQP-1A („Hosef, 7-11-97“), Teileliste eqp1a_parts_list.xls,
   Verstärkerplan (gleich DWG E-72,658-2).
 - **Gyraf** „pultech.gif“: Nachzeichnung „Pultec/Tubetec PE-1a program equalizer, November 2001“ (Filter nach den „real filter schematics“
@@ -87,6 +87,71 @@ Werte je Stellung (Herkunft und Prüfung siehe unten):
 
 **Unsicher:** Das Netz des EQP-1A gibt es nur als Abschrift; die Bass-Kondensatoren stammen aus einer zweiten Abschrift, die zu den
 Werkskurven passt. Spulendaten (Gleichstromwiderstand, Kernverluste) und Übertragerdaten sind geschätzt.
+
+## Zweites Modell: EQP-1R (ab Plugin 1.1)
+
+Das ältere Gerät (Nachfolger des EQP-1 von 1956; Tiefen 30/60/100 Hz, Höhen 3/5/8/10/12 kHz, Höhen-Atten fest) hat dieselbe Schaltungsform. Für
+beide Teile gibt es Werkspläne (PultecEQP.pdf S. 6 „PULTEC EQP-1R EQUALIZER“, S. 8 DWG E-112,353-7), anders als für das Netz des EQP-1A. Gelesen bei
+300 dpi, Ausschnitte 4- bis 8-fach vergrößert. Modell: `partsR()` in `engine/src/cultec_core.hpp`, Prüfung `build/cultec_test all r`.
+
+### Passives Netz (Werksplan S. 6)
+
+| Teil | Wert / Anschluss |
+|---|---|
+| Eingang | 620 Ω über der Sekundärseite des Eingangsübertragers |
+| HF+ | 10 kΩ linear, „+“ am Eingang, „0“ an B; Schleifer → Kondensatorschalter |
+| Kondensatorschalter | 3 kc → 0,02 µF, 5 kc → 0,01 µF (beide zum unteren Ende der 100-mH-Spule), 8 kc und 10 kc → 0,0062 µF, 12 kc → 0,005 µF (zum Abgriff zwischen 50 mH und 100 mH) |
+| Spulen | 50 mH (oben, am BANDWIDTH-Poti) und 100 mH (unten), je mit eigenem Kernsymbol gezeichnet |
+| Spulenschalter | Schleifer am oberen Ende der 50 mH; 3 kc und 8 kc offen, 5 kc → Abgriff (50 mH kurzgeschlossen), 10 kc und 12 kc → unteres Ende |
+| BANDWIDTH | 2,5 kΩ linear als Regelwiderstand (SHARP = 0 Ω) zwischen oberem Spulenende und dem IN-Kontakt W |
+| IN/OUT, Pol 1 | Pol an B, IN → W (1 MΩ zwischen B und W), OUT → Ausgang O (überbrückt den Bass-Atten-Zweig) |
+| HF− | 1 kΩ linear zwischen B und D, Schleifer → 0,13 µF → D (kein Wahlschalter, kein 75 Ω) |
+| IN/OUT, Pol 2 | Pol an D (Pfeilspitze des Schaltarms am IN-Kontakt, wie bei den Wafern), IN-Kontakt über 820 Ω an D, OUT-Kontakt an Masse |
+| LF+ | Regelwiderstand „?0 KΩ LOG“ (erste Ziffer verschmiert) zwischen D und Masse (Schleifer an Masse), 30/60/100 cps: 1 µF, 0,5 µF (Ziffer teils verdeckt), 0,28 µF („·28 µf“) |
+| LF− | 100 kΩ log als Regelwiderstand zwischen B und O, ∥ 0,0362 / 0,02 / 0,01 µF (30/60/100) |
+| O → D | 12 kΩ (kein 1 kΩ zwischen Bass-Atten und Ausgang: gleichlautend die groupdiy-Diskussion „The one from the EQP1R manual has no 1K resistor at all“) |
+| Ausgang | O an den Zwischenübertrager |
+
+Gewählt, wo der Plan nicht eindeutig ist:
+- **LF+ 10 kΩ** (nicht 80 kΩ): EQP-1A-Potiliste JA-1031 10 kΩ; mit 10 kΩ erreicht der Bass-Boost wie bei allen Pultec-Programm-EQs etwa 13,5 dB
+  (Modell +15,4 dB bei 10 Hz), mit 80 kΩ wären es +19 dB.
+- **0,28 µF und 0,5 µF**: passen zum Frequenzverhältnis 30 : 60 : 100 (1 : 0,5 : 0,3); „0,128 µF“ läge bei etwa 230 Hz.
+- **Spulen ungekoppelt** (zwei Kernsymbole): Gesamt 150 mH, damit 3 kc bei 2,9 kHz. Folge laut Plan: 8 kc und 10 kc liegen bei 9,1 und 11,1 kHz
+  (Resonanz 50 mH / 6,2 nF bzw. 33 mH / 6,2 nF), 12 kc bei 12,3 kHz; so übernommen, die Beschriftung bleibt die des Geräts.
+- **820 Ω**: liegen laut Plan mit beiden Enden an D (Pol und IN-Kontakt), also ohne Wirkung; in OUT liegt D unmittelbar an Masse.
+- **Höhen-Atten in OUT**: der Kondensator hängt ohne Schalter an D; in OUT bleibt die Höhen-Atten also wirksam (BOOST und Bass-Atten nicht).
+
+### Verstärker (DWG E-112,353-7)
+
+| Teil | Wert / Anschluss |
+|---|---|
+| Eingangsübertrager | Peerless E-372-Q, 600 Ω (Brücke 3–4), Sekundär 7–12 (9–10 verbunden), Abschluss 620 Ω (im Verstärkerplan „820“ oder „620“ schwer lesbar; Netzplan 620 Ω) |
+| Zwischenübertrager | Peerless G-212-Q, Primär 4–1 (2–3 verbunden), Sekundär 5–10 mit Mittelanzapfung an Masse; über 5–10: 0,00035 µF in Reihe mit 22 kΩ |
+| V1 12AY7 (Gegentakt) | Gitter 2/7 an 5/10; Anoden 1/6 je 180 kΩ an +195 V (+85 V an der Anode), 0,000015 µF zwischen den Anoden; Kathoden 3/8 (+1,5 V) über 750 Ω verbunden, je 360 Ω zur Gegenkopplungswicklung |
+| Kopplung | 0,25 µF auf die Gitter der 12AU7; 1 MΩ an +23 V (470 kΩ von +195 V, 62 kΩ an Masse; 40 µF an +195 V) |
+| V2 12AU7 (Gegentakt) | Kathoden je 4700 Ω (1 W) ∥ 50 µF an Masse (+33 V); Anoden an S-217-D 1 und 6 |
+| Ausgangsübertrager | Peerless S-217-D, Mitte 2/4 an +268 V (40 µF); Sekundär 7–12, 620 Ω ∥ Kondensator am Ausgang (Wert unleserlich, wie EQP-1A 3 nF angenommen); Gegenkopplungswicklung 3–S–5, S über 1000 Ω an Masse |
+| Netzteil | Chicago PCC-55, 6X4 → 1000 Ω (10 W) → 40 µF → 1000 Ω (1 W) → +290 V (40 µF); +290 V → 2,2 kΩ (1 W) → +268 V; → 47 kΩ → +195 V; Heizungsvorspannung 270 kΩ / 62 kΩ ∥ 0,25 µF aus +290 V (+54 V) |
+
+Gleiche Form wie DWG E-72,658-2 (EQP-1A); die Knoten des Kerns heißen nach den Spannungen des EQP-1A (B325 = +290 V usw., siehe Kern).
+
+**Plan in sich nicht ganz stimmig** (gerechnet): 12AU7 mit +33 V an 4,7 kΩ ziehen zusammen 14 mA, damit fielen an 2,2 kΩ 31 V statt 22 V (+290 → +268 V);
+die 12AY7 mit +85 V an 180 kΩ ziehen zusammen 1,2 mA, mit dem Teiler 1,6 mA, an 47 kΩ also 75 V statt 95 V (+290 → +195 V). Die Spannungen sind
+„typical“ (Messung mit 11-MΩ-Voltmeter); Abweichungen um 10 % sind daher zu erwarten.
+
+### Modell EQP-1R und Prüfung
+
+- Gleichrichterspannung (nicht im Plan) 322,5 V, so dass der +290-V-Knoten 289,6 V hat. Ohne weitere Anpassung (cultec_test dc r): +268 → 259,2 V,
+  +195 → 206,3 V, +23 → 24,0 V, Heizung 54,1 V, Anode 12AY7 81,8 V (85), Kathode 1,63 V (1,5), Kathode 12AU7 32,4 V (33).
+- 12AY7: Koren-Form mit Messparametern (b15::K12AY7, TubeLib), Kapazitäten 1,3 pF / 1,3 pF (Datenblatt).
+- S-217-D samt Gegenkopplungswicklung: dasselbe Bauteil wie im EQP-1A, darum dieselben Daten. Ergebnis ohne Anpassung: Gesamtverstärkung bei 1 kHz
+  +0,3 dB (EQP-1A-Plan: 0 dB), Gegenkopplung 12,3 dB (EQP-1A 16,7 dB, 12AY7 hat die kleinere Verstärkung).
+- **Geschätzt**: E-372-Q und G-212-Q ohne Daten → Werte der Triad-Übertrager aus der Anpassung des EQP-1A; Kopplung E-372-Q 0,99999 und G-212-Q
+  0,99992 so, dass der Verstärker wie beim EQP-1A und EQH-2 angegeben flach ist („+0, −1 db“, 20 Hz–20 kHz): −0,86 … +0,14 dB.
+  Mit den Kopplungen des EQP-1A gäbe das Zobel-Glied 350 pF + 22 kΩ +1,1 dB bei 10 kHz und −2,1 dB bei 20 kHz. Spulengüte 20 wie EQP-1A.
+- Keine Werkskurven des EQP-1R: geprüft werden Lage und Höhe (cultec_test curves r): Bass-Boost +15,4 dB, Bass-Atten −20,6 … −20,9 dB (wie EQP-1A),
+  Höhenboost schmal +18,3 … +18,7 dB, breit +10,6 … +10,7 dB (EQP-1A-Werk +18,2 / +10,3), Höhen-Atten 10 kHz −16,3 dB.
+- Klirr +10 dBm: 0,011 % (1 kHz), 0,020 % (50 Hz); +21 dBm 0,30 % bzw. 0,39 % (die 12AU7 laufen an +268 V statt +290 V).
 
 ## Werkskurven (abgelesen)
 

@@ -37,6 +37,26 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
 
+## Cultec EQ-1A 1.1 = zweites Modell EQP-1R (2026-11-23, Web 2026-11-23-1)
+Nutzer: „bitte mit den anderen Teilen des Pultec weitermachen“. Lesart (dem Nutzer mitgeteilt): alles aus seinen Unterlagen, was noch fehlt, also das EQP-1R
+(Werkspläne Netz S. 6 und Verstärker DWG E-112,353-7 S. 8 in PultecEQP.pdf). MEQ-5: in den Unterlagen nur die Potiliste, kein Schaltplan → nicht gebaut.
+- Abschrift: `docs/cultec/SCHALTPLAN.md`, Abschnitt „Zweites Modell: EQP-1R“ (bei 300 dpi gelesen). Gleiche Schaltungsform wie EQP-1A; Netz: Spulen 50 + 100 mH,
+  vom KCS-Schalter teils kurzgeschlossen (3/5/8/10/12 kc → 150/100/50/33/33 mH mit 0,02/0,01/0,0062/0,0062/0,005 µF; 8 und 10 kc liegen damit bei 9,1/11,1 kHz,
+  so übernommen), Bass 30/60/100 Hz (Boost 1/0,5/0,28 µF, Atten 0,0362/0,02/0,01 µF), Höhen-Atten fest 0,13 µF und ohne IN-Schalter (wirkt auch in OUT),
+  12 kΩ statt 1 k + 10 k; Verstärker 12AY7 (180 kΩ, 750 Ω, 15 pF), Zobel 350 pF + 22 kΩ, Netzteil 1000/1000/2,2 k/47 k. Unsicher gelesen und begründet gewählt:
+  LF+ 10 kΩ („?0K“), 0,5 µF, 0,28 µF, Ausgangskondensator (wie EQP-1A 3 nF), 820 Ω ohne Wirkung (beide Enden an D).
+- Kern: `partsR()` / `partsFor(model)` (Parts.model, Stellungszahl, hcSw, v1 = K_AY7 mit b15::K12AY7, heatLate), `CULTEC_REST_R`. Plan in sich ±10 % uneinig
+  (gerechnet: 14 mA an 2,2 kΩ ergäben 259 statt 268 V). Ergebnis ohne Anpassung (Gleichrichter 322,5 V für +290 V): +259/+206/+24 V, Anode 81,8 V (85),
+  Kathode 1,63 V (1,5), 12AU7 32,4 V (33); Verstärkung +0,3 dB, Gegenkopplung 12,3 dB. Geschätzt: E-372-Q/G-212-Q (keine Daten) = Triad-Werte, Kopplung
+  0,99999/0,99992 für „+0/−1 dB“ (−0,86 … +0,14). Klirr +10 dBm 0,011 %. `cultec_test … r` (alle Betriebsarten; im CI `cultec_test all r`).
+- Plugin 1.1: Parameter angehängt (12 MODEL, 13 EQP-1R CPS, 14 EQP-1R KCS; Zustände 1.0 laden unverändert), Modellwechsel baut das Kanalpaar im Hauptfaden
+  neu (wie OVERSAMPLING), eigene Frontplatte `cultecpanel_r.jpg` (Schild „ATTEN AT 10 KCS“ statt ATTEN SEL), Kippschalter MODEL im Modellstreifen,
+  Diagramm je Modell. Geprüft: cultecguitest (Modellwechsel, eigene Wahlschalter, 1A-Stellungen unverändert, Ton nach Hin- und Rückwechsel), plugtest
+  render (8-kHz-Stellung: Spitze 1A bei 8,09 kHz, 1R bei 9,12 kHz, wie der Kern), rtcheck (zufall_automation gelegentlich über 100 % Wandzeit durch die
+  Paarwechsel, Hinweis, kein Fehler).
+- Web: MODELL-Auswahl, zweites Frontplattenbild eingebettet, Wahlschalter je Modell (lfr/hfr), Worklet und WASM (tgtB 10–12) mit Neuaufbau beim Wechsel;
+  node-Vergleich WASM = Plugin; Chrome headless 1300/420 px angesehen.
+
 ## Cultec EQ-1A 1.0 = Programm-Equalizer nach dem Pultec EQP-1A; DEB meldet das Ergebnis der Installation (2026-11-22, Web 2026-11-22-1)
 Nutzer: Unterlagen zum Pultec geschickt (Werksunterlagen PultecEQP.pdf, recproaudio-Abschrift samt Teileliste, Gyraf-Zeichnung, Frontplattenfoto; alles nur lokal in docs/cultec, ignoriert), Name „Cultec EQ-1A“. MEQ-5 nicht gebaut (Frage unbeantwortet, Annahme mitgeteilt).
 - Abschrift und Herkunft aller Werte: `docs/cultec/SCHALTPLAN.md`, Werkskurven abgelesen in `docs/cultec/werkskurven.json`. Beim Bau berichtigt: Zobel-Glied am HS-29 ist 270 pF **in Reihe** mit 43 kΩ (nicht parallel); IN/OUT ist zweipolig und entspricht laut Anleitung „allen Reglern auf 0“ (SW2a/SW2b der Abschrift).
@@ -295,7 +315,7 @@ Nutzer: „bitte … nochmal mit dem original vergleichen ob die Bänder richtig
 - Prüfungen: weqtest 29/29 (neu: Skalen, Glocken LOW/HIGH digital ≤ 0,015 dB, Knacken der Tasten ≤ −70 dB), weqguitest (Tasten an den neuen Stellen), rtcheck ohne Auffälligkeiten, Seite im Browser ohne Fehler (Bandliste: LOW Glocke 40 Hz, MID 123 Hz/391 Hz/1,53 kHz, HIGH Kuhschwanz 20 kHz). verify: alle anderen Plugins bytegleich.
 
 ## Vorgemerkte Änderungen
-- erledigt (Cultec EQ-1A 1.0, 2026-11-22): Pultec EQP-1A (Nutzer, 2026-11-19). Offen: MEQ-5 (nicht beauftragt), Kernsättigung der Übertrager (keine Daten).
+- erledigt (Cultec EQ-1A 1.0, 2026-11-22): Pultec EQP-1A (Nutzer, 2026-11-19); EQP-1R als zweites Modell in 1.1 (2026-11-23). Offen: MEQ-5 (kein Schaltplan in den Unterlagen), Kernsättigung der Übertrager (keine Daten).
 - erledigt (Viereck-Bau 2026-11-20, außer READMEs der übrigen Plugins, s. o.): „Die Texte wie seit bla nicht am gerät kann weg“ (Nutzer, 2026-11-19).
 - erledigt (SVT-CL 1.5): TUBE MISMATCH im SVT-CL (Nutzer, 2026-11-07: „In den svt soll auch der Tube missmatch eingebaut werden“).
 - Vorgemerkt (Plan B Punkt 2, nicht beauftragt): Grundlast allgemein senken.

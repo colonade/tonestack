@@ -40,20 +40,30 @@ static void dc(const Parts &p, bool print) {
   Core c = settled(p, Setting());
   std::vector<double> u = {0, p.vdc}; dk::Vec V = dk::nodeVoltages(c.net, c.fs, c.run.h, u, c.run.ip);
   auto at = [&](const char *n) { return V[c.net.idx.at(n)]; };
+  if (p.model == 1) {   // EQP-1R, DWG E-112,353-7
+    std::printf("Ruhespannungen EQP-1R (Plan):\n");
+    chk("+290 V", at("B325"), 285, 295); chk("+268 V (Mitte S-217-D)", at("B290"), 258, 278); chk("+195 V (Plan in sich ±10 % uneinig, SCHALTPLAN.md)", at("B250"), 183, 210);
+    chk("+23 V (Gitterableitung 12AU7)", at("B31"), 21, 25); chk("Heizungsvorspannung +54 V (aus +290 V über 270 k/62 k)", at("B325") * 62 / 332, 52, 56);
+    chk("Anode 12AY7 +85 V", at("A1"), 75, 95); chk("Kathode 12AY7 +1,5 V", at("K1"), 1.3, 1.7);
+    chk("Kathode 12AU7 +33 V", at("KA"), 30, 36);
+    std::printf("  (Abgriff S %.3f V, erster Siebknoten %.1f V, Gleichrichter %.1f V)\n", at("S"), at("B345"), at("B355"));
+  } else {
   std::printf("Ruhespannungen (Plan):\n");
   chk("+345 V", at("B345"), 335, 355); chk("+325 V", at("B325"), 315, 335); chk("+290 V", at("B290"), 280, 300); chk("+250 V", at("B250"), 240, 260);
   chk("+31 V (Gitterableitung 12AU7)", at("B31"), 29, 33);
   chk("Anode 12AX7 +140 V", at("A1"), 130, 150); chk("Kathode 12AX7 +1,3 V", at("K1"), 1.1, 1.5); chk("Abgriff S +1,1 V", at("S"), 0.9, 1.3);
-  chk("Kathode 12AU7 +40 V", at("KA"), 36, 44);
-  if (print) { std::printf("#define CULTEC_REST {"); bool first = true; for (auto &kv : c.net.idx) { std::printf("%s{\"%s\", %.4f}", first ? "" : ", ", kv.first.c_str(), V[kv.second]); first = false; } std::printf("}\n"); } }
+  chk("Kathode 12AU7 +40 V", at("KA"), 36, 44); }
+  if (print) { std::printf(p.model == 1 ? "#define CULTEC_REST_R {" : "#define CULTEC_REST {"); bool first = true; for (auto &kv : c.net.idx) { std::printf("%s{\"%s\", %.4f}", first ? "" : ", ", kv.first.c_str(), V[kv.second]); first = false; } std::printf("}\n"); } }
 
 int main(int argc, char **argv) {
   const char *m = argc > 1 ? argv[1] : "all"; bool all = !std::strcmp(m, "all");
-  Parts p;
+  // Modell: Argument „r“ (EQP-1R) irgendwo hinter der Betriebsart
+  bool mR = false; for (int a = 2; a < argc; a++) if (!std::strcmp(argv[a], "r")) mR = true;
+  Parts p = partsFor(mR ? 1 : 0); if (mR) std::printf("Modell EQP-1R\n");
   // Überschreiben einzelner Bauteile: name=wert (nur zum Ausprobieren)
   for (int a = 2; a < argc; a++) { const char *e = std::strchr(argv[a], '='); if (!e) continue; std::string k(argv[a], e - argv[a]); double x = std::atof(e + 1);
     std::map<std::string, double*> f = {{"in_lp", &p.in_lp}, {"in_k", &p.in_k}, {"in_cw", &p.in_cw}, {"is_lp", &p.is_lp}, {"is_k", &p.is_k}, {"is_cs", &p.is_cs}, {"is_rc", &p.is_rc},
-      {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}};
+      {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}, {"vdc", &p.vdc}, {"qHF", &p.qHF[0]}};
     if (f.count(k)) *f[k] = x; else { std::printf("unbekannt: %s\n", k.c_str()); return 2; } }
   if (all || !std::strcmp(m, "dc") || !std::strcmp(m, "rest")) dc(p, !std::strcmp(m, "rest"));
   if (all || !std::strcmp(m, "gain")) {
@@ -70,7 +80,21 @@ int main(int argc, char **argv) {
     auto rel = [&](const Setting &s, double f) { Core d = c; d.cur = s; return db(std::abs(d.response(f) / r0)); };
     std::printf("Flach (Regler 0), dB gegen 1 kHz:"); double fmin = 0, fmax = 0; for (double f : {10., 20., 30., 50., 100., 2e3, 5e3, 7e3, 1e4, 1.3e4, 1.5e4, 2e4, 3e4}) { double r = rel(Setting(), f); std::printf(" %g:%+.2f", f, r); if (f >= 20 && f <= 20000) { fmin = std::min(fmin, r); fmax = std::max(fmax, r); } } std::printf("\n");
     chk("flach 20 Hz–20 kHz: tiefster Wert (Werk −1 dB)", fmin, -1.0, 0); chk("flach 20 Hz–20 kHz: höchster Wert (Werk +0 dB)", fmax, 0, 0.3);
-    if (std::strcmp(m, "flat")) {
+    if (std::strcmp(m, "flat")) {   // Lage und Höhe der Kurven gegen die Beschriftung (EQP-1R: keine Werkskurven, nur dies)
+      for (int k = 0; k < p.nlf; k++) { Setting sb, sa; sb.lb = 1; sa.la = 1; sb.lf = sa.lf = k; double hb = -99, ha = 99, fb = 0, fa = 0;
+        for (double f = 10; f < 2000; f *= 1.01) { double rb = rel(sb, f), ra = rel(sa, f); if (rb > hb) { hb = rb; fb = f; } if (ra < ha) { ha = ra; fa = f; } }
+        double f3b = 0, f3a = 0; for (double f = 2000; f > 5; f /= 1.005) { if (!f3b && rel(sb, f) > 3) f3b = f; if (!f3a && rel(sa, f) < -3) f3a = f; }
+        std::printf("  %3g Hz: Boost %+.1f dB (@%.0f Hz, +3 dB bei %.0f Hz), Atten %+.1f dB (@%.0f Hz, −3 dB bei %.0f Hz)\n", p.lfHz[k], hb, fb, f3b, ha, fa, f3a); }
+      for (int bw = 0; bw <= 1; bw++) { std::printf("  Höhenboost %s:", bw ? "breit " : "schmal");
+        for (int k = 0; k < p.nhf; k++) { Setting s; s.hb = 1; s.hf = k; s.bw = bw; double best = -99, fb = 0; for (double f = p.hfKhz[k] * 400; f < p.hfKhz[k] * 2500; f *= 1.005) { double r = rel(s, f); if (r > best) { best = r; fb = f; } }
+          std::printf(" %g k %+.1f@%.2fk", p.hfKhz[k], best, fb / 1000); } std::printf("\n"); }
+      for (int k = 0; k < p.nhc; k++) { Setting s; s.hc = 1; s.hcf = k; std::printf("  Höhen-Atten %d: 5k %+.1f, 10k %+.1f, 20k %+.1f dB\n", k, rel(s, 5000), rel(s, 10000), rel(s, 20000)); }
+      { Setting s; s.lb = 1; s.la = 1; s.lf = 0; std::printf("  30 Hz Boost und Atten zugleich:"); for (double f : {20., 30., 60., 100., 200., 500.}) std::printf(" %g:%+.1f", f, rel(s, f)); std::printf("\n"); }
+      { Setting s, z; s.in = false; s.lb = s.la = s.hb = s.hc = 1; if (!p.hcSw) z.hc = 1;   // OUT wie alle Regler 0 (EQP-1R: Höhen-Atten bleibt)
+        double w = 0; for (double f : {20., 100., 1000., 5000., 1e4, 2e4}) w = std::max(w, std::fabs(rel(s, f) - rel(z, f)));
+        chk(p.hcSw ? "OUT, alle Regler 10, gegen Regler 0 (dB)" : "OUT, alle Regler 10, gegen nur HIGH ATTEN 10 (dB)", w, 0, 0.1); }
+    }
+    if (std::strcmp(m, "flat") && p.model == 0) {
     double pkB, pkS; auto cv = loadCurves(curvesPath(), pkB, pkS); double se = 0; int ne = 0; if (cv.size() != 13) { std::printf("Werkskurven nicht gelesen (%s)\n", curvesPath()); bad++; }
     for (auto &k : cv) { Setting s = curveSetting(k); double e2 = 0; std::printf("  %-15s %-6s", k.key.c_str(), k.sub.c_str());
       for (auto &pt : k.pts) { double r = rel(s, pt.first), e = r - pt.second; e2 += e * e; se += e * e; ne++; std::printf(" %g:%+.1f/%+.1f", pt.first, r, pt.second); }

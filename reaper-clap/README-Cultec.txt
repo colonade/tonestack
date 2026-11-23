@@ -1,5 +1,5 @@
 Cultec EQ-1A Program Equalizer (after Pultec EQP-1A) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.0
+Version 1.1
 
 Two formats, one engine
   Cultec_EQ1A.clap and Cultec_EQ1A.vst3 contain the same code and sound
@@ -40,6 +40,23 @@ What it is
   2001) - where they differ, the values that match the factory curves are
   used. "Pultec" is a trademark of its owner; this plugin is independent.
   Details: docs/cultec/SCHALTPLAN.md in the repository.
+
+  Second model EQP-1R (switch MODEL, from version 1.1): the older unit,
+  computed from its factory drawings (network "Pultec EQP-1R Equalizer"
+  and amplifier DWG E-112,353-7). Same circuit form, other values: low
+  boost and atten at 30 / 60 / 100 Hz, high boost at 3 / 5 / 8 / 10 /
+  12 kHz from a 50 mH + 100 mH coil that the KCS switch partly shorts (the
+  peaks of the 8 and 10 kc positions lie at 9.1 and 11.1 kHz, as drawn),
+  high atten fixed at 10 kHz (0.13 uF; it stays active in OUT, as drawn),
+  12AY7 instead of 12AX7 (plates 180 kohm, cathodes joined by 750 ohm),
+  Zobel network 350 pF + 22 kohm. Output transformer and feedback winding
+  are the same part as in the EQP-1A. Quiescent voltages without fitting
+  within 10 % of the drawing (which itself disagrees by about 10 %);
+  overall gain +0.3 dB at 1 kHz without fitting. Estimated: the input and
+  interstage transformers Peerless E-372-Q / G-212-Q (no data; the fitted
+  Triad values with the leakage set so that the amplifier is flat
+  +0 / -1 dB as Pultec specifies: -0.86 / +0.14 dB). No factory curves of
+  the EQP-1R exist. Each model keeps its own CPS / KCS positions.
 
   Controls as on the unit:
     - LOW FREQUENCY BOOST and ATTEN (shelves at 20 / 30 / 60 / 100 Hz, the
@@ -89,7 +106,9 @@ Parameters
   (0 ... +30 dBu, default +18: a 0 dBFS sine is +18 dBu at the input
   terminals; raise it to drive transformers and tubes harder),
   Oversampling (1x / 2x / 4x, default 4x; the internal rate is limited to
-  about 200 kHz, so at 96 kHz "4x" runs 2x), Output level (-24 ... +24 dB).
+  about 200 kHz, so at 96 kHz "4x" runs 2x), Output level (-24 ... +24 dB),
+  Model (EQP-1A / EQP-1R), EQP-1R low frequency (30 / 60 / 100 Hz), EQP-1R
+  high frequency (3 / 5 / 8 / 10 / 12 kHz).
   One set of controls for both channels. With all controls at 0 the plugin
   passes the signal at the same level and polarity (the phase of the
   transformers and the latency remain).
@@ -101,8 +120,9 @@ User interface
   click right of the center = next position, left = previous, or drag,
   mouse wheel. The lever IN / OUT: click. Below the panel: drive meters
   (output level in dBm with the +21 dBm maximum of the data sheet, grid
-  swing of the 12AU7 and 12AX7 relative to their bias), the settings as
-  text, LEVEL, OVERSAMPLING and OUTPUT; below that the frequency response
+  swing of the 12AU7 and 12AX7 or 12AY7 relative to their bias), the settings as
+  text, MODEL (lever: up EQP-1A, down EQP-1R, with its own panel), LEVEL,
+  OVERSAMPLING and OUTPUT; below that the frequency response
   of the whole circuit (small signal at the operating point, 0 dB = all
   controls 0 at 1 kHz as in the factory diagrams; dashed: all controls 0).
   Window resizable. Needs libcairo2 and libX11 (Linux).
@@ -110,7 +130,7 @@ User interface
 Switching and latency
   The selectors and IN/OUT act at once (the circuit is rebuilt, the
   capacitor charges stay); knobs glide over 15 ms. Changing OVERSAMPLING
-  builds a new circuit on the main thread (about 0.2 s) and switches to it
+  or MODEL builds a new circuit on the main thread (about 0.2 s) and switches to it
   when ready. Latency 64 samples in every setting (oversampling filters;
   at 1x the plugin delays by the same amount).
 
@@ -120,4 +140,5 @@ CPU
   plugin computes it once. After 2 s of silence it goes idle.
 
 Changes
+  1.1  Second model EQP-1R (switch MODEL) from its factory drawings.
   1.0  First version.

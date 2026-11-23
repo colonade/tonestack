@@ -5,12 +5,13 @@
   // WebAssembly-Kern (engine/wasm/cultec_wasm.cpp)
   class CtWasm {
     constructor(instance, fs) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.ready = false; this.os = 0; this.lat = this.x.ct_latency(); }
-    // p = { lb, la, hb, hc, bw 0 … 10, lf 0 … 3, hf 0 … 6, hcs 0 … 2, inn, level dBu für 0 dBFS, os 1/2/4 }
+    // p = { lb, la, hb, hc, bw 0 … 10, lf 0 … 3, hf 0 … 6, hcs 0 … 2, inn, level dBu für 0 dBFS, os 1/2/4, md 0 EQP-1A / 1 EQP-1R, lfr 0 … 2, hfr 0 … 4 (Wahlschalter des EQP-1R) }
     setTarget(p) { if (!p) return; const t = new Float64Array(this.x.memory.buffer, this.x.ct_target_buffer(), 16), num = (v, d, lo, hi) => Number.isFinite(+v) ? Math.max(lo, Math.min(hi, +v)) : d;
       t[0] = num(p.lb, 0, 0, 10); t[1] = num(p.la, 0, 0, 10); t[2] = Math.round(num(p.lf, 2, 0, 3)); t[3] = num(p.hb, 0, 0, 10); t[4] = num(p.bw, 5, 0, 10); t[5] = Math.round(num(p.hf, 2, 0, 6));
       t[6] = num(p.hc, 0, 0, 10); t[7] = Math.round(num(p.hcs, 1, 0, 2)); t[8] = p.inn === false ? 0 : 1; t[9] = num(p.level, 18, 0, 30);
+      const md = p.md === 1 ? 1 : 0; t[10] = md; t[11] = Math.round(num(p.lfr, 1, 0, 2)); t[12] = Math.round(num(p.hfr, 1, 0, 4));
       const os = [1, 2, 4].includes(p.os) ? p.os : 2;
-      if (!this.ready || os !== this.os) { this.x.ct_init(this.fs, os); this.os = os; this.ready = true; } else this.x.ct_set_target(); }   // Regler gleiten (15 ms), Schalter sofort; andere Überabtastung: neu eingeschwungen
+      if (!this.ready || os !== this.os || md !== this.md) { this.x.ct_init(this.fs, os); this.os = os; this.md = md; this.ready = true; } else this.x.ct_set_target(); }   // Regler gleiten (15 ms), Schalter sofort; andere Überabtastung oder anderes Modell: neu eingeschwungen
     process(buf, n) { const b = new Float32Array(this.x.memory.buffer, this.x.ct_buffer(), n); b.set(buf.subarray(0, n)); this.x.ct_process(n); buf.set(new Float32Array(this.x.memory.buffer, this.x.ct_buffer(), n)); }
   }
   const imports = { wasi_snapshot_preview1: { fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, proc_exit: () => {} } };
