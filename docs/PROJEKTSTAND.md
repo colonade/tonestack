@@ -70,6 +70,12 @@ Rechnung geprüft, nicht blind übernommen.
 - Lokal: CI-Prüfschritt komplett (0 Abweichungen), cultec_test all / all r, blechtest alle, blechguitest und cultecguitest unter Xvfb, blechwasm,
   rtcheck Blech/Cultec gegen 1.5/1.2 (gleiche Größenordnung, vereinzelte Spitzen auf dieser Maschine bei beiden), Seiten im Chrome ohne Konsolenmeldung,
   verify.sh vor dem Push: nur Blech und Cultec abweichend, übrige 93 identisch.
+- Release 1.6 (Lauf 45493589369, Commit 631b276) grün; danach im Mac-Paket noch alte Texte gefunden (Installer-Auswahl, Willkommensseite,
+  LIESMICH: DECAY 1–3,8 s, 3 %, 0,7 s, 60 MB) → **Blech 1.7** nur mit berichtigten Texten (x.y.z geht nicht: engine/vst3/CMakeLists.txt verlangt
+  TS_VERSION „Zahl.Zahl“). Release `…_blech140-1.7_wisent-1.8_viereck34-1.2_cultec-1.3` (Lauf 45507102614, Commit fbdcf27, linux/windows/mac/publish
+  grün; Pages 45518501490 success): 88 Dateien, Größe und Digest ok, alle vier SHA256SUMS ok; dist/ ersetzt, verify.sh 90 „identisch mit dem Bau“ + 15
+  WebAssembly; Mac-Distribution zeigt „Blech 140 Plate Reverb 1.7“, „DECAY 1–5 s“, „Cultec EQ-1A Program EQ 1.3“.
+  Ausgeliefert: DEB 1.17226-1, Windows-Installer, Mac-Paket, SHA256SUMS (vier Dateien).
 
 ## Befunde der Prüfung behoben: Laney 3.53, B100-II 1.27, B-15NF 1.33, GK 1.13, G100 1.18, B100-III 1.14, SVT-CL 1.18, Wien EQ 1.9, AmpFett 76 1.7, Loldano 1.11, Blech 1.5, Wisent 1.8, Viereck 1.2, Cultec 1.2 (2026-11-24, Web 2026-11-24-1, DEB 1.17223-1)
 Nutzer zur Prüfung unten: „1. ja. 2. gib mir das bild bitte zur entscheidung. 3. ja“ (alle bestätigten Fehler beheben; Bild zu LF+; Uhrzeit aus den PDF-Metadaten
