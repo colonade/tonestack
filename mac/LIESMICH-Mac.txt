@@ -191,8 +191,8 @@ etwa 15 bis 25 % je Kanal bei 48 kHz, mit zweiter Stufe das Doppelte, bei
 (gemessen unter Linux) bei 48 kHz und 1x etwa wie der AmpFett SVT-CL, bei 2x
 (Grundstellung) das Doppelte bis knapp Dreifache; 4x ist für das Rendern gedacht; Kaiserin Reverb
 (gemessen unter Linux) 0,3 % (PLATE) bis 1,3 % (SPARKLE), SPRING etwa 5 %; Blech 140 (gemessen
-unter Linux) etwa 3 % bei 48 kHz, eine neue Platte (DECAY gedreht) kostet etwa 0,7 s auf einem
-zweiten Faden, Speicher etwa 60 MB; Wisent Echoreck (gemessen unter Linux) etwa
+unter Linux) etwa 5 % bei 48 kHz, eine neue Platte (DECAY gedreht) kostet etwa 0,9 s auf einem
+zweiten Faden, Speicher etwa 75 MB; Wisent Echoreck (gemessen unter Linux) etwa
 15 bis 30 % bei 48 kHz, mit WOBBLE bis etwa 7 % mehr; schläft, wenn Eingang und Echos
 verklungen sind; Viereck 34 (gemessen unter Linux) etwa 2 % bei 48 kHz; Cultec EQ-1A
 (gemessen unter Linux) bei 48 kHz und 4x (Grundstellung) etwa 35 % je Kanal, bei 2x

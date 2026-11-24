@@ -148,7 +148,7 @@ cat > "$W/dist.xml" <<X
   <choice id="kaiserin" title="Kaiserin Reverb $KAV" description="Hall mit der Bedienung des Empress Effects Reverb (eigener Entwurf nach der Anleitung): HALL, PLATE, SPRING, ROOM, MOD, SPARKLE mit DECAY, MIX, OUTPUT, LOW, HI, THING 1/2 und HOLD; mono rein, stereo raus. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.kaiserin.component"/><pkg-ref id="de.tonestack.kaiserin.vst3"/>
   </choice>
-  <choice id="blech140" title="Blech 140 Plate Reverb $BLV" description="Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz): DECAY 1–3,8 s bei 500 Hz mit Instrument und Lampe MOTOR, BASS CUT 0–3, dazu MIX, PRE-DELAY und OUTPUT; mono rein, stereo raus. Audio Unit und VST3.">
+  <choice id="blech140" title="Blech 140 Plate Reverb $BLV" description="Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz): DECAY 1–5 s bei 500 Hz mit Instrument und Lampe MOTOR, BASS CUT 0–3, dazu MIX, PRE-DELAY und OUTPUT; mono rein, stereo raus. Audio Unit und VST3.">
     <pkg-ref id="de.tonestack.blech140.component"/><pkg-ref id="de.tonestack.blech140.vst3"/>
   </choice>
   <choice id="wisent" title="Wisent Echoreck $WIV" description="Röhren-Echo mit Magnettrommel nach dem Schaltplan des Binson Echorec PE 603 T: vier Wiedergabeköpfe, ECHO/REPEAT/SWELL, Kopftasten für Wiedergabe und Rückkopplung, INPUT mit magischem Auge, LENGTH OF SWELL, VOLUME, BASS, TREBLE; dazu DRY, VARISPEED und WOBBLE (abgenutzte Trommel); mono rein, mono raus. Audio Unit und VST3.">

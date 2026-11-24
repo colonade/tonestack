@@ -1,5 +1,5 @@
 Blech 140 (after EMT 140 plate reverb) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.6
+Version 1.7
 
 Two formats, one engine
   Blech_140.clap and Blech_140.vst3 contain the same code and sound
@@ -90,6 +90,8 @@ Interface
   BASS CUT: click a position; clicking the centre steps on; mouse wheel.
 
 Changes
+  1.7  Texts of the Mac installer corrected (DECAY 1 - 5 s, CPU and memory
+       as in this README). Sound unchanged from 1.6.
   1.6  DECAY up to 5 s (was 3.8 s): the losses of the open plate are now
        calibrated to the EMT 140 TS data sheet (undamped about 5 s at
        500 Hz, about 1.5 s at 10 kHz; before, the model's plate alone gave

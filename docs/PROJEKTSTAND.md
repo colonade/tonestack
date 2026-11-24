@@ -37,6 +37,40 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
 
+## Quellenprüfung eingearbeitet: Cultec 1.3, Blech 1.6/1.7 (2026-11-24, Web 2026-11-24-3, DEB 1.17226-1)
+Nutzer: „Bitte finde raus ob die schaltpläne die wir bisher verwendet haben richtig sind und ob si besser umgesetzt werden könnten.“ → Recherche
+(Bericht im Gespräch; Quellen in den SCHALTPLAN/ENTWURF-Dateien genannt) → „Bitte die verbesserungen einfließen lassen“. Jede Angabe gegen eigene
+Rechnung geprüft, nicht blind übernommen.
+- **Cultec 1.3** (cultec_core.hpp, cultec_test.cpp; Einzelheiten docs/cultec/SCHALTPLAN.md):
+  - Gyraf-Zeichnung ist laut ihrem Autor (Gearspace) von einem Tube-Tech abgezeichnet → keine Werte mehr daraus. Bässe nach recproaudio
+    (wirksam 1,83/1,15/0,55/0,33 µF, 68/39/20,2/12 nF; Drip-Stückliste und Gearspace bestätigen „330 nF immer da“). Je mit eigener Anpassung:
+    recproaudio 0,89 dB, Gyraf 0,88 dB, aber Gyraf flach −1,05 dB (außerhalb Datenblatt) → recproaudio.
+  - Lage Bass-Atten-C: Bericht empfahl B–O (recproaudio); gerechnet hebt B–O bei Reglern 0 die Höhen um bis +0,97 dB → widerspricht „+0, −1 db“,
+    darum B–P (`attenBO = false`, Schalter im Kern zum Ausprobieren).
+  - 3 kHz wieder 150 mH / 18 nF (Abschrift; 3 und 4 kHz teilen den Kondensator, auch laut R/E/P). VintageWindings nennt 156 mH (2 % Resonanz, nicht übernommen).
+  - Spulenverluste statt Güte 20: `rcuOf(L)` = 14 Ω·(L/32 mH)^0,573 (VintageWindings 14 Ω … 34 Ω), Kernverluste `rcore` parallel, mit L/150 mH
+    übersetzt; Vorverzerrung skaliert RL und RP mit w0/wa. Güte damit 48 (3 kHz) … 18 (16 kHz). EQP-1R: Kupfer der 50/100-mH-Spule wie geschaltet (`rcuR`).
+  - Anpassung (`cultec_test fit`, jetzt 4 Größen is_lp, is_rc, in_lp, rcore) und `nf` im Wechsel bis fest: HS-29 277,3 H / 320,1 kΩ, HS-56 31,12 H,
+    rcore 315,65 kΩ, ot_nf 0,02262 (= 22,1 : 1; zerlegter S-217-D laut GroupDIY 1575 : 71 = 22,18 : 1). Ohne neues nf wäre die Verstärkung +0,61 dB
+    gewesen (kleinere Eisenverluste). Ergebnis: 0,89 dB über 105 Punkte (1.2: 0,76 mit unmöglicher 3-kHz-Stellung), flach −0,86 … +0,07 dB,
+    Spitzen +17,9 … +18,8 / +10,2 … +10,8 dB, Gegenkopplung 21,4 dB.
+  - EQP-1R: is_k 0,99991 (0,99992 gab −1,07 dB bei 20 kHz; 0,9999 läge flacher, aber `cultec_test unit r` 96 kHz/1x Atten 2,04 dB > 2) → flach
+    −0,98 … +0,15 dB, Atten-Fall 1,91 dB. Verstärkung +0,53 dB, Gegenkopplung 16,5 dB, Bass-Boost +20,4 … +20,5 dB.
+  - Werkskurven womöglich gerechnet (Ian Bell, GroupDIY) → nicht enger angepasst.
+- **Blech 1.6** (blech_core.hpp, blechplugin.cpp, blech_panel.py, Seite; docs/blech/ENTWURF.md):
+  - Datenblatt EMT 140 TS (1971): offen „about 5 seconds at 500 cps“, „about 1.5 seconds at 10 kHz“, gedämpft etwa 1 s. Plate::kTE 0,809011 und
+    hf10k 6,310162 → offene Platte genau 5,00 / 1,50 s (bis 1.5: 4,03 / 0,90 s). T500HI 5 (Regler 1 … 5 s), Grundstellung 2 s = decay 0,25.
+  - Impulsantwort 10 s (FFT bleibt 2^19 bei 48 kHz), Ausblenden 9 … 10 s, CLAP-Ausklang und Seite 10 s; 125 Hz bei 5 s 14,2 statt 15,2 s
+    (mit 8 s wären es 12,6 s gewesen, blechtest rt fiel durch). Instrument NACHHALLZEIT bis 5 s (Frontplatte neu gezeichnet, Seitensymbole neu).
+  - JS-Modell der Seite (PL mit kTE) gleich blech_t60 des WebAssembly-Kerns (3,831 / 0,884 s), blechwasm −134,5 dB, Platte 5 s eingebaut nach 0,26 s.
+  - Kosten: Faltung etwa 5 % statt 4 % eines Kerns (48 kHz), Speicher 75 statt 63 MB (VmHWM rtcheck).
+- Nicht umgesetzt (Daten fehlen oder Forschung): Jiles-Atherton für S-217-D/HS-29, ADAA, Echorec-Spalt/Abstand getrennt, J113 auf −1,5 V (GK bleibt am
+  Plan geeicht, −1,75 V liegt in der Streuung), SVT-CL 67 dB schon in docs/svtcl als bekannte Abweichung (72,6 dB), B-15NF OT-208 schon dokumentiert,
+  Echorec 457 mm/s = 74,4 ms je Kopf (passt zu 74–75 ms; Doku ergänzt), G100-Tankcode widersprüchlich (Doku ergänzt, Modell bleibt).
+- Lokal: CI-Prüfschritt komplett (0 Abweichungen), cultec_test all / all r, blechtest alle, blechguitest und cultecguitest unter Xvfb, blechwasm,
+  rtcheck Blech/Cultec gegen 1.5/1.2 (gleiche Größenordnung, vereinzelte Spitzen auf dieser Maschine bei beiden), Seiten im Chrome ohne Konsolenmeldung,
+  verify.sh vor dem Push: nur Blech und Cultec abweichend, übrige 93 identisch.
+
 ## Befunde der Prüfung behoben: Laney 3.53, B100-II 1.27, B-15NF 1.33, GK 1.13, G100 1.18, B100-III 1.14, SVT-CL 1.18, Wien EQ 1.9, AmpFett 76 1.7, Loldano 1.11, Blech 1.5, Wisent 1.8, Viereck 1.2, Cultec 1.2 (2026-11-24, Web 2026-11-24-1, DEB 1.17223-1)
 Nutzer zur Prüfung unten: „1. ja. 2. gib mir das bild bitte zur entscheidung. 3. ja“ (alle bestätigten Fehler beheben; Bild zu LF+; Uhrzeit aus den PDF-Metadaten
 auch aus der Historie). Zum Bild (Vergleich der fleckigen Ziffer mit den dünnen „1“ und der „8“ in „·28“ derselben Handschrift): „80k ohm ist richtig“.
