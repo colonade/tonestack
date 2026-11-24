@@ -1,4 +1,4 @@
-# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-23)
+# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-24)
 
 Lies diese Datei zuerst, wenn das Projekt in einem neuen Gespräch weitergeht. Sie fasst alles zusammen, was aus dem bisherigen Verlauf wichtig ist.
 
@@ -36,6 +36,35 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - Gitterstopper: Laney ohne eigene vor V102B/V103B, 470 kΩ/1 MΩ liegen schon davor (Versuch 2026-10-29: < 0,3 dB); Loldano 68 k/470 k/220 k nach Plan.
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
+
+## Unabhängige Prüfung der letzten Projekte (2026-11-24, noch nichts geändert)
+Nutzer: „Bitte die letzten ungeprüften Projekte nochmal auf korrektheit der schaltungen und sicherheitslücken und probleme unabhängig prüfen lassen“. Fünf eigene
+Agenten (nur lesend): Schaltung Cultec (EQP-1A/-1R), Wisent, Viereck; C++ von Cultec, Viereck, Wisent, Blech, Kaiserin; Web/Pakete/Skripte. Befunde selbst nachgeprüft.
+- **Cultec**, im Werksplan selbst gesehen: (1) S-217-D-Ausgang: 620 Ω und 0,003 µF **in Reihe** zwischen 7 und 12 (Modell parallel, cultec_core.hpp
+  `R("OUT","0",rout); o.c("OUT","0",cout_)`), beide Modelle; laut Prüfer +0,82 dB Verstärkung, ot_nf neu (0,02093), Gegenkopplung 16,8 → 19,9 dB, Klirr +21 dBm
+  0,085 → 0,017 %. (2) EQP-1A: 270 k der Heizungsvorspannung springt mit Bogen über die +345-V-Leitung, hängt an +325 V (heatLate auch für 1A; < 1 V, klanglos).
+  Weiter: SCHALTPLAN.md-Begründung „recproaudio trifft die Kurven nicht“ beruht auf falscher Lesart (12 nF/330 nF fest parallel → 0,95 dB statt 3,73 dB;
+  Gyraf 0,76 dB bleibt besser); Lage Bass-Atten-C (B–P Gyraf / B–O recpro) undokumentiert; 3-kHz-Anpassung widerspricht gemeinsamem C mit 4 kHz;
+  EQP-1R LF+ „?0K“: Form der Ziffer spricht eher für 80 kΩ (Boost +19 statt +15,4 dB) – offen; Test „MITKOPPELND“ zählt nicht als Fehler.
+- **Wisent**: TD 0,67 ist Teilerverhältnis ohne Last; mit 330 k + 47 k am Abgriff 0,422 (selbst nachgerechnet) → trocken 4 dB unter Plan, richtig ≈ 0,87
+  (Zuordnung der 0,04 V zu TD nur aus der Nachzeichnung). Kennbuchstaben im Werksplan selbst gesehen (LoS „0,25 A“, Bass/Treble „1 MA“, Input/Volume „0,5 B“):
+  Modell rechnet A linear / B log, nur der Kommentar „A = logarithmisch“ falsch. TM im Plan „0,5 K“ (0,5 M richtig, undokumentiert). Koppel-C am Gitter V3A
+  fehlt (Wert unlesbar). Doku nennt Planwerte, die nicht im Plan stehen (1 mV, 0,5 V an H). Tests prüfen kaum gegen Planpegel.
+- **Viereck**: kein Rechenfehler; Topologie mangels Plan nicht prüfbar (Service Data nicht öffentlich lesbar); Werte aus keith-snook-Plantext stimmen; Filter,
+  Lift, Step gegen kenrockwell stimmig. Drehpunkt-Verschiebung: C36/C47/C51/R55 nicht mitskaliert → TILT 0 bis −0,65 dB (8,5 Hz), Doku „0,18 dB“ zu eng.
+  Kommentar „4066 an ±9 V“ (eher ±7,5 V). Tests teils zirkulär (Balance, Fig. 10, Drehpunkt).
+- **C++** (ASan/UBSan/TSan, eigene Zähler): (M1) Cultec-GUI liest MODEL mehrfach je Zeichnen → Zugriff außerhalb SPARAM_R/HFN_R bei Modellwechsel durch den
+  Host (nachgestellt); (M2) Ziehen an ATTEN SEL bei Modellwechsel setzt OUTPUT; (M3) Cultec bei 50–66,7 kHz und 4x: os = 3, Os kennt nur 1/2/4 → Filter um
+  Faktor 3 verschoben (Code bestätigt); (M4) NaN vom Host → Parameter auf Maximum: in 12 von 15 Plugins (nur Wisent, Blech, Kaiserin prüfen isfinite; selbst
+  per grep bestätigt). Gering: Datenrennen auf pl->cur (Cultec), Modellwechsel ohne Überblendung (Knacks), Speicheranforderung beim Netzneubau im Audiofaden
+  (Cultec, Viereck, Wisent), keine Wiederholung von request_callback, ct_init/vr_init ohne okFs, Blech-Moden über Nyquist bei fs < 36 kHz.
+- **Sicherheit**: (mittel) Mac-postinstall (make_pkg.sh) als root: mkdir/chown/mv im Heimordner des Benutzers folgt Verknüpfungen (chown ohne -h auf
+  tonestack-alte-Fassungen) → lokale Rechteausweitung möglich (Code bestätigt, unter Linux nachgestellt). Gering: release.sh-Wächter lässt bei API-Fehler alles
+  durch und `release edit` läuft vor dem Wächter; Voreinstellungs-Import mit vielen gleichen Namen friert die Seite ein (alle Seiten); Plugin-Namen ungeprüft in
+  postinst/NSIS (nur mit Repo-Schreibrecht). Hinweise: postinst `exit 1` lässt Paket half-configured; `getent passwd --`; DEBVER kann rückwärts laufen;
+  Blech/Kaiserin behalten unbekannte Speicherfelder; CSP unsafe-inline; checkout ohne persist-credentials: false; Wisent fehlt in plugtest params im CI; Uhrzeit
+  in den Metadaten von docs/Laney_AOR50_Bass-Umbau_Kondensatoren.pdf; NSIS-Deinstallation entfernt alle 15 Plugins. DEB bytegleich nachgebaut, Webseiten ohne
+  XSS/Prototype-Pollution, Workflows sauber, keine Zugangsdaten in der Historie.
 
 ## Cultec EQ-1A 1.1 = zweites Modell EQP-1R (2026-11-23, Web 2026-11-23-1)
 Nutzer: „bitte mit den anderen Teilen des Pultec weitermachen“. Lesart (dem Nutzer mitgeteilt): alles aus seinen Unterlagen, was noch fehlt, also das EQP-1R
