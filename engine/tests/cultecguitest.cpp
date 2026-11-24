@@ -92,6 +92,18 @@ int main(int argc, char **argv) {
     std::string p2 = argv[2]; size_t dot = p2.rfind('.'); p2 = (dot == std::string::npos ? p2 : p2.substr(0, dot)) + "_r.png";
     cairo_surface_t *xs2 = cairo_xlib_surface_create(d, par, DefaultVisual(d, DefaultScreen(d)), w, h); cairo_surface_write_to_png(xs2, p2.c_str()); cairo_surface_destroy(xs2);
     click(ux(545), uy4(52)); chk("MODEL Klick oben: zurück EQP-1A", pv(12), 0); for (int i = 0; i < 20; i++) tick(); audio(40); if (!(outPk > 0.01 && outPk < 5)) { bad++; printf("kein Ton nach Rückwechsel\n"); } }
+  // ab 1.2: Host stellt MODEL um, während an ATTEN SEL gezogen wird → Ziehen endet, kein anderer Parameter (OUTPUT, OVERSAMPLING) verändert;
+  // nicht endliche Werte vom Host werden verworfen
+  { static clap_event_param_value_t hev; auto hostSet = [&](int id, double v) { hev = clap_event_param_value_t{}; hev.header.size = sizeof hev; hev.header.type = CLAP_EVENT_PARAM_VALUE; hev.header.space_id = CLAP_CORE_EVENT_SPACE_ID; hev.param_id = id; hev.value = v; hev.note_id = -1; hev.port_index = -1; hev.channel = -1; hev.key = -1;
+      clap_input_events_t ie = {nullptr, [](const clap_input_events_t *) -> uint32_t { return 1; }, [](const clap_input_events_t *, uint32_t) -> const clap_event_header_t * { return &hev.header; }}; clap_output_events_t oe = {nullptr, push}; params->flush(p, &ie, &oe); };
+    const double out0 = pv(11), os0 = pv(10), hcs0 = pv(7);
+    send(ButtonPress, kx(1320), kx(160), 1); tick(); hostSet(12, 1); for (int i = 0; i < 5; i++) tick();
+    for (int i = 1; i <= 10; i++) { send(MotionNotify, kx(1320), kx(160) - i * 12, 0); tick(); } send(ButtonRelease, kx(1320), kx(160) - 120, 1); tick();
+    chk("Modellwechsel beim Ziehen: OUTPUT unverändert", pv(11), out0); chk("Modellwechsel beim Ziehen: OVERSAMPLING unverändert", pv(10), os0); chk("Modellwechsel beim Ziehen: ATTEN SEL unverändert", pv(7), hcs0);
+    for (int i = 0; i < 20; i++) tick(); audio(40); if (!(outPk > 0.01 && outPk < 5)) { bad++; printf("kein Ton nach Modellwechsel durch den Host\n"); }
+    hostSet(12, 0); for (int i = 0; i < 20; i++) tick();
+    const double lb0 = pv(0); hostSet(0, std::nan("")); chk("NaN vom Host verworfen (LOW BOOST)", pv(0), lb0); hostSet(11, INFINITY); chk("+∞ vom Host verworfen (OUTPUT)", pv(11), out0);
+    audio(40); if (!(outPk > 0.01 && outPk < 5)) { bad++; printf("kein Ton nach NaN\n"); } }
   gui->hide(p); gui->destroy(p); p->stop_processing(p); p->deactivate(p); p->destroy(p); entry->deinit(); dlclose(lib); XCloseDisplay(d);
   printf("%s\n", bad ? "FEHLER" : "alle Prüfungen bestanden"); return bad ? 1 : 0;
 }

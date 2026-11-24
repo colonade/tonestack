@@ -1,5 +1,13 @@
 Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.7
+Version 1.8
+
+New in 1.8: corrections after an independent review. The trimmer TD (DRY)
+now gives the plan ratio 0.04 V / 0.06 V under its load (330 k + 47 k):
+default 8.7 instead of 6.7, so the echo sits 4 dB lower against the dry
+signal than before. Projects saved with DRY 6.7 keep that setting and play
+4 dB quieter with the same balance; set DRY to 8.7 for the plan setting.
+The coupling capacitor before the grid of V3A (drawn in the factory wiring
+diagram) is now in the circuit (10 nF, value from the PE 603 TU drawing).
 
 New in 1.7: Windows version (VST3 and CLAP with the same front panel,
 installer and ZIP). Project state and values typed into the host no longer
@@ -109,7 +117,7 @@ Controls
                  about -15 dB.
   VOLUME         echo level (log taper). Default 10. INPUT only feeds the
                  drum: with INPUT set so the eye just closes, the echo at
-                 VOLUME 10 is about (-11 dB minus the input peak in dBFS)
+                 VOLUME 10 is about (-15 dB minus the input peak in dBFS)
                  against the dry signal; use DRY to take the dry back.
   BASS, TREBLE   passive tone control of the echo; clockwise = more. The
                  middle position is not flat.
@@ -122,7 +130,7 @@ Controls
   MAINS 50/60 Hz drum speed (shaded-pole motor follows the mains); the
                  change glides in about 0.4 s.
   DRY            the trimmer TD inside the unit (dry level), 0 to 10, plan
-                 setting 6.7; 0 = echo only. The output is calibrated at 6.7.
+                 setting 8.7; 0 = echo only. The output is calibrated at 8.7.
   VARISPEED      drum speed 0.25x to 2x (log taper, default 1x). The
                  PE 603 T has a fixed-speed motor; variable speed was a later
                  modification with a new motor. Spacing loss and record

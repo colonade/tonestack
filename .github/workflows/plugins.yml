@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
+    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/check-plugins.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
 permissions:
   contents: read
 jobs:
@@ -36,7 +36,7 @@ jobs:
       - name: Prüfen
         run: |
           set -euo pipefail
-          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Viereck_34 Cultec_EQ1A; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
+          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck Viereck_34 Cultec_EQ1A; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
           ./engine/build/b15test | tail -3
           ./engine/build/gktest | head -8
           ./engine/build/g100test | grep -E "Abweichung|ABWEICHUNG|Knoten"
@@ -49,6 +49,7 @@ jobs:
           ./engine/build/kaitest rt | tail -3
           ./engine/build/blechtest conv | tail -3
           ./engine/build/blechtest rate | tail -4
+          ./engine/build/wisenttest dc
           ./engine/build/wisenttest time | tail -3
           ./engine/build/wisenttest pattern | tail -2
           ./engine/build/wisenttest tone

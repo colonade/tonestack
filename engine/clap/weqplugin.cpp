@@ -2,7 +2,7 @@
 // Umsetzung eigener Entwurf, docs/wieneq/ENTWURF.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Linear; ein Regler-Satz für beide Kanäle wie am Gerät.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.9"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "weq_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -81,7 +81,7 @@ static void apply_events(Plugin *pl, const clap_input_events_t *in) {
   if (!in) return; uint32_t n = in->size(in);
   for (uint32_t i = 0; i < n; i++) { const clap_event_header_t *h = in->get(in, i);
     if (h->space_id != CLAP_CORE_EVENT_SPACE_ID) continue;
-    if (h->type == CLAP_EVENT_PARAM_VALUE) { const clap_event_param_value_t *e = (const clap_event_param_value_t*)h; if (e->param_id < P_COUNT) { pl->val[e->param_id].store(std::max(PD[e->param_id].lo, std::min(PD[e->param_id].hi, e->value))); pl->dirty = true; } } }
+    if (h->type == CLAP_EVENT_PARAM_VALUE) { const clap_event_param_value_t *e = (const clap_event_param_value_t*)h; if (e->param_id < P_COUNT && std::isfinite(e->value)) { pl->val[e->param_id].store(std::max(PD[e->param_id].lo, std::min(PD[e->param_id].hi, e->value))); pl->dirty = true; } } }
 }
 static void emit_gui(Plugin *pl, const clap_output_events_t *out) {
   std::lock_guard<std::mutex> lk(pl->qm);
@@ -164,7 +164,7 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
 static void pl_main(const clap_plugin_t *) {}
 #ifndef TS_NO_GUI
 static void gui_tick(Plugin *pl);
-static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
+static void gui_setp(Plugin *pl, int id, double v) { if (!std::isfinite(v)) return; v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
   { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
 static void gui_gesture(Plugin *pl, int id, bool begin) { if (id < 0 || id >= P_COUNT) return;

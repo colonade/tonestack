@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
   click(kx(2735), kx(128)); chk("Kippschalter 60 Hz (Soll 1)", pv(16), pv(16) == 1);
   send(ButtonPress, kx(2610), kx(128), 4); tick(); chk("OUTPUT Mausrad (Soll +1 dB)", pv(15), pv(15) == 1);
   send(ButtonPress, kx(2490), kx(128), 4); tick(); chk("LEVEL Mausrad (Soll 219 mV)", pv(14), pv(14) == 219);
-  send(ButtonPress, kx(2130), kx(128), 5); tick(); chk("DRY Mausrad (Soll 6,5)", pv(17), std::fabs(pv(17) - 6.5) < 1e-9);
+  send(ButtonPress, kx(2130), kx(128), 5); tick(); chk("DRY Mausrad (Soll 8,5: Grundstellung 8,7 ab 1.8)", pv(17), std::fabs(pv(17) - 8.5) < 1e-9);
   send(ButtonPress, kx(2250), kx(128), 4); tick(); chk("VARISPEED Mausrad (Soll 1,04)", pv(18), std::fabs(pv(18) - 1.04) < 1e-9);
   click(kx(2250), kx(128)); click(kx(2250), kx(128)); chk("VARISPEED Doppelklick (Soll 1)", pv(18), pv(18) == 1);
   send(ButtonPress, kx(2370), kx(128), 4); tick(); send(ButtonPress, kx(2370), kx(128), 4); tick(); chk("WOBBLE Mausrad (Soll 0,4)", pv(19), std::fabs(pv(19) - 0.4) < 1e-9);

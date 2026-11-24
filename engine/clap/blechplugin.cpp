@@ -3,7 +3,7 @@
 // Neue Impulsantworten (DECAY gedreht) rechnet ein Hilfsfaden (etwa 0,7 s), der Audio-Faden zerlegt sie stückweise und blendet über (wie die
 // motorgetriebene Dämpfungsplatte des Geräts: der Hall folgt dem Regler mit Verzögerung, Lampe MOTOR).
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.4"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "blech_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"

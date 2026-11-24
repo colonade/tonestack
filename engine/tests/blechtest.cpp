@@ -67,6 +67,8 @@ int main(int argc, char **argv) {
     auto wetDb = [&](double fsx) { Reverb r; r.setup(fsx); Setting s; s.mix = 1; std::vector<float> x = tone(0, (size_t)(4 * fsx), fsx), L, R; run(r, x, L, R, s); double e = 0; size_t a = (size_t)(2 * fsx);
       for (size_t i = a; i < L.size(); i++) e += 0.5 * (L[i] * L[i] + R[i] * R[i]); return 10 * std::log10(e / (L.size() - a)); };
     const double ref = wetDb(48000);
+    for (double fsx : {22050.0, 32000.0, 44100.0}) { IRJob j; j.setup(fsx); const double fm = j.md.empty() ? 0 : j.md.back().f;   // ab 1.5: keine Mode über 0,45·fs
+      std::printf("   %.0f Hz: %zu Moden, höchste %.0f Hz (Grenze %.0f Hz)\n", fsx, j.md.size(), fm, std::min(18000.0, 0.45 * fsx)); if (fm > std::min(18000.0, 0.45 * fsx)) bad++; }
     for (double fsx : {96000.0, 192000.0}) { Reverb r; auto t0 = std::chrono::steady_clock::now(); r.setup(fsx); double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
       std::printf("== %.0f kHz: Hall intern bei %.0f kHz (Faktor %d, Filter %d Abgriffe, Laufzeit im Hallweg %.2f ms), Einrichten %.2f s\n", fsx / 1000, r.fsi / 1000, r.K, r.rs.N, (r.rs.N - 1) / fsx * 1e3, ts);
       double lv = wetDb(fsx); std::printf("   Hallpegel bei fünf Tönen 200 Hz … 12,1 kHz: %+.2f dB gegen 48 kHz\n", lv - ref); if (std::fabs(lv - ref) > 0.3) bad++;

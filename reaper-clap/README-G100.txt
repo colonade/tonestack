@@ -1,5 +1,5 @@
 Lametta G100-212II Guitar Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.17
+Version 1.18
 
 Two formats, one engine
   Lametta_G100.clap and Lametta_G100.vst3 contain the same code and sound
@@ -204,6 +204,11 @@ Input level (INPUT, since 1.7)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.18
+  Parameter values that are not finite numbers (NaN, infinity), sent by a
+  host or a script, are now ignored; before, they set the control to its
+  maximum. Sound unchanged.
 
 1.17
   Windows version (VST3 and CLAP with the same front panel, installer and

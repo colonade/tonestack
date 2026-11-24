@@ -1,5 +1,5 @@
 Wien EQ (after adt-audio TM205) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.8
+Version 1.9
 
 Two formats, one engine
   Wien_EQ.clap and Wien_EQ.vst3 contain the same code and sound identical.
@@ -108,6 +108,9 @@ CPU
   silence at the input the plugin goes idle.
 
 Changes
+  1.9  Parameter values that are not finite numbers (NaN, infinity), sent by
+       a host or a script, are now ignored; before, they set the control to
+       its maximum. Sound unchanged.
   1.8  Windows version (VST3 and CLAP with the same front panel, installer and
        ZIP). Project state and values typed into the host no longer depend on
        the number format of the system (decimal comma). Windows: the window

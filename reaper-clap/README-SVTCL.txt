@@ -1,5 +1,5 @@
 AmpFett SVT-CL Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.17
+Version 1.18
 
 Two formats, one engine
   AmpFett_SVTCL.clap and AmpFett_SVTCL.vst3 contain the same code and
@@ -359,6 +359,11 @@ Notes
 1.14
   Fixed: a double-click on INPUT set 292 mV instead of the default
   100 mV (since 1.13). Sound unchanged.
+
+1.18
+  Parameter values that are not finite numbers (NaN, infinity), sent by a
+  host or a script, are now ignored; before, they set the control to its
+  maximum. Sound unchanged.
 
 1.17
   Windows version (VST3 and CLAP with the same front panel, installer and

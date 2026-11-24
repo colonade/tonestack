@@ -12,7 +12,8 @@ static Setting fromT() { Setting s; auto num = [](double x, double d) { return s
 static double vinT() { double l = std::isfinite(tgtB[7]) ? std::max(-30.0, std::min(10.0, tgtB[7])) : -10; return std::pow(10, l / 20) * 0.5 * std::sqrt(2.0) / gain0(); }   // 0 dBFS-Sinus gibt bei flacher Einstellung LEVEL dB re 0,5 V eff. an OUTPUT
 extern "C" {
 float *vr_buffer() { return bufB; } double *vr_target_buffer() { return tgtB; } double *vr_freq_buffer() { return freqB; } double *vr_resp_buffer() { return respB; } double *vr_peaks_buffer() { return peakB; }
-void vr_init(double fs) { delete U; U = new Unit(); U->vin = vinT(); U->init(fs, Parts(), fromT()); }
+static double okFs(double fs) { return std::isfinite(fs) && fs >= 8000 && fs <= 384000 ? fs : 48000; }
+void vr_init(double fs) { delete U; U = new Unit(); U->vin = vinT(); U->init(okFs(fs), Parts(), fromT()); }
 void vr_set_target() { if (U) { U->vin = vinT(); U->setTarget(fromT()); } }
 void vr_process(int n) { if (n < 0) return; if (n > 8192) n = 8192; if (U) U->process(bufB, n); else for (int i = 0; i < n; i++) bufB[i] = 0; }
 void vr_take_peaks() { if (U) U->takePeaks(peakB); else peakB[0] = peakB[1] = 0; }

@@ -2,7 +2,7 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.7"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -38,7 +38,7 @@ static const PDef PD[P_COUNT] = { {"Input", 0, 10, 2.5, 0, 0}, {"Length of swell
   {"Mode", 0, 2, 1, N_MODE, 3}, {"Playback head 1", 0, 1, 0, N_ONOFF, 2}, {"Playback head 2", 0, 1, 1, N_ONOFF, 2}, {"Playback head 3", 0, 1, 0, N_ONOFF, 2}, {"Playback head 4", 0, 1, 0, N_ONOFF, 2},
   {"Feedback head 1", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 2", 0, 1, 1, N_ONOFF, 2}, {"Feedback head 3", 0, 1, 0, N_ONOFF, 2}, {"Feedback head 4", 0, 1, 0, N_ONOFF, 2},
   {"Level (mV at 0 dBFS)", 20, 2000, 200, 0, 0}, {"Output (dB)", -24, 24, 0, 0, 0}, {"Mains (drum speed)", 0, 1, 0, N_MAINS, 2},
-  {"Dry (trimmer TD)", 0, 10, 6.7, 0, 0}, {"Varispeed (mod)", 0.25, 2, 1, 0, 0},   // 1.1: hinten angehängt (gespeicherte Projekte von 1.0 bleiben gültig)
+  {"Dry (trimmer TD)", 0, 10, 8.7, 0, 0}, {"Varispeed (mod)", 0.25, 2, 1, 0, 0},   // 1.1: hinten angehängt (gespeicherte Projekte von 1.0 bleiben gültig)
   {"Wobble (worn drum)", 0, 10, 0, 0, 0},   // 1.2: Taumeln der Scheibe (Verschleiß), hinten angehängt; ab 1.4 leiert die Trommel dabei auch
   // 1.4: Lage der vier Wiedergabeköpfe (Modell), als Verzögerung in ms bei 50 Hz ohne Varispeed; Original 74,4 / 148,8 / 223,2 / 297,6 ms
   {"Head 1 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 1, 0, 0}, {"Head 2 position (ms at 50 Hz)", wisent::Core::HEAD_MIN, wisent::Core::HEAD_MAX, wisent::Core::HEAD_MS0 * 2, 0, 0},

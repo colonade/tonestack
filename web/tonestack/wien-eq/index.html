@@ -702,7 +702,7 @@ $('pimp').onclick = () => $('pfile').click();
 $('pfile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   if (f.size > 5e6) { $('pstatus').textContent = 'Datei zu groß für Voreinstellungen (über 5 MB).'; return; }
   try { const j = JSON.parse(await f.text()); const list = Array.isArray(j) ? j : j && Array.isArray(j.presets) ? j.presets : null; if (!list) throw new Error('kein Voreinstellungs-Format');
-    let n = 0; for (const q of list) { if (!q || typeof q.name !== 'string' || !q.knobs) continue; let name = q.name.trim().slice(0, 60) || 'Import'; let k = 2; const base = name; while (PRESETS.some(x => x.name === name)) name = `${base} (${k++})`;
+    let n = 0; const names = new Set(PRESETS.map(x => x.name)); for (const q of list.slice(0, 500)) { if (PRESETS.length >= 1000) break; if (!q || typeof q.name !== 'string' || !q.knobs) continue; let name = q.name.trim().slice(0, 60) || 'Import'; let k = 2; const base = name; while (names.has(name)) name = `${base} (${k++})`; names.add(name);
       PRESETS.push({ name, ...pclean(q) }); n++; }
     PRESETS.sort((a, b) => a.name.localeCompare(b.name, 'de')); psave(); plist(''); $('pstatus').textContent = n ? `${n} Voreinstellung${n === 1 ? '' : 'en'} importiert.` : 'Keine gültigen Voreinstellungen in der Datei.';
   } catch (err) { $('pstatus').textContent = 'Import nicht möglich: ' + (err && err.message ? err.message : 'Datei nicht lesbar.'); } };

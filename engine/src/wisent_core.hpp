@@ -28,23 +28,26 @@ using b15::PI;
 static const b15::TriodeD T12AX7 = {2.019059e-3, 2.02928, 100, 1.26};   // wie Laney/Loldano
 enum Kind { K_AX7 = 0, K_AU7 = 1 };
 inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) { if (d.kind == K_AU7) b15::triodeK(b15::K12AU7, v, i, J); else b15::triodeD(T12AX7, v, i, J); }
-inline double taperA(double x) { const double s = 1 / 0.15 - 1, b = s * s; return (std::pow(b, x) - 1) / (b - 1); }   // „A“ = logarithmisch (15 % in der Mitte, Annahme wie beim Loldano)
+inline double taperA(double x) { const double s = 1 / 0.15 - 1, b = s * s; return (std::pow(b, x) - 1) / (b - 1); }   // logarithmisch (15 % in der Mitte, Annahme wie beim Loldano):
+// im Werksplan „B“ (INPUT, VOLUME „0,5 B“); „A“ (LENGTH OF SWELL „0,25 A“, BASS/TREBLE „1 MA“) rechnet das Modell linear. Der Name taperA ist historisch.
 inline double clamp01(double x) { return std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : 0.5; }
 
 struct Parts {
   // Eingang, V4A (Plan)
-  double rin = 47e3, cin = 47e-9, rg4 = 1e6, ra4 = 100e3, c41 = 47e-9, ptd = 1e6, td = 0.67;   // TD (Trocken-Trimmer): 0,06 V → 0,04 V laut Plan (Abgleich des Ausgangs; die Stellung kommt aus Setting::dry)
+  double rin = 47e3, cin = 47e-9, rg4 = 1e6, ra4 = 100e3, c41 = 47e-9, ptd = 1e6, td = 0.87;   // TD (Trocken-Trimmer): 0,06 V → 0,04 V laut Plan (Abgleich des Ausgangs; die Stellung kommt aus Setting::dry).
+  // Verhältnis 2/3 unter Last: am Schleifer hängen 330 k + 47 k, daher Stellung 0,87 (0,869); bis 1.7 0,67 = Verhältnis ohne Last (belastet 0,42: trocken 4 dB zu leise gegenüber dem Echo; der Ausgang ist auf trocken = Eingang geeicht)
   double rpre = 100e3, cpre = 820e-12, rsh = 4.7e3, pin = 0.5e6, c5a = 10e-9, rg5a = 1e6;
   // Mischer V5A/V5B
   double rk5 = 560, ra5 = 47e3, c5b = 10e-9, cg5b = 470e-12, rg5b = 1e6, ptf = 0.25e6, tf = 0.35, plos = 0.25e6, rlos = 47e3;   // TF: Rückkopplungs-Trimmer (abgeglichen, Prüfung)
   // Aufnahmeverstärker V6A, Aufnahmekopf
-  double c5o = 47e-9, ptm = 0.5e6, rx1 = 330e3, cx1 = 150e-12, rx2 = 120e3, rx3 = 560e3, cx3 = 10e-9, ra6 = 47e3, rk6 = 1.5e3, ck6 = 22e-9, c6o = 47e-9, rrec = 27e3;
+  double c5o = 47e-9, ptm = 0.5e6 /* TM, im Werksplan „0,5 K“ (Schreibfehler; Nachzeichnung 0,5 M) */, rx1 = 330e3, cx1 = 150e-12, rx2 = 120e3, rx3 = 560e3, cx3 = 10e-9, ra6 = 47e3, rk6 = 1.5e3, ck6 = 22e-9, c6o = 47e-9, rrec = 27e3;
   double rh_rec = 450, lh_rec = 0.1;   // Aufnahmekopf: 400–500 Ω (Effectrode); Induktivität angenommen
   // Wiedergabe je Kopf (V1A, V1B, V2A, V2B)
   double rh_pb = 650, lh_pb = 0.1, ch_pb = 220e-12, cpb = 2.2e-9, rgpb = 10e6, rapb = 47e3, ctsc = 20e-9, ptsc = 10e3, tsc = 0.5, cpbs = 330e-12, cpbo = 10e-9, ptsw = 0.5e6, tsw = 1.0, rsw = 330e3;
   double vapb = 120, iapb = 0.85e-3;   // Arbeitspunkt (Plan: 120 V an 47 k aus 160 V)
   // Schaltermatrix
   double rhead = 100e3, rtn = 220e3, rn = 270e3, rbx = 220e3, rx = 270e3, rg3 = 470e3;
+  double c3i = 10e-9;   // Koppelkondensator vor dem Gitter V3A (ab 1.8): im Wiring diagram des PE 603 T gezeichnet, Wert dort nicht angegeben; 10 nF aus dem Werksplan PE 603 TU („10 KpF“)
   // V3A, Klangregelung, VOLUME, V4B
   double ra3 = 47e3, rk3 = 1.5e3, ck3 = 22e-9, c3o = 22e-9, rbs1 = 47e3, pbass = 1e6, cb1 = 2.2e-9, cb2 = 22e-9, rbs2 = 10e3, rbo = 100e3, ctr1 = 220e-12, ptreb = 1e6, ctr2 = 2.2e-9, pvol = 0.5e6;
   double rmix = 330e3, rdry = 330e3, rmx = 47e3, cmx = 10e-9, rk4b = 1.5e3, rb4b = 47e3, rgl4b = 1e6, cg4b = 100e-12, cout = 270e-9, rout = 47e3;
@@ -56,7 +59,7 @@ struct Parts {
 enum Mode { M_ECHO = 0, M_REPEAT = 1, M_SWELL = 2 };
 struct Setting {
   double input = 0.25, swell = 0.5, volume = 1.0, bass = 0.5, treble = 0.5;   // Regler 0 … 1
-  double dry = 0.67;   // Trimmer TD (Trocken-Anteil, im Gerät innen; 0,67 = Planwert 0,04 V), als Modell-Regler DRY
+  double dry = 0.87;   // Trimmer TD (Trocken-Anteil, im Gerät innen; 0,87 = Planwert 0,04 V unter Last), als Modell-Regler DRY
   int mode = M_REPEAT; bool out[4] = {false, true, false, false}, fb[4] = {false, true, false, false};   // untere Reihe: Köpfe zum Ausgang, obere: Köpfe in die Rückkopplung
 };
 // Schwelle der Schleife (REPEAT, ein Rückkopplungskopf): LENGTH OF SWELL (0 … 1), ab der die Schleifenverstärkung bei irgendeiner Frequenz 0 dB erreicht,
@@ -125,8 +128,8 @@ inline Built buildPb(const Parts &v, const Setting &s) {
     h.pot(hh, "sw" + K, "0", v.ptsw, v.tsw); o.r("sw" + K, "W", v.rsw);
     o.r(hh, "T", s.fb[k] ? v.rhead : v.roff); o.r(hh, "B", s.out[k] ? v.rhead : v.roff); }
   // Schaltermatrix, Betriebsart
-  o.r("T", "N", v.rtn); o.r("N", "0", v.rn); o.r("B", "X", v.rbx); o.r("X", "0", v.rx); o.r("G", "0", v.rg3);
-  sw("G", "X", s.mode != M_SWELL); sw("G", "W", s.mode == M_SWELL); sw("F", "N", s.mode != M_ECHO); o.r("W", "0", v.roff); o.r("F", "0", v.roff);
+  o.r("T", "N", v.rtn); o.r("N", "0", v.rn); o.r("B", "X", v.rbx); o.r("X", "0", v.rx); o.r("G", "0", v.rg3); o.c("Gs", "G", v.c3i); o.r("Gs", "0", v.roff);
+  sw("Gs", "X", s.mode != M_SWELL); sw("Gs", "W", s.mode == M_SWELL); sw("F", "N", s.mode != M_ECHO); o.r("W", "0", v.roff); o.r("F", "0", v.roff);
   // Rückkopplung: F → TF (Trimmer) → LENGTH OF SWELL → 10 nF → Gitter V5B (470 pF, 1 M)
   h.pot("F", "lt", "0", v.ptf, v.tf); h.pot("lt", "lw", "lb", v.plos, clamp01(s.swell)); o.r("lb", "0", v.rlos);
   o.c("lw", "g5b", v.c5b); o.c("g5b", "0", v.cg5b); o.r("g5b", "0", v.rg5b);

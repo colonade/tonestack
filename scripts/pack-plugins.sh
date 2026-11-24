@@ -2,7 +2,7 @@
 # Packt die Linux-Plugins aus engine/build (vorher: VST3=1 bash engine/build.sh) nach dist/:
 #   <Name>_CLAP-<Version>.zip (<Name>.clap) und <Name>_VST3-<Version>.zip (Ordner <Name>.vst3), je mit README.txt, LICENSE.txt (GPL-3.0) und THIRD-PARTY-LICENSES.txt; Liste: scripts/plugins.txt
 set -euo pipefail
-R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
+R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"; bash scripts/check-plugins.sh   # Namen in plugins.txt nur mit harmlosen Zeichen
 B=engine/build; D=dist; mkdir -p "$D"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 pack() {   # $1 Name, $2 Version, $3 README
   for f in "$B/$1.clap" "$B/vst3/$1.vst3"; do [ -e "$f" ] || { echo "fehlt: $f (erst VST3=1 bash engine/build.sh)" >&2; exit 1; }; done

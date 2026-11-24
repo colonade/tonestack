@@ -1,5 +1,5 @@
 Viereck 34 Tilt (after Quad 34) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Viereck_34.clap and Viereck_34.vst3 contain the same code and sound
@@ -107,6 +107,9 @@ CPU
   input the plugin goes idle.
 
 Changes
+  1.2  Parameter values that are not finite numbers (NaN, infinity), sent by
+       a host or a script, are now ignored; before, they set the control to
+       its maximum. Sound unchanged.
   1.1  Windows version (VST3 and CLAP with the same front panel, installer and
        ZIP). Project state and values typed into the host no longer depend on
        the number format of the system (decimal comma). Windows: the window

@@ -63,7 +63,8 @@ int main(int argc, char **argv) {
   // Überschreiben einzelner Bauteile: name=wert (nur zum Ausprobieren)
   for (int a = 2; a < argc; a++) { const char *e = std::strchr(argv[a], '='); if (!e) continue; std::string k(argv[a], e - argv[a]); double x = std::atof(e + 1);
     std::map<std::string, double*> f = {{"in_lp", &p.in_lp}, {"in_k", &p.in_k}, {"in_cw", &p.in_cw}, {"is_lp", &p.is_lp}, {"is_k", &p.is_k}, {"is_cs", &p.is_cs}, {"is_rc", &p.is_rc},
-      {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}, {"vdc", &p.vdc}, {"qHF", &p.qHF[0]}};
+      {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}, {"vdc", &p.vdc}, {"qHF", &p.qHF[0]},
+      {"cLB0", &p.cLB[0]}, {"cLB1", &p.cLB[1]}, {"cLB2", &p.cLB[2]}, {"cLB3", &p.cLB[3]}, {"cLA0", &p.cLA[0]}, {"cLA1", &p.cLA[1]}, {"cLA2", &p.cLA[2]}, {"cLA3", &p.cLA[3]}};
     if (f.count(k)) *f[k] = x; else { std::printf("unbekannt: %s\n", k.c_str()); return 2; } }
   if (all || !std::strcmp(m, "dc") || !std::strcmp(m, "rest")) dc(p, !std::strcmp(m, "rest"));
   if (all || !std::strcmp(m, "gain")) {
@@ -72,7 +73,8 @@ int main(int argc, char **argv) {
       std::printf("  %6.0f Hz: Ausgang/Eingangsklemme %+6.2f dB, Eingangsklemme/Quelle %+6.2f dB\n", f, db(std::abs(o / i)), db(std::abs(i))); }
     // Schleifenverstärkung grob: Gegenkopplung aus (Wicklung 0 Windungen) gegen an
     Parts q = p; q.ot_nf = 1e-6; Core d = settled(q, Setting(), 48000, 5);
-    std::printf("  Gegenkopplung: %.2f dB weniger Verstärkung (%s)\n", db(std::abs(d.response(1000) / c.response(1000))), std::abs(d.response(1000)) > std::abs(c.response(1000)) ? "gegenkoppelnd" : "MITKOPPELND");
+    const bool neg = std::abs(d.response(1000)) > std::abs(c.response(1000)); if (!neg) bad++;
+    std::printf("  Gegenkopplung: %.2f dB weniger Verstärkung (%s)\n", db(std::abs(d.response(1000) / c.response(1000))), neg ? "gegenkoppelnd" : "MITKOPPELND ABWEICHUNG");
   }
   if (all || !std::strcmp(m, "curves") || !std::strcmp(m, "flat")) {   // Frequenzgänge gegen die Werkskurven (dB gegen 1 kHz)
     Core c = settled(p, Setting(), 48000, 3);
@@ -132,6 +134,9 @@ int main(int argc, char **argv) {
       std::printf("  %6.0f Hz: größter Ausgang 0–50 ms %.2e V, –200 ms %.2e, –500 ms %.2e, –1 s %.2e\n", fs, mx[0], mx[1], mx[2], mx[3]);
       chk("Start: Ausgang nach 200 ms (dBu)", db(std::max(mx[2], 1e-12) / 0.7746), -200, -80); } }
   if (all || !std::strcmp(m, "unit")) {   // Gerät (Überabtastung, Pegel): Sinus durch Unit gegen die analoge Rechnung (Kleinsignal, −30 dBFS)
+    for (double fsB : {44100., 50000., 60000., 66000., 88200., 96000., 192000.}) for (int os : {1, 2, 4}) {   // nur 1/2/4 (Os kennt keine anderen), höchstens 200 kHz
+      Unit u; u.init(fsB, os, p, Setting()); char t[96]; std::snprintf(t, sizeof t, "Überabtastung %.0f Hz, %dx → %dx", fsB, os, u.os);
+      chk(t, (u.os == 1 || u.os == 2 || u.os == 4) && u.os <= os && fsB * u.os <= 200000 && (u.os == os || fsB * u.os * 2 > 200000) ? 1 : 0, 1, 1); }
     for (double fsB : {44100., 48000., 96000.}) for (int os : {1, 2, 4}) for (int cs = 0; cs < 3; cs++) {
       Setting st; if (cs == 1) { st.hb = 1; st.hf = 6; st.bw = 0; } if (cs == 2) { st.hc = 1; st.hcf = 2; st.lb = 1; st.lf = 3; }
       Unit u; u.init(fsB, os, p, st); Core a = u.c; std::complex<double> r0; { Core f = a; f.cur = Setting(); r0 = f.response(1000); }

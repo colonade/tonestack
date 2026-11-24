@@ -2,7 +2,7 @@
 // (engine/src/cultec_core.hpp, docs/cultec/SCHALTPLAN.md) als CLAP-Plugin (Linux, Windows; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Ein Regler-Satz für beide Kanäle; MODEL wählt ab 1.1 zwischen EQP-1A und EQP-1R (eigene Wahlschalter-Parameter, Neubau des Paars wie bei OVERSAMPLING). Modell: LEVEL (0 dBFS = x dBu an der Eingangsklemme), OVERSAMPLING (intern höchstens etwa 200 kHz), OUTPUT.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.1"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "cultec_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -52,8 +52,9 @@ struct Pair { cultec::Unit ch[2]; int os = 0, model = 0; bool linked = true; }; 
 struct Plugin {
   PortCfg ports;
   clap_plugin_t plug; const clap_host_t *host; double fs = 48000; std::atomic<double> val[P_COUNT]; std::atomic<bool> dirty{true}, fresh{true}, active{false};
-  Pair *cur = nullptr; std::atomic<Pair*> pend{nullptr}, old{nullptr}; std::atomic<bool> wantOs{false}; std::mutex bm;   // bm: Bau eines neuen Paars (Hauptfaden)
-  std::atomic<double> load{0}; std::vector<float> m1, m2; double outg = 1, outCur = -1; long quiet = 0; std::atomic<bool> sleeping{false}; cultec::Setting set;
+  std::atomic<Pair*> cur{nullptr}, pend{nullptr}, old{nullptr}; std::atomic<bool> wantOs{false}; std::mutex bm;   // bm: Bau eines neuen Paars (Hauptfaden)
+  Pair *fadeFrom = nullptr; long fadeN = 0, fadeLen = 1, reqAge = 0;   // Audiofaden: beim Wechsel läuft das alte Paar weiter, bis das neue nach seiner Latenz (LAT) Ton gibt, dann 30 ms Überblendung
+  std::atomic<double> load{0}; std::vector<float> m1, m2, m3, m4; double outg = 1, outCur = -1; long quiet = 0; std::atomic<bool> sleeping{false}; cultec::Setting set;
   std::atomic<double> pk[3]; double pkHold[3] = {0, 0, 0};   // Ausgang (V), 12AU7, 12AX7
   ctgui::Gui *gui = nullptr; Display *dpy = nullptr; clap_id timerId = CLAP_INVALID_ID; std::mutex qm; std::recursive_mutex gm; struct GuiEv { int id; double v; int kind; }; std::deque<GuiEv> guiQ; int gestId = -1; double guiW = 1200, guiH = 0;   // 1200 × 765 (Frontplatte höher als bei den anderen)
 #ifdef _WIN32
@@ -68,7 +69,7 @@ struct Plugin {
     s.in = val[P_IN] > 0.5; return s; }
   double vin() const { return cultec::dbuToVin(val[P_LEVEL]); }
   Pair *build(int os, int m) { Pair *p = new Pair(); p->os = os; p->model = m; cultec::Setting s = target(m); p->ch[0].vin = vin(); p->ch[0].init(fs, os, cultec::partsFor(m), s); p->ch[1] = p->ch[0]; return p; }   // einmal einschwingen, rechts als Kopie
-  ~Plugin() { delete cur; delete pend.exchange(nullptr); delete old.exchange(nullptr); }
+  ~Plugin() { delete cur.exchange(nullptr); delete pend.exchange(nullptr); delete old.exchange(nullptr); delete fadeFrom; }
 };
 static Plugin *P(const clap_plugin_t *p) { return (Plugin*)p->plugin_data; }
 // ---- Parameter ----
@@ -93,7 +94,7 @@ static void apply_events(Plugin *pl, const clap_input_events_t *in) {
   if (!in) return; uint32_t n = in->size(in);
   for (uint32_t i = 0; i < n; i++) { const clap_event_header_t *h = in->get(in, i);
     if (h->space_id != CLAP_CORE_EVENT_SPACE_ID) continue;
-    if (h->type == CLAP_EVENT_PARAM_VALUE) { const clap_event_param_value_t *e = (const clap_event_param_value_t*)h; if (e->param_id < P_COUNT) { pl->val[e->param_id].store(std::max(PD[e->param_id].lo, std::min(PD[e->param_id].hi, e->value))); pl->dirty = true; } } }
+    if (h->type == CLAP_EVENT_PARAM_VALUE) { const clap_event_param_value_t *e = (const clap_event_param_value_t*)h; if (e->param_id < P_COUNT && std::isfinite(e->value)) { pl->val[e->param_id].store(std::max(PD[e->param_id].lo, std::min(PD[e->param_id].hi, e->value))); pl->dirty = true; } } }
 }
 static void emit_gui(Plugin *pl, const clap_output_events_t *out) {
   std::lock_guard<std::mutex> lk(pl->qm);
@@ -139,8 +140,8 @@ static void pl_destroy(const clap_plugin_t *p) { Plugin *pl = P(p);
   { std::lock_guard<std::mutex> lk(pl->bm); }   // ein laufender Bau (Hauptfaden) ist fertig
   delete pl; }
 static bool pl_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxf) { Plugin *pl = P(p); std::lock_guard<std::mutex> lk(pl->bm); pl->fs = sr;
-  delete pl->cur; pl->cur = pl->build(osOf(pl->val[P_OS]), pl->model()); delete pl->pend.exchange(nullptr); delete pl->old.exchange(nullptr); pl->wantOs = false;
-  pl->m1.assign(maxf + 16, 0); pl->m2.assign(maxf + 16, 0); pl->fresh = true; pl->active = true; return true; }
+  delete pl->cur.exchange(pl->build(osOf(pl->val[P_OS]), pl->model())); delete pl->pend.exchange(nullptr); delete pl->old.exchange(nullptr); delete pl->fadeFrom; pl->fadeFrom = nullptr; pl->wantOs = false;
+  pl->m1.assign(maxf + 16, 0); pl->m2.assign(maxf + 16, 0); pl->m3.assign(maxf + 16, 0); pl->m4.assign(maxf + 16, 0); pl->fresh = true; pl->active = true; return true; }
 static void pl_deactivate(const clap_plugin_t *p) { P(p)->active = false; }
 static bool pl_start(const clap_plugin_t *p) { P(p)->fresh = true; return true; }
 static void pl_stop(const clap_plugin_t *) {}
@@ -148,14 +149,18 @@ static void pl_reset(const clap_plugin_t *p) { P(p)->fresh = true; }
 static void zeroOut(const clap_process_t *pr) { for (uint32_t k = 0; k < pr->audio_outputs_count; k++) { clap_audio_buffer_t &o = pr->audio_outputs[k]; for (uint32_t c = 0; c < o.channel_count; c++) { if (o.data32) std::memset(o.data32[c], 0, pr->frames_count * sizeof(float)); else if (o.data64) std::memset(o.data64[c], 0, pr->frames_count * sizeof(double)); } } }
 static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_process_t *pr) {
   Plugin *pl = P(p); apply_events(pl, pr->in_events); emit_gui(pl, pr->out_events);
-  uint32_t n = pr->frames_count; if (!pl->active || !pl->cur || pr->audio_inputs_count < 1 || pr->audio_outputs_count < 1) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
+  uint32_t n = pr->frames_count; if (!pl->active || !pl->cur.load() || pr->audio_inputs_count < 1 || pr->audio_outputs_count < 1) { zeroOut(pr); return CLAP_PROCESS_CONTINUE; }
   if (n == 0) return CLAP_PROCESS_CONTINUE;
   // Neues Paar (andere Überabtastung) übernehmen; das alte räumt der Hauptfaden weg
-  if (!pl->old.load()) { Pair *np = pl->pend.exchange(nullptr); if (np) { pl->old.store(pl->cur); pl->cur = np; pl->dirty = true; pl->fresh = true; } }
-  Pair &pr2 = *pl->cur;
-  if ((osOf(pl->val[P_OS]) != pr2.os || pl->model() != pr2.model) && !pl->wantOs.exchange(true)) pl->host->request_callback(pl->host);
+  // Das alte läuft weiter (Latenz des neuen, dann 30 ms) und wird ausgeblendet, das neue eingeblendet (kein Knacks beim Modell- oder Überabtastungswechsel)
+  if (!pl->old.load() && !pl->fadeFrom) { Pair *np = pl->pend.exchange(nullptr); if (np) { pl->fadeFrom = pl->cur.exchange(np); pl->fadeLen = std::max(1L, (long)(0.03 * pl->fs)); pl->fadeN = pl->fadeLen + cultec::Unit::LAT; pl->dirty = true; pl->fresh = true; } }
+  Pair &pr2 = *pl->cur.load();
+  // Neubau anfordern; ging die Anforderung verloren (Host ruft on_main_thread nicht), nach 0,5 s erneut
+  { const bool need = osOf(pl->val[P_OS]) != pr2.os || pl->model() != pr2.model;
+    if (need && !pl->wantOs.exchange(true)) { pl->reqAge = 0; pl->host->request_callback(pl->host); }
+    else if ((need || pl->old.load()) && (pl->reqAge += n) > (long)(pl->fs / 2)) { pl->reqAge = 0; pl->wantOs = need; pl->host->request_callback(pl->host); } }
   const clap_audio_buffer_t &in = pr->audio_inputs[0]; clap_audio_buffer_t &out = pr->audio_outputs[0];
-  if (pl->m1.size() < n) { pl->m1.assign(n + 16, 0); pl->m2.assign(n + 16, 0); }
+  if (pl->m1.size() < n || pl->m3.size() < n) { pl->m1.assign(n + 16, 0); pl->m2.assign(n + 16, 0); pl->m3.assign(n + 16, 0); pl->m4.assign(n + 16, 0); }
   float *a = pl->m1.data(), *b = pl->m2.data(); bool stereo = in.channel_count > 1 && out.channel_count > 1;
   if (pl->dirty.exchange(false)) { pl->set = pl->target(pr2.model); for (int k = 0; k < 2; k++) { pr2.ch[k].setTarget(pl->set); pr2.ch[k].vin = pl->vin(); } pl->outg = std::pow(10, pl->val[P_OUT] / 20); pl->quiet = 0; }
   // Neubeginn (activate, start, reset): Zustände aus der Ruhe, Regler sofort am Ziel
@@ -163,12 +168,20 @@ static clap_process_status pl_process_impl(const clap_plugin_t *p, const clap_pr
   for (uint32_t i = 0; i < n; i++) { double x = 0, x2 = 0; if (in.data32) { x = in.data32[0][i]; x2 = in.channel_count > 1 ? in.data32[1][i] : x; } else if (in.data64) { x = in.data64[0][i]; x2 = in.channel_count > 1 ? in.data64[1][i] : x; } a[i] = (float)x; b[i] = (float)x2; }
   float inPk = 0; for (uint32_t i = 0; i < n; i++) inPk = std::max(inPk, std::max(std::fabs(a[i]), std::fabs(b[i])));
   if (pl->sleeping && inPk >= 1e-6f) { pl->sleeping = false; pl->quiet = 0; }
+  if (pl->sleeping && pl->fadeFrom) { pl->old.store(pl->fadeFrom); pl->fadeFrom = nullptr; pl->host->request_callback(pl->host); }
   if (pl->sleeping) { for (uint32_t c = 0; c < out.channel_count; c++) { if (out.data32) std::memset(out.data32[c], 0, n * sizeof(float)); else if (out.data64) std::memset(out.data64[c], 0, n * sizeof(double)); } return CLAP_PROCESS_CONTINUE; }
   auto t0 = std::chrono::steady_clock::now();
   bool same = !stereo || std::memcmp(a, b, n * sizeof(float)) == 0;
-  if (stereo && pr2.linked && !same) { pr2.ch[1] = pr2.ch[0]; pr2.linked = false; }   // bis hierher waren beide gleich: rechten Kanal vom linken übernehmen
-  pr2.ch[0].process(a, (int)n); if (stereo) { if (pr2.linked) std::memcpy(b, a, n * sizeof(float)); else pr2.ch[1].process(b, (int)n); }
-  { double q0[3], q1[3] = {0, 0, 0}; pr2.ch[0].takePeaks(q0); if (stereo && !pr2.linked) pr2.ch[1].takePeaks(q1); for (int k = 0; k < 3; k++) { double m = std::max(q0[k], q1[k]); if (m > pl->pk[k].load()) pl->pk[k].store(m); } }
+  auto runPair = [&](Pair &q, float *l, float *r) {
+    if (stereo && q.linked && !same) { q.ch[1] = q.ch[0]; q.linked = false; }   // bis hierher waren beide gleich: rechten Kanal vom linken übernehmen
+    q.ch[0].process(l, (int)n); if (stereo) { if (q.linked) std::memcpy(r, l, n * sizeof(float)); else q.ch[1].process(r, (int)n); }
+    double q0[3], q1[3] = {0, 0, 0}; q.ch[0].takePeaks(q0); if (stereo && !q.linked) q.ch[1].takePeaks(q1); for (int k = 0; k < 3; k++) { double m = std::max(q0[k], q1[k]); if (m > pl->pk[k].load()) pl->pk[k].store(m); } };
+  float *fa = pl->m3.data(), *fb = pl->m4.data(); if (pl->fadeFrom) { std::memcpy(fa, a, n * sizeof(float)); std::memcpy(fb, b, n * sizeof(float)); }
+  runPair(pr2, a, b);
+  if (pl->fadeFrom) { runPair(*pl->fadeFrom, fa, fb);
+    for (uint32_t i = 0; i < n; i++) { double w = pl->fadeN >= pl->fadeLen ? 1 : pl->fadeN > 0 ? std::sin(0.5 * cultec::PI * (double)pl->fadeN / pl->fadeLen) : 0, u = std::sqrt(std::max(0.0, 1 - w * w)); if (pl->fadeN > 0) pl->fadeN--;
+      a[i] = (float)(a[i] * u + fa[i] * w); b[i] = (float)(b[i] * u + fb[i] * w); }
+    if (pl->fadeN <= 0) { pl->old.store(pl->fadeFrom); pl->fadeFrom = nullptr; pl->host->request_callback(pl->host); } }
   double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), ratio = dt / (n / pl->fs); pl->load = pl->load * 0.9 + ratio * 0.1;
   double outPk = 0;
   { double g = pl->outCur < 0 ? pl->outg : pl->outCur, gt = pl->outg, k = 1 - std::exp(-1.0 / (0.02 * pl->fs));
@@ -186,11 +199,11 @@ static clap_process_status pl_process(const clap_plugin_t *p, const clap_process
 // Hauptfaden: altes Paar freigeben; bei geänderter Überabtastung oder geändertem Modell ein neues bauen (eingeschwungen, etwa 0,2 s) und dem Audiofaden übergeben
 static void pl_main(const clap_plugin_t *p) { Plugin *pl = P(p); DenormGuard dg;
   try { std::lock_guard<std::mutex> lk(pl->bm); delete pl->old.exchange(nullptr);
-    if (pl->wantOs.exchange(false) && pl->active && !pl->pend.load()) { int os = osOf(pl->val[P_OS]), m = pl->model(); if (!pl->cur || pl->cur->os != os || pl->cur->model != m) pl->pend.store(pl->build(os, m)); }
+    if (pl->wantOs.exchange(false) && pl->active && !pl->pend.load()) { int os = osOf(pl->val[P_OS]), m = pl->model(); Pair *c = pl->cur.load(); if (!c || c->os != os || c->model != m) pl->pend.store(pl->build(os, m)); }
   } catch (...) {} }
 #ifndef TS_NO_GUI
 static void gui_tick(Plugin *pl);
-static void gui_setp(Plugin *pl, int id, double v) { v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
+static void gui_setp(Plugin *pl, int id, double v) { if (!std::isfinite(v)) return; v = std::max(PD[id].lo, std::min(PD[id].hi, v)); if (pl->val[id].load() == v) return; pl->val[id].store(v); pl->dirty = true;
   { std::lock_guard<std::mutex> lk(pl->qm); bool g = pl->gestId == id; if (!g) pl->guiQ.push_back({id, 0, 1}); pl->guiQ.push_back({id, v, 0}); if (!g) pl->guiQ.push_back({id, 0, 2}); }
   auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp) hp->request_flush(pl->host); }
 static void gui_gesture(Plugin *pl, int id, bool begin) { if (id < 0 || id >= P_COUNT) return;

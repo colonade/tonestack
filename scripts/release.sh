@@ -3,7 +3,7 @@
 # und löscht alle älteren Releases samt Tags (Binärdateien lassen sich aus dem jeweiligen Commit neu bauen).
 # Läuft normalerweise im Bau auf GitHub (.github/workflows/plugins.yml); von Hand mit angemeldetem gh: bash scripts/release.sh dist
 set -euo pipefail
-R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
+R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"; bash scripts/check-plugins.sh   # Namen in plugins.txt nur mit harmlosen Zeichen
 DIR="${1:?Ordner mit den Dateien angeben}"; REPO="${GITHUB_REPOSITORY:-colonade/tonestack}"; SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
 shopt -s nullglob; FILES=("$DIR"/*.zip "$DIR"/*.pkg "$DIR"/*.exe "$DIR"/*.deb "$DIR"/*.png "$DIR"/SHA256SUMS*.txt "$DIR"/*.orig.tar.* "$DIR"/*.debian.tar.* "$DIR"/*.diff.gz "$DIR"/*.dsc); shopt -u nullglob
 [ ${#FILES[@]} -gt 0 ] || { echo "keine Dateien in $DIR" >&2; exit 1; }
@@ -26,16 +26,27 @@ NOTES="Laney AOR 50 Preamp $LANEY · Lametta B100-II Bass Amp $YAMAHA · AmpFett
 - Quelltext von Cairo 1.18.0 und pixman 0.42.2 (Ubuntu-Quellpakete), die statisch in den Windows-Plugins stecken (LGPL-2.1 bzw. MIT; Bau: engine/win/build-cairo.sh).
 
 Gebaut auf GitHub aus Commit $SHA. Änderungen: README.txt in den ZIPs."
-if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then gh release edit "$TAG" --title "Laney $LANEY / B100-II $YAMAHA / AmpFett B-15NF $B15 / GK 800RB $GK / G100 $G100 / B100-III $B100III / AmpFett SVT-CL $SVTCL / Wien EQ $WIENEQ / AmpFett 76 $AMPFETT76 / Loldano $LOLDANO / Kaiserin Reverb $KAISERIN / Blech 140 $BLECH / Wisent Echoreck $WISENT / Viereck 34 $VIERECK / Cultec EQ-1A $CULTEC" --notes "$NOTES" --latest -R "$REPO" >/dev/null
-else gh release create "$TAG" --target "$SHA" --title "Laney $LANEY / B100-II $YAMAHA / AmpFett B-15NF $B15 / GK 800RB $GK / G100 $G100 / B100-III $B100III / AmpFett SVT-CL $SVTCL / Wien EQ $WIENEQ / AmpFett 76 $AMPFETT76 / Loldano $LOLDANO / Kaiserin Reverb $KAISERIN / Blech 140 $BLECH / Wisent Echoreck $WISENT / Viereck 34 $VIERECK / Cultec EQ-1A $CULTEC" --notes "$NOTES" --latest -R "$REPO"; fi
 # Gleicher Name, gleicher Inhalt (Regel seit 2026-11-15): liegt eine Datei schon im Release dieser Versionen, muss sie bytegleich sein – sonst hat sich
 # etwas geändert, ohne dass eine Version stieg (z. B. neuer Übersetzer auf dem Bau-Rechner). Ausgenommen: Mac-Paket (nicht reproduzierbar, inhaltsgleich
 # geprüft), seine Prüfsummen und die Prüfbilder (Schriftdarstellung des Bau-Rechners).
-gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | "\(.name) \(.digest)"' > "$DIR/.alt" 2>/dev/null || : > "$DIR/.alt"
+# Ab 2026-11-24 vor dem Anlegen/Ändern des Releases, und nur „nicht gefunden“ (HTTP 404) zählt als neues Release; jeder andere Fehler der Abfrage bricht ab
+# (vorher ließ ein Fehler der Abfrage alles durch).
+EXISTS=0
+if gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | "\(.name) \(.digest)"' > "$DIR/.alt" 2> "$DIR/.err"; then EXISTS=1
+elif grep -q 'HTTP 404' "$DIR/.err"; then : > "$DIR/.alt"
+else cat "$DIR/.err" >&2; rm -f "$DIR/.alt" "$DIR/.err"; echo "::error::Release $TAG ließ sich nicht abfragen – abgebrochen" >&2; exit 1; fi
+rm -f "$DIR/.err"
 bad=0; for f in "${FILES[@]}"; do b="$(basename "$f")"; case "$b" in *.pkg|*.png|SHA256SUMS-mac.txt) continue;; esac
   alt="$(awk -v n="$b" '$1 == n { print $2 }' "$DIR/.alt")"; [ -n "$alt" ] || continue
   neu="sha256:$(sha256sum "$f" | cut -d' ' -f1)"; [ "$alt" = "$neu" ] || { echo "::error::$b liegt im Release $TAG schon mit anderem Inhalt ($alt, neu $neu) – Version anheben" >&2; bad=1; }; done
 rm -f "$DIR/.alt"; [ "$bad" = 0 ] || exit 1
+# Debian-Version darf nicht fallen (apt nähme sonst die ältere als neuer bzw. das neue Paket nicht als Aktualisierung): gegen die Pakete aller
+# vorhandenen eigenen Releases prüfen (ab 2026-11-24)
+OLDDEB="$(gh api "repos/$REPO/releases" --paginate --jq '.[] | select(.tag_name | startswith("laney-")) | .assets[].name' | sed -n 's/^tonestack-plugins_\(.*\)_amd64\.deb$/\1/p')"
+for v in $OLDDEB; do [ "$v" = "$DEBVER" ] && continue
+  dpkg --compare-versions "$DEBVER" gt "$v" || { echo "::error::Debian-Version $DEBVER ist nicht größer als $v eines vorhandenen Releases" >&2; exit 1; }; done
+if [ "$EXISTS" = 1 ]; then gh release edit "$TAG" --title "Laney $LANEY / B100-II $YAMAHA / AmpFett B-15NF $B15 / GK 800RB $GK / G100 $G100 / B100-III $B100III / AmpFett SVT-CL $SVTCL / Wien EQ $WIENEQ / AmpFett 76 $AMPFETT76 / Loldano $LOLDANO / Kaiserin Reverb $KAISERIN / Blech 140 $BLECH / Wisent Echoreck $WISENT / Viereck 34 $VIERECK / Cultec EQ-1A $CULTEC" --notes "$NOTES" --latest -R "$REPO" >/dev/null
+else gh release create "$TAG" --target "$SHA" --title "Laney $LANEY / B100-II $YAMAHA / AmpFett B-15NF $B15 / GK 800RB $GK / G100 $G100 / B100-III $B100III / AmpFett SVT-CL $SVTCL / Wien EQ $WIENEQ / AmpFett 76 $AMPFETT76 / Loldano $LOLDANO / Kaiserin Reverb $KAISERIN / Blech 140 $BLECH / Wisent Echoreck $WISENT / Viereck 34 $VIERECK / Cultec EQ-1A $CULTEC" --notes "$NOTES" --latest -R "$REPO"; fi
 gh release upload "$TAG" "${FILES[@]}" --clobber -R "$REPO"
 for old in $(gh api "repos/$REPO/releases" --paginate --jq '.[].tag_name'); do
   [ "$old" = "$TAG" ] && continue; [[ "$old" == laney-*_yamaha-* || "$old" == laney-*_b100ii-* ]] || continue   # nur eigene Releases

@@ -80,7 +80,11 @@ Weder Schaltplan noch Bauteilliste (Service Data, Seiten 21–29: „RV4 Balance
 - TILT stufenlos: Schleifer auf derselben Bahn, zwischen den Abgriffen linear (Kippschalter STEPS/SMOOTH). Auch in STEPS läuft der Schleifer beim
   Umschalten in 15 ms über die Zwischenstellungen (wie beim Drehen des Schalters), damit ein Sprung über mehrere Rasten nicht knackt.
 - Drehpunkt des Tilt 80 Hz … 4 kHz: die vier Kondensatoren C40, C41, C45, C46 gemeinsam mit 847 Hz / Drehpunkt skaliert; die Kurve verschiebt sich
-  (300 Hz … 3 kHz höchstens 0,18 dB anders als die verschobene Originalkurve, weil C51, C47 und C36 bleiben).
+  etwas anders als die verschobene Originalkurve, weil C51, C47, C36 und R55 bleiben (nachgerechnet 2026-11-24 nach der unabhängigen Prüfung; bis
+  dahin stand hier „höchstens 0,18 dB“, das galt nur ab etwa 200 Hz Drehpunkt). TILT +3 im verschobenen Bereich 300 Hz … 3 kHz des Originals:
+  Drehpunkt 80 Hz 0,42 dB, 100 Hz 0,35 dB, 200 Hz 0,18 dB, 500 Hz … 4 kHz höchstens 0,14 dB. Am Rand des Hörbereichs mehr (Drehpunkt 4 kHz:
+  1,85 dB bei 48 Hz, weil der Bass-Hochpass nicht mitwandert). Nebenwirkung: TILT 0 ist mit verschobenem Drehpunkt nicht ganz das Original,
+  unter 20 Hz bis −0,65 dB (Drehpunkt 80 Hz, 8,5 Hz), +0,07 dB (4 kHz).
 - LEVEL: 0 dBFS bezogen auf den Nennausgang 0,5 V eff. (Grundstellung −10 dB); OUTPUT.
 
 ## Geschätzt

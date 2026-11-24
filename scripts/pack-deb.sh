@@ -5,7 +5,7 @@
 # Anleitungen in /usr/share/doc/tonestack-plugins/. postinst meldet das Ergebnis (alle Dateien da, Liste der Plugins, Handkopien in ~/.clap und ~/.vst3). Braucht glibc ≥ 2.38 (Debian 13, Ubuntu 24.04 und neuer), libcairo2, libx11-6.
 # Reproduzierbar: feste Zeitstempel, sortiert, root als Besitzer – gleicher Inhalt ergibt dieselben Bytes.
 set -euo pipefail
-R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
+R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"; bash scripts/check-plugins.sh   # Namen in plugins.txt nur mit harmlosen Zeichen
 B=engine/build; D=dist; mkdir -p "$D"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 P="$T/pkg"; DOC="$P/usr/share/doc/tonestack-plugins"; mkdir -p "$P/DEBIAN" "$P/usr/lib/clap" "$P/usr/lib/vst3" "$DOC"
 LISTE=""; NAMEN=""; N=0
@@ -81,19 +81,20 @@ for n in @NAMEN@; do
   [ -s "/usr/lib/clap/$n.clap" ] || fehlt="$fehlt /usr/lib/clap/$n.clap"
   [ -s "/usr/lib/vst3/$n.vst3/Contents/x86_64-linux/$n.so" ] || fehlt="$fehlt /usr/lib/vst3/$n.vst3"
 done
-if [ -n "$fehlt" ]; then echo "tonestack: FEHLER – Installation unvollständig, es fehlt:$fehlt" >&2; exit 1; fi
+# fehlende Dateien nur melden (ab 2026-11-24): mit exit 1 bliebe das Paket halb eingerichtet und apt bei jedem Aufruf hängen
+if [ -n "$fehlt" ]; then echo "tonestack: WARNUNG – Installation unvollständig, es fehlt:$fehlt (Paket neu installieren: sudo apt install --reinstall tonestack-plugins)" >&2; exit 0; fi
 echo "tonestack: Installation erfolgreich – @N@ Plugins (Paket @DEBVER@) als CLAP in /usr/lib/clap und als VST3 in /usr/lib/vst3:"
 @LISTE@
 echo "Den Host neu starten oder die Plugins neu suchen lassen, dann stehen sie in seiner Liste."
 home=""
-if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then home="$(getent passwd "$SUDO_USER" | cut -d: -f6)" || home=""
-elif [ -n "${PKEXEC_UID:-}" ] && [ "$PKEXEC_UID" != 0 ]; then home="$(getent passwd "$PKEXEC_UID" | cut -d: -f6)" || home=""; fi
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then home="$(getent passwd -- "$SUDO_USER" | cut -d: -f6)" || home=""
+elif [ -n "${PKEXEC_UID:-}" ] && [ "$PKEXEC_UID" != 0 ]; then home="$(getent passwd -- "$PKEXEC_UID" | cut -d: -f6)" || home=""; fi
 if [ -n "$home" ] && [ -d "$home" ]; then
   kopf=""
   for n in @NAMEN@; do for f in "$home/.clap/$n.clap" "$home/.vst3/$n.vst3"; do
-    if [ -e "$f" ]; then
+    if [ -e "$f" ] || [ -L "$f" ]; then   # Verknüpfungen (auch ins Leere) nur benennen, nicht verfolgen
       if [ -z "$kopf" ]; then echo "Hinweis: von Hand kopierte Plugins gefunden – der Host fände sie doppelt. Bitte entfernen:"; kopf=1; fi
-      echo "  $f"
+      if [ -L "$f" ]; then echo "  $f (Verknüpfung)"; else echo "  $f"; fi
     fi
   done; done
 fi

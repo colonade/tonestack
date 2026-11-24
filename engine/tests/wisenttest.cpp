@@ -25,7 +25,11 @@ int main(int argc, char **argv) {
     std::printf("Einrichten %.2f s. Ruhespannungen (Plan): V4A Anode %.1f (80), Mischer Anode %.1f (130), V5B Kathode %.2f (0,7), V6A Anode %.1f (130), V6A Kathode %.2f (≈4,8),\n"
       "  V3A Anode %.1f, Kathode %.2f (1,4) (V4B linear)\n", ti, at("p4"), at("pm"), at("k5b"), at("p6"), at("k6"), at("p3"), at("k3"));
     std::printf("Abgleich: Aufnahmestrom %.1f µA je V an der Anode V6A, Sättigung %.1f µA, Kopfempfindlichkeit %.3g, Ausgang ×%.3f\n", c.kRec * 1e6, c.drum.isat * 1e6, c.drum.kh, c.gOut);
-    if (std::fabs(at("p4") - 80) > 15 || std::fabs(at("pm") - 130) > 20 || std::fabs(at("p6") - 130) > 25 ) bad++; }
+    if (std::fabs(at("p4") - 80) > 15 || std::fabs(at("pm") - 130) > 20 || std::fabs(at("p6") - 130) > 25 ) bad++;
+    // Kathoden gegen die Planwerte (V5B 0,7 V, V6A ≈ 4,8 V, V3A 1,4 V) und der Trocken-Trimmer TD: 0,06 V → 0,04 V (Verhältnis 2/3 unter Last, Grundstellung)
+    const double td = std::abs(c.rec.response(c.fs2, 1000, RU_IN, "dry") / c.rec.response(c.fs2, 1000, RU_IN, "p1"));
+    std::printf("Trimmer TD in Grundstellung %.2f: Schleifer/oberes Ende bei 1 kHz %.3f (Plan 0,04 V / 0,06 V = 0,667)\n", s.dry, td);
+    if (std::fabs(at("k5b") - 0.7) > 0.2 || std::fabs(at("k6") - 4.8) > 0.8 || std::fabs(at("k3") - 1.4) > 0.2 || std::fabs(td - 2.0 / 3) > 0.02) { bad++; std::printf("  ABWEICHUNG gegen den Plan\n"); } }
   if (all || w == "time") for (double hz : {50.0, 60.0}) { Core c; Setting s; s.mode = M_ECHO; for (int k = 0; k < 4; k++) s.out[k] = s.fb[k] = false; s.volume = 1; c.init(fs, s, hz);
     std::printf("%.0f Hz: Echozeiten (Spitze der Hüllkurve, Klick)", hz);
     for (int k = 0; k < 4; k++) { Setting t = s; t.out[k] = true; c.apply(t); c.drum.clear(); std::vector<double> y((size_t)(0.5 * fs));

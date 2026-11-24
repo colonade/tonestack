@@ -37,7 +37,49 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
 
-## Unabhängige Prüfung der letzten Projekte (2026-11-24, noch nichts geändert)
+## Befunde der Prüfung behoben: Laney 3.53, B100-II 1.27, B-15NF 1.33, GK 1.13, G100 1.18, B100-III 1.14, SVT-CL 1.18, Wien EQ 1.9, AmpFett 76 1.7, Loldano 1.11, Blech 1.5, Wisent 1.8, Viereck 1.2, Cultec 1.2 (2026-11-24, Web 2026-11-24-1, DEB 1.17223-1)
+Nutzer zur Prüfung unten: „1. ja. 2. gib mir das bild bitte zur entscheidung. 3. ja“ (alle bestätigten Fehler beheben; Bild zu LF+; Uhrzeit aus den PDF-Metadaten
+auch aus der Historie). Zum Bild (Vergleich der fleckigen Ziffer mit den dünnen „1“ und der „8“ in „·28“ derselben Handschrift): „80k ohm ist richtig“.
+- **Cultec 1.2** (engine/src/cultec_core.hpp, clap/cultecplugin.cpp, cultecgui.hpp, wasm/cultec_wasm.cpp):
+  - Ausgang 620 Ω + 0,003 µF in Reihe (Knoten Oz; beide Pläne, auch DWG E-112,353-7 selbst nachgesehen). Gegenkopplung neu geeicht: ot_nf 0,020932
+    (`cultec_test nf`), Gegenkopplung 20,7 dB (EQP-1R 15,9 dB, Verstärkung +0,6 dB, gleiche Wicklung), Klirr +21 dBm 1 kHz 0,017 % (vorher 0,085 %).
+    CULTEC_REST/_REST_R neu (`cultec_test rest [r]`). Heizungsvorspannung in beiden Modellen am zweiten Siebknoten (heatLate Standard).
+  - EQP-1R: plb = 80 kΩ (Nutzerentscheid), Bass-Boost +19,4 … +19,6 dB.
+  - Unit::init: Überabtastung nur 1/2/4 (`while (os > 1 && fs·os > 200000) os /= 2`); cultec_test unit prüft 44,1 … 192 kHz.
+  - Plugin: cur atomar; Modell-/OS-Wechsel mit Überblendung (altes Paar läuft LAT + 30 ms weiter, Sinus/Kosinus-Blende; größter Sprung je Abtastwert
+    beim Wechsel 1,4 × ruhig statt 76 ×, gemessen); request_callback nach 0,5 s wiederholt, solange Neubau oder Freigabe aussteht; NaN/∞ vom Host
+    und aus der Oberfläche verworfen. GUI: Modell einmal je Zeichnen/Mausereignis (snapM), Ziehen endet beim Modellwechsel, Geste am gemerkten
+    Parameter (dragP). cultecguitest prüft beides und NaN/∞ (mit 1.1 nachgestellt: OUTPUT 7 → 16,5, NaN → 10, ∞ → 24).
+  - Seite: ct_init mit okFs, Überblendung im WebAssembly-Kern (zweite Unit UO), LEVEL in 2-dB-Stufen gerundet.
+  - cultec_test: „MITKOPPELND“ zählt als Fehler; Überschreibungen cLB0…3/cLA0…3 zum Ausprobieren.
+  - SCHALTPLAN.md: recproaudio-Lesart berichtigt (330 nF und 12 nF fest parallel, Kontakt 100 frei: 0,95 dB, nachgerechnet; Gyraf 0,76 dB bleibt),
+    Lage des Atten-C (Gyraf B–P 0,76 dB, recproaudio B–O 0,85 dB, nachgerechnet), Widerspruch 3-kHz-Anpassung (18 nF teilt sich 3 und 4 kHz), LF+ 80 kΩ.
+- **NaN-Parameter**: in den übrigen 11 Plugins (Laney, B100-II, B-15NF, GK, G100, B100-III, SVT-CL, Wien EQ, AmpFett 76, Loldano, Viereck)
+  `std::isfinite(e->value)` in apply_events und gui_setp; Versionssprung, README-Eintrag „Sound unchanged“.
+- **Wisent 1.8**: TD unter Last (330 k + 47 k) auf das Planverhältnis 2/3: td = dry = 0,87 (Regler 8,7; vorher 0,67 = 0,42 belastet). Ausgang bleibt auf
+  trocken = Eingang geeicht, das Echo liegt damit 4 dB tiefer gegen trocken (wisenttest level: −6,3 statt −2,2 dB). Alte Projekte mit 6,7: 4 dB leiser,
+  gleiches Verhältnis (README, Seite). Koppel-C 10 nF vor V3A (Wiring diagram PE 603 T gezeichnet ohne Wert, 10 nF aus dem Werksplan PE 603 TU, selbst
+  gesehen); BASS 0/10 bei 100 Hz −24,1/−0,6 statt −23,8/−0,3 dB. wisenttest dc prüft Kathoden (V5B, V6A, V3A) und TD-Verhältnis (0,669), auch im CI;
+  wisentguitest DRY-Mausrad 8,5. Doku: „1 mV“ steht nicht im Plan (gerechnet), V6A-Kathode Plan „v 5“, TM „0,5 K“ Schreibfehler, Kennbuchstaben A/B,
+  Trommel 4,7″·π bei 71 U/min = 444 statt 457 mm/s, d = 31 µm abgeglichen. Das „0,5 V an H“ steht in Nachzeichnung und Wiring diagram (Prüfer irrte).
+- **Viereck 1.2**: NaN; Kommentar 4066 an +8,6/−9,4 V (laut SCHALTPLAN.md; Prüfer meinte ±7,5 V, das ist die Aussteuerungsgrenze der OPV);
+  Drehpunkt-Doku nachgerechnet (TILT +3: 80 Hz 0,42 dB … 200 Hz 0,18 dB; TILT 0 bis −0,65 dB bei 8,5 Hz); vr_init mit okFs; LEVEL in 5-dB-Stufen.
+- **Blech 1.5**: Moden nur unter 0,45·fs (unter 40 kHz; ab 44,1 kHz bitgleich, blechtest rate prüft 22,05/32/44,1 kHz). Seiten Blech und Kaiserin bauen
+  den gespeicherten Stand neu (unbekannte Felder fallen weg).
+- **Sicherheit**: mac/make_pkg.sh postinstall arbeitet im Heimordner mit `sudo -u <Benutzer> -H` statt als root (unter Linux nachgestellt: Verknüpfung
+  des Ausweichordners auf einen root-Ordner bleibt unberührt, Normalfall verschiebt in den Papierkorb). release.sh: Wächter vor release edit/create,
+  nur HTTP 404 gilt als neues Release, DEBVER muss größer sein als in allen vorhandenen Releases (dpkg --compare-versions). scripts/check-plugins.sh
+  prüft plugins.txt (pack-deb/-windows/-plugins, release). postinst: fehlende Dateien nur Warnung (exit 0), `getent passwd --`, Verknüpfungen nur
+  benannt. Voreinstellungs-Import aller 15 Seiten: höchstens 500 je Datei, 1000 insgesamt, Namen über Set. pages.yml checkout ohne Zugangsdaten.
+  Wisent in der plugtest-params-Schleife des CI. Kopf von versions.sh ohne veraltete Zahlen.
+- **PDF**: docs/Laney_AOR50_Bass-Umbau_Kondensatoren.pdf ohne CreationDate/ModDate (pikepdf, Seiten pixelgleich gerendert), in der ganzen Historie
+  ersetzt (git filter-branch, alle Zweige; Commit-Daten unverändert), Zweige mit Force-Push. Andere Binärdateien der Historie geprüft: keine Zeit-
+  stempel (PNG tIME/tEXt, Exif, XMP).
+- Lokal: alle CI-Prüfungen, alle 15 Oberflächentests unter Xvfb, cultecguitest mit ASan/UBSan, Seiten im Chrome ohne Konsolenmeldung.
+- Nicht gemacht (gering oder optional): Speicheranforderung beim Netzneubau im Audiofaden (Cultec, Viereck, Wisent), unabhängige Viereck-Tests gegen
+  kenrockwell, NSIS-Deinstallation entfernt alle Plugins, CSP unsafe-inline.
+
+## Unabhängige Prüfung der letzten Projekte (2026-11-24)
 Nutzer: „Bitte die letzten ungeprüften Projekte nochmal auf korrektheit der schaltungen und sicherheitslücken und probleme unabhängig prüfen lassen“. Fünf eigene
 Agenten (nur lesend): Schaltung Cultec (EQP-1A/-1R), Wisent, Viereck; C++ von Cultec, Viereck, Wisent, Blech, Kaiserin; Web/Pakete/Skripte. Befunde selbst nachgeprüft.
 - **Cultec**, im Werksplan selbst gesehen: (1) S-217-D-Ausgang: 620 Ω und 0,003 µF **in Reihe** zwischen 7 und 12 (Modell parallel, cultec_core.hpp

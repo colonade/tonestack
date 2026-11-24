@@ -1,5 +1,5 @@
 Laney AOR 50 Preamp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 3.52
+Version 3.53
 
 Two formats, one engine
   Laney_AOR50.clap and Laney_AOR50.vst3 contain the same code and sound identical
@@ -159,6 +159,11 @@ Input level (INPUT, since 3.40)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+3.53
+  Parameter values that are not finite numbers (NaN, infinity), sent by a
+  host or a script, are now ignored; before, they set the control to its
+  maximum. Sound unchanged.
 
 3.52
   Windows version (VST3 and CLAP with the same front panel, installer and

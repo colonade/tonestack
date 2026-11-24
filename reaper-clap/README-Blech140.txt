@@ -1,5 +1,5 @@
 Blech 140 (after EMT 140 plate reverb) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.4
+Version 1.5
 
 Two formats, one engine
   Blech_140.clap and Blech_140.vst3 contain the same code and sound
@@ -89,6 +89,10 @@ Interface
   BASS CUT: click a position; clicking the centre steps on; mouse wheel.
 
 Changes
+  1.5  Below 40 kHz sample rate the plate modes are limited to 0.45 x the
+       sample rate (before, modes up to 18 kHz were summed even at 22.05 or
+       32 kHz and folded back into the audible range). At 44.1 kHz and above
+       the sound is unchanged.
   1.4  Windows version (VST3 and CLAP with the same front panel, installer and
        ZIP). Project state and values typed into the host no longer depend on
        the number format of the system (decimal comma). Windows: the window

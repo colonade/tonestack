@@ -115,7 +115,8 @@ struct IRJob {
   std::vector<Mode> md; Plate pl; double gain = 1;
   static constexpr double TAU = 0.015, HWM = 30, HWT = 6;   // weicher Einsatz des Spektralteils; Breite je Mode: 30 Halbwertsbreiten der Mode bzw. 6 des Einsatzes (−60 dB gegen exakt)
   static int lenOf(double fs) { return (int)std::lround(8.0 * fs); }
-  void setup(double fs_) { fs = fs_; md = modes(pl); L = lenOf(fs); N = 1; while (N < (int)(L * 1.07)) N <<= 1;
+  // Moden nur unter 0,45·fs (ab 1.5): bei Raten unter 40 kHz lägen Moden bis 18 kHz über Nyquist und fielen gespiegelt in den Hörbereich; ab 40 kHz unverändert
+  void setup(double fs_) { fs = fs_; { Plate q = pl; q.fmax = std::min(pl.fmax, 0.45 * fs); md = modes(q); } L = lenOf(fs); N = 1; while (N < (int)(L * 1.07)) N <<= 1;
     NE = (int)std::lround(0.12 * fs); big.init(N); S.assign(N, cf()); eL.assign(NE, 0.0); eR.assign(NE, 0.0); hL.assign(L, 0.f); hR.assign(L, 0.f); phase = IDLE; }
   void start(double t) { t500 = t; s = damperFor(pl, t); phase = EARLY; idx = 0; sub = 0; std::fill(S.begin(), S.end(), cf()); std::fill(eL.begin(), eL.end(), 0.0); std::fill(eR.begin(), eR.end(), 0.0); }
   void run(double t) { start(t); work(LONG_MAX); }

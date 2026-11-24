@@ -1,5 +1,5 @@
 Lametta B100-II Bass Amp - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.26
+Version 1.27
 
 Two formats, one engine
   Lametta_B100II.clap and Lametta_B100II.vst3 contain the same code and sound identical
@@ -124,6 +124,11 @@ Input level (INPUT, since 1.19)
   voltage at 0 dBFS of the track) and sound as before; the line then reads
   "at 0 dBFS (old)", a click switches to the new behaviour (parameter
   "Input reference").
+
+1.27
+  Parameter values that are not finite numbers (NaN, infinity), sent by a
+  host or a script, are now ignored; before, they set the control to its
+  maximum. Sound unchanged.
 
 1.26
   Windows version (VST3 and CLAP with the same front panel, installer and

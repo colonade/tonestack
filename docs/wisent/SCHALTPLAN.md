@@ -8,7 +8,8 @@ Quellen (nicht im Repository, docs/wisent/):
 - Zum Vergleich: Echorec 2 (Plan 4-60/1-61), Guild T6F-A, PE 603, PE 603 TU (1969).
 
 Trommel (Effectrode, „Binson Echorec memory system“, gemessen an einem T7E):
-- Trommel 4,7″, 71 U/min, Bandgeschwindigkeit 18 ips = 457 mm/s bei 50 Hz.
+- Trommel 4,7″, 71 U/min, Bandgeschwindigkeit 18 ips = 457 mm/s bei 50 Hz. Die Angaben passen nicht ganz zusammen: 4,7″ · π = 375 mm, bei 71 U/min
+  also 444 mm/s (3 % weniger). Das Modell rechnet mit 457 mm/s und 34 mm Kopfabstand.
 - Kopfabstand 34 mm, daraus 74/148/222/296 ms.
 - Speicher: etwa 100 Windungen Stahldraht 0,1 mm, außen flach geschliffen.
 - Spalt Aufnahme 10 µm, Wiedergabe 5 µm; Aufnahmekopf 400–500 Ω.
@@ -22,13 +23,16 @@ Bei 60 Hz ergeben sich 62/123/185/247 ms. Diese Werte nennt auch T-Rex (61/122/1
 - **Hinter V4A** (47 nF):
   - TD 1 M (Trocken-Trimmer) → 330 k → Mischpunkt (47 k gegen Masse) → 10 nF → V4B.
   - 100 k ∥ 820 pF → Knoten 6 → INPUT 0,5 M → 10 nF → V5A. Die 4,7 k an Knoten 6 führen zur Buchse 7 und sind im Modell offen.
-  - Plan: 1 mV → 0,06 V; TD auf 0,04 V. Modell: TD 0,67.
+  - Plan: 0,06 V bei 1 kHz hinter V4A (der Eingangspegel steht nicht im Plan), am Abgriff TD 0,04 V. Am Abgriff hängen 330 k + 47 k: das
+    Verhältnis 2/3 ergibt sich unter dieser Last bei Stellung 0,87 (wisenttest dc). Bis 1.7 stand TD auf 0,67, dem Verhältnis ohne Last; belastet
+    ergab das 0,42, das trockene Signal lag also 4 dB zu tief gegen das Echo (unabhängige Prüfung 2026-11-24). Die 0,04 V sind nur in der
+    Nachzeichnung dem Abgriff TD zugeordnet; im Werksplan ist die Stelle nicht eindeutig.
 - **Mischer:** V5A + V5B (ECC83), gemeinsame Anode, 47 k an B+2 (220 V), Kathoden je 560 Ω. Plan: Anode 130 V, Kathode 0,7 V; Modell 113 V und 0,64 V.
   - Gitter V5B: 10 nF vom Abgriff LENGTH OF SWELL (0,25 M; darunter 47 k gegen Masse), 470 pF, 1 M.
   - Oberes Ende von LENGTH OF SWELL am Abgriff von TF (0,25 M, Trimmer) an F.
 - **Aufnahme:** Mischer → 47 nF → R1 → 330 k ∥ 150 pF → Gitter V6A.
-  - R1 hat TM 0,5 M gegen Masse, Abgriff zur Anzeige. Vom Gitter V6A geht es über 120 k nach Y; Y hat 560 k ∥ 10 nF gegen Masse.
-  - V6A (½ ECC82): Anode 47 k an B+1 (280 V), Kathode 1,5 k ∥ 22 nF. Plan: 130 V, Modell 130,5 V; Kathode Modell 4,8 V.
+  - R1 hat TM 0,5 M gegen Masse (im Werksplan „0,5 K“, Schreibfehler: als 0,5 kΩ läge der Aufnahmeweg fast an Masse), Abgriff zur Anzeige. Vom Gitter V6A geht es über 120 k nach Y; Y hat 560 k ∥ 10 nF gegen Masse.
+  - V6A (½ ECC82): Anode 47 k an B+1 (280 V), Kathode 1,5 k ∥ 22 nF. Plan: 130 V, Modell 130,5 V; Kathode Plan etwa 5 V („v 5“ im Wiring diagram), Modell 4,8 V.
   - Ausgang über 47 nF und 27 k zum Aufnahmekopf TR. Vormagnetisierung 0,6 mA bei 50 kHz aus V6B (Oszillator).
   - Plan bei 1 kHz: 0,8 V am Mischer, 0,2 V am Gitter, 1 V an der Anode. Modell mit INPUT ganz auf: 1 mV am Eingang ergibt 1,2 V an der Anode.
 - **Wiedergabe:** je Kopf ½ ECC83 (V1A, V1B, V2A, V2B).
@@ -39,12 +43,14 @@ Bei 60 Hz ergeben sich 62/123/185/247 ms. Diese Werte nennt auch T-Rex (61/122/1
 - **Schaltermatrix:** je Kopf zwei Tasten.
   - Obere Reihe: H → 100 k → Schiene T → 220 k → N (270 k gegen Masse).
   - Untere Reihe: H → 100 k → Schiene B → 220 k → X (270 k gegen Masse).
-  - Echo-Gitter G mit 470 k gegen Masse.
+  - Echo-Gitter G mit 470 k gegen Masse. Vor dem Gitter liegt laut Wiring diagram des PE 603 T ein Koppelkondensator (Wert nicht angegeben; die
+    Nachzeichnung lässt ihn weg). Ab 1.8 im Modell mit 10 nF wie im Werksplan des PE 603 TU („10 KpF“): Hochpass um 25 Hz, BASS 0/10 bei 100 Hz
+    −24,1 / −0,6 dB statt −23,8 / −0,3 dB.
 - **Betriebstasten** (verriegelt; Swell mit drei Kontaktpaaren, Repeat und Echo mit je einem):
   - SWELL: G–W, F–N (zwei Paare).
   - REPEAT: G–X.
   - ECHO: G–X.
-- **Echo-Ausgang:** G → V3A (½ ECC83, Anode 47 k an B+2, Kathode 1,5 k ∥ 22 nF; Plan 1,4 V) → 22 nF → passive Baxandall-Klangregelung → VOLUME 0,5 M → 330 k → Mischpunkt.
+- **Echo-Ausgang:** G → 10 nF (ab 1.8, siehe unten) → V3A (½ ECC83, Anode 47 k an B+2, Kathode 1,5 k ∥ 22 nF; Plan 1,4 V) → 22 nF → passive Baxandall-Klangregelung → VOLUME 0,5 M → 330 k → Mischpunkt.
   - BASS: 47 k, 1 M mit 2,2 nF/22 nF, 10 k; Abgriff über 100 k.
   - TREBLE: 220 pF, 1 M, 2,2 nF.
 - **Ausgangsstufe:** V4B (½ ECC83) als Kathodenfolger: Kathode 1,5 k + 47 k, Gitterableitung 1 M vom Abgriff dazwischen (gebootstrappt), 100 pF; Ausgang 270 nF / 47 k.
@@ -80,18 +86,21 @@ LENGTH OF SWELL läuft nicht bis null, weil unter dem Poti 47 k liegen. In REPEA
   - 60 Hz: dieselbe Normierung wie bei 50 Hz (höhere Geschwindigkeit, weniger Abstandsverlust: +0,6 dB bei 1 kHz, mehr Höhen).
   - **Varispeed (ab 1.1, Modell):** Der PE 603 T läuft fest mit dem Netz (Spaltpolmotor; im Plan nur Spannungsabgriffe des Motors). Regelbare Drehzahl gab es nur als späteren Umbau mit neuem Motor (Soundgas: „Binson Echorecs were all manufactured with a fixed speed motor“; bei langsamer Drehzahl leiden Klangtreue und Selbstschwingen). Im Modell 0,25× bis 2× auf die Netzdrehzahl. Wiedergabe-FIRs auf einem Raster √1,2^i (0,23 … 2,49 · v50; 50 und 60 Hz liegen darauf), dazwischen gemischt. Der Aufnahme-Tiefpass wächst mit der Geschwindigkeit (Wellenlänge); die Drehzahl gleitet in 0,4 s.
   - Schwelle der Schleife (REPEAT, ein Kopf, LENGTH OF SWELL) über r = v/v50: 0,8 → 0,97; 1,0 → 0,89; 1,2 → 0,75; 1,4 → 0,62; 1,7 → 0,46; 2,0 → 0,31; 2,4 → 0,16; unter etwa 0,75 schwingt sie nicht (wisenttest thr; Tabelle loopThreshold).
-  - d = 31 µm wirksam (Draht 0,1 mm, Abstand, Dicke). Damit fällt die Schleifenverstärkung über 2,5 kHz ab, und Wiederholungen werden dunkler. Mit 8 µm schwang die Schleife bei 4–10 kHz.
+  - d = 31 µm wirksam (Draht 0,1 mm, Abstand, Dicke), abgeglichen, kein Messwert. Damit fällt die Schleifenverstärkung über 2,5 kHz ab, und Wiederholungen werden dunkler. Mit 8 µm schwang die Schleife bei 4–10 kHz.
   - Gleichlauf: Exzentrizität 0,05 % einmal je Umdrehung (Effectrode: bei gewartetem Gerät unhörbar).
   - Kopfspannung so abgeglichen, dass 1 V an der Anode V6A (1 kHz) 0,5 V an H ergibt (beides Planangaben).
 - **Kopf-Induktivitäten** 0,1 H (angenommen); Wiedergabekopf 650 Ω (Effectrode: 600–700 Ω).
 - **Trimmer:**
   - TF = 0,35: in REPEAT mit einem Kopf schwingt die Schleife ab LENGTH OF SWELL 0,9 (Abgleich, wisenttest loop).
   - TSC = 5 k (Mitte). TSW ganz offen (ab 1.1; vorher Mitte: SWELL je Kopf 11 dB leiser als ECHO/REPEAT). Offen ist SWELL je Kopf noch etwa 4 dB leiser, lauter geht es mit der Schaltung nicht.
-  - TD (Trocken-Anteil) als Modell-Regler DRY (ab 1.1); der Ausgang ist auf die Planstellung 0,67 geeicht.
+  - TD (Trocken-Anteil) als Modell-Regler DRY (ab 1.1); der Ausgang ist auf die Planstellung geeicht (ab 1.8: 0,87, Regler 8,7; bis 1.7: 0,67).
+    Projekte mit DRY 6,7 aus früheren Fassungen behalten diese Stellung und klingen dadurch 4 dB leiser bei gleichem Verhältnis Echo/trocken.
+- **Potis:** Kennbuchstaben im Werksplan: LENGTH OF SWELL „0,25 A“, BASS und TREBLE „1 MA“, INPUT und VOLUME „0,5 B“. Das Modell rechnet „A“ linear
+  und „B“ logarithmisch (15 % in der Mitte, angenommen); die Funktion im Kern heißt aus alter Zeit `taperA`.
 - **Klangregelung:** BASS und TREBLE linear; Rechtsanschlag = mehr Tiefen bzw. Höhen (wisenttest tone). Die Mittelstellung ist nicht linear im Frequenzgang.
 - **Übersprechen:** Abgeschaltete Köpfe kommen über die Swell-Schiene W (TSW-Abgriffe, je 330 k) mit etwa −36 dB gegen das Echo auf einen eingeschalteten Kopf (TSW offen; bei TSW in Mittelstellung etwa −50 dB).
 - **Ausgang:** so geeicht, dass trocken = Eingang (1 kHz).
-- **Echo gegen trocken (Prüfung der Werkseinstellung 1.0):** Der trockene Weg geht vor INPUT ab (TD), INPUT regelt nur den Weg auf die Trommel. Der Plan ist auf etwa 1 mV am Eingang ausgelegt. Steht INPUT so, dass der Draht gerade sättigt, liegt das Echo bei VOLUME 10 etwa bei (−11 dB − Spitzenpegel in dBFS) gegen trocken (LEVEL 200 mV). Mit der Werkseinstellung von 1.0 (VOLUME 8) lag das Echo etwa 10 dB unter dem trockenen Signal und SWELL etwa 21 dB darunter; das war kaum hörbar. Ab 1.1: VOLUME 10, TSW offen, DRY als Regler.
+- **Echo gegen trocken (Prüfung der Werkseinstellung 1.0):** Der trockene Weg geht vor INPUT ab (TD), INPUT regelt nur den Weg auf die Trommel. Aus 0,06 V hinter V4A folgen etwa 1 mV am Eingang (gerechnet; im Plan steht kein Eingangspegel). Steht INPUT so, dass der Draht gerade sättigt, liegt das Echo bei VOLUME 10 etwa bei (−15 dB − Spitzenpegel in dBFS) gegen trocken (LEVEL 200 mV; bis 1.7 mit TD 0,67: −11 dB). Mit der Werkseinstellung von 1.0 (VOLUME 8) lag das Echo etwa 10 dB unter dem trockenen Signal und SWELL etwa 21 dB darunter; das war kaum hörbar. Ab 1.1: VOLUME 10, TSW offen, DRY als Regler.
 
 ## Taumeln WOBBLE (ab 1.2, Modell, nicht am Gerät)
 

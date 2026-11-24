@@ -48,3 +48,5 @@ docs/wisent/*
 docs/cultec/*
 !docs/cultec/SCHALTPLAN.md
 !docs/cultec/werkskurven.json
+/rt.log
+/rt-*.log

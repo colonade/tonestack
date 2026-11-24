@@ -8,7 +8,7 @@ static double fsA = 48000, outG = 1;
 // 14 Volt Spitze bei 0 dBFS, 15 OUTPUT (dB), 16 Netzfrequenz (0 = 50 Hz, 1 = 60 Hz), 17 DRY (Trimmer TD, 0 … 1), 18 Varispeed (0,25 … 2), 19 WOBBLE (Taumeln, 0 … 1; ab 1.2),
 // 20–23 Lage der Köpfe 1–4 in ms bei 50 Hz ohne Varispeed (ab 1.4; 0 oder NaN: Original)
 static Setting fromT() { Setting s; auto k = [](double x, double d) { return std::isfinite(x) ? std::min(1.0, std::max(0.0, x)) : d; };
-  s.input = k(tgtW[0], 0.25); s.swell = k(tgtW[1], 0.5); s.volume = k(tgtW[2], 1.0); s.dry = k(tgtW[17], 0.67); s.bass = k(tgtW[3], 0.5); s.treble = k(tgtW[4], 0.5);
+  s.input = k(tgtW[0], 0.25); s.swell = k(tgtW[1], 0.5); s.volume = k(tgtW[2], 1.0); s.dry = k(tgtW[17], 0.87); s.bass = k(tgtW[3], 0.5); s.treble = k(tgtW[4], 0.5);
   s.mode = std::isfinite(tgtW[5]) ? std::max(0, std::min(2, (int)std::lround(tgtW[5]))) : M_REPEAT;
   for (int i = 0; i < 4; i++) { s.out[i] = tgtW[6 + i] > 0.5; s.fb[i] = tgtW[10 + i] > 0.5; } return s; }
 static double vinT() { double v = tgtW[14]; return std::isfinite(v) && v >= 0.001 && v <= 100 ? v : 0.2; }

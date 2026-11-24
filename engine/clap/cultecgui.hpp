@@ -77,7 +77,9 @@ struct Gui {
     cairo_surface_mark_dirty(im); stbi_image_free(px); return im; }
   void loadImg() { if (!img) img = decode(CTPANEL_JPG, CTPANEL_JPG_LEN); if (!imgR) imgR = decode(CTPANEL_R_JPG, CTPANEL_R_JPG_LEN); }
   // Modell: 0 EQP-1A, 1 EQP-1R (eigene Frontplatte und Wahlschalter)
-  bool mR() const { return getP(P_MODEL) > 0.5; }
+  // Modell einmal je Zeichnen bzw. Mausereignis lesen (snapM): der Host kann MODEL jederzeit umstellen, alle Indizes müssen zum selben Modell passen
+  int curM = 0; void snapM() { curM = getP(P_MODEL) > 0.5 ? 1 : 0; }
+  bool mR() const { return curM != 0; }
   int nsel() const { return mR() ? 2 : NS; }
   const double *selG(int k) const { return mR() ? CTSEL_R[k] : CTSEL[k]; }
   int sparam(int k) const { return mR() ? SPARAM_R[k] : SPARAM[k]; }
@@ -118,7 +120,7 @@ struct Gui {
     setrgb(c, 0xf3efe2, 0.28); cairo_set_line_width(c, w * 1.5); cairo_move_to(c, 0, -r * 0.18); cairo_line_to(c, 0, -r * 0.86); cairo_stroke(c);
     setrgb(c, 0xf3efe2); cairo_set_line_width(c, w); cairo_move_to(c, 0, -r * 0.18); cairo_line_to(c, 0, -r * 0.86); cairo_stroke(c); cairo_restore(c); }
   void drawTo(cairo_t *c) {
-    double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i);
+    snapM(); double s = scale(); double v[P_COUNT]; for (int i = 0; i < P_COUNT; i++) v[i] = getP(i); v[P_MODEL] = curM;
     setrgb(c, 0x0a0a0a); cairo_paint(c);
     const int md = mR() ? 1 : 0; cairo_surface_t *pimg = md ? imgR : img; if (base && md != baseM) { cairo_surface_destroy(base); base = nullptr; } baseM = md;
 #ifndef TS_OWNVIEW
@@ -208,7 +210,9 @@ struct Gui {
       default: return false; } }
 #endif
   bool stepped(int k) const { return (k >= 10 && k < 10 + nsel()) || k == 60 || k == 61; }
-  bool onMouse(int kind, double x, double y, int button, double now) {
+  bool onMouse(int kind, double x, double y, int button, double now) { snapM();
+    // Ziehen begonnen, dann Modell gewechselt (Host, Automation): Geste des gemerkten Parameters beenden statt auf einen anderen Regler zu fallen
+    if (drag >= 0 && dragM != curM) { if (gesture && dragP >= 0) gesture(dragP, false); drag = -1; dragP = -1; if (kind == 1 || kind == 2) return true; }
     switch (kind) {
       case 0: {
         int k = hitKnob(x, y);
@@ -218,20 +222,20 @@ struct Gui {
         if (k == 60) { setKnob(60, std::fmod(knobVal(60) + 1, 3)); return true; }   // OVERSAMPLING: Klick schaltet weiter
         if (k == 61) { double lx, ly; toLower(x, y, lx, ly); setKnob(61, tsw::toggleHit(lx, ly, MD_X, KN_Y + 12, 64)); return true; }   // MODEL: obere Hälfte EQP-1A, untere EQP-1R
         if (k >= 10 && k < 10 + nsel()) {   // Wahlschalter: Klick rechts der Mitte eine Stellung weiter, links zurück; Ziehen wie ein Knopf
-          double s = scale(), dx = x / s - selG(k - 10)[0]; drag = k; dragY0 = y; dragV0 = knobVal(k); dragMoved = false; clickRight = dx >= 0; if (gesture) gesture(knobParam(k), true); return true; }
-        if (k == lastClickId && now - lastClick < 0.35) setKnob(k, knobDefault(k)); else { drag = k; dragY0 = y; dragV0 = knobVal(k); dragMoved = true; if (gesture) gesture(knobParam(k), true); }
+          double s = scale(), dx = x / s - selG(k - 10)[0]; drag = k; dragP = knobParam(k); dragM = curM; dragY0 = y; dragV0 = knobVal(k); dragMoved = false; clickRight = dx >= 0; if (gesture) gesture(dragP, true); return true; }
+        if (k == lastClickId && now - lastClick < 0.35) setKnob(k, knobDefault(k)); else { drag = k; dragP = knobParam(k); dragM = curM; dragY0 = y; dragV0 = knobVal(k); dragMoved = true; if (gesture) gesture(dragP, true); }
         lastClick = now; lastClickId = k; return true; }
       case 1: {
         if (drag >= 0) { double d = dragY0 - y;
           if (drag >= 10 && drag < 10 + nsel()) { if (std::fabs(d) > 4 * scale()) dragMoved = true; if (dragMoved) setKnob(drag, dragV0 + d / (40 * scale())); return true; }
           setKnob(drag, dragV0 + d * (drag >= 50 ? 10.0 / 200 / uscale() : 10.0 / 250 / scale())); return true; }
         int h = hitKnob(x, y); bool changed = h != hover; hover = h; return changed; }
-      case 2: if (button == 1 && drag >= 0) { if (drag >= 10 && drag < 10 + nsel() && !dragMoved) setKnob(drag, knobVal(drag) + (clickRight ? 1 : -1)); if (gesture) gesture(knobParam(drag), false); drag = -1; return true; } return false;
+      case 2: if (button == 1 && drag >= 0) { if (drag >= 10 && drag < 10 + nsel() && !dragMoved) setKnob(drag, knobVal(drag) + (clickRight ? 1 : -1)); if (gesture) gesture(dragP, false); drag = -1; dragP = -1; return true; } return false;
       case 3: { bool changed = hover >= 0; hover = -1; return changed; }
       default: return false;
     }
   }
-  bool dragMoved = false, clickRight = true;
+  bool dragMoved = false, clickRight = true; int dragP = -1, dragM = 0;   // beim Druck: Parameter und Modell
   std::string lastSig;
   std::string signature() { if (peaks) peaks(pk); char b[512]; int n = 0; for (int i = 0; i < P_COUNT; i++) sapp(b, sizeof b, n, "%.4g|", getP(i));
     sapp(b, sizeof b, n, "%d|%d|%d|%.0f|%.0f|%.0f", drag, hover, W, pk[0] > 1e-6 ? 20 * std::log10(pk[0]) * 4 : -999.0, pk[1] * 50, pk[2] * 50); std::string s(b, n); if (diag) s += diag(); return s; }

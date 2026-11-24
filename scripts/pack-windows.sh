@@ -5,7 +5,7 @@
 #                                  %CommonProgramFiles%\CLAP, Anleitungen nach %ProgramFiles%\tonestack, Deinstallation unter „Apps“
 # Reproduzierbar: feste Zeitstempel und Reihenfolge.
 set -euo pipefail
-R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
+R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"; bash scripts/check-plugins.sh   # Namen in plugins.txt nur mit harmlosen Zeichen
 W=engine/build/win; D=dist; mkdir -p "$D"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 command -v makensis >/dev/null || { echo "makensis fehlt (Paket nsis)" >&2; exit 1; }
 STAMP="2026-01-01 00:00:00 UTC"; mkdir -p "$T/inst/docs"; SECS=""; UNS=""; N=0

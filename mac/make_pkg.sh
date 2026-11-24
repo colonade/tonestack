@@ -24,19 +24,23 @@ for n in $NAMES; do case "$n" in Ampeg_*|Yamaha_*) rm -rf "/Library/Audio/Plug-I
 # Früher von Hand (ZIP) im Benutzerordner installierte Fassungen: dieselbe Audio-Unit-Kennung zweimal, und Logic nimmt womöglich die alte.
 # In den Papierkorb des angemeldeten Benutzers verschieben (wiederherstellbar), nicht löschen; geht das nicht (Papierkorb gesperrt),
 # in ~/Library/Audio/Plug-Ins/tonestack-alte-Fassungen (dort sucht kein Host).
+# Ab 2026-11-24 mit den Rechten des Benutzers (sudo -u), nicht als root: als root folgten mkdir/chown/mv Verknüpfungen im Heimordner, die der
+# Benutzer selbst anlegen kann (Rechteausweitung, unabhängige Prüfung).
 U="$(stat -f%Su /dev/console 2>/dev/null || true)"
-if [ -n "$U" ] && [ "$U" != root ]; then
-  H="$(dscl . -read "/Users/$U" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
-  if [ -n "$H" ] && [ -d "$H" ]; then
-    T="$(date +%Y%m%d-%H%M%S)"
-    for n in $NAMES; do for f in "Components/$n.component" "VST3/$n.vst3"; do
-      p="$H/Library/Audio/Plug-Ins/$f"; [ -e "$p" ] || continue
-      if [ ! -d "$H/.Trash" ]; then mkdir -p "$H/.Trash" && chown "$U" "$H/.Trash" && chmod 700 "$H/.Trash"; fi
-      if ! mv "$p" "$H/.Trash/$(basename "$p")-alt-$T" 2>/dev/null; then
-        A="$H/Library/Audio/Plug-Ins/tonestack-alte-Fassungen"; mkdir -p "$A" && chown "$U" "$A"; mv "$p" "$A/$(basename "$p")-alt-$T" 2>/dev/null || true
-      fi
-    done; done
+if [ -n "$U" ] && [ "$U" != root ] && id -u -- "$U" >/dev/null 2>&1; then
+  T="$(date +%Y%m%d-%H%M%S)"
+  # shellcheck disable=SC2086
+  sudo -u "$U" -H /bin/bash -s -- "$T" $NAMES <<'USR' || true
+T="$1"; shift; H="$HOME"; [ -n "$H" ] && [ -d "$H" ] || exit 0
+for n in "$@"; do for f in "Components/$n.component" "VST3/$n.vst3"; do
+  p="$H/Library/Audio/Plug-Ins/$f"; [ -e "$p" ] || continue
+  [ -d "$H/.Trash" ] || mkdir -m 700 -p "$H/.Trash" 2>/dev/null || true
+  if ! mv "$p" "$H/.Trash/$(basename "$p")-alt-$T" 2>/dev/null; then
+    A="$H/Library/Audio/Plug-Ins/tonestack-alte-Fassungen"; mkdir -p "$A" 2>/dev/null && mv "$p" "$A/$(basename "$p")-alt-$T" 2>/dev/null || true
   fi
+done; done
+exit 0
+USR
 fi
 # Audio-Unit-Verzeichnis neu einlesen lassen (startet bei Bedarf von selbst neu), damit Logic die neue Fassung sofort findet
 killall AudioComponentRegistrar 2>/dev/null || true

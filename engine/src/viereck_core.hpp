@@ -40,7 +40,7 @@ struct Parts {
   double r73 = 15e3, r74 = 8.2e3, r75 = 18e3, r76 = 39e3, c61 = 680e-12, c62 = 1e-9, r86 = 2.2e6, r91 = 10e3, r92 = 22e3;   // Filter (Fig. 11, linker Kanal)
   double c70 = 1e-9, r86b = 2.2e6, c71 = 220e-12, r111 = 8.2e3, c75 = 120e-12, c77 = 100e-6;   // IC19 (Folger), C77
   double r117 = 2.7e3, r118 = 2.2e3, r119 = 1e3;   // Ausgang: 830 Ω, Teiler 1/5,9
-  double ron = 120, roff = 1e10;   // Analogschalter 4066 (an ±9 V; geschätzt)
+  double ron = 120, roff = 1e10;   // Analogschalter 4066 (an +8,6/−9,4 V wie die OPV, SCHALTPLAN.md; Widerstände geschätzt)
   double op_a = 1e4, op_rout = 100, op_vs = 7.5;   // TL071 (vereinfacht), Aussteuerungsgrenze an +8,6/−9,4 V (geschätzt)
 };
 constexpr double DIV = 1e3 / (2.7e3 + 2.2e3 + 1e3);   // Ausgangsteiler R119/(R117+R118+R119)

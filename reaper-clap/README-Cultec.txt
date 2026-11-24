@@ -1,5 +1,5 @@
 Cultec EQ-1A Program Equalizer (after Pultec EQP-1A) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.1
+Version 1.2
 
 Two formats, one engine
   Cultec_EQ1A.clap and Cultec_EQ1A.vst3 contain the same code and sound
@@ -33,7 +33,8 @@ What it is
   HS-29 (1:2 with center tap, Zobel network 270 pF + 43 kohm), a 12AX7 in
   push-pull (plates 200 kohm, cathodes joined by 820 ohm), coupling
   0.25 uF, a 12AU7 in push-pull (cathodes 4.7 kohm || 50 uF), output
-  transformer Peerless S-217-D with its feedback winding returning to the
+  transformer Peerless S-217-D (output terminated with 620 ohm + 0.003 uF in
+  series) with its feedback winding returning to the
   12AX7 cathodes through 360 ohm, and the power supply. The amplifier
   values are from the factory drawing DWG E-72,658-2; the passive network
   of the EQP-1A only exists as transcriptions (recproaudio 1997, Gyraf
@@ -49,13 +50,14 @@ What it is
   peaks of the 8 and 10 kc positions lie at 9.1 and 11.1 kHz, as drawn),
   high atten fixed at 10 kHz (0.13 uF; it stays active in OUT, as drawn),
   12AY7 instead of 12AX7 (plates 180 kohm, cathodes joined by 750 ohm),
-  Zobel network 350 pF + 22 kohm. Output transformer and feedback winding
+  Zobel network 350 pF + 22 kohm, low boost pot 80 kohm (from 1.2; the
+  first digit is smudged in the drawing). Output transformer and feedback winding
   are the same part as in the EQP-1A. Quiescent voltages without fitting
   within 10 % of the drawing (which itself disagrees by about 10 %);
-  overall gain +0.3 dB at 1 kHz without fitting. Estimated: the input and
+  overall gain +0.6 dB at 1 kHz without fitting. Estimated: the input and
   interstage transformers Peerless E-372-Q / G-212-Q (no data; the fitted
   Triad values with the leakage set so that the amplifier is flat
-  +0 / -1 dB as Pultec specifies: -0.86 / +0.14 dB). No factory curves of
+  +0 / -1 dB as Pultec specifies: -0.81 / +0.18 dB). No factory curves of
   the EQP-1R exist. Each model keeps its own CPS / KCS positions.
 
   Controls as on the unit:
@@ -70,20 +72,20 @@ What it is
       amplifier stays in the signal path (as on the unit).
 
   Checked against the factory documents (engine/tests/cultec_test.cpp):
-    - quiescent voltages without any fitting: +346 / +328 / +292 / +253 V
-      (drawing +345 / +325 / +290 / +250), 12AX7 plate 139.4 V (140),
-      cathode 1.34 V (1.3), feedback tap 1.13 V (1.1), 12AU7 cathode
-      38.7 V (40)
+    - quiescent voltages without any fitting: +346 / +327 / +291 / +252 V
+      (drawing +345 / +325 / +290 / +250), 12AX7 plate 138.9 V (140),
+      cathode 1.33 V (1.3), feedback tap 1.13 V (1.1), 12AU7 cathode
+      38.6 V (40)
     - overall gain 0 dB with all controls at 0 (drawing: "0 dB"; this sets
-      the turns of the feedback winding), flat within -0.95 / +0.24 dB
+      the turns of the feedback winding), flat within -0.86 / +0.25 dB
       from 20 Hz to 20 kHz (data sheet: +0 / -1 dB)
     - 13 factory curves (low boost and atten at all four frequencies, high
       atten at all three, high boost 3 kHz sharp and broad; 105 points):
       0.76 dB rms
     - high boost peaks, all seven frequencies: +18.0 ... +18.9 dB sharp,
-      +10.4 ... +11.1 dB broad (factory curves about +18.2 / +10.3 dB)
-    - distortion at +10 dBm into 600 ohm: 0.006 % (1 kHz), 0.022 % (50 Hz)
-      (data sheet: at most 0.15 %); 0.09 % at +21 dBm (1 kHz)
+      +10.5 ... +10.9 dB broad (factory curves about +18.2 / +10.3 dB)
+    - distortion at +10 dBm into 600 ohm: 0.003 % (1 kHz), 0.024 % (50 Hz)
+      (data sheet: at most 0.15 %); 0.017 % at +21 dBm (1 kHz)
 
   Fitted to the factory curves (no data sheets exist): inductance of the
   interstage transformer (317 H) and its core losses (41.5 kohm),
@@ -131,7 +133,7 @@ Switching and latency
   The selectors and IN/OUT act at once (the circuit is rebuilt, the
   capacitor charges stay); knobs glide over 15 ms. Changing OVERSAMPLING
   or MODEL builds a new circuit on the main thread (about 0.2 s) and switches to it
-  when ready. Latency 64 samples in every setting (oversampling filters;
+  when ready, with a 30 ms crossfade (from 1.2; before, the switch clicked). Latency 64 samples in every setting (oversampling filters;
   at 1x the plugin delays by the same amount).
 
 CPU
@@ -140,5 +142,12 @@ CPU
   plugin computes it once. After 2 s of silence it goes idle.
 
 Changes
+  1.2  Corrections after an independent review: output network 620 ohm +
+       0.003 uF in series (was parallel; feedback 20.7 dB instead of 16.7 dB,
+       less distortion), heater bias divider at the +325 V node (EQP-1A),
+       EQP-1R low boost pot 80 kohm (boost up to +19.5 dB), no 3x
+       oversampling at 50-66.7 kHz (now 2x), crossfade when switching MODEL
+       or OVERSAMPLING, non-finite parameter values from the host ignored,
+       GUI safe against a MODEL change while dragging.
   1.1  Second model EQP-1R (switch MODEL) from its factory drawings.
   1.0  First version.

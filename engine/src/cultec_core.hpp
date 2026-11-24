@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 // Ruhespannungen aller Knoten (Regler 0, 30 s bei 48 kHz eingeschwungen; neu erzeugen mit build/cultec_test rest [r], wenn sich Bauteile ändern)
-#define CULTEC_REST {{"A", 0.0000}, {"A1", 139.3750}, {"A2", 139.3750}, {"B", 0.0000}, {"B250", 252.4833}, {"B290", 291.7615}, {"B31", 29.4248}, {"B325", 327.9501}, {"B345", 346.0052}, {"B355", 354.9809}, {"Cc", 0.0000}, {"D", 0.0000}, {"F3", 1.1325}, {"F5", 1.1325}, {"G1", 0.0000}, {"G2", 0.0000}, {"H", 0.0000}, {"K1", 1.3361}, {"K2", 1.3361}, {"KA", 38.6560}, {"KB", 38.6560}, {"O", 0.0000}, {"OUT", -0.0000}, {"P", 0.0000}, {"P1", 289.2941}, {"P2", 289.2941}, {"Q", 0.0000}, {"Q1", 29.4248}, {"Q2", 29.4248}, {"S", 1.1311}, {"W", 0.0000}, {"X", 0.0000}, {"Xl", 0.0000}, {"Y", 0.0000}, {"Z", 0.0000}, {"f3w", 1.1311}, {"f5w", 1.1311}, {"g1w", 0.0000}, {"g2w", 0.0000}, {"in", 0.0000}, {"ip", 0.0000}, {"isw", 0.0000}, {"op", 0.0000}, {"p1w", 291.7615}, {"p2w", 291.7615}, {"sw", -0.0000}, {"zo", 0.0000}}
-#define CULTEC_REST_R {{"A", 0.0000}, {"A1", 81.8102}, {"A2", 81.8102}, {"B", 0.0000}, {"B250", 206.3329}, {"B290", 259.2235}, {"B31", 24.0463}, {"B325", 289.5901}, {"B345", 306.0368}, {"B355", 322.4836}, {"Cc", 0.0000}, {"D", 0.0000}, {"F3", 1.3853}, {"F5", 1.3853}, {"G1", 0.0000}, {"G2", 0.0000}, {"H", 0.0000}, {"K1", 1.6344}, {"K2", 1.6344}, {"KA", 32.4371}, {"KB", 32.4371}, {"O", 0.0000}, {"OUT", 0.0000}, {"P", 0.0000}, {"P1", 257.1530}, {"P2", 257.1530}, {"Q", 0.0000}, {"Q1", 24.0463}, {"Q2", 24.0463}, {"S", 1.3836}, {"W", 0.0000}, {"X", 0.0000}, {"Xl", 0.0000}, {"Y", 0.0000}, {"Z", 0.0000}, {"f3w", 1.3836}, {"f5w", 1.3836}, {"g1w", 0.0000}, {"g2w", 0.0000}, {"in", 0.0000}, {"ip", 0.0000}, {"isw", 0.0000}, {"op", 0.0000}, {"p1w", 259.2235}, {"p2w", 259.2235}, {"sw", 0.0000}, {"zo", 0.0000}}   // EQP-1R
+#define CULTEC_REST {{"A", 0.0000}, {"A1", 138.9359}, {"A2", 138.9359}, {"B", 0.0000}, {"B250", 251.7834}, {"B290", 290.9790}, {"B31", 29.3432}, {"B325", 327.0658}, {"B345", 346.0557}, {"B355", 354.9810}, {"Cc", 0.0000}, {"D", 0.0000}, {"F3", 1.1299}, {"F5", 1.1299}, {"G1", 0.0000}, {"G2", 0.0000}, {"H", 0.0000}, {"K1", 1.3330}, {"K2", 1.3330}, {"KA", 38.5472}, {"KB", 38.5472}, {"O", 0.0000}, {"OUT", 0.0000}, {"Oz", 0.0000}, {"P", 0.0000}, {"P1", 288.5185}, {"P2", 288.5185}, {"Q", 0.0000}, {"Q1", 29.3432}, {"Q2", 29.3432}, {"S", 1.1285}, {"W", 0.0000}, {"X", 0.0000}, {"Xl", 0.0000}, {"Y", 0.0000}, {"Z", 0.0000}, {"f3w", 1.1285}, {"f5w", 1.1285}, {"g1w", 0.0000}, {"g2w", 0.0000}, {"in", 0.0000}, {"ip", 0.0000}, {"isw", 0.0000}, {"op", 0.0000}, {"p1w", 290.9790}, {"p2w", 290.9790}, {"sw", 0.0000}, {"zo", 0.0000}}
+#define CULTEC_REST_R {{"A", 0.0000}, {"A1", 81.8102}, {"A2", 81.8102}, {"B", 0.0000}, {"B250", 206.3329}, {"B290", 259.2235}, {"B31", 24.0463}, {"B325", 289.5901}, {"B345", 306.0368}, {"B355", 322.4836}, {"Cc", 0.0000}, {"D", 0.0000}, {"F3", 1.3853}, {"F5", 1.3853}, {"G1", 0.0000}, {"G2", 0.0000}, {"H", 0.0000}, {"K1", 1.6344}, {"K2", 1.6344}, {"KA", 32.4371}, {"KB", 32.4371}, {"O", 0.0000}, {"OUT", 0.0000}, {"Oz", 0.0000}, {"P", 0.0000}, {"P1", 257.1530}, {"P2", 257.1530}, {"Q", 0.0000}, {"Q1", 24.0463}, {"Q2", 24.0463}, {"S", 1.3836}, {"W", 0.0000}, {"X", 0.0000}, {"Xl", 0.0000}, {"Y", 0.0000}, {"Z", 0.0000}, {"f3w", 1.3836}, {"f5w", 1.3836}, {"g1w", 0.0000}, {"g2w", 0.0000}, {"in", 0.0000}, {"ip", 0.0000}, {"isw", 0.0000}, {"op", 0.0000}, {"p1w", 259.2235}, {"p2w", 259.2235}, {"sw", 0.0000}, {"zo", 0.0000}}   // EQP-1R
 namespace cultec {
 using b15::PI;
 static const b15::TriodeD T12AX7 = {2.019059e-3, 2.02928, 100, 1.26};   // wie Laney/Loldano (an RCA-Datenblatt angepasst), Gitterstrom Dempwolf
@@ -62,14 +62,15 @@ struct Parts {
   double rk2 = 4700, ck2 = 50e-6;
   // Ausgangsübertrager S-217-D: 12,5 kΩ Anode–Anode zu 600 Ω (CineMag CM-S217D: „12,500/300“ bzw. „3125:150/75“, Nachbau des Peerless); Lp, k, Wicklungswiderstände,
   // Wicklungskapazität geschätzt. Gegenkopplungswicklung 3–S–5 (Abgriff S über 1000 Ω an Masse); ihr Windungsverhältnis aus „Overall gain 0 dB“ (cultec_test gain).
-  double ot_zp = 12500, ot_zs = 600, ot_lp = 100, ot_kpp = 0.99995, ot_kps = 0.9999, ot_rp = 600, ot_rs = 30, ot_cpp = 150e-12, ot_nf = 0.018747, ot_rf = 5, rS = 1000;
+  double ot_zp = 12500, ot_zs = 600, ot_lp = 100, ot_kpp = 0.99995, ot_kps = 0.9999, ot_rp = 600, ot_rs = 30, ot_cpp = 150e-12, ot_nf = 0.020932, ot_rf = 5, rS = 1000;
   int fbSign = 1;   // Wicklungssinn der Gegenkopplung (so, dass sie gegenkoppelt; cultec_test prüft es)
-  double rout = 620, cout_ = 3e-9, rload = 600;   // Ausgang: 620 Ω ∥ 3 nF (Plan), Last 600 Ω
-  // Netzteil (Plan): +355 V hinter dem Gleichrichter, 470 Ω, 1000 Ω, 2200 Ω, 47 k, je 40 µF; Heizungsvorspannung 270 k + 62 k
+  double rout = 620, cout_ = 3e-9, rload = 600;   // Ausgang: 620 Ω in Reihe mit 0,003 µF über der Sekundärseite (7–12, Plan beider Modelle), Last 600 Ω
+  // Netzteil (Plan): +355 V hinter dem Gleichrichter, 470 Ω, 1000 Ω, 2200 Ω, 47 k, je 40 µF; Heizungsvorspannung 270 k + 62 k am +325-V-Knoten
+  // (der 270 k springt im Plan mit einem Bogen über die +345-V-Leitung)
   double vdc = 355, rdc = 1, r470 = 470, r1000 = 1000, r2200 = 2200, r47k = 47e3, cb = 40e-6, rheat = 332e3;
   // Unterschiede der Schaltungsform (EQP-1R): Fußpunkt der Höhen-Atten-Kondensatoren fest an D statt über den IN-Schalter (Höhen-Atten wirkt auch
-  // in Stellung OUT); Röhre V1; Heizungsvorspannung am dritten Siebknoten (+290 V) statt am ersten
-  bool hcSw = true; int v1 = K_AX7; bool heatLate = false;
+  // in Stellung OUT); Röhre V1. Heizungsvorspannung in beiden Modellen am zweiten Siebknoten (heatLate; EQP-1A +325 V, EQP-1R +290 V)
+  bool hcSw = true; int v1 = K_AX7; bool heatLate = true;
   double biasV1 = 1.3, biasV2 = 9.0;   // Anzeige: Vorspannung V1 (Kathode) und V2 (Kathode − Gitterableitung) laut Plan
 };
 // Pultec EQP-1R: Netz nach dem Werksplan „PULTEC EQP-1R EQUALIZER“ (PultecEQP.pdf S. 6), Verstärker DWG E-112,353-7 (S. 8). Abschrift: docs/cultec/SCHALTPLAN.md.
@@ -84,13 +85,14 @@ inline Parts partsR() {
   const double cB[NLF_R] = {1e-6, 0.5e-6, 0.28e-6}, cA[NLF_R] = {0.0362e-6, 0.02e-6, 0.01e-6};   // 30/60/100 Hz (0,5 µF und 0,28 µF schlecht lesbar)
   for (int k = 0; k < NLF; k++) { p.cLB[k] = cB[std::min(k, NLF_R - 1)]; p.cLA[k] = cA[std::min(k, NLF_R - 1)]; }
   for (int k = 0; k < NHC; k++) p.cHC[k] = 0.13e-6;
+  p.plb = 80e3;                                                        // LF+ „80 KΩ LOG“ (erste Ziffer fleckig; Form wie die „8“ in „.28“, Nutzer bestätigt)
   p.r75 = 0; p.r1k = 0; p.r10k = 12e3; p.hcSw = false;   // kein 75 Ω, kein 1 kΩ, 12 kΩ statt 10 kΩ; die 820 Ω am IN-Schalter liegen laut Plan mit beiden Enden an D (ohne Wirkung)
   // Verstärker
   p.zob_c = 350e-12; p.zob_r = 22e3;                                    // 0,00035 µF in Reihe mit 22 k über der Sekundärseite
   p.in_k = 0.99999; p.is_k = 0.99992;                                   // Kopplung E-372-Q / G-212-Q geschätzt: Verstärker flach +0/−1 dB 20 Hz–20 kHz wie EQP-1A/EQH-2
   p.v1 = K_AY7; p.ax_cgk = 1.3e-12; p.ax_cga = 1.3e-12;                  // 12AY7 (Datenblatt-Kapazitäten)
   p.ra1 = 180e3; p.cpp1 = 15e-12; p.rkk = 750;                          // Anoden je 180 k (+85 V), 0,000015 µF zwischen den Anoden, 750 Ω zwischen den Kathoden
-  p.r470 = 1000; p.heatLate = true; p.vdc = 322.5;                      // 6X4 → 1000 Ω (10 W) → 40 µ → 1000 Ω → +290 V (40 µ, 270 k/62 k Heizung) → 2,2 k → +268 V; → 47 k → +195 V
+  p.r470 = 1000; p.vdc = 322.5;                                       // 6X4 → 1000 Ω (10 W) → 40 µ → 1000 Ω → +290 V (40 µ, 270 k/62 k Heizung) → 2,2 k → +268 V; → 47 k → +195 V
   p.biasV1 = 1.5; p.biasV2 = 10.0;                                      // Kathode 12AY7 +1,5 V; 12AU7 +33 V gegen +23 V
   return p; }
 inline Parts partsFor(int model) { return model == 1 ? partsR() : Parts(); }
@@ -143,7 +145,7 @@ inline Built build(const Parts &v, const Setting &s, double warpFs = 0) {
     R("P1", "p1w", v.ot_rp / 2); R("P2", "p2w", v.ot_rp / 2); R("sw", "OUT", v.ot_rs); R("f3w", "F3", v.ot_rf / 2); R("f5w", "F5", v.ot_rf / 2);
     o.coupled({{"p1w", "B290"}, {"B290", "p2w"}, {"sw", "0"}, {"f3w", "S"}, {"S", "f5w"}}, L); o.c("p1w", "p2w", v.ot_cpp); }
   R("S", "0", v.rS);
-  R("OUT", "0", v.rout); o.c("OUT", "0", v.cout_); R("OUT", "0", v.rload);
+  R("OUT", "Oz", v.rout); o.c("Oz", "0", v.cout_); R("OUT", "0", v.rload);   // Zobel-Glied 620 Ω + 0,003 µF in Reihe
   // Netzteil. Knotennamen nach den Spannungen des EQP-1A; im EQP-1R: B345 = erster Siebknoten, B325 = +290 V, B290 = +268 V (Mitte S-217-D), B250 = +195 V, B31 = +23 V
   o.src("B355", v.rdc, 1); R("B355", "B345", v.r470); o.c("B345", "0", v.cb); R(v.heatLate ? "B325" : "B345", "0", v.rheat);
   R("B345", "B325", v.r1000); o.c("B325", "0", v.cb); R("B325", "B290", v.r2200); o.c("B290", "0", v.cb); R("B325", "B250", v.r47k); o.c("B250", "0", v.cb);
@@ -196,7 +198,7 @@ struct Os {
     return out; }
 };
 // ---------- Gerät: Reglerglättung, Pegelbezug, Überabtastung ----------
-// Eingang: 1,0 = vin Volt Spitze an der Eingangsklemme (Quelle 600 Ω); Ausgang: Spannung an 600 Ω (∥ 620 Ω) / (vin · g0), g0 = Verstärkung Klemme → Ausgang
+// Eingang: 1,0 = vin Volt Spitze an der Eingangsklemme (Quelle 600 Ω); Ausgang: Spannung an 600 Ω (∥ 620 Ω + 0,003 µF) / (vin · g0), g0 = Verstärkung Klemme → Ausgang
 // bei 1 kHz mit allen Reglern auf 0 (laut Plan 0 dB; im Modell durch die Gegenkopplungswicklung darauf gesetzt). Flach also 1:1.
 inline double dbuToVin(double dbu) { return 0.7746 * std::pow(10.0, dbu / 20) * std::sqrt(2.0); }
 struct Unit {
@@ -205,7 +207,7 @@ struct Unit {
   double pkOut = 0, pkDrv = 0, pkV1 = 0;   // Spitzen: Ausgang (V), Gitter 12AU7 Gegentakt (V), Gitter 12AX7 (V)
   static constexpr int LAT = Os::LAT;
   void init(double fs, int os_, const Parts &pv, const Setting &s, const std::atomic<bool> *cancel = nullptr) {
-    fsB = fs; os = os_ == 2 || os_ == 4 ? os_ : 1; if (fs * os > 200000) os = std::max(1, (int)(200000 / fs));   // höchstens etwa 200 kHz intern
+    fsB = fs; os = os_ == 2 || os_ == 4 ? os_ : 1; while (os > 1 && fs * os > 200000) os /= 2;   // höchstens etwa 200 kHz intern; nur 1, 2 oder 4 (Os kennt keine anderen)
     v = pv; tgt = s; ov.init(os); c.init(fsB * os, v, s); c.settle(0.5, cancel);
     { Core f = c; f.cur = Setting(); std::complex<double> o = f.response(1000, O_OUT), i = f.response(1000, O_IN); kin = 1 / std::abs(i); g0 = std::abs(o / i); }
     c0 = c; ready = true; }

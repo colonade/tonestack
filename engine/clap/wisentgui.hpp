@@ -42,7 +42,7 @@ constexpr double FW = WSW, FH = WSH, STRIPU = 92;
 static const double TOTALH = FH + STRIPU * FW / tsw::UW;
 inline double knob01(int p, double v) { if (p >= P_H1 && p <= P_H4) return (v - wisent::Core::HEAD_MIN) / (wisent::Core::HEAD_MAX - wisent::Core::HEAD_MIN); switch (p) { case P_LEVEL: return std::log(std::max(20.0, v) / 20) / std::log(100.0); case P_OUTDB: return (v + 24) / 48; case P_SPEED: return std::log(std::max(0.25, v) / 0.25) / std::log(8.0); default: return v / 10; } }
 inline double fromKnob(int p, double u) { u = std::max(0.0, std::min(1.0, u)); if (p >= P_H1 && p <= P_H4) return std::round((wisent::Core::HEAD_MIN + u * (wisent::Core::HEAD_MAX - wisent::Core::HEAD_MIN)) * 2) / 2; switch (p) { case P_LEVEL: return std::round(20 * std::pow(100.0, u)); case P_OUTDB: return std::round((u * 48 - 24) * 2) / 2; case P_SPEED: return std::round(25 * std::pow(8.0, u)) / 100; default: return std::round(u * 100) / 10; } }
-inline double knobDefault(int p) { if (p >= P_H1 && p <= P_H4) return wisent::Core::HEAD_MS0 * (p - P_H1 + 1); switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 10; case P_LEVEL: return 200; case P_OUTDB: return 0; case P_DRY: return 6.7; case P_SPEED: return 1; case P_WOB: return 0; default: return 5; } }
+inline double knobDefault(int p) { if (p >= P_H1 && p <= P_H4) return wisent::Core::HEAD_MS0 * (p - P_H1 + 1); switch (p) { case P_INPUT: return 2.5; case P_SWELL: return 5; case P_VOLUME: return 10; case P_LEVEL: return 200; case P_OUTDB: return 0; case P_DRY: return 8.7; case P_SPEED: return 1; case P_WOB: return 0; default: return 5; } }
 static const char *MODEN[3] = {"ECHO", "REPEAT", "SWELL"};
 
 #ifdef TS_OWNVIEW
@@ -96,7 +96,7 @@ struct Gui {
   void knobText(int i, char *b, size_t n) const { int p = KPARAM[i]; double v = getP(p);
     switch (p) { case P_INPUT: std::snprintf(b, n, "INPUT %.1f (record level, log)", v); break; case P_SWELL: { double t = wisent::loopThreshold(rel()); if (t > 1) std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; at this speed the loop does not run away)", v); else std::snprintf(b, n, "LENGTH OF SWELL %.1f (feedback; one feedback head runs away from about %.1f)", v, 10 * t); break; }
       case P_VOLUME: std::snprintf(b, n, "VOLUME %.1f (echo level, log)", v); break; case P_BASS: std::snprintf(b, n, "BASS %.1f (5 = middle)", v); break; case P_TREBLE: std::snprintf(b, n, "TREBLE %.1f (5 = middle)", v); break;
-      case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input", v); break; case P_DRY: std::snprintf(b, n, "DRY %.1f: trimmer TD inside the unit, dry level (plan setting 6.7)", v); break;
+      case P_LEVEL: std::snprintf(b, n, "LEVEL: 0 dBFS = %.0f mV peak at the input", v); break; case P_DRY: std::snprintf(b, n, "DRY %.1f: trimmer TD inside the unit, dry level (plan setting 8.7)", v); break;
       case P_SPEED: std::snprintf(b, n, "VARISPEED %.2fx: drum speed, a later modification (PE 603 T: fixed); heads at %.0f / %.0f / %.0f / %.0f ms", v, headMs(0), headMs(1), headMs(2), headMs(3)); break;
       case P_WOB: std::snprintf(b, n, "WOBBLE %.1f: worn drum, spacing +%.0f um and speed +/-%.1f %% once per turn", v, v * 3, v / 10); break;
       default: std::snprintf(b, n, "OUTPUT %+.1f dB", v); } }
