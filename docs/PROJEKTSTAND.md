@@ -78,6 +78,13 @@ auch aus der Historie). Zum Bild (Vergleich der fleckigen Ziffer mit den dünnen
 - Lokal: alle CI-Prüfungen, alle 15 Oberflächentests unter Xvfb, cultecguitest mit ASan/UBSan, Seiten im Chrome ohne Konsolenmeldung.
 - Nicht gemacht (gering oder optional): Speicheranforderung beim Netzneubau im Audiofaden (Cultec, Viereck, Wisent), unabhängige Viereck-Tests gegen
   kenrockwell, NSIS-Deinstallation entfernt alle Plugins, CSP unsafe-inline.
+- Commit 23b636e (nach dem Umschreiben der Historie; alle 10 Zweige mit Force-Push). Der Force-Push löste keinen Lauf aus, darum Plugins per
+  workflow_dispatch (REST): Lauf 45381443011 im ersten Versuch grün (linux, windows, mac, publish), Pages 45395211516 grün, bereitgestellt.
+  Mac-Installer im CI: Konsolenbenutzer runner, Altfassung mit Benutzerrechten in den Papierkorb verschoben. Release laney-3.53_…_cultec-1.2:
+  88 Dateien, Größe und Digest geprüft, SHA256SUMS (linux, windows, mac, sources) stimmen; das alte Release samt Tag (zeigte auf den alten Commit
+  mit der PDF-Uhrzeit) hat release.sh gelöscht. dist/ ersetzt, Linux- und Windows-Bau hier: verify.sh 90 „identisch mit dem Bau“ + 15 wasm
+  „identisch mit der Seite“. Ausgeliefert: DEB 1.17223-1, Windows-Installer, Mac-Paket, SHA256SUMS.
+- Hinweis: GitHub hält nicht mehr erreichbare alte Commits noch eine Weile über ihre SHA abrufbar; endgültig entfernt sie nur der GitHub-Support.
 
 ## Unabhängige Prüfung der letzten Projekte (2026-11-24)
 Nutzer: „Bitte die letzten ungeprüften Projekte nochmal auf korrektheit der schaltungen und sicherheitslücken und probleme unabhängig prüfen lassen“. Fünf eigene
