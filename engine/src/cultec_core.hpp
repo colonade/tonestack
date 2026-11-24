@@ -2,8 +2,9 @@
 // Eingangsübertrager Triad HS-56 → passives LC-Netz (Abschrift, siehe docs/cultec/SCHALTPLAN.md) → Zwischenübertrager Triad HS-29 (1:2, Mittelanzapfung)
 // → 12AX7 im Gegentakt → 12AU7 im Gegentakt → Ausgangsübertrager Peerless S-217-D mit Gegenkopplungswicklung an die Kathoden der 12AX7.
 // Verstärker nach dem Werksplan DWG E-72,658-2 (alle Widerstände, Kondensatoren und Spannungen von dort). Das passive Netz des EQP-1A gibt es nur als
-// Abschrift (recproaudio „Hosef 1997“, Gyraf 2001); die Werte sind gegen die Werkskurven gewählt bzw. angepasst (SCHALTPLAN.md, cultec_test).
-// Geschätzt (kein Datenblatt mit diesen Größen): Induktivitäten und Kopplung der drei Übertrager, Wicklungskapazitäten, Spulengüte der Höhenanhebung,
+// Abschrift (recproaudio „Hosef 1997“; die Gyraf-Zeichnung von 2001 ist ein Tube-Tech-Abkömmling, ab 1.3 nicht mehr verwendet); die Werte sind gegen die
+// Werkskurven gewählt bzw. angepasst (SCHALTPLAN.md, cultec_test).
+// Geschätzt (kein Datenblatt mit diesen Größen): Induktivitäten und Kopplung der drei Übertrager, Wicklungskapazitäten, Kernverluste der Höhenspule,
 // Windungszahl der Gegenkopplungswicklung (aus „Overall gain … is 0 dB“ bestimmt), Kennlinie der „Audio“-Potis.
 // Ab 1.1 zweites Modell EQP-1R (partsR(): Werksplan des Netzes und Verstärker DWG E-112,353-7, 12AY7 statt 12AX7; gleiche Schaltungsform, andere Werte und Stellungen).
 #pragma once
@@ -28,6 +29,10 @@ inline void devFn(const dk::Dev &d, const double *v, double *i, double *J) {   /
 // Kennlinie „Audio“ (Allen-Bradley Typ A): Anteil des Widerstands über dem Drehweg, 10 % in der Mitte (geschätzt; das Werksblatt nennt nur „Audio or Logarithmic“)
 inline double taperA(double x, double mid = 0.10) { x = std::max(0.0, std::min(1.0, x)); const double s = 1 / mid - 1, b = s * s; return (std::pow(b, x) - 1) / (b - 1); }
 
+// Kupferwiderstand eines Spulenabgriffs: VintageWindings (Reparatur der Original-Pultec-Spule) nennt etwa 14 Ω am ersten Abgriff (32,0 mH) bis
+// etwa 34 Ω am letzten (150,5 mH); dazwischen als Potenzgesetz (Windungen ~ √L, Drahtlänge je Windung wächst mit)
+inline double rcuOf(double L) { return 14.0 * std::pow(std::max(1e-6, L) / 0.032, 0.573); }
+
 constexpr int NLF = 4, NHF = 7, NHC = 3;   // EQP-1A
 static const double LF_HZ[NLF] = {20, 30, 60, 100};
 static const double HF_KHZ[NHF] = {3, 4, 5, 8, 10, 12, 16};
@@ -41,19 +46,28 @@ struct Parts {
   int nlf = NLF, nhf = NHF, nhc = NHC;
   const double *lfHz = LF_HZ, *hfKhz = HF_KHZ;
   // Quelle und Eingangsübertrager HS-56 (600 Ω: Primär 1–6, Brücke 3–4; Sekundär 7–12, Brücke 9–10; Gleichstromwiderstände laut Triad)
-  double rsrc = 600, in_rp = 9.46 + 16.6 + 17.8 + 10.71, in_rs = 8.4 + 15.1 + 19.7 + 11.8, in_lp = 37.8, in_k = 0.99995, in_cw = 100e-12;   // Lp, k, Wicklungskapazität geschätzt
+  double rsrc = 600, in_rp = 9.46 + 16.6 + 17.8 + 10.71, in_rs = 8.4 + 15.1 + 19.7 + 11.8, in_lp = 31.12, in_k = 0.99995, in_cw = 100e-12;   // Lp, k, Wicklungskapazität geschätzt
   double rterm = 620;   // Abschluss der Sekundärseite (Plan)
   // Passives Netz
   double phb = 10e3, pbw = 2.5e3, rbyp = 1e6, phc = 1e3, r75 = 75, plb = 10e3, pla = 100e3, r1k = 1e3, r10k = 10e3;
-  double cLB[NLF] = {2.2e-6, 1e-6, 0.47e-6, 0.33e-6};   // Bass-Boost (Gyraf), passt zu den Werkskurven (SCHALTPLAN.md)
-  double cLA[NLF] = {100e-9, 47e-9, 22e-9, 15e-9};      // Bass-Atten (Gyraf)
-  double cHF[NHF] = {13.22e-9, 18e-9, 15e-9, 8.2e-9, 8.2e-9, 5.6e-9, 3.3e-9};   // Höhen-Boost C (recproaudio)
-  double lHF[NHF] = {0.2041, 0.082, 0.068, 0.047, 0.033, 0.033, 0.027};        // Spulenabgriff (recproaudio)
-  double qHF[NHF] = {20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0};      // Spulengüte bei der Resonanz (Verluste als Reihenwiderstand; an die Werkskurven angepasst, cultec_test fit)
+  // Bass (ab 1.3 nach recproaudio statt Gyraf: die Gyraf-Zeichnung ist laut ihrem Autor aus einem Tube-Tech abgeleitet, SCHALTPLAN.md):
+  // 330 nF bzw. 12 nF fest, der Schalter legt in 20/30/60 Hz 1,5 µ / 0,82 µ / 0,22 µ bzw. 56 n / 27 n / 8,2 n dazu (Kontakt 100 frei)
+  double cLB[NLF] = {1.83e-6, 1.15e-6, 0.55e-6, 0.33e-6};   // Bass-Boost
+  double cLA[NLF] = {68e-9, 39e-9, 20.2e-9, 12e-9};         // Bass-Atten
+  // Lage des Atten-Kondensators: parallel zum Poti allein (B–P, Gyraf). Parallel zu Poti und 1 kΩ (B–O, Lesart der recproaudio-Abschrift) hebt
+  // bei allen Reglern auf 0 die Höhen um bis +0,97 dB an – das widerspricht dem Datenblatt („Flat … +0, −1 db“), darum B–P (attenBO = false)
+  bool attenBO = false;
+  double cHF[NHF] = {18e-9, 18e-9, 15e-9, 8.2e-9, 8.2e-9, 5.6e-9, 3.3e-9};   // Höhen-Boost C (recproaudio; 3 und 4 kHz teilen sich die 18 nF)
+  double lHF[NHF] = {0.150, 0.082, 0.068, 0.047, 0.033, 0.033, 0.027};       // Spulenabgriff (recproaudio; bis 1.2 war 3 kHz auf 204 mH / 13,2 nF angepasst)
+  // Spulenverluste (ab 1.3 statt fester Güte 20): Kupfer je Abgriff nach rcuOf() und Kernverluste als Widerstand parallel zur Spule, auf den
+  // 150-mH-Abgriff bezogen und mit L/150 mH auf andere Abgriffe übersetzt (an die Werkskurven angepasst, cultec_test fit)
+  double rcore = 315.65e3;
+  double rcuR[NHF] = {};   // EQP-1R: Kupfer der Spulenschaltung je Stellung (partsR)
+  double rcuHF(int k) const { return model == 1 ? rcuR[k] : rcuOf(lHF[k]); }
   double cHC[NHC] = {288e-9, 136e-9, 68e-9};            // Höhen-Atten (recproaudio: 68 n fest + 220 n / 68 n)
   double taperLB = 0.10, taperLA = 0.10;                // „Audio“-Kennlinie der Bass-Potis (Mitte; geschätzt)
   // Zwischenübertrager HS-29 (Primär 1–4 mit 2–3 verbunden; Sekundär 5–8, Mittelanzapfung 6–7 an Masse; je Hälfte so viele Windungen wie die Primärseite)
-  double is_rp = 935 + 1020, is_rs1 = 1650, is_rs2 = 2270, is_lp = 317.4, is_k = 0.99985, is_cs = 40e-12, is_rc = 41.5e3;   // Lp, k, Kapazität der Sekundärseite, Eisenverluste (parallel zur Primärseite) geschätzt bzw. angepasst
+  double is_rp = 935 + 1020, is_rs1 = 1650, is_rs2 = 2270, is_lp = 277.3, is_k = 0.99985, is_cs = 40e-12, is_rc = 320.1e3;   // Lp, k, Kapazität der Sekundärseite, Eisenverluste (parallel zur Primärseite) geschätzt bzw. angepasst
   double zob_c = 270e-12, zob_r = 43e3;   // Zobel-Glied über 5–8 (Plan)
   // V1 12AX7
   double ra1 = 200e3, cpp1 = 20e-12, rkk = 820, rkf = 360, cc = 0.25e-6, rg2 = 1e6, rd1 = 470e3, rd2 = 62e3;
@@ -61,8 +75,9 @@ struct Parts {
   // V2 12AU7
   double rk2 = 4700, ck2 = 50e-6;
   // Ausgangsübertrager S-217-D: 12,5 kΩ Anode–Anode zu 600 Ω (CineMag CM-S217D: „12,500/300“ bzw. „3125:150/75“, Nachbau des Peerless); Lp, k, Wicklungswiderstände,
-  // Wicklungskapazität geschätzt. Gegenkopplungswicklung 3–S–5 (Abgriff S über 1000 Ω an Masse); ihr Windungsverhältnis aus „Overall gain 0 dB“ (cultec_test gain).
-  double ot_zp = 12500, ot_zs = 600, ot_lp = 100, ot_kpp = 0.99995, ot_kps = 0.9999, ot_rp = 600, ot_rs = 30, ot_cpp = 150e-12, ot_nf = 0.020932, ot_rf = 5, rS = 1000;
+  // Wicklungskapazität geschätzt. Gegenkopplungswicklung 3–S–5 (Abgriff S über 1000 Ω an Masse); ihr Windungsverhältnis aus „Overall gain 0 dB“ (cultec_test nf):
+// 0,02262 je Hälfte, Primär : ganze Gegenkopplungswicklung 22,1 : 1 (zerlegter S-217-D laut GroupDIY 1575 : 71 = 22,18 : 1; Sowter-Nachbau 25 : 1).
+  double ot_zp = 12500, ot_zs = 600, ot_lp = 100, ot_kpp = 0.99995, ot_kps = 0.9999, ot_rp = 600, ot_rs = 30, ot_cpp = 150e-12, ot_nf = 0.02262, ot_rf = 5, rS = 1000;
   int fbSign = 1;   // Wicklungssinn der Gegenkopplung (so, dass sie gegenkoppelt; cultec_test prüft es)
   double rout = 620, cout_ = 3e-9, rload = 600;   // Ausgang: 620 Ω in Reihe mit 0,003 µF über der Sekundärseite (7–12, Plan beider Modelle), Last 600 Ω
   // Netzteil (Plan): +355 V hinter dem Gleichrichter, 470 Ω, 1000 Ω, 2200 Ω, 47 k, je 40 µF; Heizungsvorspannung 270 k + 62 k am +325-V-Knoten
@@ -75,13 +90,15 @@ struct Parts {
 };
 // Pultec EQP-1R: Netz nach dem Werksplan „PULTEC EQP-1R EQUALIZER“ (PultecEQP.pdf S. 6), Verstärker DWG E-112,353-7 (S. 8). Abschrift: docs/cultec/SCHALTPLAN.md.
 // Übertrager Peerless E-372-Q / G-212-Q statt Triad HS-56 / HS-29: keine Daten, darum die Werte des EQP-1A (geschätzt); S-217-D und die Gegenkopplungs-
-// wicklung sind dasselbe Bauteil wie im EQP-1A. Spulengüte wie EQP-1A (geschätzt). Gleichrichterspannung so, dass der +290-V-Knoten 290 V hat (cultec_test dc r).
+// wicklung sind dasselbe Bauteil wie im EQP-1A. Spulenverluste wie EQP-1A (geschätzt). Gleichrichterspannung so, dass der +290-V-Knoten 290 V hat (cultec_test dc r).
 inline Parts partsR() {
   Parts p; p.model = 1; p.nlf = NLF_R; p.nhf = NHF_R; p.nhc = 1; p.lfHz = LF_HZ_R; p.hfKhz = HF_KHZ_R;
   // Netz: Höhenboost-Spulen 50 mH und 100 mH (getrennt gezeichnet), der Spulenschalter schließt Teile kurz: 3 kHz beide in Reihe, 5 kHz nur 100 mH,
   // 8 kHz nur 50 mH, 10/12 kHz beide parallel (Abgriff gegen beide Enden)
   const double cH[NHF_R] = {0.02e-6, 0.01e-6, 0.0062e-6, 0.0062e-6, 0.005e-6}, lH[NHF_R] = {0.150, 0.100, 0.050, 0.1 / 3, 0.1 / 3};
   for (int k = 0; k < NHF; k++) { p.cHF[k] = cH[std::min(k, NHF_R - 1)]; p.lHF[k] = lH[std::min(k, NHF_R - 1)]; }
+  { const double r50 = rcuOf(0.050), r100 = rcuOf(0.100), rr[NHF_R] = {r50 + r100, r100, r50, r50 * r100 / (r50 + r100), r50 * r100 / (r50 + r100)};   // je Spule wie ein
+    for (int k = 0; k < NHF; k++) p.rcuR[k] = rr[std::min(k, NHF_R - 1)]; }   // EQP-1A-Abgriff gleicher Induktivität (geschätzt; die beiden Ringkerne des EQP-1R sind nicht vermessen)
   const double cB[NLF_R] = {1e-6, 0.5e-6, 0.28e-6}, cA[NLF_R] = {0.0362e-6, 0.02e-6, 0.01e-6};   // 30/60/100 Hz (0,5 µF und 0,28 µF schlecht lesbar)
   for (int k = 0; k < NLF; k++) { p.cLB[k] = cB[std::min(k, NLF_R - 1)]; p.cLA[k] = cA[std::min(k, NLF_R - 1)]; }
   for (int k = 0; k < NHC; k++) p.cHC[k] = 0.13e-6;
@@ -89,7 +106,7 @@ inline Parts partsR() {
   p.r75 = 0; p.r1k = 0; p.r10k = 12e3; p.hcSw = false;   // kein 75 Ω, kein 1 kΩ, 12 kΩ statt 10 kΩ; die 820 Ω am IN-Schalter liegen laut Plan mit beiden Enden an D (ohne Wirkung)
   // Verstärker
   p.zob_c = 350e-12; p.zob_r = 22e3;                                    // 0,00035 µF in Reihe mit 22 k über der Sekundärseite
-  p.in_k = 0.99999; p.is_k = 0.99992;                                   // Kopplung E-372-Q / G-212-Q geschätzt: Verstärker flach +0/−1 dB 20 Hz–20 kHz wie EQP-1A/EQH-2
+  p.in_k = 0.99999; p.is_k = 0.99991;                                   // Kopplung E-372-Q / G-212-Q geschätzt: Verstärker flach +0/−1 dB 20 Hz–20 kHz wie EQP-1A/EQH-2 (−0,98 dB bei 20 kHz; kleineres is_k läge flacher, verbiegt aber die Höhen bei 96 kHz intern über 2 dB)
   p.v1 = K_AY7; p.ax_cgk = 1.3e-12; p.ax_cga = 1.3e-12;                  // 12AY7 (Datenblatt-Kapazitäten)
   p.ra1 = 180e3; p.cpp1 = 15e-12; p.rkk = 750;                          // Anoden je 180 k (+85 V), 0,000015 µF zwischen den Anoden, 750 Ω zwischen den Kathoden
   p.r470 = 1000; p.vdc = 322.5;                                       // 6X4 → 1000 Ω (10 W) → 40 µ → 1000 Ω → +290 V (40 µ, 270 k/62 k Heizung) → 2,2 k → +268 V; → 47 k → +195 V
@@ -117,14 +134,14 @@ inline Built build(const Parts &v, const Setting &s, double warpFs = 0) {
   // Fußpunkt der Höhen-Atten-Kondensatoren an D; OUT schließt den Bass-Atten-Zweig (B–P) und D gegen Masse kurz – wie alle Regler auf 0.
   const double hb = std::max(0.0, std::min(1.0, s.hb)), hc = std::max(0.0, std::min(1.0, s.hc));
   R("A", "W", (1 - hb) * v.phb); R("W", "B", hb * v.phb);
-  { int k = std::max(0, std::min(v.nhf - 1, s.hf)); double C = v.cHF[k], L = v.lHF[k], w0 = 1 / std::sqrt(L * C), RL = w0 * L / v.qHF[k];
-    if (warpFs > 0) { double wa = 2 * warpFs * std::tan(w0 / (2 * warpFs)); L *= (w0 / wa) * (w0 / wa); RL *= w0 / wa; }
-    o.c("W", "X", C); R("X", "Xl", RL); L1("Xl", "Y", L); }
+  { int k = std::max(0, std::min(v.nhf - 1, s.hf)); double C = v.cHF[k], L = v.lHF[k], w0 = 1 / std::sqrt(L * C), RL = v.rcuHF(k), RP = v.rcore * L / 0.150;
+    if (warpFs > 0) { double wa = 2 * warpFs * std::tan(w0 / (2 * warpFs)); L *= (w0 / wa) * (w0 / wa); RL *= w0 / wa; RP *= w0 / wa; }   // Güten bei der Resonanz bleiben
+    o.c("W", "X", C); R("X", "Xl", RL); L1("Xl", "Y", L); R("Xl", "Y", RP); }
   R("Y", "Z", std::max(0.0, std::min(1.0, s.bw)) * v.pbw); o.r("Z", "B", s.in ? ON : OFF); o.r("Z", "B", v.rbyp);
   R("B", "H", (1 - hc) * v.phc); R("H", "D", hc * v.phc); R("H", "Q", v.r75); o.c("Q", "Cc", v.cHC[std::max(0, std::min(v.nhc - 1, s.hcf))]); o.r("Cc", "D", s.in || !v.hcSw ? ON : OFF);
   { int k = std::max(0, std::min(v.nlf - 1, s.lf));
     R("D", "0", v.plb * taperA(s.lb, v.taperLB)); o.c("D", "0", v.cLB[k]); o.r("D", "0", s.in ? OFF : ON);
-    R("B", "P", v.pla * taperA(s.la, v.taperLA)); o.c("B", "P", v.cLA[k]); o.r("B", "P", s.in ? OFF : ON); }
+    R("B", "P", v.pla * taperA(s.la, v.taperLA)); o.c("B", v.attenBO ? "O" : "P", v.cLA[k]); o.r("B", "P", s.in ? OFF : ON); }
   R("P", "O", v.r1k); R("O", "D", v.r10k);
   // HS-29: Primär O–Masse, Sekundär 5 (Gitter V1A) … 6/7 (Masse) … 8 (Gitter V1B)
   R("O", "op", v.is_rp); R("op", "0", v.is_rc);

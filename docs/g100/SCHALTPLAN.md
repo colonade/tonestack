@@ -49,6 +49,11 @@ Für die Rechnung: Kontakt A bzw. B geschlossen, der andere offen; TR102 stumm b
   Verstärkung 1 bei tiefen Frequenzen, ab 723 Hz mit +6 dB/Oktave steigend bis 46 (100 kΩ / 2,2 kΩ + 1): der Treiber liefert bei hohen Frequenzen mehr Spannung, damit durch die induktive Treiberspule ein über die Frequenz etwa gleicher Strom fließt (Stromtreiber).
   Pin 8 → 10 µF BP → 56 Ω → Tankeingang D (100 pF D–E, E = Masse). Gerechnet wie die OPVs (spannungsgesteuerte Quelle, Leerlaufverstärkung 10⁴, 100 Ω, Grenze ±17 V geschätzt).
 - Federtank: der Plan nennt nur „Reverb Unit“ (Accutronics-Bauart, Impedanzcodes nicht angegeben). Angenommen: Eingang 28 Ω + 24 mH (Code B: 150 Ω bei 1 kHz – passt zum 56-Ω-/723-Hz-Treiber), Ausgang 200 Ω + 0,357 H (Code B: 2,25 kΩ bei 1 kHz), zwei Federn.
+  Prüfung 2026-11-24: Typbezeichnungen nur aus zweiter Hand und widersprüchlich – für das G100-112 nennt eine japanische Reparaturseite
+  (über Amp Garage) 4EB3C1B, eine andere Quelle 4AB2C1A; das G100-III-Service-Manual sagt nur „ACCUTRONICS SPRING“. Beide Codes beginnen mit 4
+  (Typ 4: langer Tank, zwei Federn, wie angenommen) und haben an dritter Stelle B (Ausgang 2,25 kΩ, wie angenommen). Der Eingang wäre E (600 Ω,
+  etwa 95 mH) bzw. A (8 Ω) statt des angenommenen B (150 Ω); Accutronics-Schlüssel laut Amplified Parts und Accutronics-Teileliste. Weil sich
+  die beiden Angaben widersprechen und keine aus erster Hand ist, bleibt das Modell (B passt zum Stromtreiber mit 56 Ω und 723 Hz, s. o.).
   Die Treiberspule liegt im Netz (Strom = Eingang des Federmodells), die Abnehmerspule als Spannungsquelle (Ausgang des Federmodells, ein Abtastwert verzögert) hinter 200 Ω + 0,357 H.
 - Rückholverstärker IC7 1/2: Tankausgang P → 1 nF gegen Masse → Pin 3 (100 kΩ gegen Masse), 220 pF zwischen den Eingängen, Gegenkopplung 100 kΩ gegen 1 kΩ + 1 µF: 101-fach ab 160 Hz. Die Abnehmerinduktivität bildet mit dem 1 nF eine Resonanz bei etwa 8 kHz (Güte durch die 100 kΩ begrenzt; die Feder liefert dort schon wenig).
 - Hallrückweg: IC7 1/2 → 4,7 µF BP → REVERB (B25K, linear) → Schleifer → 2,2 kΩ → RFS (Fußschalterbuchse) → 47 kΩ → Ausgangsknoten O. Mit REVERB auf 0 liegen so 49,2 kΩ von O gegen Masse. Der Fußschalter ist nicht nachgebildet (immer ein).

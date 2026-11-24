@@ -3,7 +3,7 @@
 // Neue Impulsantworten (DECAY gedreht) rechnet ein Hilfsfaden (etwa 0,7 s), der Audio-Faden zerlegt sie stückweise und blendet über (wie die
 // motorgetriebene Dämpfungsplatte des Geräts: der Hall folgt dem Regler mit Verzögerung, Lampe MOTOR).
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.5"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.6"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "blech_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -249,8 +249,8 @@ static const clap_plugin_gui_t EXT_GUI = {g_supported, g_preferred, g_create, g_
 #endif
 static uint32_t g_latency(const clap_plugin_t *) { return 0; }
 static const clap_plugin_latency_t EXT_LATENCY = {g_latency};
-// Hall klingt nach: Impulsantwort 8 s (ab 7 s ausgeblendet) + Vorverzögerung (CLAP tail)
-static uint32_t g_tail(const clap_plugin_t *p) { Plugin *pl = P(p); return (uint32_t)std::lround((8.0 + pl->val[P_PRE].load() * 1e-3 + 0.1) * pl->fs); }
+// Hall klingt nach: Impulsantwort 10 s (ab 9 s ausgeblendet) + Vorverzögerung (CLAP tail)
+static uint32_t g_tail(const clap_plugin_t *p) { Plugin *pl = P(p); return (uint32_t)std::lround((10.0 + pl->val[P_PRE].load() * 1e-3 + 0.1) * pl->fs); }
 static const clap_plugin_tail_t EXT_TAIL = {g_tail};
 #if !defined(TS_NO_GUI) && !defined(TS_OWNVIEW)
 static void on_timer(const clap_plugin_t *p, clap_id) { Plugin *pl = P(p); TSX_GUARD; std::unique_lock<std::recursive_mutex> glk(pl->gm, std::try_to_lock); if (!glk.owns_lock()) return;
@@ -267,7 +267,7 @@ static const void *pl_ext(const clap_plugin_t *, const char *id) {
 #endif
   if (!std::strcmp(id, CLAP_EXT_LATENCY)) return &EXT_LATENCY; if (!std::strcmp(id, CLAP_EXT_TAIL)) return &EXT_TAIL; if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &EXT_PARAMS; if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &EXT_PORTS; if (!std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS) || !std::strcmp(id, CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT)) return &EXT_CAP; if (!std::strcmp(id, CLAP_EXT_STATE)) return &EXT_STATE; return nullptr; }
 static const char *FEATURES[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, CLAP_PLUGIN_FEATURE_REVERB, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
-static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.blech-140", "Blech 140 (after EMT 140 plate reverb)", "tonestack", "", "", "", TS_VERSION, "Plate reverb after the EMT 140 as a physical model: tensioned steel plate 2 m x 1 m x 0.5 mm, about 23 000 modes up to 18 kHz, thermoelastic and high-frequency loss, damper plate (decay 1 to 3.8 s at 500 Hz), bass cut 0 to 3, two pickups (stereo); mix, pre-delay and output added; mono in, stereo out, zero latency", FEATURES};
+static const clap_plugin_descriptor_t DESC = {CLAP_VERSION_INIT, "de.tonestack.blech-140", "Blech 140 (after EMT 140 plate reverb)", "tonestack", "", "", "", TS_VERSION, "Plate reverb after the EMT 140 as a physical model: tensioned steel plate 2 m x 1 m x 0.5 mm, about 23 000 modes up to 18 kHz, thermoelastic and high-frequency loss, damper plate (decay 1 to 5 s at 500 Hz), bass cut 0 to 3, two pickups (stereo); mix, pre-delay and output added; mono in, stereo out, zero latency", FEATURES};
 static const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id) {
   if (std::strcmp(id, DESC.id)) return nullptr; Plugin *pl = new Plugin(); pl->host = host; for (int i = 0; i < P_COUNT; i++) pl->val[i].store(PD[i].def);
   pl->plug = {&DESC, pl, pl_init, pl_destroy, pl_activate, pl_deactivate, pl_start, pl_stop, pl_reset, pl_process, pl_ext, pl_main}; return &pl->plug; }

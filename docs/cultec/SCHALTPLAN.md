@@ -16,7 +16,14 @@ Verbindlich ist der Kern `engine/src/cultec_core.hpp`; diese Datei hält fest, w
 - **recproaudio.com** (Nutzer): Abschrift des passiven Netzes EQP-1A („Hosef, 7-11-97“), Teileliste eqp1a_parts_list.xls,
   Verstärkerplan (gleich DWG E-72,658-2).
 - **Gyraf** „pultech.gif“: Nachzeichnung „Pultec/Tubetec PE-1a program equalizer, November 2001“ (Filter nach den „real filter schematics“
-  von Chris Jenrick, Übertragerdaten laut Gyraf geraten; Höhenwahl dort 3/4/5/**6**/10/12/16 kHz statt 8 kHz).
+  von Chris Jenrick, Übertragerdaten laut Gyraf geraten; Höhenwahl dort 3/4/5/**6**/10/12/16 kHz statt 8 kHz). **Keine Pultec-Quelle**: ihr
+  Autor schreibt auf Gearspace, sie sei „reverse-engineer'ed from a Tube-tech (which is reverse-eng'd from the original back in the 80'es....)“
+  (Recherche 2026-11-24). Ab Plugin 1.3 wird darum kein Wert mehr aus ihr genommen.
+- **VintageWindings** (Reparatur und Nachbau der Original-Höhenspule, Händlerangabe): Abgriffe 32,0 / 51,1 / 84,3 / 100,2 / 150,5 mH,
+  Wicklungswiderstand „about 14 ohms at the first tap to about 34 ohms on the final tap“; frühe EQP-1 mit zwei Ringkernen 100 mH und 50 mH
+  (passt zum EQP-1R-Plan). Für 3 kHz nennt VintageWindings 156 mH / 18 nF.
+- Ian Bell (GroupDIY) zu den Werkskurven: „those look like what they calculated them to be“ – die Werkskurven sind womöglich gerechnet, nicht
+  gemessen. Sie bleiben die Referenz (es gibt keine bessere), aber ein Effektivfehler unter etwa 1 dB ist nicht mehr aussagekräftig.
 - Manley „Enhanced Pultec EQP1-A“ Bedienungsanleitung (Regelbereiche), SMC 2024 „Modeling the Pultec EQP-1A with Wave Digital Filters“
   (gleiche Quellenlage: kein Werksplan des EQP-1A-Netzes öffentlich).
 - Frontplattenfoto (Nutzer) für die Anordnung; die Frontplatte des Plugins wird selbst gezeichnet.
@@ -62,8 +69,8 @@ Werte je Stellung (Herkunft und Prüfung siehe unten):
 
 | LOW FREQUENCY | 20 | 30 | 60 | 100 Hz |
 |---|---|---|---|---|
-| Bass-Boost-C (Gyraf) | 2,2 µF | 1 µF | 0,47 µF | 0,33 µF |
-| Bass-Atten-C (Gyraf) | 100 nF | 47 nF | 22 nF | 15 nF |
+| Bass-Boost-C (recproaudio: 330 nF fest + Zuschaltung) | 1,83 µF (0,33 + 1,5) | 1,15 µF (0,33 + 0,82) | 0,55 µF (0,33 + 0,22) | 0,33 µF |
+| Bass-Atten-C (recproaudio: 12 nF fest + Zuschaltung) | 68 nF (12 + 56) | 39 nF (12 + 27) | 20,2 nF (12 + 8,2) | 12 nF |
 
 | HIGH FREQUENCY | 3 | 4 | 5 | 8 | 10 | 12 | 16 kHz |
 |---|---|---|---|---|---|---|---|
@@ -76,21 +83,28 @@ Werte je Stellung (Herkunft und Prüfung siehe unten):
 | C (recproaudio, 68 nF fest + Zuschaltung) | 288 nF (68 + 220) | 136 nF (68 + 68) | 68 nF |
 
 **Wahl der Werte** (Rechnung des passiven Netzes, Quelle 600 Ω, gegen die Werkskurven, Maximalkurven abgelesen):
-- Bass: In der recproaudio-Abschrift liegen 330 nF (Boost) und 12 nF (Atten) **fest** parallel, der Schalter legt in 20/30/60 Hz 1,5 µ /
-  0,82 µ / 0,22 µ bzw. 56 n / 27 n / 8,2 n dazu (Kontakt 100 frei). Wirksam also Boost 1,83 / 1,15 / 0,55 / 0,33 µF, Atten 68 / 39 / 20,2 / 12 nF:
-  Effektivfehler gegen die Werkskurven 0,95 dB (cultec_test curves cLB0=… cLA0=…). Bis 1.2 stand hier, recproaudio treffe die Kurven nicht
-  (3,7 dB): das war die falsche Lesart „je Stellung ein Kondensator“ (unabhängige Prüfung 2026-11-24). Gyraf (2,2 / 1 / 0,47 / 0,33 µ,
-  100 / 47 / 22 / 15 n) trifft sie auf 0,76 dB; freie Anpassung aller acht Kondensatoren ergäbe 2,31 / 1,19 / 0,67 / 0,43 µ und 77 / 42 / 20 /
-  11,5 n (0,3 dB). Gyraf bleibt etwas besser, also Gyraf; beide Lesarten liegen nahe beieinander.
+- Bass (ab 1.3 recproaudio; bis 1.2 Gyraf): In der recproaudio-Abschrift liegen 330 nF (Boost) und 12 nF (Atten) **fest** parallel, der
+  Schalter legt in 20/30/60 Hz 1,5 µ / 0,82 µ / 0,22 µ bzw. 56 n / 27 n / 8,2 n dazu (Kontakt 100 frei). Dieselbe Lesart in der Drip-Stückliste
+  (C10 0,22 µ, C11 1,5 µ, C12 0,82 µ, C13 0,33 µ) und auf Gearspace („The 330nF is always there and all but the 100Hz positions add another cap
+  in parallel“). Wirksam also Boost 1,83 / 1,15 / 0,55 / 0,33 µF, Atten 68 / 39 / 20,2 / 12 nF. Bis 1.2 stand hier, recproaudio treffe die Kurven
+  nicht (3,7 dB): das war die falsche Lesart „je Stellung ein Kondensator“. Gyraf (2,2 / 1 / 0,47 / 0,33 µ, 100 / 47 / 22 / 15 n) ist ein
+  Tube-Tech-Abkömmling (Quellen oben) und darum verworfen. Vergleich mit dem Modell 1.3, jede Lesart mit eigener Anpassung (cultec_test fit):
+  recproaudio 0,89 dB über alle 105 Punkte, Verstärker flach −0,85 … +0,07 dB; Gyraf 0,88 dB, flach aber −1,05 dB (außerhalb „+0, −1 db“).
+  Beide treffen die Werkskurven gleich gut; recproaudio ist die bessere Quelle.
 - Lage des Bass-Atten-Kondensators: Gyraf parallel zum Poti allein (B–P, vor dem 1 kΩ), die recproaudio-Abschrift parallel zu Poti und 1 kΩ
-  (B–O). Modell nach Gyraf (B–P): 0,76 dB; mit B–O 0,85 dB (gerechnet).
-- Höhen-Atten: recproaudio 0,83 dB, Gyraf (47 n / 94 n / 197 n) 1,78 dB – also recproaudio.
-- Höhen-Boost: beide treffen die Nennfrequenzen. Gyraf hat keine 8-kHz-Stellung; recproaudio hat die Frequenzen des EQP-1A.
-  Spitze schmal/breit der Werkskurven etwa +18,2 / +10,3 dB (alle sieben Frequenzen), Rechnung mit recproaudio +19,1 / +10,8 dB
-  bei verlustfreier Spule → Spulenverluste (Güte) werden an die Spitzenhöhe angepasst (geschätzt, im Kern dokumentiert).
+  (B–O). B–O hebt aber bei allen Reglern auf 0 die Höhen um bis zu +0,97 dB an (Kondensator überbrückt den 1 kΩ, Modell 1.3) – das widerspricht
+  dem Datenblatt („Flat … +0, −1 db“). Darum bleibt B–P (`attenBO = false`), obwohl es aus der Gyraf-Zeichnung stammt; eine unabhängige
+  Quelle für einen der beiden Anschlüsse gibt es nicht.
+- Höhen-Atten: recproaudio 0,83 dB, Gyraf (47 n / 94 n / 197 n) 1,78 dB (Rechnung mit dem Modell 1.2) – also recproaudio.
+- Höhen-Boost: recproaudio hat die Frequenzen des EQP-1A (Gyraf keine 8-kHz-Stellung). 3 und 4 kHz teilen sich in beiden Abschriften die
+  18 nF (zwei Kontakte; ebenso laut einem Techniker auf R/E/P: „most have a common cap for 3k & 4k“). Ab 1.3 darum wieder 150 mH / 18 nF
+  wie abgeschrieben (bis 1.2 an die Werkskurve angepasst 204,1 mH / 13,22 nF: gleiche Resonanz, im Gerät so nicht möglich). VintageWindings
+  nennt 156 mH; 150 mH (Abschrift) bleibt, die Resonanz verschöbe sich nur um 2 %.
+  Spitze schmal/breit der Werkskurven etwa +18,2 / +10,3 dB (alle sieben Frequenzen), Rechnung mit verlustfreier Spule +19,1 / +10,8 dB
+  → Spulenverluste (ab 1.3 Kupfer und Kern, siehe Modell).
 
-**Unsicher:** Das Netz des EQP-1A gibt es nur als Abschrift; die Bass-Kondensatoren stammen aus einer zweiten Abschrift, die zu den
-Werkskurven passt. Spulendaten (Gleichstromwiderstand, Kernverluste) und Übertragerdaten sind geschätzt.
+**Unsicher:** Das Netz des EQP-1A gibt es nur als Abschrift (recproaudio); die Werkskurven sind womöglich gerechnet. Kupferwiderstand der
+Spule nach VintageWindings (Händlerangabe), Kernverluste und Übertragerdaten sind geschätzt bzw. angepasst.
 
 ## Zweites Modell: EQP-1R (ab Plugin 1.1)
 
@@ -118,8 +132,8 @@ beide Teile gibt es Werkspläne (PultecEQP.pdf S. 6 „PULTEC EQP-1R EQUALIZER�
 
 Gewählt, wo der Plan nicht eindeutig ist:
 - **LF+ 80 kΩ** (ab 1.2; 1.1 hatte 10 kΩ wie das EQP-1A): Die fleckige erste Ziffer ist breit und in der Mitte eingeschnürt wie die „8“ in „·28“,
-  jede „1“ dieser Handschrift ein dünner Strich; der Nutzer hat 80 kΩ bestätigt (Vergleichsbild 2026-11-24). Bass-Boost damit +19,4 … +19,6 dB
-  bei 10 Hz (mit 10 kΩ +15,4 dB).
+  jede „1“ dieser Handschrift ein dünner Strich; der Nutzer hat 80 kΩ bestätigt (Vergleichsbild 2026-11-24). Bass-Boost damit +20,4 … +20,5 dB
+  bei 10 Hz (Modell 1.3; mit 10 kΩ +16,0 … +16,1 dB).
 - **0,28 µF und 0,5 µF**: passen zum Frequenzverhältnis 30 : 60 : 100 (1 : 0,5 : 0,3); „0,128 µF“ läge bei etwa 230 Hz.
 - **Spulen ungekoppelt** (zwei Kernsymbole): Gesamt 150 mH, damit 3 kc bei 2,9 kHz. Folge laut Plan: 8 kc und 10 kc liegen bei 9,1 und 11,1 kHz
   (Resonanz 50 mH / 6,2 nF bzw. 33 mH / 6,2 nF), 12 kc bei 12,3 kHz; so übernommen, die Beschriftung bleibt die des Geräts.
@@ -150,13 +164,14 @@ die 12AY7 mit +85 V an 180 kΩ ziehen zusammen 1,2 mA, mit dem Teiler 1,6 mA, an
   +195 → 206,3 V, +23 → 24,0 V, Heizung 54,1 V, Anode 12AY7 81,8 V (85), Kathode 1,63 V (1,5), Kathode 12AU7 32,4 V (33).
 - 12AY7: Koren-Form mit Messparametern (b15::K12AY7, TubeLib), Kapazitäten 1,3 pF / 1,3 pF (Datenblatt).
 - S-217-D samt Gegenkopplungswicklung: dasselbe Bauteil wie im EQP-1A, darum dieselben Daten. Ergebnis ohne Anpassung: Gesamtverstärkung bei 1 kHz
-  +0,6 dB (EQP-1A-Plan: 0 dB), Gegenkopplung 15,9 dB (EQP-1A 20,7 dB, 12AY7 hat die kleinere Verstärkung).
+  +0,5 dB (EQP-1A-Plan: 0 dB), Gegenkopplung 16,5 dB (EQP-1A 21,4 dB, 12AY7 hat die kleinere Verstärkung).
 - **Geschätzt**: E-372-Q und G-212-Q ohne Daten → Werte der Triad-Übertrager aus der Anpassung des EQP-1A; Kopplung E-372-Q 0,99999 und G-212-Q
-  0,99992 so, dass der Verstärker wie beim EQP-1A und EQH-2 angegeben flach ist („+0, −1 db“, 20 Hz–20 kHz): −0,81 … +0,18 dB.
-  Mit den Kopplungen des EQP-1A gäbe das Zobel-Glied 350 pF + 22 kΩ +1,1 dB bei 10 kHz und −2,1 dB bei 20 kHz. Spulengüte 20 wie EQP-1A.
-- Keine Werkskurven des EQP-1R: geprüft werden Lage und Höhe (cultec_test curves r): Bass-Boost +19,4 … +19,6 dB (80 kΩ), Bass-Atten −20,4 … −20,7 dB,
-  Höhenboost schmal +18,3 … +18,7 dB, breit +10,6 … +10,7 dB (EQP-1A-Werk +18,2 / +10,3), Höhen-Atten 10 kHz −16,3 dB.
-- Klirr +10 dBm: 0,006 % (1 kHz), 0,021 % (50 Hz); +21 dBm 0,036 % bzw. 0,064 % (die 12AU7 laufen an +268 V statt +290 V).
+  0,99991 so, dass der Verstärker wie beim EQP-1A und EQH-2 angegeben flach ist („+0, −1 db“, 20 Hz–20 kHz): −0,98 … +0,15 dB. Kleinere
+  Kopplung läge etwas flacher (0,9999: −0,93 dB), verbiegt aber bei 96 kHz Rechenrate die Höhen um mehr als 2 dB (cultec_test unit r).
+  Mit den Kopplungen des EQP-1A gäbe das Zobel-Glied 350 pF + 22 kΩ +0,7 dB bei 10 kHz und −1,6 dB bei 20 kHz. Spulenverluste wie EQP-1A.
+- Keine Werkskurven des EQP-1R: geprüft werden Lage und Höhe (cultec_test curves r): Bass-Boost +20,4 … +20,5 dB (80 kΩ), Bass-Atten −19,8 … −20,1 dB,
+  Höhenboost schmal +18,6 … +18,8 dB, breit +10,6 … +10,7 dB (EQP-1A-Werk +18,2 / +10,3), Höhen-Atten 10 kHz −16,5 dB.
+- Klirr +10 dBm: 0,006 % (1 kHz), 0,022 % (50 Hz); +21 dBm 0,035 % bzw. 0,062 % (die 12AU7 laufen an +268 V statt +290 V).
 
 ## Werkskurven (abgelesen)
 
@@ -179,26 +194,33 @@ zwei Hälften der Gegenkopplungswicklung), Netzteil wie im Plan (355 V ideal hin
 
 - **Ruhespannungen ohne Anpassung** (cultec_test dc): +346 / +327 / +291 / +252 V (Plan +345 / +325 / +290 / +250), +31-V-Knoten 29,3 V,
   Anode 12AX7 138,9 V (140), Kathode 1,33 V (1,3), Abgriff S 1,13 V (1,1), Kathode 12AU7 38,6 V (40).
-- **Gegenkopplungswicklung**: Windungsverhältnis 0,020932 je Hälfte (bezogen auf die ganze Primärseite) aus „Overall gain … 0 dB“ (Ausgang an
-  600 Ω ∥ (620 Ω + 0,003 µF) gegen Eingangsklemme, 1 kHz, Regler 0; cultec_test nf); Gegenkopplung damit 20,7 dB (bis 1.1 mit dem fälschlich
-  parallelen 620 Ω: 0,018747, 16,7 dB). Wicklungssinn so, dass sie gegenkoppelt (cultec_test gain; ab 1.2 zählt „MITKOPPELND“ als Fehler).
+- **Gegenkopplungswicklung**: Windungsverhältnis 0,02262 je Hälfte (bezogen auf die ganze Primärseite) aus „Overall gain … 0 dB“ (Ausgang an
+  600 Ω ∥ (620 Ω + 0,003 µF) gegen Eingangsklemme, 1 kHz, Regler 0; cultec_test nf); Gegenkopplung damit 21,4 dB. Primärseite : ganze
+  Gegenkopplungswicklung also 22,1 : 1 – bestätigt von außen (Recherche 2026-11-24): ein zerlegter S-217-D hat je Spule 1575 Windungen primär und
+  71 Gegenkopplung (GroupDIY, „1575/71=22.18:1“), der Sowter-Nachbau 9530 „Feedback winding 25:1 (ref primary)“. (1.2: 0,020932 = 23,9 : 1,
+  1.1 mit dem fälschlich parallelen 620 Ω: 0,018747; ab 1.3 neu bestimmt, weil die angepassten Eisenverluste des HS-29 kleiner sind.)
+  Wicklungssinn so, dass sie gegenkoppelt (cultec_test gain; ab 1.2 zählt „MITKOPPELND“ als Fehler).
 - **Ausgangsübertrager**: 12,5 kΩ : 600 Ω (CineMag CM-S217D, Nachbau des Peerless: „12,500/300 … 3125:150/75“); Lp 100 H, Kopplung, Wicklungs-
   widerstände und -kapazität geschätzt.
-- **An die Werkskurven angepasst** (cultec_test fit, Nelder-Mead, 13 Kurven und die Spitzen der Höhenanhebung bei 3/8/16 kHz): HS-29 Lp 317 H und
-  Eisenverluste 41,5 kΩ parallel zur Primärseite, HS-56 Lp 38 H, Spulengüte 20 (alle Stellungen), 3-kHz-Stellung 204,1 mH / 13,22 nF (Abschrift
-  150 mH / 18 nF; gleiche Resonanz, höhere Kennimpedanz: die Werkskurve 3 kHz ist schmaler, als die Abschrift ergibt; andere Stellungen ohne
-  Breitenangabe, daher wie abgeschrieben). Effektivfehler aller 105 Punkte 0,76 dB; Spitzen schmal +18,0 … +18,9, breit +10,5 … +10,9 dB.
-  **Widerspruch**: in beiden Abschriften teilen sich 3 kHz und 4 kHz denselben Kondensator (18 nF, zwei Kontakte); ein eigener Wert für 3 kHz
-  ist im Gerät so nicht möglich. Die Anpassung bildet nur die schmalere Werkskurve nach (andere Spule oder andere Abgriffe wären die
-  wirkliche Ursache); 4 kHz behält 18 nF.
+- **Spulenverluste der Höhenanhebung** (ab 1.3; bis 1.2 feste Güte 20 als Reihenwiderstand): Kupfer je Abgriff nach VintageWindings (14 Ω
+  bei 32 mH … 34 Ω bei 150,5 mH, dazwischen als Potenz von L: R = 14 Ω · (L / 32 mH)^0,573), dazu Kernverluste als Widerstand parallel zur
+  Spule (315,65 kΩ am 150-mH-Abgriff, mit L / 150 mH auf die anderen Abgriffe übersetzt; angepasst). Spulengüte bei der Resonanz damit
+  48 (3 kHz) … 32 (8 kHz) … 18 (16 kHz), Kupfer allein 85 … 225 – die Güte sinkt zu hohen Frequenzen, wie bei Kernverlusten zu erwarten.
+  EQP-1R: Kupfer der 50- und 100-mH-Spule wie ein EQP-1A-Abgriff gleicher Induktivität, in Reihe bzw. parallel wie geschaltet (geschätzt).
+- **An die Werkskurven angepasst** (cultec_test fit, Nelder-Mead, 13 Kurven und die Spitzen der Höhenanhebung bei 3/8/16 kHz): HS-29 Lp 277 H und
+  Eisenverluste 320 kΩ parallel zur Primärseite, HS-56 Lp 31 H, Kernverluste der Höhenspule (oben). Effektivfehler aller 105 Punkte 0,89 dB
+  (1.2: 0,76 dB, aber mit der im Gerät unmöglichen 3-kHz-Stellung und Gyraf-Bässen); einzeln Bass-Boost 0,38 … 1,33, Bass-Atten 0,45 … 0,68,
+  Höhen-Atten 0,40 … 1,18, Höhenboost 3 kHz breit 0,94 / schmal 1,79 dB (die Werkskurve 3 kHz ist schmaler, als 150 mH / 18 nF ergeben).
+  Spitzen schmal +17,9 … +18,8, breit +10,2 … +10,8 dB (Werk +18,2 / +10,3). Wegen der womöglich gerechneten Werkskurven (Quellen oben) wird
+  nicht weiter angepasst.
 - **Geschätzt, an das Datenblatt** („Flat, 20 cps to 20 kcs; +0, −1 db“): Kopplung HS-56 0,99995, HS-29 0,99985, Kapazität der HS-29-Sekundärseite
-  40 pF, HS-56 100 pF; Ergebnis −0,86 … +0,25 dB (der kleine Buckel bei 10 kHz bleibt).
-- **Klirr** (Datenblatt höchstens 0,15 % bei +10 dBm an 600 Ω): 0,003 % bei 1 kHz, 0,024 % bei 50 Hz; +21 dBm 0,017 % bzw. 0,039 %; +24 dBm
-  0,035 % (ab 1.2 mit der richtigen Reihenschaltung am Ausgang und damit stärkerer Gegenkopplung). Das Modell ist ideal symmetrisch (gleiche Röhren); Kernsättigung der Übertrager nicht gerechnet (keine Daten).
+  40 pF, HS-56 100 pF; Ergebnis −0,86 … +0,07 dB.
+- **Klirr** (Datenblatt höchstens 0,15 % bei +10 dBm an 600 Ω): 0,003 % bei 1 kHz, 0,025 % bei 50 Hz; +21 dBm 0,017 % bzw. 0,038 %; +24 dBm
+  0,033 % (ab 1.2 mit der richtigen Reihenschaltung am Ausgang und damit stärkerer Gegenkopplung). Das Modell ist ideal symmetrisch (gleiche Röhren); Kernsättigung der Übertrager nicht gerechnet (keine Daten).
 - **Rechenrate**: die Trapezregel verbiegt die Frequenzachse; bei 48 kHz ohne Überabtastung lägen 16 kHz bei 12 kHz. Darum wird die Resonanz der
   Höhenspule auf die Rechenrate vorverzerrt (Spule so, dass die digitale Resonanz genau auf der analogen liegt), und das Plugin rechnet bis 4-fach
-  (intern höchstens etwa 200 kHz, nur 1-, 2- oder 4-fach; bis 1.1 bei 50–66,7 kHz fälschlich 3-fach mit den Filtern für 4-fach). Abweichung zur analogen Rechnung bei 44,1/48 kHz und 4x höchstens 0,4 dB bis 20 kHz, bei 2x bis 1,8 dB
-  (cultec_test unit).
+  (intern höchstens etwa 200 kHz, nur 1-, 2- oder 4-fach; bis 1.1 bei 50–66,7 kHz fälschlich 3-fach mit den Filtern für 4-fach). Abweichung zur analogen Rechnung bei 44,1/48 kHz und 4x höchstens 0,4 dB bis 20 kHz, bei 2x bis 1,9 dB
+  (EQP-1R mit HIGH ATTEN 10; cultec_test unit).
 - **„Audio“-Kennlinie** der Bass-Potis: 10 % des Widerstands in der Mitte (geschätzt; Allen-Bradley Typ A). Die Werksdiagramme zeigen Zwischen-
   stellungen nur als „typical settings“ ohne Knopfstellung; die Form der Zwischenkurven (gleicher oberer Knick, flachere Absenkung) trifft das
   Modell.

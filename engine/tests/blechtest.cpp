@@ -1,5 +1,5 @@
 // Prüfungen des Blech-140-Kerns (blech_core.hpp):
-//   rt      Nachhallzeit je Terz aus der Impulsantwort (Schroeder, T30) gegen das Modell t60At, DECAY 1 / 2 / 3,8 s
+//   rt      Nachhallzeit je Terz aus der Impulsantwort (Schroeder, T30) gegen das Modell t60At, DECAY 1 / 2 / 3,8 / 5 s
 //   conv    Faltung gegen direkte Rechnung an Stichproben (Rauschen), Latenz 0
 //   switch  DECAY während der Wiedergabe drehen: Dauer bis zur neuen Platte, längster Block, endlich, kein Einbruch
 //   cpu     Rechenzeit je Abtastwert (Ruhe) und Einrichtzeit
@@ -34,7 +34,7 @@ static void run(Reverb &r, const std::vector<float> &x, std::vector<float> &L, s
   size_t n = x.size(); L.assign(n, 0); R.assign(n, 0); for (size_t i = 0; i < n; i += blk) { int m = (int)std::min<size_t>(blk, n - i); r.process(&x[i], nullptr, &L[i], &R[i], m, s); } }
 int main(int argc, char **argv) {
   std::string w = argc > 1 ? argv[1] : "all"; double fs = 48000; bool all = w == "all"; int bad = 0;
-  if (w == "ir") { double d = std::atof(argv[2]); fs = std::atof(argv[3]); Reverb r; r.setup(fs, d); Setting s; s.decay = d; s.mix = 1; std::vector<float> x((size_t)(8.5 * fs), 0.f), L, R; x[0] = 1; run(r, x, L, R, s);
+  if (w == "ir") { double d = std::atof(argv[2]); fs = std::atof(argv[3]); Reverb r; r.setup(fs, d); Setting s; s.decay = d; s.mix = 1; std::vector<float> x((size_t)(10.5 * fs), 0.f), L, R; x[0] = 1; run(r, x, L, R, s);
     FILE *f = std::fopen(argv[4], "wb"); for (size_t i = 0; i < L.size(); i++) { std::fwrite(&L[i], 4, 1, f); std::fwrite(&R[i], 4, 1, f); } std::fclose(f); return 0; }
   if (all || w == "cpu") { auto t0 = std::chrono::steady_clock::now(); Reverb r; r.setup(fs); double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     std::printf("== Einrichten (Moden %zu, Impulsantwort %d Abtastwerte, FFT %d): %.2f s\n", r.job.md.size(), r.job.L, r.job.N, ts);
@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
     std::printf("== Rechenzeit Faltung: %.1f ns je Abtastwert (%.2f %% eines Kerns bei 48 kHz)\n", dt / x.size() * 1e9, dt / 10 * 100);
     auto t2 = std::chrono::steady_clock::now(); r.job.run(3.0); double tj = std::chrono::duration<double>(std::chrono::steady_clock::now() - t2).count(); std::printf("== eine neue Impulsantwort: %.2f s Rechenzeit\n", tj); }
   if (all || w == "rt") { const double fc[7] = {125, 250, 500, 1000, 2000, 4000, 8000};
-    for (double d : {0.0, 0.357, 1.0}) { Reverb r; r.setup(fs, d); Setting s; s.decay = d; s.mix = 1; std::vector<float> x((size_t)(8.5 * fs), 0.f), L, R; x[0] = 1; run(r, x, L, R, s);
-      std::printf("DECAY %.2f s bei 500 Hz (gemessen/erwartet aus dem Modell, in Klammern Modell bei der Mittenfrequenz):\n ", t500Of(d)); for (int b = 0; b < 7; b++) { double t = t30(L, R, fc[b], fs), m = t60At(r.job.pl, fc[b], t500Of(d)), e = t30Model(r.job, t500Of(d), fc[b], fs); std::printf("  %4.0f %5.2f/%5.2f (%5.2f)", fc[b], t, e, m); if (std::fabs(t / e - 1) > (e > 6 ? 0.12 : 0.05)) bad++; }   /* über 6 s schneidet das Ausblenden ab 7 s mit */ std::printf("\n"); } }
+    for (double d : {0.0, 0.25, 0.7, 1.0}) { Reverb r; r.setup(fs, d); Setting s; s.decay = d; s.mix = 1; std::vector<float> x((size_t)(10.5 * fs), 0.f), L, R; x[0] = 1; run(r, x, L, R, s);
+      std::printf("DECAY %.2f s bei 500 Hz (gemessen/erwartet aus dem Modell, in Klammern Modell bei der Mittenfrequenz):\n ", t500Of(d)); for (int b = 0; b < 7; b++) { double t = t30(L, R, fc[b], fs), m = t60At(r.job.pl, fc[b], t500Of(d)), e = t30Model(r.job, t500Of(d), fc[b], fs); std::printf("  %4.0f %5.2f/%5.2f (%5.2f)", fc[b], t, e, m); if (std::fabs(t / e - 1) > (e > 6 ? 0.12 : 0.05)) bad++; }   /* über 6 s schneidet das Ausblenden ab 9 s mit */ std::printf("\n"); } }
   if (all || w == "conv") { Reverb r; r.setup(fs); Setting s; s.mix = 1; std::vector<float> x((size_t)(3 * fs)), L, R; uint32_t q = 7; for (auto &v : x) { q = q * 1664525u + 1013904223u; v = (float)(((q >> 8) / 16777216.0 - 0.5)); }
     run(r, x, L, R, s, 97);   // ungerade Blockgröße
     std::vector<float> hl = r.part.hL, hr = r.part.hR; double emax = 0, ref = 0;   // part.hL/hR = installierte Impulsantwort (setup)
@@ -56,11 +56,11 @@ int main(int argc, char **argv) {
     std::printf("== Latenz: erster Ausgang bei %d (Impuls bei 1000)\n", first); if (first != 1000) bad++; }
   if (all || w == "switch") { Reverb r; r.setup(fs); r.internalJob = false; IRJob ext; ext.setup(fs); bool given = false;   /* wie im Plugin: Moden im Hilfsfaden (hier vorab), Zerlegung im Audio-Faden */ std::vector<float> x((size_t)(8 * fs)), L, R; uint32_t q = 3; for (auto &v : x) { q = q * 1664525u + 1013904223u; v = (float)(((q >> 8) / 16777216.0 - 0.5) * 0.3); }
     Setting s; s.mix = 1; L.assign(x.size(), 0); R.assign(x.size(), 0); double worst = 0; int sw = -1; bool fin = true;
-    for (size_t i = 0; i < x.size(); i += 128) { if (i >= (size_t)fs) s.decay = 1.0; if (i >= (size_t)fs && !given) { ext.run(3.8); r.offer(ext.hL, ext.hR, 3.8); given = true; } auto t0 = std::chrono::steady_clock::now(); r.process(&x[i], nullptr, &L[i], &R[i], 128, s); double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    for (size_t i = 0; i < x.size(); i += 128) { if (i >= (size_t)fs) s.decay = 1.0; if (i >= (size_t)fs && !given) { ext.run(5.0); r.offer(ext.hL, ext.hR, 5.0); given = true; } auto t0 = std::chrono::steady_clock::now(); r.process(&x[i], nullptr, &L[i], &R[i], 128, s); double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
       worst = std::max(worst, dt / (128 / fs)); if (sw < 0 && r.t500Act > 3.7) sw = (int)i; for (int j = 0; j < 128; j++) if (!std::isfinite(L[i + j])) fin = false; }
     auto rms = [&](double a, double b) { double e = 0; for (size_t i = (size_t)(a * fs); i < (size_t)(b * fs); i++) e += L[i] * L[i]; return 10 * std::log10(e / ((b - a) * fs)); };
     double m = 1e9; for (double t = 1.0; t < 3.9; t += 0.05) m = std::min(m, rms(t, t + 0.05));
-    std::printf("== DECAY 2,0 → 3,8 s bei 1 s (Impulsantwort fertig angeboten): neue Platte nach %.2f s, längster Block %.0f %% der Blockdauer, endlich %s; Pegel 0,5–1 s %.1f dB, kleinster 50-ms-Pegel während des Wechsels %.1f dB, nach 5 s %.1f dB\n",
+    std::printf("== DECAY 2,0 → 5,0 s bei 1 s (Impulsantwort fertig angeboten): neue Platte nach %.2f s, längster Block %.0f %% der Blockdauer, endlich %s; Pegel 0,5–1 s %.1f dB, kleinster 50-ms-Pegel während des Wechsels %.1f dB, nach 5 s %.1f dB\n",
       sw / fs - 1, worst * 100, fin ? "ja" : "NEIN", rms(0.5, 1.0), m, rms(5, 6)); if (!fin || m < rms(0.5, 1.0) - 3) bad++; }
   if (all || w == "rate") {
     auto tone = [](double f0, size_t n, double fsx) { std::vector<float> x(n); const double fr[5] = {200, 1000, 3100, 7300, 12100}; for (size_t i = 0; i < n; i++) { double v = 0; for (double f : fr) v += 0.1 * std::sin(2 * PI * f * i / fsx); x[i] = (float)v; } (void)f0; return x; };
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     for (double fsx : {96000.0, 192000.0}) { Reverb r; auto t0 = std::chrono::steady_clock::now(); r.setup(fsx); double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
       std::printf("== %.0f kHz: Hall intern bei %.0f kHz (Faktor %d, Filter %d Abgriffe, Laufzeit im Hallweg %.2f ms), Einrichten %.2f s\n", fsx / 1000, r.fsi / 1000, r.K, r.rs.N, (r.rs.N - 1) / fsx * 1e3, ts);
       double lv = wetDb(fsx); std::printf("   Hallpegel bei fünf Tönen 200 Hz … 12,1 kHz: %+.2f dB gegen 48 kHz\n", lv - ref); if (std::fabs(lv - ref) > 0.3) bad++;
-      Setting s; s.mix = 1; std::vector<float> x((size_t)(8.5 * fsx), 0.f), L, R; x[0] = 1; run(r, x, L, R, s, 128);
+      Setting s; s.mix = 1; std::vector<float> x((size_t)(10.5 * fsx), 0.f), L, R; x[0] = 1; run(r, x, L, R, s, 128);
       for (double fc : {500.0, 2000.0}) { double t = t30(L, R, fc, fsx), e = t30Model(r.job, 2.0, fc, fsx); std::printf("   T30 bei %4.0f Hz: %.2f s (Modell %.2f s)\n", fc, t, e); if (std::fabs(t / e - 1) > 0.05) bad++; }
       const int NF = 1 << 19; FFT f; f.init(NF); std::vector<cf> X(NF); for (int i = 0; i < NF; i++) X[i] = cf(L[i], R[i]); f.run(X.data(), false); double eHi = 0, eAll = 0;
       for (int k = 1; k < NF / 2; k++) { double e = std::norm(X[k]) + std::norm(X[NF - k]); eAll += e; if (k * fsx / NF > 26000) eHi += e; }

@@ -9,7 +9,7 @@
     constructor(instance, fs, internal) { this.x = instance.exports; if (this.x._initialize) this.x._initialize(); this.fs = fs; this.ready = false; this.internal = !!internal; }
     // p = { decay (s bei 500 Hz), mix, out, pre (0 … 1), bass (0 … 3) }
     setTarget(p) { if (!p) return; const t = new Float64Array(this.x.memory.buffer, this.x.blech_target_buffer(), 16), num = (v, d, lo, hi) => Number.isFinite(+v) ? Math.min(hi, Math.max(lo, +v)) : d;
-      t[0] = num(p.decay, 2, 1, 3.8); t[1] = num(p.mix, 0.3, 0, 1); t[2] = num(p.out, 0.5, 0, 1); t[3] = num(p.pre, 0, 0, 1); t[4] = Math.round(num(p.bass, 0, 0, 3));
+      t[0] = num(p.decay, 2, 1, 5); t[1] = num(p.mix, 0.3, 0, 1); t[2] = num(p.out, 0.5, 0, 1); t[3] = num(p.pre, 0, 0, 1); t[4] = Math.round(num(p.bass, 0, 0, 3));
       if (!this.ready) { this.x.blech_init(this.fs, t[0], this.internal ? 1 : 0); this.ready = true; } }   // erste Platte beim ersten Mal (etwa 1 s); danach gleiten MIX/OUTPUT (20 ms)
     setInternal(on) { this.internal = !!on; if (this.ready) this.x.blech_set_internal(on ? 1 : 0); }
     // fertige Platte übernehmen (L, R: Float32Array der Länge blech_ir_len; t: DECAY in s)
@@ -37,8 +37,8 @@
           if (m.wasm) WebAssembly.instantiate(m.wasm, imports).then(r => { this.weng = new BlechWasm(r.instance || r, sampleRate, true); if (this.last) this.weng.setTarget(this.last); this.port.postMessage({ wasm: true }); })
             .catch(err => this.port.postMessage({ wasm: false, error: String(err) })); };
       }
-      // Ausklang nach dem Ende des Eingangs in Abtastwerten (Impulsantwort 8 s + Vorverzögerung)
-      tailN() { const p = this.last || {}; const t = Number.isFinite(+p.tail) ? Math.min(60, Math.max(0.5, +p.tail)) : 8.5; return Math.round(t * sampleRate); }
+      // Ausklang nach dem Ende des Eingangs in Abtastwerten (Impulsantwort 10 s + Vorverzögerung)
+      tailN() { const p = this.last || {}; const t = Number.isFinite(+p.tail) ? Math.min(60, Math.max(0.5, +p.tail)) : 10.5; return Math.round(t * sampleRate); }
       linkUp(port, prefill) {
         const RING = 1 << 16; this.link = port; this.ringL = new Float32Array(RING); this.ringR = new Float32Array(RING); this.ringD = new Float32Array(RING); this.rmask = RING - 1;
         this.nS = 0; this.nR = 0; this.nP = 0; this.running = false; this.fade = 0; this.prefill = Math.max(256, Math.round(prefill || 0.06 * sampleRate)); this.pool = []; this.inc = Math.round(0.04 * sampleRate); this.xrun = false;

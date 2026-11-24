@@ -9,4 +9,4 @@ function work() { timer = 0; if (!x || want === null || want === done) return; c
 onmessage = async e => { const m = e.data || {};
   if (m.wasm) { try { const r = await WebAssembly.instantiate(m.wasm, imports); x = (r.instance || r).exports; if (x._initialize) x._initialize(); x.blech_job_init(m.fs || 48000); if ('done' in m) done = m.done; postMessage({ ready: true }); }
     catch (err) { postMessage({ ready: false, error: String(err) }); } }
-  if ('run' in m && Number.isFinite(+m.run)) { want = Math.min(3.8, Math.max(1, +m.run)); if (!timer) timer = setTimeout(work, 0); } };
+  if ('run' in m && Number.isFinite(+m.run)) { want = Math.min(5, Math.max(1, +m.run)); if (!timer) timer = setTimeout(work, 0); } };

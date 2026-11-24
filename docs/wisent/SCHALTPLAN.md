@@ -10,6 +10,9 @@ Quellen (nicht im Repository, docs/wisent/):
 Trommel (Effectrode, „Binson Echorec memory system“, gemessen an einem T7E):
 - Trommel 4,7″, 71 U/min, Bandgeschwindigkeit 18 ips = 457 mm/s bei 50 Hz. Die Angaben passen nicht ganz zusammen: 4,7″ · π = 375 mm, bei 71 U/min
   also 444 mm/s (3 % weniger). Das Modell rechnet mit 457 mm/s und 34 mm Kopfabstand.
+  Prüfung 2026-11-24: Effectrode rundet den Umfang auf 15″ (richtig 14,77″); die Verzögerungen nennt Effectrode „approximately 75ms … 150ms …
+  225ms … 300ms“, andere Quellen 74 / 148 / 222 / 296 ms. Maßgeblich sind die Verzögerungen: 34 mm / 457 mm/s = 74,4 ms je Kopfabstand liegt
+  dazwischen, darum bleibt das Modell. (T-Rex nennt für seinen Nachbau 533 mm/s, passt zu keiner anderen Angabe.)
 - Kopfabstand 34 mm, daraus 74/148/222/296 ms.
 - Speicher: etwa 100 Windungen Stahldraht 0,1 mm, außen flach geschliffen.
 - Spalt Aufnahme 10 µm, Wiedergabe 5 µm; Aufnahmekopf 400–500 Ω.

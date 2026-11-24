@@ -3,8 +3,7 @@
 //   ρH·ü = T0·∇²u − D·∇⁴u − 2σ(ω)·ρH·u̇ + f,  D = E·H³/(12(1 − ν²))
 //   Moden Φ = sin(m1·π·x/Lx)·sin(m2·π·y/Ly), ω² = (T0/ρH)·k² + (D/ρH)·k⁴, k² = (m1π/Lx)² + (m2π/Ly)²  (alle Moden bis 18 kHz, bei 48 kHz etwa 23 000)
 // Dämpfung je Mode σ(ω) (auf die Energie bezogen: T60 = 6·ln10/σ, die Amplitude klingt mit σ/2 ab) = thermoelastisch (Konstanten R1, C1 nach Arcas/Chaigne, wie in Russo, AAU 2023) + Dämpfungsplatte (∝ √f, Stärke so, dass die
-// Nachhallzeit bei 500 Hz dem Regler DECAY folgt, 1 … 3,8 s wie das Gerät „1 bis 4 s bei 500 Hz“) + Hochton-Verlust (∝ f², angenommen: T60 bei 10 kHz
-// etwa 0,9 s bei offener Dämpfung). Ausgang = Schnelle an den Abnehmern (jede Mode trägt mit gleicher Amplitude bei, Frequenzgang im Mittel eben).
+// Nachhallzeit bei 500 Hz dem Regler DECAY folgt, 1 … 5 s wie das Datenblatt 140 TS) + Hochton-Verlust (∝ f²; offen 1,5 s bei 10 kHz laut Datenblatt). Ausgang = Schnelle an den Abnehmern (jede Mode trägt mit gleicher Amplitude bei, Frequenzgang im Mittel eben).
 // Rechnung: aus den Moden die exakte Impulsantwort (die ersten 100 ms als Summe gedämpfter Schwingungen im Zeitbereich, danach über das Spektrum:
 // je Mode die Lorentz-Kurve des gedämpften Kosinus, 2^19 Punkte bei 48 kHz, eine inverse FFT), dann Faltung ohne Latenz (256 Taps direkt, Blöcke
 // 256 und 4096 im Frequenzbereich, die großen über 16 Teilschritte verteilt). Neue Impulsantworten (DECAY gedreht) entstehen stückweise im Audio-Faden
@@ -26,17 +25,19 @@ typedef std::complex<float> cf;
 struct Plate {
   double Lx = 2.0, Ly = 1.0, H = 0.0005, E = 2.0e11, nu = 0.3, rho = 7850, T0 = 700;   // T0 (N/m) angenommen: wirkt nur unter etwa 50 Hz
   double R1 = 9.664e-3, C1 = 0.1855e-3;   // thermoelastisch (Arcas/Chaigne; Russo 2023, Gl. 3.12–3.13)
+  double kTE = 0.809011;                  // ab 1.6: Verluste der offenen Platte an das EMT-Datenblatt 140 TS (1971) geeicht: ohne Dämpfung „about 5 seconds
+                                          // at 500 cps“, „about 1.5 seconds at 10 kHz“ (bis 1.5 thermoelastisch ungeeicht: 4,0 s bzw. 0,9 s)
   double xin = 0.52, yin = 0.53;          // Treiber (relativ, wie Ducceschi/Webb bzw. Russo)
   double xl = 0.30, yl = 0.62, xr = 0.74, yr = 0.38;   // Abnehmer links/rechts (angenommen: versetzt, verschieden weit vom Treiber)
-  double fmax = 18000, hf10k = 11.8;      // Moden bis 18 kHz; Hochton-Verlust σ_h(f) = 11,8·(f/10 kHz)² (angenommen, T60(10 kHz) ≈ 0,9 s offen)
+  double fmax = 18000, hf10k = 6.310162;  // Moden bis 18 kHz; Hochton-Verlust σ_h(f) = 6,31·(f/10 kHz)² (mit kTE: T60 offen 5,0 s bei 500 Hz, 1,5 s bei 10 kHz)
 };
-inline double sigmaTE(const Plate &p, double w) { double a = w * w * p.R1 * p.C1, b = 2 * (w * w * p.H * p.H + p.C1 * p.C1 / (p.H * p.H)); return a / b; }
+inline double sigmaTE(const Plate &p, double w) { double a = w * w * p.R1 * p.C1, b = 2 * (w * w * p.H * p.H + p.C1 * p.C1 / (p.H * p.H)); return p.kTE * a / b; }
 inline double sigmaH(const Plate &p, double f) { return p.hf10k * (f / 10000) * (f / 10000); }
-// Stärke der Dämpfungsplatte s (σ_d = s·√(f/500)) für eine Nachhallzeit t500 bei 500 Hz; über 3,8 s reicht die Platte allein nicht weiter
+// Stärke der Dämpfungsplatte s (σ_d = s·√(f/500)) für eine Nachhallzeit t500 bei 500 Hz; bei 5 s ist die Dämpfungsplatte ganz offen
 inline double damperFor(const Plate &p, double t500) { double s = 6.0 * std::log(10.0) / t500 - sigmaTE(p, 2 * PI * 500) - sigmaH(p, 500); return std::max(0.0, s); }
 inline double sigmaAt(const Plate &p, double f, double s) { return sigmaTE(p, 2 * PI * f) + s * std::sqrt(std::max(0.0, f) / 500) + sigmaH(p, f); }
 inline double t60At(const Plate &p, double f, double t500) { return 6.0 * std::log(10.0) / sigmaAt(p, f, damperFor(p, t500)); }
-constexpr double T500LO = 1.0, T500HI = 3.8;   // Regler DECAY (s bei 500 Hz)
+constexpr double T500LO = 1.0, T500HI = 5.0;   // Regler DECAY (s bei 500 Hz): EMT 140 TS „approximately 1 second“ … „about 5 seconds“ (bis 1.5: 3,8 s)
 inline double t500Of(double knob01) { double x = std::isfinite(knob01) ? std::min(1.0, std::max(0.0, knob01)) : 0.5; return T500LO + (T500HI - T500LO) * x; }
 
 struct Mode { float f, aL, aR; };   // Frequenz (Hz), Beitrag an den Abnehmern
@@ -114,7 +115,7 @@ struct IRJob {
   int phase = IDLE, idx = 0, sub = 0; double t500 = 2, s = 0, fs = 48000; int N = 0, NE = 0, L = 0; FFT big; std::vector<cf> S; std::vector<double> eL, eR; std::vector<float> hL, hR;
   std::vector<Mode> md; Plate pl; double gain = 1;
   static constexpr double TAU = 0.015, HWM = 30, HWT = 6;   // weicher Einsatz des Spektralteils; Breite je Mode: 30 Halbwertsbreiten der Mode bzw. 6 des Einsatzes (−60 dB gegen exakt)
-  static int lenOf(double fs) { return (int)std::lround(8.0 * fs); }
+  static int lenOf(double fs) { return (int)std::lround(10.0 * fs); }
   // Moden nur unter 0,45·fs (ab 1.5): bei Raten unter 40 kHz lägen Moden bis 18 kHz über Nyquist und fielen gespiegelt in den Hörbereich; ab 40 kHz unverändert
   void setup(double fs_) { fs = fs_; { Plate q = pl; q.fmax = std::min(pl.fmax, 0.45 * fs); md = modes(q); } L = lenOf(fs); N = 1; while (N < (int)(L * 1.07)) N <<= 1;
     NE = (int)std::lround(0.12 * fs); big.init(N); S.assign(N, cf()); eL.assign(NE, 0.0); eR.assign(NE, 0.0); hL.assign(L, 0.f); hR.assign(L, 0.f); phase = IDLE; }
@@ -150,8 +151,8 @@ struct IRJob {
       if (phase == BITREV) { big.bitrev(S.data()); units -= N; phase = STAGES; idx = 0; continue; }
       if (phase == STAGES) { int b0 = sub, b1 = std::min(N / 2, b0 + (int)std::max(1024L, std::min(units, (long)N / 2))); big.stagePart(S.data(), idx, true, b0, b1); units -= 2 * (b1 - b0); sub = b1;
         if (sub >= N / 2) { sub = 0; if (++idx >= big.lg) { phase = ASSEMBLE; idx = 0; } } continue; }
-      if (phase == ASSEMBLE) {   // früh (Zeitbereich) und spät (Spektrum) überblenden 100 … 120 ms, Ende 7 … 8 s ausblenden, Energie normieren
-        const float sc = 1.f / N; const int x0 = (int)std::lround(0.10 * fs), x1 = NE, f0 = (int)std::lround(7.0 * fs); double eSum = 0;
+      if (phase == ASSEMBLE) {   // früh (Zeitbereich) und spät (Spektrum) überblenden 100 … 120 ms, Ende 9 … 10 s ausblenden, Energie normieren
+        const float sc = 1.f / N; const int x0 = (int)std::lround(0.10 * fs), x1 = NE, f0 = (int)std::lround(9.0 * fs); double eSum = 0;
         for (int n = 0; n < L; n++) { double l = S[n].real() * sc, r = S[n].imag() * sc;
           if (n < x1) { double w = n < x0 ? 0.0 : 0.5 - 0.5 * std::cos(PI * (n - x0) / (x1 - x0)); l = (1 - w) * eL[n] + w * l; r = (1 - w) * eR[n] + w * r; }
           if (n >= f0) { double w = 0.5 + 0.5 * std::cos(PI * (n - f0) / (L - f0)); l *= w; r *= w; }
@@ -182,7 +183,7 @@ struct Partitioner {
 };
 
 // ---- ganzes Gerät ----
-struct Setting { double decay = 0.357, mix = 0.3, out = 0.5, pre = 0, bass = 0; };   // decay 0 … 1 (1 … 3,8 s bei 500 Hz; 0,357 = 2 s wie die Werkseinstellung), mix 0 … 1 (Anteil Hall), out 0 … 1 (−24 … +24 dB), pre 0 … 1 (0 … 200 ms), bass 0 … 3
+struct Setting { double decay = 0.25, mix = 0.3, out = 0.5, pre = 0, bass = 0; };   // decay 0 … 1 (1 … 5 s bei 500 Hz; 0,25 = 2 s wie die Werkseinstellung), mix 0 … 1 (Anteil Hall), out 0 … 1 (−24 … +24 dB), pre 0 … 1 (0 … 200 ms), bass 0 … 3
 static const double BASSCUT[4] = {20, 100, 200, 400};   // Tiefenabsenkung 0 … 3 (Hochpass 1. Ordnung am Hallausgang; Stellung 0 nur gegen Gleichanteil); Frequenzen angenommen
 inline double outDb(double o) { return (std::min(1.0, std::max(0.0, o)) - 0.5) * 48; }
 inline double preMs(double p) { double x = std::min(1.0, std::max(0.0, p)); return 200 * x * x; }
@@ -213,7 +214,7 @@ struct Reverb {
   std::vector<float> pre; int pw = 0; double preS = 0, preT = 0; double hp1[2] = {}, hpx[2] = {}, kHp = 0; int bassAct = 0; double mixS = -1, outS = -1;
   long jobUnits = 800, partUnits = 3000;   // Rechenbudget je (interner) Abtastwert im Audio-Faden: Moden (nur internalJob, etwa 18 s je Platte bei 48 kHz) bzw. Zerlegung (etwa 0,1 s)
   // Hauptfaden: Moden, Puffer, erste Impulsantwort (DECAY t01) vollständig; Speicher aller Sätze vorab (danach kein malloc/free im Audio-Faden)
-  void setup(double fs_, double t01 = 0.357) { fs = fs_; K = std::min(16, factorOf(fs)); fsi = fs / K; rs.setup(fs, K); ph = 0; std::fill(obL, obL + 16, 0.0); std::fill(obR, obR + 16, 0.0);
+  void setup(double fs_, double t01 = 0.25) { fs = fs_; K = std::min(16, factorOf(fs)); fsi = fs / K; rs.setup(fs, K); ph = 0; std::fill(obL, obL + 16, 0.0); std::fill(obR, obR + 16, 0.0);
     job.setup(fsi); const int L = job.L; cv.init(L); part.setup(L); pendL.assign(L, 0.f); pendR.assign(L, 0.f);
     fadeN = (int)std::lround(0.1 * fsi); act = 0; warm = 0; fading = false; pend = false; pre.assign((size_t)(0.25 * fsi) + 4, 0.f); pw = 0; preS = 0; t500Tgt = t500Of(t01);
     job.run(t500Tgt); job.phase = IRJob::IDLE; std::swap(part.hL, job.hL); std::swap(part.hR, job.hR); part.start(t500Tgt); part.work(LONG_MAX); cv.ir[0] = part.out; cv.ir[1] = part.out;

@@ -1,5 +1,5 @@
 Cultec EQ-1A Program Equalizer (after Pultec EQP-1A) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.2
+Version 1.3
 
 Two formats, one engine
   Cultec_EQ1A.clap and Cultec_EQ1A.vst3 contain the same code and sound
@@ -37,9 +37,9 @@ What it is
   series) with its feedback winding returning to the
   12AX7 cathodes through 360 ohm, and the power supply. The amplifier
   values are from the factory drawing DWG E-72,658-2; the passive network
-  of the EQP-1A only exists as transcriptions (recproaudio 1997, Gyraf
-  2001) - where they differ, the values that match the factory curves are
-  used. "Pultec" is a trademark of its owner; this plugin is independent.
+  of the EQP-1A only exists as a transcription (recproaudio 1997; from
+  1.3 nothing is taken from the Gyraf drawing of 2001 any more - its
+  author says it was traced from a Tube-Tech, itself a copy of the Pultec). "Pultec" is a trademark of its owner; this plugin is independent.
   Details: docs/cultec/SCHALTPLAN.md in the repository.
 
   Second model EQP-1R (switch MODEL, from version 1.1): the older unit,
@@ -54,10 +54,10 @@ What it is
   first digit is smudged in the drawing). Output transformer and feedback winding
   are the same part as in the EQP-1A. Quiescent voltages without fitting
   within 10 % of the drawing (which itself disagrees by about 10 %);
-  overall gain +0.6 dB at 1 kHz without fitting. Estimated: the input and
+  overall gain +0.5 dB at 1 kHz without fitting. Estimated: the input and
   interstage transformers Peerless E-372-Q / G-212-Q (no data; the fitted
   Triad values with the leakage set so that the amplifier is flat
-  +0 / -1 dB as Pultec specifies: -0.81 / +0.18 dB). No factory curves of
+  +0 / -1 dB as Pultec specifies: -0.98 / +0.15 dB). No factory curves of
   the EQP-1R exist. Each model keeps its own CPS / KCS positions.
 
   Controls as on the unit:
@@ -77,22 +77,26 @@ What it is
       cathode 1.33 V (1.3), feedback tap 1.13 V (1.1), 12AU7 cathode
       38.6 V (40)
     - overall gain 0 dB with all controls at 0 (drawing: "0 dB"; this sets
-      the turns of the feedback winding), flat within -0.86 / +0.25 dB
-      from 20 Hz to 20 kHz (data sheet: +0 / -1 dB)
+      the turns of the feedback winding: primary to feedback 22.1 : 1; a
+      dismantled S-217-D has 1575 : 71 = 22.2 : 1), flat within
+      -0.86 / +0.07 dB from 20 Hz to 20 kHz (data sheet: +0 / -1 dB)
     - 13 factory curves (low boost and atten at all four frequencies, high
       atten at all three, high boost 3 kHz sharp and broad; 105 points):
-      0.76 dB rms
-    - high boost peaks, all seven frequencies: +18.0 ... +18.9 dB sharp,
-      +10.5 ... +10.9 dB broad (factory curves about +18.2 / +10.3 dB)
-    - distortion at +10 dBm into 600 ohm: 0.003 % (1 kHz), 0.024 % (50 Hz)
+      0.89 dB rms (the factory curves may be calculated rather than
+      measured, so the model is not fitted any closer)
+    - high boost peaks, all seven frequencies: +17.9 ... +18.8 dB sharp,
+      +10.2 ... +10.8 dB broad (factory curves about +18.2 / +10.3 dB)
+    - distortion at +10 dBm into 600 ohm: 0.003 % (1 kHz), 0.025 % (50 Hz)
       (data sheet: at most 0.15 %); 0.017 % at +21 dBm (1 kHz)
 
   Fitted to the factory curves (no data sheets exist): inductance of the
-  interstage transformer (317 H) and its core losses (41.5 kohm),
-  inductance of the input transformer (38 H), the Q of the high-boost coil
-  (20), and coil and capacitor of the 3 kHz position (204 mH / 13.2 nF
-  instead of 150 mH / 18 nF in the transcription: the factory curve is
-  narrower). Estimated: leakage and winding capacitances of the
+  interstage transformer (277 H) and its core losses (320 kohm),
+  inductance of the input transformer (31 H) and the core losses of the
+  high-boost coil (315.65 kohm at the 150 mH tap). The copper resistance of
+  the coil taps follows VintageWindings (about 14 ohm at 32 mH to 34 ohm
+  at 150.5 mH), so the coil Q falls from about 48 at 3 kHz to 18 at
+  16 kHz. All coil taps and capacitors as transcribed (3 and 4 kHz share
+  the 18 nF). Estimated: leakage and winding capacitances of the
   transformers (chosen so that the response meets the data sheet), the
   output transformer inductance (100 H; ratio 12.5 kohm : 600 ohm after the
   CineMag CM-S217D replacement), the "audio" taper of the two bass pots
@@ -142,6 +146,15 @@ CPU
   plugin computes it once. After 2 s of silence it goes idle.
 
 Changes
+  1.3  Checked against further sources: bass capacitors from the
+       recproaudio transcription (330 nF / 12 nF fixed plus 1.5 / 0.82 /
+       0.22 uF and 56 / 27 / 8.2 nF; until 1.2 from the Gyraf drawing, a
+       Tube-Tech derivative), 3 kHz position back to 150 mH / 18 nF as
+       transcribed (until 1.2 fitted to 204 mH / 13.2 nF, impossible in the
+       unit because 3 and 4 kHz share one capacitor), coil losses from the
+       tap resistances (VintageWindings) plus core losses instead of a fixed
+       Q of 20, transformers refitted, feedback winding re-derived
+       (22.1 : 1, matches a dismantled S-217-D).
   1.2  Corrections after an independent review: output network 620 ohm +
        0.003 uF in series (was parallel; feedback 20.7 dB instead of 16.7 dB,
        less distortion), heater bias divider at the +325 V node (EQP-1A),

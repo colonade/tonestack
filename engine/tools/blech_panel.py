@@ -14,8 +14,8 @@ FB = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf'
 FN = '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf'
 PANEL = (196, 199, 194); INK = (38, 40, 42); DIM = (92, 96, 98); RED = (168, 40, 32)
 KY = 128; KR = 30; KC = 21
-GAUGE = (520, 150, 112)   # Mitte x, y (Drehpunkt), Radius: Zeiger von 1 s (−50°) bis 4 s (+50°)
-G0, G1, GA = 1.0, 4.0, 50.0
+GAUGE = (520, 150, 112)   # Mitte x, y (Drehpunkt), Radius: Zeiger von 1 s (−50°) bis 5 s (+50°; bis Plugin 1.5: 4 s)
+G0, G1, GA = 1.0, 5.0, 50.0
 KNOBS = [('decay', 760, 'DECAY', 'short', 'long', 36), ('mix', 1310, 'MIX', 'dry', 'wet', 30), ('pre', 1450, 'PRE-DELAY', '0', '200 ms', 30), ('out', 1590, 'OUTPUT', '−24', '+24 dB', 30)]
 BASS = (1000, 128)        # Wahlschalter BASS CUT, Stellungen 0–3 bei −45°, −15°, 15°, 45°
 LAMP = (860, 70)
@@ -38,10 +38,10 @@ def draw():
     # Instrument NACHHALLZEIT
     gx, gy, gr = GAUGE; d.rounded_rectangle([(gx - 150) * S, 22 * S, (gx + 150) * S, 218 * S], radius=8 * S, fill=(30, 30, 28), outline=(70, 70, 66), width=2 * S)
     d.rounded_rectangle([(gx - 140) * S, 30 * S, (gx + 140) * S, 210 * S], radius=6 * S, fill=(236, 230, 210))
-    for k in range(0, 31):
-        t = G0 + (G1 - G0) * k / 30; a = gang(t); r1 = gr - (14 if k % 10 == 0 else 9 if k % 5 == 0 else 6)
+    for k in range(0, 41):
+        t = G0 + (G1 - G0) * k / 40; a = gang(t); r1 = gr - (14 if k % 10 == 0 else 9 if k % 5 == 0 else 6)
         d.line([((gx + r1 * math.sin(a)) * S, (gy - r1 * math.cos(a)) * S), ((gx + gr * math.sin(a)) * S, (gy - gr * math.cos(a)) * S)], fill=INK, width=max(1, int((2.2 if k % 10 == 0 else 1.3) * S)))
-    for t in (1, 2, 3, 4):
+    for t in (1, 2, 3, 4, 5):
         a = gang(t); r = gr - 28; ff = font(16); s = str(t); w = d.textlength(s, font=ff); d.text(((gx + r * math.sin(a)) * S - w / 2, (gy - r * math.cos(a) - 10) * S), s, font=ff, fill=INK)
     d.arc([(gx - gr) * S, (gy - gr) * S, (gx + gr) * S, (gy + gr) * S], 270 - GA, 270 + GA, fill=INK, width=int(1.5 * S))
     ctext(gx, 168, 'NACHHALLZEIT  s', 13, FB, INK); ctext(gx, 186, 'reverberation time at 500 Hz', 10, FN, DIM)

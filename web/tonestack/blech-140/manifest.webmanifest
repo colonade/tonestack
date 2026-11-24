@@ -1,7 +1,7 @@
 {
   "name": "Blech 140",
   "short_name": "Blech 140",
-  "description": "Blech 140: Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz) mit DECAY 1–3,8 s, BASS CUT, MIX, PRE-DELAY und OUTPUT; mit Anhören eigener Audiodateien.",
+  "description": "Blech 140: Hallplatte nach dem EMT 140 als physikalisches Modell (Stahlplatte 2 m × 1 m, alle Moden bis 18 kHz) mit DECAY 1–5 s, BASS CUT, MIX, PRE-DELAY und OUTPUT; mit Anhören eigener Audiodateien.",
   "lang": "de",
   "start_url": "./",
   "scope": "./",

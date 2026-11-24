@@ -2,7 +2,7 @@
 // (engine/src/cultec_core.hpp, docs/cultec/SCHALTPLAN.md) als CLAP-Plugin (Linux, Windows; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Ein Regler-Satz für beide Kanäle; MODEL wählt ab 1.1 zwischen EQP-1A und EQP-1R (eigene Wahlschalter-Parameter, Neubau des Paars wie bei OVERSAMPLING). Modell: LEVEL (0 dBFS = x dBu an der Eingangsklemme), OVERSAMPLING (intern höchstens etwa 200 kHz), OUTPUT.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "cultec_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"

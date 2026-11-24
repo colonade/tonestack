@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   // Überschreiben einzelner Bauteile: name=wert (nur zum Ausprobieren)
   for (int a = 2; a < argc; a++) { const char *e = std::strchr(argv[a], '='); if (!e) continue; std::string k(argv[a], e - argv[a]); double x = std::atof(e + 1);
     std::map<std::string, double*> f = {{"in_lp", &p.in_lp}, {"in_k", &p.in_k}, {"in_cw", &p.in_cw}, {"is_lp", &p.is_lp}, {"is_k", &p.is_k}, {"is_cs", &p.is_cs}, {"is_rc", &p.is_rc},
-      {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}, {"vdc", &p.vdc}, {"qHF", &p.qHF[0]},
+      {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}, {"vdc", &p.vdc}, {"rcore", &p.rcore},
       {"cLB0", &p.cLB[0]}, {"cLB1", &p.cLB[1]}, {"cLB2", &p.cLB[2]}, {"cLB3", &p.cLB[3]}, {"cLA0", &p.cLA[0]}, {"cLA1", &p.cLA[1]}, {"cLA2", &p.cLA[2]}, {"cLA3", &p.cLA[3]}};
     if (f.count(k)) *f[k] = x; else { std::printf("unbekannt: %s\n", k.c_str()); return 2; } }
   if (all || !std::strcmp(m, "dc") || !std::strcmp(m, "rest")) dc(p, !std::strcmp(m, "rest"));
@@ -106,9 +106,9 @@ int main(int argc, char **argv) {
       for (int k = 0; k < NHF; k++) { Setting s; s.hb = 1; s.hf = k; s.bw = bw; double best = -99, fb = 0; for (double f = HF_KHZ[k] * 500; f < HF_KHZ[k] * 2000; f *= 1.005) { double r = rel(s, f); if (r > best) { best = r; fb = f; } }
         std::printf(" %g k %+.1f@%.2fk", HF_KHZ[k], best, fb / 1000); pkd = std::max(pkd, std::fabs(best - (bw ? pkB : pkS))); fd = std::max(fd, std::fabs(std::log2(fb / (HF_KHZ[k] * 1000)))); } std::printf("\n"); }
     chk("Höhenboost: Spitze gegen Werk (dB, größte Abw.)", pkd, 0, 1.0); chk("Höhenboost schmal/breit: Lage (Oktaven)", fd, 0, 0.12); } }
-  if (!std::strcmp(m, "fit")) {   // Anpassung geschätzter Größen an die Werkskurven (Nelder-Mead in log): HS-29 Lp und Eisenverluste, HS-56 Lp, Spulengüte
+  if (!std::strcmp(m, "fit")) {   // Anpassung geschätzter Größen an die Werkskurven (Nelder-Mead in log): HS-29 Lp und Eisenverluste, HS-56 Lp, Kernverluste der Höhenspule
     double pkB, pkS; auto cv = loadCurves(curvesPath(), pkB, pkS); Core c = settled(p, Setting(), 48000, 3);
-    auto put = [&](Parts &q, const std::vector<double> &x) { q.is_lp = std::exp(x[0]); q.is_rc = std::exp(x[1]); q.in_lp = std::exp(x[2]); for (int k = 0; k < NHF; k++) q.qHF[k] = std::exp(x[3]); if (x.size() > 4) { q.lHF[0] = p.lHF[0] * std::exp(x[4]); q.cHF[0] = p.cHF[0] / std::exp(x[4]); } };
+    auto put = [&](Parts &q, const std::vector<double> &x) { q.is_lp = std::exp(x[0]); q.is_rc = std::exp(x[1]); q.in_lp = std::exp(x[2]); q.rcore = std::exp(x[3]); };
     auto cost = [&](const std::vector<double> &x) { Parts q = p; put(q, x); Core d = c; d.v = q; d.cur = Setting(); std::complex<double> r0 = d.response(1000); double e = 0;
       auto rel = [&](const Setting &s, double f) { d.cur = s; return db(std::abs(d.response(f) / r0)); };
       for (auto &k : cv) { Setting s = curveSetting(k); for (auto &pt : k.pts) { double r = rel(s, pt.first) - pt.second; e += r * r; } }
@@ -116,18 +116,18 @@ int main(int argc, char **argv) {
         for (int it = 0; it < 25; it++) { double m1 = a * std::pow(b / a, 0.382), m2 = a * std::pow(b / a, 0.618); if (rel(s, m1) > rel(s, m2)) b = m2; else a = m1; }
         double r = rel(s, std::sqrt(a * b)) - (bw ? pkB : pkS); e += 3 * r * r; }
       return e; };
-    std::vector<double> x0 = {std::log(p.is_lp), std::log(p.is_rc), std::log(p.in_lp), std::log(p.qHF[0]), 0.0}; int n = (int)x0.size();
+    std::vector<double> x0 = {std::log(p.is_lp), std::log(p.is_rc), std::log(p.in_lp), std::log(p.rcore)}; int n = (int)x0.size();
     std::vector<std::vector<double>> S(n + 1, x0); for (int i = 0; i < n; i++) S[i + 1][i] += 0.5; std::vector<double> F(n + 1); for (int i = 0; i <= n; i++) F[i] = cost(S[i]);
     for (int it = 0; it < 150; it++) { std::vector<int> o(n + 1); for (int i = 0; i <= n; i++) o[i] = i; std::sort(o.begin(), o.end(), [&](int a, int b) { return F[a] < F[b]; });
       std::vector<std::vector<double>> S2; std::vector<double> F2; for (int i : o) { S2.push_back(S[i]); F2.push_back(F[i]); } S = S2; F = F2;
-      if (it % 10 == 0) std::printf("  %3d: %.3f  Lp %.4g  Rc %.4g  inLp %.4g  Q %.4g\n", it, std::sqrt(F[0] / 111), std::exp(S[0][0]), std::exp(S[0][1]), std::exp(S[0][2]), std::exp(S[0][3]));
+      if (it % 10 == 0) std::printf("  %3d: %.3f  Lp %.4g  Rc %.4g  inLp %.4g  Rcore %.4g\n", it, std::sqrt(F[0] / 111), std::exp(S[0][0]), std::exp(S[0][1]), std::exp(S[0][2]), std::exp(S[0][3]));
       std::vector<double> cen(n, 0); for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) cen[j] += S[i][j] / n;
       auto mix = [&](double t) { std::vector<double> r(n); for (int j = 0; j < n; j++) r[j] = cen[j] + t * (S[n][j] - cen[j]); return r; };
       auto xr = mix(-1); double fr = cost(xr);
       if (fr < F[0]) { auto xe = mix(-2); double fe = cost(xe); if (fe < fr) { S[n] = xe; F[n] = fe; } else { S[n] = xr; F[n] = fr; } }
       else if (fr < F[n - 1]) { S[n] = xr; F[n] = fr; }
       else { auto xc = mix(0.5); double fc = cost(xc); if (fc < F[n]) { S[n] = xc; F[n] = fc; } else for (int i = 1; i <= n; i++) { for (int j = 0; j < n; j++) S[i][j] = S[0][j] + 0.5 * (S[i][j] - S[0][j]); F[i] = cost(S[i]); } } }
-    std::printf("  Ergebnis: is_lp %.5g is_rc %.5g in_lp %.5g qHF %.5g, 3 kHz: L %.5g C %.5g (Faktor %.4f)\n", std::exp(S[0][0]), std::exp(S[0][1]), std::exp(S[0][2]), std::exp(S[0][3]), p.lHF[0] * std::exp(S[0][4]), p.cHF[0] / std::exp(S[0][4]), std::exp(S[0][4])); }
+    std::printf("  Ergebnis: is_lp %.5g is_rc %.5g in_lp %.5g rcore %.5g\n", std::exp(S[0][0]), std::exp(S[0][1]), std::exp(S[0][2]), std::exp(S[0][3])); }
   if (all || !std::strcmp(m, "start")) {   // Start aus den Ruhespannungen: Ausgang in Stille (V an 600 Ω)
     for (double fs : {44100., 96000., 192000.}) { Core c; c.init(fs, p, Setting()); double y[O_NO + 4], mx[4] = {0, 0, 0, 0}; long n = (long)fs;
       for (long i = 0; i < n; i++) { c.step(0, y); int w = i < fs * 0.05 ? 0 : i < fs * 0.2 ? 1 : i < fs * 0.5 ? 2 : 3; mx[w] = std::max(mx[w], std::fabs(y[O_OUT])); }
