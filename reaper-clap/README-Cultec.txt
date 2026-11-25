@@ -1,5 +1,5 @@
 Cultec EQ-1A Program Equalizer (after Pultec EQP-1A) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.3
+Version 1.4
 
 Two formats, one engine
   Cultec_EQ1A.clap and Cultec_EQ1A.vst3 contain the same code and sound
@@ -39,7 +39,12 @@ What it is
   values are from the factory drawing DWG E-72,658-2; the passive network
   of the EQP-1A only exists as a transcription (recproaudio 1997; from
   1.3 nothing is taken from the Gyraf drawing of 2001 any more - its
-  author says it was traced from a Tube-Tech, itself a copy of the Pultec). "Pultec" is a trademark of its owner; this plugin is independent.
+  author says it was traced from a Tube-Tech, itself a copy of the Pultec;
+  the recproaudio transcription was drawn by Joe Malone from three real
+  tube Pultecs). As in that transcription, the low atten capacitors
+  bridge the 100 kohm pot and the 1 kohm behind it (from 1.4): with all
+  controls at 0 they lift the highs a little, depending on the CPS switch
+  (+0.8 dB at 10 kHz on 20 Hz, +0.1 dB on 100 Hz). "Pultec" is a trademark of its owner; this plugin is independent.
   Details: docs/cultec/SCHALTPLAN.md in the repository.
 
   Second model EQP-1R (switch MODEL, from version 1.1): the older unit,
@@ -47,7 +52,7 @@ What it is
   and amplifier DWG E-112,353-7). Same circuit form, other values: low
   boost and atten at 30 / 60 / 100 Hz, high boost at 3 / 5 / 8 / 10 /
   12 kHz from a 50 mH + 100 mH coil that the KCS switch partly shorts (the
-  peaks of the 8 and 10 kc positions lie at 9.1 and 11.1 kHz, as drawn),
+  peaks of the 8 and 10 kc positions lie at about 9 and 11 kHz, as drawn),
   high atten fixed at 10 kHz (0.13 uF; it stays active in OUT, as drawn),
   12AY7 instead of 12AX7 (plates 180 kohm, cathodes joined by 750 ohm),
   Zobel network 350 pF + 22 kohm, low boost pot 80 kohm (from 1.2; the
@@ -57,7 +62,7 @@ What it is
   overall gain +0.5 dB at 1 kHz without fitting. Estimated: the input and
   interstage transformers Peerless E-372-Q / G-212-Q (no data; the fitted
   Triad values with the leakage set so that the amplifier is flat
-  +0 / -1 dB as Pultec specifies: -0.98 / +0.15 dB). No factory curves of
+  +0 / -1 dB as Pultec specifies: -0.96 / +0.15 dB). No factory curves of
   the EQP-1R exist. Each model keeps its own CPS / KCS positions.
 
   Controls as on the unit:
@@ -77,24 +82,26 @@ What it is
       cathode 1.33 V (1.3), feedback tap 1.13 V (1.1), 12AU7 cathode
       38.6 V (40)
     - overall gain 0 dB with all controls at 0 (drawing: "0 dB"; this sets
-      the turns of the feedback winding: primary to feedback 22.1 : 1; a
-      dismantled S-217-D has 1575 : 71 = 22.2 : 1), flat within
-      -0.86 / +0.07 dB from 20 Hz to 20 kHz (data sheet: +0 / -1 dB)
+      the turns of the feedback winding: primary to feedback 22.2 : 1; a
+      dismantled S-217-D has 1575 : 71 = 22.2 : 1), amplifier flat within
+      -0.99 / +0.07 dB from 20 Hz to 20 kHz (data sheet: "AMPLIFIER: Flat
+      ... +0, -1 db")
     - 13 factory curves (low boost and atten at all four frequencies, high
       atten at all three, high boost 3 kHz sharp and broad; 105 points):
-      0.89 dB rms (the factory curves may be calculated rather than
+      0.94 dB rms (the factory curves may be calculated rather than
       measured, so the model is not fitted any closer)
     - high boost peaks, all seven frequencies: +17.9 ... +18.8 dB sharp,
-      +10.2 ... +10.8 dB broad (factory curves about +18.2 / +10.3 dB)
-    - distortion at +10 dBm into 600 ohm: 0.003 % (1 kHz), 0.025 % (50 Hz)
+      +10.7 ... +11.0 dB broad (factory curves about +18.2 / +10.3 dB)
+    - distortion at +10 dBm into 600 ohm: 0.003 % (1 kHz), 0.024 % (50 Hz)
       (data sheet: at most 0.15 %); 0.017 % at +21 dBm (1 kHz)
 
   Fitted to the factory curves (no data sheets exist): inductance of the
-  interstage transformer (277 H) and its core losses (320 kohm),
-  inductance of the input transformer (31 H) and the core losses of the
-  high-boost coil (315.65 kohm at the 150 mH tap). The copper resistance of
+  interstage transformer (255 H) and its core losses (241.5 kohm),
+  inductance of the input transformer (35.85 H) and the core losses of the
+  high-boost coil (158.3 kohm at the 150 mH tap), with the amplifier kept
+  within the data sheet. The copper resistance of
   the coil taps follows VintageWindings (about 14 ohm at 32 mH to 34 ohm
-  at 150.5 mH), so the coil Q falls from about 48 at 3 kHz to 18 at
+  at 150.5 mH), so the coil Q falls from about 33 at 3 kHz to 9.5 at
   16 kHz. All coil taps and capacitors as transcribed (3 and 4 kHz share
   the 18 nF). Estimated: leakage and winding capacitances of the
   transformers (chosen so that the response meets the data sheet), the
@@ -146,6 +153,11 @@ CPU
   plugin computes it once. After 2 s of silence it goes idle.
 
 Changes
+  1.4  Low atten capacitors across the 100 kohm pot and the 1 kohm (as in
+       the transcription drawn from three real units; until 1.3 across the
+       pot only, as in the Gyraf drawing). Transformers and coil losses
+       refitted with the amplifier held to its data sheet; feedback winding
+       22.2 : 1.
   1.3  Checked against further sources: bass capacitors from the
        recproaudio transcription (330 nF / 12 nF fixed plus 1.5 / 0.82 /
        0.22 uF and 56 / 27 / 8.2 nF; until 1.2 from the Gyraf drawing, a

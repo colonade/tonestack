@@ -62,6 +62,7 @@ int main(int argc, char **argv) {
   Parts p = partsFor(mR ? 1 : 0); if (mR) std::printf("Modell EQP-1R\n");
   // Überschreiben einzelner Bauteile: name=wert (nur zum Ausprobieren)
   for (int a = 2; a < argc; a++) { const char *e = std::strchr(argv[a], '='); if (!e) continue; std::string k(argv[a], e - argv[a]); double x = std::atof(e + 1);
+    if (k == "attenBO") { p.attenBO = x != 0; continue; }   // Lage des Bass-Atten-Kondensators: 1 = B–O (über Poti und 1 kΩ), 0 = B–P (nur über das Poti)
     std::map<std::string, double*> f = {{"in_lp", &p.in_lp}, {"in_k", &p.in_k}, {"in_cw", &p.in_cw}, {"is_lp", &p.is_lp}, {"is_k", &p.is_k}, {"is_cs", &p.is_cs}, {"is_rc", &p.is_rc},
       {"ot_lp", &p.ot_lp}, {"ot_kpp", &p.ot_kpp}, {"ot_kps", &p.ot_kps}, {"ot_cpp", &p.ot_cpp}, {"ot_nf", &p.ot_nf}, {"plb", &p.plb}, {"pla", &p.pla}, {"vdc", &p.vdc}, {"rcore", &p.rcore},
       {"cLB0", &p.cLB[0]}, {"cLB1", &p.cLB[1]}, {"cLB2", &p.cLB[2]}, {"cLB3", &p.cLB[3]}, {"cLA0", &p.cLA[0]}, {"cLA1", &p.cLA[1]}, {"cLA2", &p.cLA[2]}, {"cLA3", &p.cLA[3]}};
@@ -72,7 +73,9 @@ int main(int argc, char **argv) {
     for (double f : {10., 20., 50., 100., 1000., 5000., 10000., 20000., 40000.}) { auto o = c.response(f, O_OUT), i = c.response(f, O_IN);
       std::printf("  %6.0f Hz: Ausgang/Eingangsklemme %+6.2f dB, Eingangsklemme/Quelle %+6.2f dB\n", f, db(std::abs(o / i)), db(std::abs(i))); }
     // Schleifenverstärkung grob: Gegenkopplung aus (Wicklung 0 Windungen) gegen an
-    Parts q = p; q.ot_nf = 1e-6; Core d = settled(q, Setting(), 48000, 5);
+    // Ohne Gegenkopplung wächst im Zeitbereich bei 48 kHz eine Schwingung bei der halben Abtastrate auf (offene Schleife, numerisch; mit Gegenkopplung
+    // nicht) – je nach Bauteilwerten nach etwa 3 s. Der Arbeitspunkt steht nach 1 s, darum dort messen.
+    Parts q = p; q.ot_nf = 1e-6; Core d = settled(q, Setting(), 48000, 1);
     const bool neg = std::abs(d.response(1000)) > std::abs(c.response(1000)); if (!neg) bad++;
     std::printf("  Gegenkopplung: %.2f dB weniger Verstärkung (%s)\n", db(std::abs(d.response(1000) / c.response(1000))), neg ? "gegenkoppelnd" : "MITKOPPELND ABWEICHUNG");
   }
@@ -80,7 +83,15 @@ int main(int argc, char **argv) {
     Core c = settled(p, Setting(), 48000, 3);
     const std::complex<double> r0 = c.response(1000);   // Bezug: Regler 0 (flach) bei 1 kHz, wie in den Werksdiagrammen
     auto rel = [&](const Setting &s, double f) { Core d = c; d.cur = s; return db(std::abs(d.response(f) / r0)); };
-    std::printf("Flach (Regler 0), dB gegen 1 kHz:"); double fmin = 0, fmax = 0; for (double f : {10., 20., 30., 50., 100., 2e3, 5e3, 7e3, 1e4, 1.3e4, 1.5e4, 2e4, 3e4}) { double r = rel(Setting(), f); std::printf(" %g:%+.2f", f, r); if (f >= 20 && f <= 20000) { fmin = std::min(fmin, r); fmax = std::max(fmax, r); } } std::printf("\n");
+    // Datenblatt „AMPLIFIER: Flat, 20 cps to 20 kcs; +0, −1 db“ gilt für den Verstärker. Bei Reglern 0 ist das Netz nur dann rein ohmsch, wenn der
+    // Bass-Atten-Kondensator allein über dem Poti liegt; liegt er über Poti und 1 kΩ (B–O, attenBO), überbrückt er bei hohen Frequenzen den 1 kΩ –
+    // das ist eine Eigenschaft des Netzes. Darum wird der Verstärker mit attenBO = false geprüft und das Gerät mit attenBO nur ausgegeben.
+    if (p.attenBO && p.r1k > 0) { Core g = settled(p, Setting(), 48000, 3); const std::complex<double> g0 = g.response(1000);
+      for (int k = 0; k < p.nlf; k++) { Setting z; z.lf = k; std::printf("Gerät, Regler 0, LOW FREQUENCY %g, dB gegen 1 kHz:", p.lfHz[k]);
+        for (double f : {20., 100., 2e3, 5e3, 1e4, 1.5e4, 2e4}) { Core d = g; d.cur = z; std::printf(" %g:%+.2f", f, db(std::abs(d.response(f) / g0))); } std::printf("\n"); } }
+    Parts pa = p; pa.attenBO = false; Core ca = settled(pa, Setting(), 48000, 3); const std::complex<double> ra = ca.response(1000);
+    std::printf("Verstärker flach (Netz bei Reglern 0 rein ohmsch), dB gegen 1 kHz:"); double fmin = 0, fmax = 0;
+    for (double f : {10., 20., 30., 50., 100., 2e3, 5e3, 7e3, 1e4, 1.3e4, 1.5e4, 2e4, 3e4}) { double r = db(std::abs(ca.response(f) / ra)); std::printf(" %g:%+.2f", f, r); if (f >= 20 && f <= 20000) { fmin = std::min(fmin, r); fmax = std::max(fmax, r); } } std::printf("\n");
     chk("flach 20 Hz–20 kHz: tiefster Wert (Werk −1 dB)", fmin, -1.0, 0); chk("flach 20 Hz–20 kHz: höchster Wert (Werk +0 dB)", fmax, 0, 0.3);
     if (std::strcmp(m, "flat")) {   // Lage und Höhe der Kurven gegen die Beschriftung (EQP-1R: keine Werkskurven, nur dies)
       for (int k = 0; k < p.nlf; k++) { Setting sb, sa; sb.lb = 1; sa.la = 1; sb.lf = sa.lf = k; double hb = -99, ha = 99, fb = 0, fa = 0;
@@ -115,6 +126,9 @@ int main(int argc, char **argv) {
       for (int bw = 0; bw <= 1; bw++) for (int k : {0, 3, 6}) { Setting s; s.hb = 1; s.hf = k; s.bw = bw; double a = HF_KHZ[k] * 700, b = HF_KHZ[k] * 1400;
         for (int it = 0; it < 25; it++) { double m1 = a * std::pow(b / a, 0.382), m2 = a * std::pow(b / a, 0.618); if (rel(s, m1) > rel(s, m2)) b = m2; else a = m1; }
         double r = rel(s, std::sqrt(a * b)) - (bw ? pkB : pkS); e += 3 * r * r; }
+      // Nebenbedingung Datenblatt „AMPLIFIER: Flat, 20 cps to 20 kcs; +0, −1 db“ (Netz rein ohmsch, wie in der Prüfung „flat“): Strafe außerhalb −1 … +0,3 dB
+      { Core g = d; g.v.attenBO = false; g.cur = Setting(); std::complex<double> g0 = g.response(1000);
+        for (double f : {20., 50., 5e3, 1e4, 1.3e4, 1.5e4, 1.8e4, 2e4}) { double r = db(std::abs(g.response(f) / g0)); if (r < -1) e += 1e4 * (r + 1) * (r + 1); if (r > 0.3) e += 1e4 * (r - 0.3) * (r - 0.3); } }
       return e; };
     std::vector<double> x0 = {std::log(p.is_lp), std::log(p.is_rc), std::log(p.in_lp), std::log(p.rcore)}; int n = (int)x0.size();
     std::vector<std::vector<double>> S(n + 1, x0); for (int i = 0; i < n; i++) S[i + 1][i] += 0.5; std::vector<double> F(n + 1); for (int i = 0; i <= n; i++) F[i] = cost(S[i]);

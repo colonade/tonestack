@@ -37,6 +37,21 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
 
+## Cultec 1.4: Bass-Atten-Kondensator wie gebaut (2026-11-25, Web 2026-11-25-1, DEB 1.17227-1)
+Nutzer: „Anschluss des Bass-Atten-Kondensators: bitte recherchieren wie es wirklich gebaut wurde und dann so umsetzen“.
+- Recherche: Werksplan des EQP-1A-Netzes gibt es nicht (Dan Alexander laut Gearspace). Die recproaudio-Abschrift „Hosef 7-11-97“ hat Joe Malone (JLM)
+  nach drei echten Röhren-Pultecs gezeichnet (GroupDIY „My 3 DUAL PULTECs“, khstudio). Darin (Bild im Upload-Ordner, nachgelesen): Kondensatorbank
+  oben an B, Fußpunkt (SW3b, 12 nF fest) am Ausgang O zum HS-29 Pin 4, Poti-Schleifer über 1 kΩ ebenfalls an O → B–O. Gyraf (B–P) ist Tube-Tech-
+  Abkömmling; chrissugar (GroupDIY) nannte B–P nur „from my memory“; EQP-1/EQP-1R-Werkspläne haben keinen 1 kΩ (beide Lesarten gleich).
+- Eigener Fehler bis 1.3: B–O wurde mit „Flat … +0, −1 db“ verworfen – das steht im Datenblatt unter „AMPLIFIER“ und gilt nur für den Verstärker.
+- Umsetzung: `attenBO = true`; cultec_test prüft den Verstärker mit rein ohmschem Netz (attenBO = false) und gibt das Gerät bei Reglern 0 je
+  LOW FREQUENCY aus (10 kHz: +0,8 / +0,7 / +0,4 / +0,1 dB für 20/30/60/100). Override `attenBO=0/1`.
+- Anpassung (fit) mit Nebenbedingung Verstärker −1 … +0,3 dB (Strafe 1e4), sonst wich sie auf −2,2 dB bei 20 kHz aus. Aus drei Startpunkten gleich:
+  is_lp 249,7 → 255 gesetzt (Rand −1,001 dB), is_rc 241,5 k, in_lp 35,85, rcore 158,3 k; nf → ot_nf 0,02254 (22,2 : 1 = CJ 22,18 : 1). Kurven 0,94 dB
+  (B–P 0,89; Gyraf komplett 0,88 – Werkskurven unterscheiden die Lesarten nicht). EQP-1R: is_k 0,9999 (flach −0,96, 96-kHz-Atten 1,94 dB).
+- cultec_test gain: Prüfung ohne Gegenkopplung jetzt nach 1 s statt 5 s – offen schaukelt sich bei 48 kHz eine Schwingung bei fs/2 auf (je nach
+  Bauteilwerten ab etwa 3 s; mit Gegenkopplung nicht, geprüft 6 s). Ruhespannungen unverändert (CULTEC_REST gleich).
+
 ## Quellenprüfung eingearbeitet: Cultec 1.3, Blech 1.6/1.7 (2026-11-24, Web 2026-11-24-3, DEB 1.17226-1)
 Nutzer: „Bitte finde raus ob die schaltpläne die wir bisher verwendet haben richtig sind und ob si besser umgesetzt werden könnten.“ → Recherche
 (Bericht im Gespräch; Quellen in den SCHALTPLAN/ENTWURF-Dateien genannt) → „Bitte die verbesserungen einfließen lassen“. Jede Angabe gegen eigene
