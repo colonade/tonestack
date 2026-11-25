@@ -51,6 +51,10 @@ Nutzer: „Anschluss des Bass-Atten-Kondensators: bitte recherchieren wie es wir
   (B–P 0,89; Gyraf komplett 0,88 – Werkskurven unterscheiden die Lesarten nicht). EQP-1R: is_k 0,9999 (flach −0,96, 96-kHz-Atten 1,94 dB).
 - cultec_test gain: Prüfung ohne Gegenkopplung jetzt nach 1 s statt 5 s – offen schaukelt sich bei 48 kHz eine Schwingung bei fs/2 auf (je nach
   Bauteilwerten ab etwa 3 s; mit Gegenkopplung nicht, geprüft 6 s). Ruhespannungen unverändert (CULTEC_REST gleich).
+- Lokal: cultec_test all / all r 0 Abweichungen, cultecguitest (Xvfb) bestanden, CI-Prüfschritt komplett, Seite im Chrome ohne Konsolenmeldung,
+  verify.sh vor dem Push nur Cultec abweichend. Release `…_cultec-1.4` (Lauf 45570294881, Commit 09ffd5e, linux/windows/mac/publish grün; Pages
+  45581801758 09ffd5e success;45570294934 09ffd5e success;): 88 Dateien, Größe und Digest ok, alle vier SHA256SUMS ok; dist/ ersetzt, verify.sh 90 „identisch mit dem Bau“ + 15 WebAssembly.
+  Ausgeliefert: DEB 1.17227-1, Windows-Installer, Mac-Paket, SHA256SUMS.
 
 ## Quellenprüfung eingearbeitet: Cultec 1.3, Blech 1.6/1.7 (2026-11-24, Web 2026-11-24-3, DEB 1.17226-1)
 Nutzer: „Bitte finde raus ob die schaltpläne die wir bisher verwendet haben richtig sind und ob si besser umgesetzt werden könnten.“ → Recherche
