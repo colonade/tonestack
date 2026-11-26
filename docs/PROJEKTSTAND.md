@@ -47,6 +47,9 @@ Nutzer: in REAPER nach der Installation nur CLAP, keine VST3 – evtl. weil er ~
   reaper.ini wird nicht verändert (Schlüsselname unter Linux nicht belegt, REAPER überschreibt die Datei beim Beenden). Paketbeschreibung und
   Seite plugins/ ergänzt. Lokal geprüft mit Testbenutzer: keine ini → still, ini ohne vstpath bzw. ohne /usr/lib/vst3 → Hinweis, mit → still,
   auch über PKEXEC_UID. Paketinhalt gleich 1.17227-1.
+- Erster CI-Lauf (45844991268): publish brach ab – SHA256SUMS-linux.txt hätte sich im bestehenden Release `…_cultec-1.4` geändert (Regel gleicher
+  Name = gleicher Inhalt). Abhilfe in scripts/versions.sh: bei DEBREV > 1 heißt das Release `…_cultec-1.4_deb-2`; mit der nächsten Plugin-Version
+  (DEBREV wieder 1) fällt der Zusatz weg. release.sh legt so ein neues Release an und löscht das alte wie gewohnt.
 
 ## Cultec 1.4: Bass-Atten-Kondensator wie gebaut (2026-11-25, Web 2026-11-25-1, DEB 1.17227-1)
 Nutzer: „Anschluss des Bass-Atten-Kondensators: bitte recherchieren wie es wirklich gebaut wurde und dann so umsetzen“.

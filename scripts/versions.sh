@@ -14,4 +14,7 @@ S=0; P=0; for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA"
   [[ "$Q" =~ ^[0-9]+$ ]] || { echo "Version mit mehr als drei Stellen: $x" >&2; exit 1; }
   S=$((S + 1000 * 10#$M + 10#$N)); P=$((P + 10#$Q)); done
 SUMVER="1.$S"; [ "$P" = 0 ] || SUMVER="$SUMVER.$P"
-echo "LANEY=$L YAMAHA=$Y B15=$B GK=$G G100=$G1 B100III=$B3 SVTCL=$SV WIENEQ=$WQ AMPFETT76=$U7 LOLDANO=$LO KAISERIN=$KA BLECH=$BL WISENT=$WI VIERECK=$VR CULTEC=$CT TAG=laney-${L}_b100ii-${Y}_b15nf-${B}_gk800rb-${G}_g100-${G1}_b100iii-${B3}_svtcl-${SV}_wieneq-${WQ}_ampfett76-${U7}_loldano-${LO}_kaiserin-${KA}_blech140-${BL}_wisent-${WI}_viereck34-${VR}_cultec-${CT} PKG=tonestack-Plugins-Mac.pkg SUMVER=$SUMVER DEBVER=$SUMVER-$DEBREV WINEXE=tonestack-Plugins-Windows.exe"
+# Release-Name: bei DEBREV > 1 mit Zusatz _deb-<DEBREV> (ab 2026-11-26) – das geänderte Paket ändert SHA256SUMS-linux.txt, und gleichnamige Dateien
+# müssen im selben Release bytegleich bleiben (release.sh); so entsteht ein neues Release, die Plugin-Dateien darin sind dieselben
+DEBTAG=""; [ "$DEBREV" = 1 ] || DEBTAG="_deb-$DEBREV"
+echo "LANEY=$L YAMAHA=$Y B15=$B GK=$G G100=$G1 B100III=$B3 SVTCL=$SV WIENEQ=$WQ AMPFETT76=$U7 LOLDANO=$LO KAISERIN=$KA BLECH=$BL WISENT=$WI VIERECK=$VR CULTEC=$CT TAG=laney-${L}_b100ii-${Y}_b15nf-${B}_gk800rb-${G}_g100-${G1}_b100iii-${B3}_svtcl-${SV}_wieneq-${WQ}_ampfett76-${U7}_loldano-${LO}_kaiserin-${KA}_blech140-${BL}_wisent-${WI}_viereck34-${VR}_cultec-${CT}${DEBTAG} PKG=tonestack-Plugins-Mac.pkg SUMVER=$SUMVER DEBVER=$SUMVER-$DEBREV WINEXE=tonestack-Plugins-Windows.exe"
