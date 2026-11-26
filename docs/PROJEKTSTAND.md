@@ -37,6 +37,17 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
 
+## DEB 1.17227-2: Hinweis für REAPER und /usr/lib/vst3 (2026-11-26, Web 2026-11-26-1)
+Nutzer: in REAPER nach der Installation nur CLAP, keine VST3 – evtl. weil er ~/.vst3 gelöscht hatte; „bitte prüfen ob das abgefangen wird“.
+- Befund: Das Paket legt VST3 nur nach /usr/lib/vst3 (nichts in ~/.vst3), das Löschen von ~/.vst3 ist also nicht die Ursache. REAPER sucht unter
+  Linux VST von sich aus nur in ~/.vst und ~/.vst3, CLAP aber auch in /usr/lib/clap (Cockos-Forum t=301855, OwlPlug-Issue #525). Vorher sah er die
+  VST3 vermutlich über seine Handkopien in ~/.vst3. Die Seite behauptete „dort finden REAPER … sie ohne weitere Einstellung“ – falsch für VST3.
+- Abgefangen (scripts/pack-deb.sh, DEBREV 2): postinst prüft beim Installierenden (SUDO_USER/PKEXEC_UID) ~/.config/REAPER/reaper.ini; steht
+  /usr/lib/vst3 in keiner Zeile vstpath*=, Hinweis mit dem Weg (Options > Preferences > Plug-ins > VST, ;/usr/lib/vst3 anhängen, Re-scan).
+  reaper.ini wird nicht verändert (Schlüsselname unter Linux nicht belegt, REAPER überschreibt die Datei beim Beenden). Paketbeschreibung und
+  Seite plugins/ ergänzt. Lokal geprüft mit Testbenutzer: keine ini → still, ini ohne vstpath bzw. ohne /usr/lib/vst3 → Hinweis, mit → still,
+  auch über PKEXEC_UID. Paketinhalt gleich 1.17227-1.
+
 ## Cultec 1.4: Bass-Atten-Kondensator wie gebaut (2026-11-25, Web 2026-11-25-1, DEB 1.17227-1)
 Nutzer: „Anschluss des Bass-Atten-Kondensators: bitte recherchieren wie es wirklich gebaut wurde und dann so umsetzen“.
 - Recherche: Werksplan des EQP-1A-Netzes gibt es nicht (Dan Alexander laut Gearspace). Die recproaudio-Abschrift „Hosef 7-11-97“ hat Joe Malone (JLM)

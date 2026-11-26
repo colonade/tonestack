@@ -69,6 +69,10 @@ $INHALT
  .
  Wer die Plugins vorher von Hand nach ~/.clap bzw. ~/.vst3 kopiert hat, sollte
  diese Kopien entfernen, sonst findet der Host jedes Plugin zweimal.
+ .
+ REAPER durchsucht /usr/lib/clap von selbst, /usr/lib/vst3 aber nicht: für die
+ VST3-Fassungen unter Options > Preferences > Plug-ins > VST bei „VST plug-in
+ paths“ ;/usr/lib/vst3 anhängen und „Re-scan“ drücken.
 EOF
 # Rückmeldung nach dem Einrichten (dpkg, apt und gdebi zeigen sie an): sind alle Dateien da? Dazu Hinweis auf Handkopien im Home dessen,
 # der installiert (sudo: SUDO_USER, grafische Installer über pkexec: PKEXEC_UID) – nur melden, nichts löschen.
@@ -97,6 +101,12 @@ if [ -n "$home" ] && [ -d "$home" ]; then
       if [ -L "$f" ]; then echo "  $f (Verknüpfung)"; else echo "  $f"; fi
     fi
   done; done
+  # REAPER sucht VST3 von sich aus nur in ~/.vst3 (CLAP auch in /usr/lib/clap): steht /usr/lib/vst3 in keinem vstpath-Eintrag, darauf hinweisen
+  ini="$home/.config/REAPER/reaper.ini"
+  if [ -f "$ini" ] && ! grep -i '^vstpath[^=]*=' "$ini" 2>/dev/null | grep -q '/usr/lib/vst3'; then
+    echo "Hinweis REAPER: die VST3-Fassungen liegen in /usr/lib/vst3, das REAPER nicht von selbst durchsucht (die CLAP-Fassungen findet es)."
+    echo "  In REAPER: Options > Preferences > Plug-ins > VST, bei „VST plug-in paths“ ;/usr/lib/vst3 anhängen, dann „Re-scan“."
+  fi
 fi
 exit 0
 EOF

@@ -8,7 +8,7 @@ for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$W
 # Gesamtnummer aller Plugins (ab 2026-11-21): 1.<Summe aus 1000·Haupt- + Nebenversion>[.<Summe der dritten Stellen>] – steigt mit jeder Plugin-Version
 # (auch bei x.y.z) und bleibt gleich, solange sich keine ändert. Debian-Paket: SUMVER-DEBREV; DEBREV nur erhöhen, wenn sich das Paket ohne neue
 # Plugin-Version ändert (Abhängigkeiten, Beschreibung, Dokumentation), bei der nächsten Plugin-Version wieder 1. Windows-Installer: SUMVER als Anzeigeversion.
-DEBREV=1
+DEBREV=2
 S=0; P=0; for x in "$L" "$Y" "$B" "$G" "$G1" "$B3" "$SV" "$WQ" "$U7" "$LO" "$KA" "$BL" "$WI" "$VR" "$CT"; do
   M="${x%%.*}"; r="${x#*.}"; N="${r%%.*}"; if [ "$r" = "$N" ]; then Q=0; else Q="${r#*.}"; fi
   [[ "$Q" =~ ^[0-9]+$ ]] || { echo "Version mit mehr als drei Stellen: $x" >&2; exit 1; }
