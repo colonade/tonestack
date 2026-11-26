@@ -50,6 +50,9 @@ Nutzer: in REAPER nach der Installation nur CLAP, keine VST3 – evtl. weil er ~
 - Erster CI-Lauf (45844991268): publish brach ab – SHA256SUMS-linux.txt hätte sich im bestehenden Release `…_cultec-1.4` geändert (Regel gleicher
   Name = gleicher Inhalt). Abhilfe in scripts/versions.sh: bei DEBREV > 1 heißt das Release `…_cultec-1.4_deb-2`; mit der nächsten Plugin-Version
   (DEBREV wieder 1) fällt der Zusatz weg. release.sh legt so ein neues Release an und löscht das alte wie gewohnt.
+- Release `…_cultec-1.4_deb-2` (Lauf 45859289404, Commit bbdb897, alle Jobs grün; altes Release gelöscht, nur noch eines): 88 Dateien, Größe und
+  Digest ok, alle vier SHA256SUMS ok; das lokal gebaute DEB ist bytegleich mit dem aus der CI; dist/ ersetzt, verify.sh 90 + 15 WebAssembly.
+  Ausgeliefert: DEB 1.17227-2 und SHA256SUMS-linux.txt (Plugins, Windows- und Mac-Paket inhaltlich unverändert).
 
 ## Cultec 1.4: Bass-Atten-Kondensator wie gebaut (2026-11-25, Web 2026-11-25-1, DEB 1.17227-1)
 Nutzer: „Anschluss des Bass-Atten-Kondensators: bitte recherchieren wie es wirklich gebaut wurde und dann so umsetzen“.
