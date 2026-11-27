@@ -94,6 +94,19 @@ Kaiserin 1.4, Blech 1.8, Wisent 1.9, Viereck 1.3, Cultec 1.5; DEBREV wieder 1 �
 - build.sh: TS_NO_GEN, TS_CMAKE_ARGS, TS_VST3_SDK, ONLY_PLUGINS, CXX/PKG_CONFIG/STRIP für Bauten ohne Netz (Flatpak) bzw. nur Plugins (nachbau).
 - Lokal geprüft: check-linux-plugins.sh mit Steinberg-Validator, clap-validator und pluginval: alle 15 bestanden (Steinberg 537/537 je Plugin, pluginval SUCCESS, clap-validator 34 bestanden + 10 übersprungen; Zeitlimit nur bei SVT-CL param-fuzz-basic und Blech param-fuzz-bounds); lintian 0 Meldungen; test-deb.sh bestanden
   (drei Benutzer, Abschnitt [andere] bleibt, selbst gesetzter Eintrag bleibt, Übernahme von -3, Werkzeug lehnt root und Verknüpfung ab).
+- CI-Befunde und Korrekturen (Commits a2e882b, 7ee9aaa, 5a38a74): dpkg-shlibdeps meldet auf ARM64 die usrmerge-Umlenkung unter /lib (nicht /lib64);
+  test-deb.sh rief das Werkzeug mit XDG_CONFIG_HOME des Läufers auf (jetzt leere Umgebung); verify.sh prüft moduleinfo.json und die Archive, Pakete
+  der anderen Architektur nur gezählt; release.sh: feste Namen der apt-Dateien blieben trotz nullglob stehen → Hochladen brach ab (ein Lauf legte
+  deshalb kurz ein leeres Release an); moduleinfotool im Flatpak-SDK: keine libstdc++fs → leere Ersatzbibliothek, Bau-Ordner absolut.
+- Zeitlimits von clap-validator auch auf GitHub: x86-64 AmpFett 76 und SVT-CL param-fuzz-basic, Blech param-fuzz-bounds; ARM64 SVT-CL, Blech
+  (Aktivieren 0,5 … 1,1 s, 50-mal) – nur Warnung, Vorschlag Zwischenspeicher wie G100 bleibt offen.
+- Flatpak-Prüfbau (Lauf 46049964565, Laufzeit 25.08, ohne Netz): 15 Plugins als CLAP und VST3 gebaut; Einreichen bei Flathub offen (Nutzer).
+- Release `laney-3.54_…_cultec-1.5` (Lauf 46049965947, Commit 5a38a74, alle Jobs grün: linux, linux-arm64, nachbau x86-64/ARM64 je 45 Dateien
+  bytegleich, validatoren x86-64/ARM64, windows, mac, publish; altes Release gelöscht): 92 Dateien (neu: DEB arm64, zwei Archive,
+  SHA256SUMS-linux-arm64.txt), Größe und Digest ok, alle fünf SHA256SUMS ok, Attestierung je Datei vorhanden (Workflow plugins.yml, Commit 5a38a74;
+  gh attestation verify scheitert hier nur am gesperrten Sigstore-Zugang); dist/ ersetzt, verify.sh 165 identisch + 15 WebAssembly, ARM64-Paket mit
+  check-linux-plugins.sh geprüft (readelf). Pages-Lauf 46059397979: neue Downloads, apt-Abschnitt ohne Schlüssel entfernt.
+  Ausgeliefert: DEB amd64/arm64, Archive, SHA256SUMS-linux*.txt.
 
 ## DEB 1.17227-3: REAPER-Pfad /usr/lib/vst3 wird eingetragen (2026-11-27, Web 2026-11-27-1)
 Nutzer nach 1.17227-2: in REAPER weiterhin keine VST3; „Ich brauche auch keinen quickfix, nur ein funktionierendes paket“. Auf Rückfrage gewählt: das
