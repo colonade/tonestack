@@ -8,7 +8,9 @@ DIR="${1:?Ordner mit den Dateien angeben}"; REPO="${GITHUB_REPOSITORY:-colonade/
 # ab 2026-11-27 auch Linux ARM64 (Debian-Paket), die Archive tonestack-plugins-<DEBVER>-linux-<arch>.tar.gz und – wenn der Bau sie signiert hat – die
 # Dateien der apt-Paketquelle (scripts/apt-repo.sh)
 shopt -s nullglob; FILES=("$DIR"/*.zip "$DIR"/*.pkg "$DIR"/*.exe "$DIR"/*.deb "$DIR"/tonestack-plugins-*-linux-*.tar.gz "$DIR"/*.png "$DIR"/SHA256SUMS*.txt "$DIR"/*.orig.tar.* "$DIR"/*.debian.tar.* "$DIR"/*.diff.gz "$DIR"/*.dsc
-  "$DIR"/InRelease "$DIR"/Release "$DIR"/Release.gpg "$DIR"/Packages "$DIR"/Packages.gz "$DIR"/tonestack-archive-keyring.gpg "$DIR"/tonestack-archive-keyring.asc "$DIR"/tonestack.sources); shopt -u nullglob
+  "$DIR"/InReleas[e] "$DIR"/Releas[e] "$DIR"/Release.gp[g] "$DIR"/Package[s] "$DIR"/Packages.g[z] "$DIR"/tonestack-archive-keyring.gp[g] "$DIR"/tonestack-archive-keyring.as[c] "$DIR"/tonestack.source[s]); shopt -u nullglob
+# (feste Namen mit [x]-Muster: nullglob lässt nur Muster weg, ein fehlender fester Name bliebe sonst stehen – ohne Paketquelle brach so das Hochladen ab)
+X=(); for f in "${FILES[@]}"; do [ -e "$f" ] && X+=("$f"); done; FILES=("${X[@]}")
 [ ${#FILES[@]} -gt 0 ] || { echo "keine Dateien in $DIR" >&2; exit 1; }
 for f in "${FILES[@]}"; do case "$(basename "$f")" in   # nur Dateien der aktuellen Versionen
   *_CLAP-*.zip|*_VST3-*.zip|*_Windows-*.zip) b="$(basename "$f")"; ok=0   # Name und Version aus scripts/plugins.txt

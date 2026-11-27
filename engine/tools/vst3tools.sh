@@ -8,6 +8,7 @@
 set -euo pipefail
 E="$(cd "$(dirname "$0")/.." && pwd)"
 SDK="${1:-$E/build/vst3/cpm/vst3sdk}"; OUT="${2:-$E/build/vst3tools}"
+mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"   # absolut: cmake linkt im Bau-Ordner, ein relativer -L-Pfad (Ersatz-stdc++fs) zeigte sonst ins Leere
 [ -f "$SDK/pluginterfaces/vst/ivstcomponent.h" ] || { echo "VST3-SDK nicht gefunden: $SDK (erst VST3=1 bash engine/build.sh)" >&2; exit 1; }
 if [ -x "$OUT/bin/Release/validator" ] && [ -x "$OUT/bin/Release/moduleinfotool" ] && [ "$(cat "$OUT/.sdk" 2>/dev/null)" = "$SDK" ]; then exit 0; fi
 rm -rf "$OUT"; mkdir -p "$OUT/src"
