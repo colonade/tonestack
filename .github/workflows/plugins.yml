@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/check-plugins.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
+    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/test-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/check-plugins.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
 permissions:
   contents: read
 jobs:
@@ -84,6 +84,8 @@ jobs:
           # Quelltext von Cairo/pixman (statisch in den Windows-Plugins, LGPL-2.1 bzw. MIT) neben die Windows-Pakete
           for f in cairo_1.18.0.orig.tar.xz cairo_1.18.0-3build1.debian.tar.xz cairo_1.18.0-3build1.dsc pixman_0.42.2.orig.tar.gz pixman_0.42.2-1build1.diff.gz pixman_0.42.2-1build1.dsc; do cp "$RUNNER_TEMP/win-cairo/src/$f" dist/; done
           (cd dist && sha256sum cairo_1.18.0* pixman_0.42.2* > SHA256SUMS-sources.txt && cat SHA256SUMS-sources.txt)
+      - name: Debian-Paket probehalber installieren (Plugins, REAPER-Pfad, Entfernen)
+        run: sudo bash scripts/test-deb.sh dist/tonestack-plugins_*_amd64.deb
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         with:
           name: tonestack-linux
