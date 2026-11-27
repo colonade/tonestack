@@ -25,19 +25,33 @@ for z in zs:
             elif win and n.endswith('.vst3') and '/x86_64-win/' in n: a = os.path.join(B, 'win', 'VST3', n)
             elif win: continue
             elif n.endswith('.clap'): a = os.path.join(B, n)
-            elif n.endswith('.so') and '.vst3/' in n: a = os.path.join(B, 'vst3', n)
+            elif (n.endswith('.so') or n.endswith('/moduleinfo.json')) and '.vst3/' in n: a = os.path.join(B, 'vst3', n)   # moduleinfo.json ab 2026-11-27
             else: continue
             if not os.path.exists(a): print(os.path.basename(z) + ' / ' + n + ': nicht gebaut' + (' (bash engine/win/build.sh)' if win else '')); continue
             print(os.path.basename(z) + ' / ' + n.split('/')[0] + ': ' + ('identisch mit dem Bau' if zf.read(n) == open(a, 'rb').read() else 'ABWEICHEND vom Bau'))
-import subprocess, tarfile, io   # DEB-Paket (scripts/pack-deb.sh): /usr/lib/clap und /usr/lib/vst3 gegen den Linux-Bau
+import subprocess, tarfile, io, platform   # DEB-Pakete (scripts/pack-deb.sh) und Archive (scripts/pack-tarball.sh) gegen den Linux-Bau
+# ab 2026-11-27: auch moduleinfo.json der VST3-Bundles und die Archive; Pakete einer anderen Architektur (ARM64 hier auf x86-64) lassen sich hier
+# nicht nachbauen – sie prüft der Job „nachbau“ auf GitHub (zweiter Rechner, bytegleich), hier nur gezählt
+here = {'x86_64': ('amd64', 'x86_64'), 'aarch64': ('arm64', 'aarch64')}.get(platform.machine(), ('', ''))
+def cmp_member(label, n, data):
+    if n.startswith('clap/') or n.startswith('vst3/'): rel = n
+    elif n.startswith('usr/lib/clap/'): rel = 'clap/' + n[len('usr/lib/clap/'):]
+    elif n.startswith('usr/lib/vst3/'): rel = 'vst3/' + n[len('usr/lib/vst3/'):]
+    else: return
+    a = os.path.join(B, rel[len('clap/'):]) if rel.startswith('clap/') else os.path.join(B, rel)
+    if not (rel.endswith('.clap') or rel.endswith('.so') or rel.endswith('moduleinfo.json')): return
+    if not os.path.exists(a): print(label + ' / ' + n + ': nicht gebaut'); return
+    print(label + ' / ' + os.path.basename(n) + ': ' + ('identisch mit dem Bau' if data() == open(a, 'rb').read() else 'ABWEICHEND vom Bau'))
+fremd = 0
 for d in sorted(glob.glob(os.path.join(R, 'dist', '*.deb'))):
+    if not d.endswith('_' + here[0] + '.deb'): fremd += 1; continue
     t = tarfile.open(fileobj=io.BytesIO(subprocess.run(['dpkg-deb', '--fsys-tarfile', d], capture_output=True, check=True).stdout))
     for m in t.getmembers():
-        n = m.name[2:] if m.name.startswith('./') else m.name
-        if not m.isfile(): continue
-        if n.startswith('usr/lib/clap/'): a = os.path.join(B, n[len('usr/lib/clap/'):])
-        elif n.startswith('usr/lib/vst3/'): a = os.path.join(B, 'vst3', n[len('usr/lib/vst3/'):])
-        else: continue
-        if not os.path.exists(a): print(os.path.basename(d) + ' / ' + n + ': nicht gebaut'); continue
-        print(os.path.basename(d) + ' / ' + os.path.basename(n) + ': ' + ('identisch mit dem Bau' if t.extractfile(m).read() == open(a, 'rb').read() else 'ABWEICHEND vom Bau'))
+        if m.isfile(): cmp_member(os.path.basename(d), m.name[2:] if m.name.startswith('./') else m.name, lambda m=m: t.extractfile(m).read())
+for d in sorted(glob.glob(os.path.join(R, 'dist', 'tonestack-plugins-*-linux-*.tar.gz'))):
+    if not d.endswith('-linux-' + here[1] + '.tar.gz'): fremd += 1; continue
+    t = tarfile.open(d)
+    for m in t.getmembers():
+        if m.isfile(): cmp_member(os.path.basename(d), m.name.split('/', 1)[1] if '/' in m.name else m.name, lambda m=m: t.extractfile(m).read())
+if fremd: print(f'{fremd} Paket(e) anderer Architektur: hier nicht nachgebaut (Job „nachbau“ im Bau auf GitHub)')
 PY
