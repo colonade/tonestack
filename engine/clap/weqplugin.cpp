@@ -2,7 +2,7 @@
 // Umsetzung eigener Entwurf, docs/wieneq/ENTWURF.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Linear; ein Regler-Satz für beide Kanäle wie am Gerät.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.9"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.10"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "weq_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -69,14 +69,23 @@ static bool par_v2t(const clap_plugin_t *p, clap_id id, double v, char *buf, uin
   if (id >= P_COUNT) return false; const PDef &d = PD[id]; int rg = std::max(0, std::min(2, (int)std::lround(P(p)->val[P_RANGE].load())));
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
   else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v);
-  else if (d.lo < 0) std::snprintf(buf, n, "%+.1f dB", weq::gainDb(v / 5, rg));
-  else if (id == P_M1F || id == P_M2F || id == P_M3F) { double f = weq::midFreq((id - P_M1F) / 3, v / 10); std::snprintf(buf, n, f >= 1000 ? "%.2f kHz" : "%.0f Hz", f >= 1000 ? f / 1000 : f); }
-  else { double q = weq::midQ(v / 10); std::snprintf(buf, n, "Q %.2f (%.2f oct)", q, 2 * std::asinh(1 / (2 * q)) / std::log(2.0)); }
+  // Texte aus dem gezeigten, gerundeten Wert (ab 1.10); par_t2v rechnet dB, Hz und Q in die Knopfstellung zurück
+  else if (d.lo < 0) std::snprintf(buf, n, "%+.1f dB", tsnum::rnd(weq::gainDb(v / 5, rg), 1));
+  else if (id == P_M1F || id == P_M2F || id == P_M3F) { double f = weq::midFreq((id - P_M1F) / 3, v / 10); f = std::round(f) >= 1000 ? std::round(f / 10) * 10 : std::round(f); std::snprintf(buf, n, f >= 1000 ? "%.2f kHz" : "%.0f Hz", f >= 1000 ? f / 1000 : f); }
+  else { double q = tsnum::rnd(weq::midQ(v / 10), 2); std::snprintf(buf, n, "Q %.2f (%.2f oct)", q, 2 * std::asinh(1 / (2 * q)) / std::log(2.0)); }
   return true; }
-static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
+// Texteingabe in der Einheit der Anzeige (ab 1.10; bis 1.9 galt die Zahl als Knopfstellung, „-6 dB“ stellte also den Knopf auf −5 = Anschlag):
+// Verstärkung in dB (Bereich des Geräts wie eingestellt), Mitten-Frequenz in Hz/kHz, Güte als „Q 0.70“
+static bool par_t2v(const clap_plugin_t *p, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { for (int k = 0; k < d.nn; k++) if (std::strncmp(txt, d.names[k], std::strlen(d.names[k])) == 0) { *out = k; return true; } }
-  *out = tsnum::parse(txt); return std::isfinite(*out); }
+  if (id == P_OUT) { *out = tsnum::parse(txt); return std::isfinite(*out); }
+  if (d.lo < 0) { double db = tsnum::parse(txt); if (!std::isfinite(db)) return false; int rg = std::max(0, std::min(2, (int)std::lround(P(p)->val[P_RANGE].load())));
+    *out = 5 * tsnum::invert([rg](double x) { return weq::gainDb(x, rg); }, db, -1.0, 1.0); return std::isfinite(*out); }
+  if (id == P_M1F || id == P_M2F || id == P_M3F) { double f = tsnum::parseHz(txt); if (!std::isfinite(f)) return false; int k = (id - P_M1F) / 3;
+    *out = 10 * tsnum::invert([k](double x) { return weq::midFreq(k, x); }, f, 0.0, 1.0); return std::isfinite(*out); }
+  double q = tsnum::parseAfter(txt, "Q"); if (!std::isfinite(q)) return false;
+  *out = 10 * tsnum::invert([](double x) { return weq::midQ(x); }, q, 0.0, 1.0); return std::isfinite(*out); }
 static void apply_events(Plugin *pl, const clap_input_events_t *in) {
   if (!in) return; uint32_t n = in->size(in);
   for (uint32_t i = 0; i < n; i++) { const clap_event_header_t *h = in->get(in, i);
@@ -103,12 +112,16 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
   tsnum::fixDot(buf, len); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+// Nach dem Laden des Zustands (ab 2026-11-27): dem Host melden, dass sich Parameterwerte geändert haben (CLAP_PARAM_RESCAN_VALUES) – sonst zeigt er
+// bis zur nächsten Änderung die alten Werte (clap-validator state-reproducibility-*); clap-wrapper gibt das an VST3 als kParamValuesChanged weiter
+static void rescanValues(Plugin *pl) { auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp && hp->rescan) hp->rescan(pl->host, CLAP_PARAM_RESCAN_VALUES); }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
+  if (all.empty()) return false;   // leerer Zustand (ab 2026-11-27): nichts laden, Fehler melden (clap-validator state-invalid-empty)
   bool seen[P_COUNT] = {};
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
     size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = tsnum::parse(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(PD[i].def);
-  P(p)->dirty = true; return true; }
+  P(p)->dirty = true; rescanValues(P(p)); return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----

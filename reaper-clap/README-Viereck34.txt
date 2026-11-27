@@ -1,5 +1,5 @@
-Viereck 34 Tilt (after Quad 34) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.2
+Viereck 34 Tilt (after Quad 34) - CLAP and VST3 plugin for REAPER and other hosts (Linux x86-64 and ARM64, Windows x86-64)
+Version 1.3
 
 Two formats, one engine
   Viereck_34.clap and Viereck_34.vst3 contain the same code and sound
@@ -107,6 +107,19 @@ CPU
   input the plugin goes idle.
 
 Changes
+  1.3  A tilt pivot typed as "1.2 kHz" now gives 1200 Hz (until 1.2: 1.2 Hz,
+       the lower limit), and "center" can be typed for the balance. Values
+       typed into the host in its units are read back correctly, and the
+       values derived in the parameter text (dBu, Hz, decay at other
+       frequencies) are computed from the shown value. After loading a
+       project the plugin tells the host that its values changed (CLAP:
+       params rescan; VST3: kParamValuesChanged); an empty state is
+       rejected. Linux: built hardened (BIND_NOW, RELRO, _FORTIFY_SOURCE,
+       stack protector) and stripped; the CLAP file exports only clap_entry
+       (until now also about 900 symbols of its built-in libstdc++); the
+       VST3 bundle carries Contents/Resources/moduleinfo.json; also for
+       Linux ARM64 (Debian package and archive). Checked with Steinberg's
+       VST3 validator, pluginval and clap-validator. Sound unchanged.
   1.2  Parameter values that are not finite numbers (NaN, infinity), sent by
        a host or a script, are now ignored; before, they set the control to
        its maximum. Sound unchanged.

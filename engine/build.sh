@@ -7,7 +7,16 @@ set -euo pipefail
 E="$(cd "$(dirname "$0")" && pwd)"; R="$(dirname "$E")"; WASI="${WASI:-/opt/wasi-sdk}"
 [ "${1:-}" = "--wasi" ] && WASI="$2"
 cd "$E"; mkdir -p build
-node tools/extract.js "$R"; python3 tools/gen_geo.py gen; 
+# Härtung wie Debians dpkg-buildflags (hardening=+all, ab 2026-11-27): _FORTIFY_SOURCE, Stack-Schutz, RELRO und sofortiges Binden (BIND_NOW),
+# dazu Sprungziel-Schutz je Architektur (ARM64: ohne zusammengezogenes Multiplizieren-Addieren, damit die Rechnung Bit für Bit der von x86-64 und
+# WebAssembly folgt); -s entfernt die Symboltabelle, clap/exports.map lässt nur clap_entry exportiert. Ausdrücklich gesetzt, damit
+# der Bau auf jeder Distribution gleich gehärtet ist, nicht nur dort, wo der Übersetzer es von selbst tut (Ubuntu).
+# CXX/PKG_CONFIG für den Kreuzbau (engine/arm64/build.sh): dann nur die Plugins, ohne WebAssembly und Testwerkzeuge.
+CXX="${CXX:-g++}"; PKGC="${PKG_CONFIG:-pkg-config}"
+case "$($CXX -dumpmachine)" in x86_64-*) CFI=-fcf-protection;; aarch64-*) CFI="-mbranch-protection=standard -ffp-contract=off";; *) CFI="";; esac
+HARD="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection $CFI -ffile-prefix-map=$E/= -Wl,-z,relro -Wl,-z,now -s -Wl,--version-script=clap/exports.map"
+# TS_NO_GEN=1 (ab 2026-11-27, Bau ohne node, z. B. Flatpak): die eingecheckten Dateien in engine/gen nehmen, statt sie aus den Seiten neu zu erzeugen
+if [ "${TS_NO_GEN:-0}" != 1 ]; then node tools/extract.js "$R"; python3 tools/gen_geo.py gen; fi
 if [ "${B15PANEL:-0}" = 1 ]; then python3 tools/b15_panel.py "$R" >/dev/null; fi   # Frontplatte AmpFett nur auf Wunsch neu zeichnen (Pillow); sonst wie eingecheckt, damit Linux und Mac dasselbe Bild haben
 if [ "${SVTPANEL:-0}" = 1 ]; then python3 tools/svt_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte AmpFett SVT-CL (Bild, Geometrie, Seitensymbole)
 if [ "${WEQPANEL:-0}" = 1 ]; then python3 tools/weq_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte Wien-EQ
@@ -18,41 +27,57 @@ if [ "${WISENTPANEL:-0}" = 1 ]; then python3 tools/wisent_panel.py "$R" >/dev/nu
 if [ "${SLOPANEL:-0}" = 1 ]; then python3 tools/slo_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte Loldano SLO-100
 if [ "${VRPANEL:-0}" = 1 ]; then python3 tools/viereck_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte Viereck 34
 if [ "${CTPANEL:-0}" = 1 ]; then python3 tools/cultec_panel.py "$R" >/dev/null; fi   # ebenso die Frontplatte Cultec EQ-1A
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $(pkg-config --cflags --libs cairo x11)
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Lametta_B100II.clap $(pkg-config --cflags --libs cairo x11)
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/AmpFett_B15NF.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/gkplugin.cpp -o build/GK_800RB.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/g100plugin.cpp -o build/Lametta_G100.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/b3plugin.cpp -o build/Lametta_B100III.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/svtplugin.cpp -o build/AmpFett_SVTCL.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/weqplugin.cpp -o build/Wien_EQ.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/u76plugin.cpp -o build/AmpFett_76.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/sloplugin.cpp -o build/Loldano_SLO100.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/kaiplugin.cpp -o build/Kaiserin_Reverb.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/blechplugin.cpp -o build/Blech_140.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/wisentplugin.cpp -o build/Wisent_Echoreck.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/viereckplugin.cpp -o build/Viereck_34.clap $(pkg-config --cflags --libs cairo x11) -lpthread
-g++ -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= \
-    -Isrc -Igen -Ithird_party clap/cultecplugin.cpp -o build/Cultec_EQ1A.clap $(pkg-config --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/plugin.cpp -o build/Laney_AOR50.clap $($PKGC --cflags --libs cairo x11)
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/yplugin.cpp -o build/Lametta_B100II.clap $($PKGC --cflags --libs cairo x11)
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/b15plugin.cpp -o build/AmpFett_B15NF.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/gkplugin.cpp -o build/GK_800RB.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/g100plugin.cpp -o build/Lametta_G100.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/b3plugin.cpp -o build/Lametta_B100III.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/svtplugin.cpp -o build/AmpFett_SVTCL.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/weqplugin.cpp -o build/Wien_EQ.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/u76plugin.cpp -o build/AmpFett_76.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/sloplugin.cpp -o build/Loldano_SLO100.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/kaiplugin.cpp -o build/Kaiserin_Reverb.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/blechplugin.cpp -o build/Blech_140.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/wisentplugin.cpp -o build/Wisent_Echoreck.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/viereckplugin.cpp -o build/Viereck_34.clap $($PKGC --cflags --libs cairo x11) -lpthread
+$CXX -O3 -std=c++17 -fPIC -shared -fvisibility=hidden -static-libgcc -static-libstdc++ -fmacro-prefix-map=third_party/= $HARD \
+    -Isrc -Igen -Ithird_party clap/cultecplugin.cpp -o build/Cultec_EQ1A.clap $($PKGC --cflags --libs cairo x11) -lpthread
+# wie dh_strip: Abschnitte .comment (Übersetzer-Kennung) und .note entfernen (Lintian: binary-has-unneeded-section)
+while IFS='|' read -r NAME REST; do case "$NAME" in ''|'#'*) continue;; esac
+  "${STRIP:-strip}" --remove-section=.comment --remove-section=.note "build/$NAME.clap"; done < "$R/scripts/plugins.txt"
 echo "CLAP: build/Laney_AOR50.clap, build/Lametta_B100II.clap, build/AmpFett_B15NF.clap, build/GK_800RB.clap, build/Lametta_G100.clap, build/Lametta_B100III.clap, build/AmpFett_SVTCL.clap, build/Wien_EQ.clap, build/AmpFett_76.clap, build/Loldano_SLO100.clap, build/Kaiserin_Reverb.clap, build/Blech_140.clap, build/Wisent_Echoreck.clap, build/Viereck_34.clap, build/Cultec_EQ1A.clap"
 if [ "${VST3:-0}" = 1 ]; then
-  cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build/vst3 >/dev/null
+  # TS_CMAKE_ARGS: zusätzliche Angaben für einen Bau ohne Netz (Flatpak: FETCHCONTENT_SOURCE_DIR_CLAP-WRAPPER, CLAP_SDK_ROOT, VST3_SDK_ROOT)
+  cmake -S vst3 -B build/vst3 -G Ninja -DCMAKE_BUILD_TYPE=Release ${TS_CMAKE_ARGS:-} >/dev/null && cmake --build build/vst3 >/dev/null
+  if [ "$(uname -s)" = Linux ]; then
+    # moduleinfo.json (ab 2026-11-27): Name, Version und Klassen des Moduls in Contents/Resources, so wie es das VST3-SDK für Linux vorsieht;
+    # erzeugt vom moduleinfotool des SDK (engine/tools/vst3tools.sh), das das fertige Plugin lädt und abfragt. Im Kreuzbau startet TS_RUN es (qemu).
+    bash tools/vst3tools.sh "${TS_VST3_SDK:-build/vst3/cpm/vst3sdk}" build/vst3tools >/dev/null
+    eval "$(bash "$R/scripts/versions.sh")"
+    while IFS='|' read -r NAME VV REST; do case "$NAME" in ''|'#'*) continue;; esac
+      b="$E/build/vst3/$NAME.vst3"; mkdir -p "$b/Contents/Resources"
+      ${TS_RUN:-} build/vst3tools/bin/Release/moduleinfotool -create -version "${!VV}" -path "$b" -output "$b/Contents/Resources/moduleinfo.json"
+      grep -q '"Version": "'"${!VV}"'"' "$b/Contents/Resources/moduleinfo.json" || { echo "moduleinfo.json von $NAME unvollständig" >&2; exit 1; }
+    done < "$R/scripts/plugins.txt"
+  fi
   echo "VST3: build/vst3/Laney_AOR50.vst3, build/vst3/Lametta_B100II.vst3, build/vst3/AmpFett_B15NF.vst3, build/vst3/GK_800RB.vst3, build/vst3/Lametta_G100.vst3, build/vst3/Lametta_B100III.vst3, build/vst3/AmpFett_SVTCL.vst3, build/vst3/Wien_EQ.vst3, build/vst3/AmpFett_76.vst3, build/vst3/Loldano_SLO100.vst3, build/vst3/Kaiserin_Reverb.vst3, build/vst3/Blech_140.vst3, build/vst3/Wisent_Echoreck.vst3, build/vst3/Viereck_34.vst3, build/vst3/Cultec_EQ1A.vst3"
 fi
+if [ "${ONLY_PLUGINS:-0}" = 1 ]; then echo "nur Plugins (ONLY_PLUGINS=1): WebAssembly und Testwerkzeuge übersprungen"; exit 0; fi
 if [ -x "$WASI/bin/clang++" ]; then
   W="$WASI/bin/clang++ -O3 -std=c++17 -fno-exceptions -fno-rtti --target=wasm32-wasi -mexec-model=reactor -Wl,--export-memory -Wl,--strip-all -Isrc -Igen"
   $W -Wl,--export=aor_buffer -Wl,--export=aor_parts_buffer -Wl,--export=aor_target_buffer -Wl,--export=aor_peaks_buffer -Wl,--export=aor_parts_count \
@@ -93,6 +118,7 @@ g++ -O2 -std=c++17 -Ithird_party tests/plugtest.cpp -ldl -o build/plugtest
 g++ -O2 -std=c++17 -Ithird_party tests/rtcheck.cpp -ldl -lpthread -o build/rtcheck
 g++ -O2 -std=c++17 -Ithird_party tests/swprobe.cpp -ldl -o build/swprobe; g++ -O2 -std=c++17 -Ithird_party tests/swrand.cpp -ldl -o build/swrand
 g++ -O2 -std=c++17 -Ithird_party tests/defaults.cpp -ldl -o build/defaults
+g++ -O2 -std=c++17 -Ithird_party tests/paramtext.cpp -ldl -o build/paramtext   # Wert ↔ Text aller Parameter (ab 2026-11-27)
 g++ -O2 -std=c++17 -Ithird_party tests/guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/guitest
 g++ -O2 -std=c++17 -Ithird_party tests/yguitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/yguitest
 g++ -O2 -std=c++17 -Ithird_party tests/b15guitest.cpp -ldl $(pkg-config --cflags --libs cairo x11) -o build/b15guitest
@@ -123,4 +149,4 @@ g++ -O3 -std=c++17 -Isrc tests/viereck_test.cpp -o build/viereck_test
 g++ -O3 -std=c++17 -Isrc tests/cultec_test.cpp -o build/cultec_test
 g++ -O1 -g -std=c++17 -Ithird_party tests/clapstress.cpp -ldl -lpthread $(pkg-config --cflags --libs x11) -o build/clapstress
 g++ -O1 -g -fsanitize=address -std=c++17 -Isrc -Igen tests/switchtest.cpp -o build/switchtest
-echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/g100guitest, build/b3guitest, build/svtguitest, build/weqguitest, build/u76guitest, build/b15test, build/b15amp, build/b15pre, build/svtpre, build/slopre, build/gktest, build/g100test, build/b3test, build/svttest, build/weqtest, build/u76test, build/clapstress, build/switchtest, build/kaiguitest, build/blechguitest, build/wisentguitest, build/viereckguitest, build/cultecguitest, build/kaitest, build/blechtest, build/wisenttest, build/viereck_test, build/cultec_test"
+echo "Testwerkzeuge: build/harness, build/hosttest, build/plugtest, build/paramtext, build/rtcheck, build/swprobe, build/swrand, build/defaults, build/guitest, build/yguitest, build/b15guitest, build/gkguitest, build/g100guitest, build/b3guitest, build/svtguitest, build/weqguitest, build/u76guitest, build/b15test, build/b15amp, build/b15pre, build/svtpre, build/slopre, build/gktest, build/g100test, build/b3test, build/svttest, build/weqtest, build/u76test, build/clapstress, build/switchtest, build/kaiguitest, build/blechguitest, build/wisentguitest, build/viereckguitest, build/cultecguitest, build/kaitest, build/blechtest, build/wisenttest, build/viereck_test, build/cultec_test"

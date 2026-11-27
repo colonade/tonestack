@@ -1,5 +1,5 @@
-Cultec EQ-1A Program Equalizer (after Pultec EQP-1A) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.4
+Cultec EQ-1A Program Equalizer (after Pultec EQP-1A) - CLAP and VST3 plugin for REAPER and other hosts (Linux x86-64 and ARM64, Windows x86-64)
+Version 1.5
 
 Two formats, one engine
   Cultec_EQ1A.clap and Cultec_EQ1A.vst3 contain the same code and sound
@@ -153,6 +153,17 @@ CPU
   plugin computes it once. After 2 s of silence it goes idle.
 
 Changes
+  1.5  Values typed into the host in its units are read back correctly, and
+       the values derived in the parameter text (dBu, Hz, decay at other
+       frequencies) are computed from the shown value. After loading a
+       project the plugin tells the host that its values changed (CLAP:
+       params rescan; VST3: kParamValuesChanged); an empty state is
+       rejected. Linux: built hardened (BIND_NOW, RELRO, _FORTIFY_SOURCE,
+       stack protector) and stripped; the CLAP file exports only clap_entry
+       (until now also about 900 symbols of its built-in libstdc++); the
+       VST3 bundle carries Contents/Resources/moduleinfo.json; also for
+       Linux ARM64 (Debian package and archive). Checked with Steinberg's
+       VST3 validator, pluginval and clap-validator. Sound unchanged.
   1.4  Low atten capacitors across the 100 kohm pot and the 1 kohm (as in
        the transcription drawn from three real units; until 1.3 across the
        pot only, as in the Gyraf drawing). Transformers and coil losses

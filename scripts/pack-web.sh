@@ -13,10 +13,11 @@ set -euo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"
 REPO="${REPO:-colonade/tonestack}"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp -r web/tonestack "$T/"; rm -rf "$T/tonestack/download"; mkdir -p "$T/tonestack/download"
-if [ "${LOCAL:-0}" = 1 ]; then cp dist/*.zip dist/*.pkg dist/*.exe dist/*.deb dist/*.orig.tar.* dist/*.debian.tar.* dist/*.diff.gz dist/*.dsc "$T/tonestack/download/"
+# ab 2026-11-27 auch die Archive tonestack-plugins-<DEBVER>-linux-<arch>.tar.gz und, wenn das Release sie hat, die apt-Paketquelle (scripts/apt-repo.sh)
+if [ "${LOCAL:-0}" = 1 ]; then cp dist/*.zip dist/*.pkg dist/*.exe dist/*.deb dist/tonestack-plugins-*-linux-*.tar.gz dist/*.orig.tar.* dist/*.debian.tar.* dist/*.diff.gz dist/*.dsc "$T/tonestack/download/"
 else   # über die REST-Schnittstelle (gh api), nur .zip, .pkg, .exe, .deb
   mkdir -p "$T/sums"
-  gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name | test("\\.(zip|pkg|exe|deb|dsc|diff\\.gz)$|\\.(orig|debian)\\.tar\\.(xz|gz)$|^SHA256SUMS.*\\.txt$")) | "\(.id) \(.name)"' | while read -r id name; do
+  gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name | test("\\.(zip|pkg|exe|deb|dsc|diff\\.gz)$|\\.(orig|debian)\\.tar\\.(xz|gz)$|^tonestack-plugins-.*-linux-[a-z0-9_]+\\.tar\\.gz$|^(InRelease|Release|Release\\.gpg|Packages|Packages\\.gz|tonestack-archive-keyring\\.(gpg|asc)|tonestack\\.sources)$|^SHA256SUMS.*\\.txt$")) | "\(.id) \(.name)"' | while read -r id name; do
     case "$name" in SHA256SUMS*) o="$T/sums/$name";; *) o="$T/tonestack/download/$name";; esac
     gh api -H "Accept: application/octet-stream" "repos/$REPO/releases/assets/$id" > "$o"; done
   ls "$T"/sums/SHA256SUMS*.txt >/dev/null 2>&1 || { echo "FEHLER: Release ohne SHA256SUMS-*.txt" >&2; exit 1; }
@@ -25,7 +26,14 @@ else   # über die REST-Schnittstelle (gh api), nur .zip, .pkg, .exe, .deb
 fi
 # Mac-Paket: fester Name (ab 2026-11-12). Releases davor trugen die Versionen im Namen; ein solches Paket wird hier umbenannt.
 for p in "$T/tonestack/download"/tonestack-Plugins-Mac_*.pkg; do [ -f "$p" ] && mv "$p" "$T/tonestack/download/tonestack-Plugins-Mac.pkg"; done
-for f in $(grep -oh 'href="\(\.\./\)\?download/[^"]*"' web/tonestack/index.html web/tonestack/plugins/index.html | cut -d'"' -f2 | sed 's|^\.\./||'); do
+# Abschnitt zur apt-Paketquelle (<!--apt--> … <!--/apt--> in plugins/index.html) nur, wenn das Release sie enthält
+if [ ! -f "$T/tonestack/download/InRelease" ]; then python3 - "$T/tonestack/plugins/index.html" <<'PY'
+import re, sys
+p = sys.argv[1]; s = open(p, encoding='utf-8').read(); n = len(re.findall(r'<!--apt-->.*?<!--/apt-->', s, flags=re.S))
+open(p, 'w', encoding='utf-8').write(re.sub(r'<!--apt-->.*?<!--/apt-->', '', s, flags=re.S)); print('apt-Paketquelle nicht im Release: Abschnitt entfernt (%d)' % n)
+PY
+fi
+for f in $(grep -oh 'href="\(\.\./\)\?download/[^"]*"' "$T/tonestack/index.html" "$T/tonestack/plugins/index.html" | cut -d'"' -f2 | sed 's|^\.\./||'); do
   [ -f "$T/tonestack/$f" ] || { echo "FEHLER: eine Seite verlinkt $f, im Release nicht vorhanden" >&2; exit 1; }; done
 ( cd "$T/tonestack/download" && sha256sum -- * > SHA256SUMS.txt )
 if [ -n "${SITE:-}" ]; then

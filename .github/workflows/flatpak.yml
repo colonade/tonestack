@@ -1,0 +1,43 @@
+# Prüfbau der Flatpak-Erweiterung org.freedesktop.LinuxAudio.Plugins.Tonestack (ab 2026-11-27): erzeugt Manifest und AppStream-Daten für den
+# gepushten Commit (scripts/flatpak-manifest.sh) und baut sie mit flatpak-builder aus den Quellen, ohne Netz während des Baus – so, wie Flathub
+# es täte. Veröffentlicht nichts; das Einreichen bei Flathub ist ein eigener Schritt (packaging/flatpak/LIESMICH.md).
+# Start: von Hand oder bei Pushes auf main mit Änderungen an packaging/flatpak oder diesem Workflow.
+name: Flatpak
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['packaging/flatpak/**', 'scripts/flatpak-manifest.sh', '.github/workflows/flatpak.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Werkzeuge und Laufzeit
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q flatpak flatpak-builder appstream
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.freedesktop.Sdk//25.08 org.freedesktop.Platform//25.08 org.freedesktop.LinuxAudio.BaseExtension//25.08
+      - name: Manifest erzeugen
+        run: |
+          bash scripts/flatpak-manifest.sh fp "$GITHUB_SHA"
+          cat fp/org.freedesktop.LinuxAudio.Plugins.Tonestack.json
+          appstreamcli validate --no-net --explain fp/org.freedesktop.LinuxAudio.Plugins.Tonestack.metainfo.xml
+      - name: Bauen (flatpak-builder)
+        run: |
+          set -o pipefail
+          cd fp && flatpak-builder --user --force-clean --disable-rofiles-fuse --sandbox ../fp-build org.freedesktop.LinuxAudio.Plugins.Tonestack.json 2>&1 | tail -n 60
+      - name: Inhalt prüfen
+        run: |
+          set -euo pipefail
+          F=fp-build/files; ls -la "$F" "$F/clap" "$F/vst3"
+          n=0; while IFS='|' read -r NAME REST; do case "$NAME" in ''|'#'*) continue;; esac
+            [ -f "$F/clap/$NAME.clap" ] && [ -f "$F/vst3/$NAME.vst3/Contents/x86_64-linux/$NAME.so" ] && [ -f "$F/vst3/$NAME.vst3/Contents/Resources/moduleinfo.json" ] || { echo "::error::$NAME fehlt"; exit 1; }
+            n=$((n + 1)); done < scripts/plugins.txt
+          echo "::notice title=Flatpak-Erweiterung::$n Plugins gebaut (CLAP, VST3)"

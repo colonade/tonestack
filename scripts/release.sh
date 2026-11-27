@@ -5,7 +5,10 @@
 set -euo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"; cd "$R"; eval "$(bash scripts/versions.sh)"; bash scripts/check-plugins.sh   # Namen in plugins.txt nur mit harmlosen Zeichen
 DIR="${1:?Ordner mit den Dateien angeben}"; REPO="${GITHUB_REPOSITORY:-colonade/tonestack}"; SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
-shopt -s nullglob; FILES=("$DIR"/*.zip "$DIR"/*.pkg "$DIR"/*.exe "$DIR"/*.deb "$DIR"/*.png "$DIR"/SHA256SUMS*.txt "$DIR"/*.orig.tar.* "$DIR"/*.debian.tar.* "$DIR"/*.diff.gz "$DIR"/*.dsc); shopt -u nullglob
+# ab 2026-11-27 auch Linux ARM64 (Debian-Paket), die Archive tonestack-plugins-<DEBVER>-linux-<arch>.tar.gz und – wenn der Bau sie signiert hat – die
+# Dateien der apt-Paketquelle (scripts/apt-repo.sh)
+shopt -s nullglob; FILES=("$DIR"/*.zip "$DIR"/*.pkg "$DIR"/*.exe "$DIR"/*.deb "$DIR"/tonestack-plugins-*-linux-*.tar.gz "$DIR"/*.png "$DIR"/SHA256SUMS*.txt "$DIR"/*.orig.tar.* "$DIR"/*.debian.tar.* "$DIR"/*.diff.gz "$DIR"/*.dsc
+  "$DIR"/InRelease "$DIR"/Release "$DIR"/Release.gpg "$DIR"/Packages "$DIR"/Packages.gz "$DIR"/tonestack-archive-keyring.gpg "$DIR"/tonestack-archive-keyring.asc "$DIR"/tonestack.sources); shopt -u nullglob
 [ ${#FILES[@]} -gt 0 ] || { echo "keine Dateien in $DIR" >&2; exit 1; }
 for f in "${FILES[@]}"; do case "$(basename "$f")" in   # nur Dateien der aktuellen Versionen
   *_CLAP-*.zip|*_VST3-*.zip|*_Windows-*.zip) b="$(basename "$f")"; ok=0   # Name und Version aus scripts/plugins.txt
@@ -14,15 +17,18 @@ for f in "${FILES[@]}"; do case "$(basename "$f")" in   # nur Dateien der aktuel
     [ "$ok" = 1 ] || { echo "Version passt nicht: $f" >&2; exit 1; };;
   *.pkg) [ "$(basename "$f")" = "$PKG" ] || { echo "Version passt nicht: $f" >&2; exit 1; };;
   *.exe) [ "$(basename "$f")" = "$WINEXE" ] || { echo "unerwartete Datei: $f" >&2; exit 1; };;
-  *.deb) [ "$(basename "$f")" = "tonestack-plugins_${DEBVER}_amd64.deb" ] || { echo "Version passt nicht: $f" >&2; exit 1; };;
+  *.deb) case "$(basename "$f")" in "tonestack-plugins_${DEBVER}_amd64.deb"|"tonestack-plugins_${DEBVER}_arm64.deb") ;; *) echo "Version passt nicht: $f" >&2; exit 1;; esac;;
+  tonestack-plugins-*-linux-*.tar.gz) case "$(basename "$f")" in "tonestack-plugins-${DEBVER}-linux-x86_64.tar.gz"|"tonestack-plugins-${DEBVER}-linux-aarch64.tar.gz") ;; *) echo "Version passt nicht: $f" >&2; exit 1;; esac;;
   *.orig.tar.*|*.debian.tar.*|*.diff.gz|*.dsc) case "$(basename "$f")" in cairo_1.18.0*|pixman_0.42.2*) ;; *) echo "unerwartete Quelldatei: $f" >&2; exit 1;; esac;;
 esac; done
 NOTES="Laney AOR 50 Preamp $LANEY · Lametta B100-II Bass Amp $YAMAHA · AmpFett B-15NF Bass Amp $B15 · GK 800RB Bass Amp $GK · Lametta G100-212II Guitar Amp $G100 · Lametta B100-III Bass Amp $B100III · AmpFett SVT-CL Bass Amp $SVTCL · Wien EQ $WIENEQ · AmpFett 76 Limiting Amplifier $AMPFETT76 · Loldano SLO-100 Guitar Amp $LOLDANO · Kaiserin Reverb $KAISERIN · Blech 140 Plate Reverb $BLECH · Wisent Echoreck Drum Echo $WISENT · Viereck 34 Tilt EQ $VIERECK · Cultec EQ-1A Program EQ $CULTEC
 
-- Linux (x86-64): je Plugin CLAP und VST3 als ZIP, mit Anleitung (README.txt); alle zusammen als Debian/Ubuntu-Paket tonestack-plugins_${DEBVER}_amd64.deb (glibc ≥ 2.38: Debian 13, Ubuntu 24.04 und neuer).
+- Linux (x86-64): je Plugin CLAP und VST3 als ZIP, mit Anleitung (README.txt); alle zusammen als Debian/Ubuntu-Paket tonestack-plugins_${DEBVER}_amd64.deb (glibc ≥ 2.38: Debian 13, Ubuntu 24.04 und neuer; installieren mit sudo apt install ./tonestack-plugins_${DEBVER}_amd64.deb).
+- Linux (ARM64): Debian/Ubuntu-Paket tonestack-plugins_${DEBVER}_arm64.deb.
+- Linux ohne Debian-Paket (andere Distributionen, Flatpak-Hosts): Archiv tonestack-plugins-${DEBVER}-linux-x86_64.tar.gz bzw. -aarch64.tar.gz, ./install.sh kopiert nach ~/.clap und ~/.vst3.
 - Windows (x86-64, Windows 10/11): Installer tonestack-Plugins-Windows.exe (VST3 und CLAP, Auswahl je Plugin) oder je Plugin ein ZIP. Nicht signiert: SmartScreen → „Weitere Informationen“ → „Trotzdem ausführen“.
 - Mac (Audio Unit für Logic, VST3; Apple Silicon und Intel ab macOS 11): Installerpaket tonestack-Plugins-Mac.pkg. Nicht bei Apple beglaubigt: beim ersten Öffnen Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen“.
-- Prüfbilder der Mac- und Windows-Oberfläche (mac-*.png, win-*.png), SHA-256-Summen.
+- Prüfbilder der Mac- und Windows-Oberfläche (mac-*.png, win-*.png), SHA-256-Summen. Herkunftsnachweis jeder Datei (GitHub-Attestierung): gh attestation verify <Datei> -R colonade/tonestack.
 - Quelltext von Cairo 1.18.0 und pixman 0.42.2 (Ubuntu-Quellpakete), die statisch in den Windows-Plugins stecken (LGPL-2.1 bzw. MIT; Bau: engine/win/build-cairo.sh).
 
 Gebaut auf GitHub aus Commit $SHA. Änderungen: README.txt in den ZIPs."

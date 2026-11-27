@@ -1,0 +1,65 @@
+{
+    "id": "org.freedesktop.LinuxAudio.Plugins.Tonestack",
+    "branch": "25.08",
+    "runtime": "org.freedesktop.LinuxAudio.BaseExtension",
+    "runtime-version": "stable",
+    "sdk": "org.freedesktop.Sdk//25.08",
+    "build-extension": true,
+    "build-options": {
+        "prefix": "/app/extensions/Plugins/Tonestack"
+    },
+    "modules": [
+        {
+            "name": "tonestack",
+            "buildsystem": "simple",
+            "build-options": {
+                "env": {
+                    "TS_NO_GEN": "1",
+                    "ONLY_PLUGINS": "1",
+                    "VST3": "1",
+                    "TS_CMAKE_ARGS": "-DFETCHCONTENT_FULLY_DISCONNECTED=ON -DFETCHCONTENT_SOURCE_DIR_CLAP-WRAPPER=/run/build/tonestack/deps/clap-wrapper -DCLAP_SDK_ROOT=/run/build/tonestack/deps/clap -DVST3_SDK_ROOT=/run/build/tonestack/deps/vst3sdk",
+                    "TS_VST3_SDK": "/run/build/tonestack/deps/vst3sdk"
+                }
+            },
+            "build-commands": [
+                "bash engine/build.sh",
+                "install -d ${FLATPAK_DEST}/clap ${FLATPAK_DEST}/vst3",
+                "while IFS='|' read -r n rest; do case \"$n\" in ''|'#'*) continue;; esac; install -m644 engine/build/$n.clap ${FLATPAK_DEST}/clap/; cp -R engine/build/vst3/$n.vst3 ${FLATPAK_DEST}/vst3/; done < scripts/plugins.txt",
+                "install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/tonestack/LICENSE",
+                "install -Dm644 reaper-clap/THIRD-PARTY-LICENSES.txt ${FLATPAK_DEST}/share/licenses/tonestack/THIRD-PARTY-LICENSES.txt",
+                "install -Dm644 org.freedesktop.LinuxAudio.Plugins.Tonestack.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/colonade/tonestack.git",
+                    "commit": "@COMMIT@"
+                },
+                {
+                    "type": "git",
+                    "url": "https://github.com/free-audio/clap-wrapper.git",
+                    "commit": "806bba0a5f792e3966b99c1561ab9952d3316d7c",
+                    "dest": "deps/clap-wrapper"
+                },
+                {
+                    "type": "git",
+                    "url": "https://github.com/free-audio/clap.git",
+                    "tag": "1.2.10",
+                    "commit": "195b42a004144fab0b3cf95e9c067187d15365b7",
+                    "dest": "deps/clap"
+                },
+                {
+                    "type": "git",
+                    "url": "https://github.com/steinbergmedia/vst3sdk.git",
+                    "tag": "v3.8.0_build_66",
+                    "commit": "9fad9770f2ae8542ab1a548a68c1ad1ac690abe0",
+                    "dest": "deps/vst3sdk"
+                },
+                {
+                    "type": "file",
+                    "path": "org.freedesktop.LinuxAudio.Plugins.Tonestack.metainfo.xml"
+                }
+            ]
+        }
+    ]
+}

@@ -2,7 +2,7 @@
 // als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit). Eingang mono (bei Stereo die Summe), Ausgang mono auf beiden Kanälen.
 // Latenz: 3 Abtastwerte bis 48 kHz (Halbbänder der 2-fach-Überabtastung der Aufnahmeseite), ab 88,2 kHz 0.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.8"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.9"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "wisent_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -103,12 +103,16 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
   tsnum::fixDot(buf, len); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+// Nach dem Laden des Zustands (ab 2026-11-27): dem Host melden, dass sich Parameterwerte geändert haben (CLAP_PARAM_RESCAN_VALUES) – sonst zeigt er
+// bis zur nächsten Änderung die alten Werte (clap-validator state-reproducibility-*); clap-wrapper gibt das an VST3 als kParamValuesChanged weiter
+static void rescanValues(Plugin *pl) { auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp && hp->rescan) hp->rescan(pl->host, CLAP_PARAM_RESCAN_VALUES); }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
+  if (all.empty()) return false;   // leerer Zustand (ab 2026-11-27): nichts laden, Fehler melden (clap-validator state-invalid-empty)
   bool seen[P_COUNT] = {};
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
     size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = tsnum::parse(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(PD[i].def);
-  P(p)->dirty = true; return true; }
+  P(p)->dirty = true; rescanValues(P(p)); return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----

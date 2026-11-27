@@ -29,6 +29,25 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Linux (ab 2026-11-27): gehärtet wie Debians dpkg-buildflags (hardening=+all) – _FORTIFY_SOURCE, Stack-Schutz, Sprungziel-Schutz, RELRO und
+# sofortiges Binden (BIND_NOW) – und ohne Symboltabelle (-s; die exportierten Einstiege bleiben). Gilt für alle Quellen samt clap-wrapper und VST3-SDK,
+# darum vor FetchContent. Dieselben Schalter wie die CLAP-Fassung in engine/build.sh.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  get_filename_component(TS_ENGINE "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+    set(TS_CFI "-fcf-protection")
+  elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(TS_CFI "-mbranch-protection=standard -ffp-contract=off")   # ohne FMA-Zusammenziehen: rechnet wie x86-64 und WebAssembly
+  else()
+    set(TS_CFI "")
+  endif()
+  set(TS_HARD_C "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection ${TS_CFI} -ffile-prefix-map=${TS_ENGINE}/=")
+  string(APPEND CMAKE_C_FLAGS " ${TS_HARD_C}")
+  string(APPEND CMAKE_CXX_FLAGS " ${TS_HARD_C}")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Wl,-z,relro -Wl,-z,now -s")
+  string(APPEND CMAKE_MODULE_LINKER_FLAGS " -Wl,-z,relro -Wl,-z,now -s")
+endif()
+
 # clap-wrapper fest auf einen geprüften Stand (2026-10-20); er holt CLAP 1.2.10 und VST3-SDK 3.8.0 selbst (CPM)
 set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES TRUE CACHE BOOL "" FORCE)
 set(CLAP_WRAPPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -98,6 +117,8 @@ function(tonestack_plugin name src entry outname bundle version aucode)
   elseif (NOT APPLE)
     # wie die CLAP-Fassung: libstdc++/libgcc statisch, damit nur glibc ≥ 2.38 nötig ist
     target_link_options(${name}_vst3 PRIVATE -static-libgcc -static-libstdc++ -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
+    # wie dh_strip: Abschnitte .comment (Übersetzer-Kennung) und .note entfernen (ab 2026-11-27; Lintian: binary-has-unneeded-section)
+    add_custom_command(TARGET ${name}_vst3 POST_BUILD COMMAND ${CMAKE_STRIP} --remove-section=.comment --remove-section=.note $<TARGET_FILE:${name}_vst3> VERBATIM)
   endif()
 endfunction()
 

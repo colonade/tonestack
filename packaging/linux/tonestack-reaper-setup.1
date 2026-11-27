@@ -1,0 +1,78 @@
+.TH TONESTACK-REAPER-SETUP 1 "2026-01-01" "tonestack-plugins" "User Commands"
+.SH NAME
+tonestack-reaper-setup \- add /usr/lib/vst3 to the VST search paths of REAPER
+.SH SYNOPSIS
+.B tonestack-reaper-setup
+.RB [ \-\-undo ]
+.RB [ \-\-ini
+.IR file ]
+.br
+.B tonestack-reaper-setup
+.BR \-\-help " | " \-\-version
+.SH DESCRIPTION
+REAPER for Linux looks for VST plug-ins only in
+.I ~/.vst
+and
+.I ~/.vst3
+by default, so it does not see the VST3 versions of the tonestack plug-ins in
+.IR /usr/lib/vst3 .
+(The CLAP versions in
+.I /usr/lib/clap
+are found without any setup.)
+.B tonestack-reaper-setup
+appends
+.I /usr/lib/vst3
+to the line
+.B vstpath=
+of the REAPER configuration file and changes nothing else.
+.PP
+Run it as the user who uses REAPER, not as root, and only while REAPER is not
+running: REAPER writes its configuration back when it exits and would undo the
+change. Before the first change the file is copied to
+.IR reaper.ini.vor-tonestack ;
+the permissions of the file are kept. The file
+.I reaper.ini.tonestack
+next to it records that the entry was added by this program.
+.PP
+The package tonestack-plugins runs this program for every user who has set up
+REAPER when it is installed, with the rights of that user, and takes the entry
+out again when the package is removed (only an entry that it added itself, and
+only if no other plug-ins are left in
+.IR /usr/lib/vst3 ).
+.PP
+Afterwards, in REAPER: Options > Preferences > Plug-ins > VST > Re-scan.
+.SH OPTIONS
+.TP
+.B \-\-undo
+Take
+.I /usr/lib/vst3
+out of the VST search paths again.
+.TP
+.BI \-\-ini " file"
+Use another REAPER configuration file, for example that of a portable
+installation. Default:
+.IR ${XDG_CONFIG_HOME:\-~/.config}/REAPER/reaper.ini .
+.TP
+.B \-\-version
+Print the version.
+.TP
+.BR \-h ", " \-\-help
+Print a short help text (in German).
+.SH EXIT STATUS
+0 on success or when there is nothing to do, 1 on errors, 2 when REAPER is
+running and nothing was changed.
+.SH FILES
+.TP
+.I ~/.config/REAPER/reaper.ini
+REAPER configuration (line
+.BR vstpath= ).
+.TP
+.I ~/.config/REAPER/reaper.ini.vor-tonestack
+Copy made before the first change.
+.TP
+.I ~/.config/REAPER/reaper.ini.tonestack
+Marks the entry as added by this program.
+.SH SEE ALSO
+.I /usr/share/doc/tonestack-plugins/README-Linux.txt
+.SH AUTHOR
+tonestack, https://github.com/colonade/tonestack

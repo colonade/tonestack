@@ -1,5 +1,17 @@
-Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER and other hosts (Linux and Windows x86-64)
-Version 1.8
+Wisent Echoreck (after Binson Echorec PE 603 T) - CLAP and VST3 plugin for REAPER and other hosts (Linux x86-64 and ARM64, Windows x86-64)
+Version 1.9
+
+New in 1.9: Values typed into the host in its units are read back correctly,
+and the values derived in the parameter text (dBu, Hz, decay at other
+frequencies) are computed from the shown value. After loading a project the
+plugin tells the host that its values changed (CLAP: params rescan; VST3:
+kParamValuesChanged); an empty state is rejected. Linux: built hardened
+(BIND_NOW, RELRO, _FORTIFY_SOURCE, stack protector) and stripped; the CLAP
+file exports only clap_entry (until now also about 900 symbols of its
+built-in libstdc++); the VST3 bundle carries
+Contents/Resources/moduleinfo.json; also for Linux ARM64 (Debian package and
+archive). Checked with Steinberg's VST3 validator, pluginval and
+clap-validator. Sound unchanged.
 
 New in 1.8: corrections after an independent review. The trimmer TD (DRY)
 now gives the plan ratio 0.04 V / 0.06 V under its load (330 k + 47 k):

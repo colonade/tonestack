@@ -1,0 +1,3 @@
+# Nur clap_entry exportieren (ab 2026-11-27): die statisch eingebundene libstdc++ bleibt verborgen (vorher exportierte jede .clap rund 900
+# Symbole der libstdc++, die mit denen des Hosts zusammenstoßen konnten). Die VST3-Fassung hat dafür engine/vst3/exports.map.
+{ global: clap_entry; local: *; };

@@ -1,0 +1,100 @@
+#!/bin/sh
+# tonestack-reaper-setup – trägt /usr/lib/vst3 in die VST-Pfade von REAPER ein (oder nimmt den Eintrag mit --undo wieder heraus).
+# Teil des Debian-Pakets tonestack-plugins (ab 1.17242-1; Quelle: packaging/linux/tonestack-reaper-setup im tonestack-Repository).
+# REAPER sucht VST unter Linux von sich aus nur in ~/.vst und ~/.vst3; die CLAP-Fassungen in /usr/lib/clap findet es ohne Zutun.
+# Läuft als der Benutzer, dem die REAPER-Einstellungen gehören (das Paket ruft es je Benutzer mit dessen Rechten auf, nie als root):
+# ändert nur die Zeile vstpath= in reaper.ini, nur bei beendetem REAPER (sonst schriebe REAPER die Datei beim Beenden zurück), legt vorher
+# einmal die Sicherung reaper.ini.vor-tonestack an, behält die Dateirechte und merkt sich in reaper.ini.tonestack, dass der Eintrag von hier
+# stammt – nur so einen nimmt das Paket beim Entfernen wieder heraus.
+set -eu
+ZIEL=/usr/lib/vst3
+VERSION=@DEBVER@
+undo=0; auto=0; adopt=0; ini=""
+hilfe() {
+  cat <<EOF
+Aufruf: tonestack-reaper-setup [--undo] [--ini DATEI]
+
+Trägt $ZIEL (die VST3-Fassungen der tonestack-Plugins) in die VST-Pfade von
+REAPER ein, damit REAPER sie findet. Als normaler Benutzer ausführen (ohne sudo),
+bei beendetem REAPER. Die CLAP-Fassungen in /usr/lib/clap findet REAPER ohne
+diesen Schritt.
+
+  --undo       den Eintrag wieder herausnehmen
+  --ini DATEI  andere reaper.ini (z. B. einer portablen REAPER-Installation);
+               Standard: \${XDG_CONFIG_HOME:-~/.config}/REAPER/reaper.ini
+  --version    Version anzeigen
+  -h, --help   diese Hilfe
+
+Vor der ersten Änderung wird die Datei als reaper.ini.vor-tonestack gesichert.
+Danach in REAPER: Options > Preferences > Plug-ins > VST > Re-scan.
+EOF
+}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --undo) undo=1;;
+    --auto) auto=1;;     # intern (Paket): still, wenn nichts zu tun ist; nie Fehlerstatus; beim Entfernen nur eigene Einträge
+    --adopt) adopt=1;;   # intern (Paket): Eintrag von Paket 1.17227-3 (ohne Merkdatei) als eigenen übernehmen
+    --ini) [ $# -ge 2 ] || { echo "tonestack-reaper-setup: --ini braucht einen Dateinamen" >&2; exit 1; }; ini="$2"; shift;;
+    --version) echo "tonestack-reaper-setup $VERSION"; exit 0;;
+    -h|--help) hilfe; exit 0;;
+    *) echo "tonestack-reaper-setup: unbekannte Angabe „$1“ (Hilfe: tonestack-reaper-setup --help)" >&2; exit 1;;
+  esac; shift
+done
+ende() { if [ "$auto" = 1 ]; then exit 0; else exit "$1"; fi; }
+if [ "$(id -u)" = 0 ] && [ "$auto" = 0 ]; then
+  echo "tonestack-reaper-setup: bitte als der Benutzer ausführen, der REAPER benutzt (ohne sudo) – sonst gehörte die Datei danach root." >&2; exit 1
+fi
+[ -n "$ini" ] || ini="${XDG_CONFIG_HOME:-$HOME/.config}/REAPER/reaper.ini"
+marke="$ini.tonestack"; sicherung="$ini.vor-tonestack"; wer="$(id -un 2>/dev/null || id -u)"
+if [ -L "$ini" ]; then echo "tonestack-reaper-setup: $ini ist eine Verknüpfung – unverändert gelassen." >&2; ende 1; fi
+if [ ! -f "$ini" ]; then
+  [ "$auto" = 1 ] && exit 0
+  echo "tonestack-reaper-setup: keine REAPER-Einstellungen in $ini – REAPER einmal starten und beenden, dann erneut aufrufen." >&2; exit 1
+fi
+# läuft REAPER bei diesem Benutzer? (/proc statt pgrep: kommt ohne procps aus)
+laeuft() {
+  uid="$(id -u)"
+  for d in /proc/[0-9]*; do
+    [ "$(cat "$d/comm" 2>/dev/null || true)" = reaper ] || continue
+    [ "$(stat -c %u "$d" 2>/dev/null || true)" = "$uid" ] && return 0
+  done
+  return 1
+}
+# alle awk-Programme sehen nur den Abschnitt [REAPER] (r = 1) und dort nur die erste Zeile vstpath=; Schrägstriche am Ende zählen nicht
+AB='/^\[/ { r = (tolower($0) == "[reaper]") }'
+# steht /usr/lib/vst3 schon dort?
+hat() { awk -v z="$ZIEL" "$AB"' r && /^vstpath=/ && !g { g = 1; n = split(substr($0, 9), a, ";"); for (i = 1; i <= n; i++) { p = a[i]; sub(/\/+$/, "", p); if (p == z) f = 1 } } END { exit !f }' "$ini"; }
+# neue Fassung neben die Datei schreiben, Rechte übernehmen, dann in einem Schritt ersetzen
+ersetzen() {   # $1 awk-Programm
+  dir="$(dirname -- "$ini")"; tmp="$(mktemp "$dir/.reaper.ini.XXXXXX")" || { echo "tonestack-reaper-setup: kann in $dir nicht schreiben" >&2; return 1; }
+  if awk -v z="$ZIEL" -v v="${zeile:-0}" "$AB $1" "$ini" > "$tmp" && [ -s "$tmp" ] && chmod "$(stat -c %a -- "$ini")" "$tmp" && mv -f -- "$tmp" "$ini"; then return 0; fi
+  rm -f -- "$tmp"; echo "tonestack-reaper-setup: $ini ließ sich nicht ändern" >&2; return 1
+}
+if [ "$adopt" = 1 ]; then
+  if hat && [ ! -e "$marke" ]; then printf '%s\n' "$ZIEL" > "$marke"; fi; exit 0
+fi
+if [ "$undo" = 1 ]; then
+  if ! hat; then rm -f -- "$marke"; [ "$auto" = 1 ] || echo "REAPER ($wer): $ZIEL steht nicht in den VST-Pfaden – nichts zu tun."; exit 0; fi
+  if [ ! -e "$marke" ] && [ "$auto" = 1 ]; then exit 0; fi   # selbst eingetragen: bleibt
+  if laeuft; then
+    echo "REAPER ($wer): REAPER läuft – $ZIEL bleibt in den VST-Pfaden (schadet nicht). Zum Herausnehmen REAPER beenden und ausführen: tonestack-reaper-setup --undo"; ende 2
+  fi
+  ersetzen 'r && /^vstpath=/ && !g { g = 1; n = split(substr($0, 9), a, ";"); w = ""; for (i = 1; i <= n; i++) { p = a[i]; sub(/\/+$/, "", p); if (p != z) w = w (w == "" ? "" : ";") a[i] } $0 = "vstpath=" w } { print }' || ende 1
+  if [ -e "$marke" ]; then rm -f -- "$marke"; echo "REAPER ($wer): $ZIEL aus den VST-Pfaden entfernt."
+  else echo "REAPER ($wer): $ZIEL aus den VST-Pfaden entfernt (der Eintrag stammte nicht von tonestack-reaper-setup)."; fi
+  exit 0
+fi
+if hat; then [ "$auto" = 1 ] || echo "REAPER ($wer): $ZIEL steht schon in den VST-Pfaden – nichts zu tun."; exit 0; fi
+if laeuft; then
+  echo "REAPER ($wer): REAPER läuft gerade, darum ist $ZIEL (die VST3-Fassungen) noch nicht eingetragen."
+  echo "  REAPER beenden und dann als $wer ausführen: tonestack-reaper-setup"; ende 2
+fi
+grep -qi '^\[reaper\]' "$ini" || { echo "REAPER ($wer): $ini hat keinen Abschnitt [REAPER] – unverändert. Von Hand: Options > Preferences > Plug-ins > VST, bei „VST plug-in paths“ ;$ZIEL anhängen." >&2; ende 1; }
+if [ ! -e "$sicherung" ] && [ ! -L "$sicherung" ]; then cp -p -- "$ini" "$sicherung" || { echo "tonestack-reaper-setup: Sicherung $sicherung ließ sich nicht anlegen – unverändert" >&2; ende 1; }; fi
+zeile=0; if awk "$AB"' r && /^vstpath=/ { f = 1 } END { exit !f }' "$ini"; then zeile=1; fi   # ohne Zeile vstpath= (REAPER-Vorgabe ~/.vst;~/.vst3): eine nach [REAPER] einfügen
+ersetzen '
+  v && r && /^vstpath=/ && !g { g = 1; w = substr($0, 9); $0 = "vstpath=" (w == "" ? z : w ";" z) }
+  { print; if (!v && !k && r) { k = 1; print "vstpath=~/.vst;~/.vst3;" z } }' || ende 1
+printf '%s\n' "$ZIEL" > "$marke"
+echo "REAPER ($wer): $ZIEL in die VST-Pfade eingetragen (Sicherung $sicherung) – beim nächsten Start findet REAPER die VST3-Fassungen."
+exit 0

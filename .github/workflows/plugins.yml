@@ -1,15 +1,19 @@
-# Plugins bauen und veröffentlichen: Linux (CLAP, VST3, Debian-Paket; Ubuntu 24.04), Windows (VST3, CLAP, Installer; unter Linux mit MinGW
-# übersetzt, auf einem Windows-Rechner geprüft) und Mac (Audio Unit für Logic, VST3; macOS 15).
+# Plugins bauen und veröffentlichen: Linux x86-64 und ARM64 (CLAP, VST3, Debian-Paket, Archiv; Ubuntu 24.04), Windows (VST3, CLAP, Installer; unter
+# Linux mit MinGW übersetzt, auf einem Windows-Rechner geprüft) und Mac (Audio Unit für Logic, VST3; macOS 15).
+# Linux-Prüfungen (ab 2026-11-27): Härtung/Exporte/glibc/moduleinfo (scripts/check-linux-plugins.sh), Steinbergs VST3-Validator, Wert ↔ Text aller
+# Parameter, Lintian, Installieren/Entfernen des Pakets; im Job „validatoren“ pluginval und clap-validator gegen das installierte Paket; im Job
+# „nachbau“ ein zweiter, unabhängiger Bau je Architektur, der Byte für Byte dieselben Plugins ergeben muss.
 # Start: von Hand (Actions → Plugins → Run workflow) oder bei jedem Push auf main mit Änderungen an Quellen oder Bau.
-# Ergebnis: Artefakte "tonestack-linux", "tonestack-windows" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V>_loldano-<V>_kaiserin-<V>_blech140-<V>_wisent-<V>_viereck34-<V> (ältere werden gelöscht).
+# Ergebnis: Artefakte "tonestack-linux", "tonestack-linux-arm64", "tonestack-windows" und "tonestack-mac"; auf main das GitHub-Release laney-<V>_b100ii-<V>_b15nf-<V>_gk800rb-<V>_g100-<V>_b100iii-<V>_svtcl-<V>_wieneq-<V>_ampfett76-<V>_loldano-<V>_kaiserin-<V>_blech140-<V>_wisent-<V>_viereck34-<V> (ältere werden gelöscht).
 # Sicherheit: Die Bau-Jobs (fremde Werkzeuge und SDKs) laufen nur mit Leserechten und ohne gespeicherte Zugangsdaten.
-# Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases; ins Repo wird nichts geschrieben.
+# Nur der kleine Veröffentlichungsschritt darf schreiben, und nur Releases und Herkunftsnachweise (GitHub-Attestierungen, schlüssellos über Sigstore);
+# ins Repo wird nichts geschrieben. Die apt-Paketquelle signiert er nur, wenn das Geheimnis APT_SIGNING_KEY eingerichtet ist (docs/APT.md).
 name: Plugins
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/test-deb.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/check-plugins.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
+    paths: ['engine/**', 'mac/**', 'reaper-clap/**', 'packaging/linux/**', 'scripts/pack-plugins.sh', 'scripts/pack-deb.sh', 'scripts/pack-tarball.sh', 'scripts/test-deb.sh', 'scripts/check-linux-plugins.sh', 'scripts/clapval-auswerten.py', 'scripts/linux-tests.sh', 'scripts/apt-repo.sh', 'scripts/pack-windows.sh', 'scripts/release.sh', 'scripts/check-plugins.sh', 'scripts/versions.sh', 'scripts/plugins.txt', 'LICENSE', '.github/workflows/plugins.yml']
 permissions:
   contents: read
 jobs:
@@ -28,45 +32,18 @@ jobs:
         run: |
           # deb-src für die Cairo-/pixman-Quellen der Windows-Fassung (engine/win/build-cairo.sh)
           sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake zip g++-mingw-w64-x86-64-posix meson pkg-config nsis
+          sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake zip g++-mingw-w64-x86-64-posix meson pkg-config nsis lintian
       - name: Bauen (CLAP, VST3, Testwerkzeuge)
         run: |
           set -o pipefail
           VST3=1 bash engine/build.sh 2>&1 | tee build.log || { python3 mac/annot.py Linux-Bau build.log 40 'error|Error|FEHLER|Traceback|No such'; exit 1; }
       - name: Prüfen
+        run: bash scripts/linux-tests.sh
+      - name: Linux-Plugins prüfen (Wert ↔ Text, Härtung, Exporte, glibc, moduleinfo, Steinberg-Validator)
         run: |
           set -euo pipefail
-          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck Viereck_34 Cultec_EQ1A; do ./engine/build/plugtest engine/build/$p.clap params | head -1; done
-          ./engine/build/b15test | tail -3
-          ./engine/build/gktest | head -8
-          ./engine/build/g100test | grep -E "Abweichung|ABWEICHUNG|Knoten"
-          ./engine/build/b3test | grep -E "Abweichung|ABWEICHUNG|BEKANNT|Knoten"
-          ./engine/build/svttest | grep -E "Abweichung|ABWEICHUNG|BEKANNT|Knoten"
-          ./engine/build/weqtest
-          ./engine/build/u76test | grep -E "ABWEICHUNG|bestanden|Verhältnis|Schwelle|Dämpfung, |Attack|Release"
-          ./engine/build/slotest | grep -E "Abweichung|ABWEICHUNG|Leistung|Ruhestrom"
-          ./engine/build/switchtest | tail -1
-          ./engine/build/kaitest rt | tail -3
-          ./engine/build/blechtest conv | tail -3
-          ./engine/build/blechtest rate | tail -4
-          ./engine/build/wisenttest dc
-          ./engine/build/wisenttest time | tail -3
-          ./engine/build/wisenttest pattern | tail -2
-          ./engine/build/wisenttest tone
-          ./engine/build/wisenttest lat | tail -2
-          ./engine/build/wisenttest wob | tail -3
-          ./engine/build/wisenttest heads | tail -5
-          ./engine/build/wisenttest wobpitch | tail -3
-          ./engine/build/viereck_test | tail -8
-          ./engine/build/cultec_test | grep -E "\\[|ABWEICHUNG|fertig|FEHLER"
-          ./engine/build/cultec_test all r | grep -E "\\[|ABWEICHUNG|fertig|FEHLER"
-          ./engine/build/b15pre | tail -1
-          ./engine/build/svtpre | tail -1
-          ./engine/build/slopre | tail -1
-          ./engine/build/slothd | tail -2
-          ./engine/build/slobassck | tail -1
-          ./engine/build/ecc83ds | tail -4
-          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck Viereck_34 Cultec_EQ1A; do ./engine/build/rtcheck engine/build/$p.clap 2 256 > rt-$p.log; done; cat rt-*.log > rt.log; python3 mac/rtnotice.py Echtzeit-Linux rt.log
+          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck Viereck_34 Cultec_EQ1A; do ./engine/build/paramtext engine/build/$p.clap; done
+          VALIDATOR=engine/build/vst3tools/bin/Release/validator bash scripts/check-linux-plugins.sh engine/build engine/build/vst3
       - name: Windows bauen (MinGW-w64, Cairo statisch)
         run: |
           set -o pipefail
@@ -78,12 +55,15 @@ jobs:
           set -euo pipefail
           bash scripts/pack-plugins.sh
           bash scripts/pack-deb.sh
+          bash scripts/pack-tarball.sh
           bash scripts/pack-windows.sh
-          (cd dist && sha256sum *_CLAP-*.zip *_VST3-*.zip tonestack-plugins_*_amd64.deb > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt)
+          (cd dist && sha256sum *_CLAP-*.zip *_VST3-*.zip tonestack-plugins_*_amd64.deb tonestack-plugins-*-linux-x86_64.tar.gz > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt)
           (cd dist && sha256sum *_Windows-*.zip tonestack-Plugins-Windows.exe > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt)
           # Quelltext von Cairo/pixman (statisch in den Windows-Plugins, LGPL-2.1 bzw. MIT) neben die Windows-Pakete
           for f in cairo_1.18.0.orig.tar.xz cairo_1.18.0-3build1.debian.tar.xz cairo_1.18.0-3build1.dsc pixman_0.42.2.orig.tar.gz pixman_0.42.2-1build1.diff.gz pixman_0.42.2-1build1.dsc; do cp "$RUNNER_TEMP/win-cairo/src/$f" dist/; done
           (cd dist && sha256sum cairo_1.18.0* pixman_0.42.2* > SHA256SUMS-sources.txt && cat SHA256SUMS-sources.txt)
+      - name: Lintian (Debian-Richtlinien; Fehler und Warnungen brechen ab)
+        run: lintian --fail-on error,warning --info --display-info --pedantic dist/tonestack-plugins_*_amd64.deb
       - name: Debian-Paket probehalber installieren (Plugins, REAPER-Pfad, Entfernen)
         run: sudo bash scripts/test-deb.sh dist/tonestack-plugins_*_amd64.deb
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
@@ -93,6 +73,7 @@ jobs:
             dist/*_CLAP-*.zip
             dist/*_VST3-*.zip
             dist/tonestack-plugins_*_amd64.deb
+            dist/tonestack-plugins-*-linux-x86_64.tar.gz
             dist/SHA256SUMS-linux.txt
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
         with:
@@ -108,6 +89,138 @@ jobs:
         with:
           name: tonestack-wintest
           path: wintest
+  linux-arm64:
+    # Linux ARM64 (aarch64, ab 2026-11-27): dieselben Plugins nativ auf einem ARM-Rechner gebaut und geprüft; Debian-Paket und Archiv (keine Einzel-ZIPs)
+    concurrency:
+      group: plugins-linux-arm64-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Werkzeuge
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake pkg-config g++ lintian python3
+          command -v node >/dev/null || sudo apt-get install -y -q nodejs
+          echo "== $(uname -m) · $(nproc) Kerne · $(g++ --version | head -1) · node $(node --version)"
+      - name: Bauen (CLAP, VST3, Testwerkzeuge)
+        run: |
+          set -o pipefail
+          VST3=1 bash engine/build.sh 2>&1 | tee build.log || { python3 mac/annot.py Linux-ARM64-Bau build.log 40 'error|Error|FEHLER|Traceback|No such'; exit 1; }
+      - name: Prüfen
+        run: bash scripts/linux-tests.sh
+      - name: Linux-Plugins prüfen (Wert ↔ Text, Härtung, Exporte, glibc, moduleinfo, Steinberg-Validator)
+        run: |
+          set -euo pipefail
+          for p in Laney_AOR50 Lametta_B100II AmpFett_B15NF GK_800RB Lametta_G100 Lametta_B100III AmpFett_SVTCL Wien_EQ AmpFett_76 Loldano_SLO100 Kaiserin_Reverb Blech_140 Wisent_Echoreck Viereck_34 Cultec_EQ1A; do ./engine/build/paramtext engine/build/$p.clap; done
+          VALIDATOR=engine/build/vst3tools/bin/Release/validator bash scripts/check-linux-plugins.sh engine/build engine/build/vst3
+      - name: Packen
+        run: |
+          set -euo pipefail
+          bash scripts/pack-deb.sh
+          bash scripts/pack-tarball.sh
+          (cd dist && sha256sum tonestack-plugins_*_arm64.deb tonestack-plugins-*-linux-aarch64.tar.gz > SHA256SUMS-linux-arm64.txt && cat SHA256SUMS-linux-arm64.txt)
+      - name: Lintian (Debian-Richtlinien; Fehler und Warnungen brechen ab)
+        run: lintian --fail-on error,warning --info --display-info --pedantic dist/tonestack-plugins_*_arm64.deb
+      - name: Debian-Paket probehalber installieren (Plugins, REAPER-Pfad, Entfernen)
+        run: sudo bash scripts/test-deb.sh dist/tonestack-plugins_*_arm64.deb
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4   # v5.0.0
+        with:
+          name: tonestack-linux-arm64
+          path: |
+            dist/tonestack-plugins_*_arm64.deb
+            dist/tonestack-plugins-*-linux-aarch64.tar.gz
+            dist/SHA256SUMS-linux-arm64.txt
+  nachbau:
+    # Reproduzierbarkeit (ab 2026-11-27): ein zweiter Rechner baut die Plugins unabhängig neu; .clap, .so und moduleinfo.json müssen Byte für Byte denen im
+    # Debian-Paket des ersten Baus gleichen (für x86-64 prüft das auch engine/verify.sh gegen einen Bau außerhalb von GitHub)
+    needs: [linux, linux-arm64]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, arch: amd64, art: tonestack-linux }
+          - { os: ubuntu-24.04-arm, arch: arm64, art: tonestack-linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Werkzeuge
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q libcairo2-dev libx11-dev ninja-build cmake pkg-config g++ python3
+          command -v node >/dev/null || sudo apt-get install -y -q nodejs
+      - name: Nur die Plugins bauen
+        run: ONLY_PLUGINS=1 VST3=1 bash engine/build.sh > build.log 2>&1 || { tail -n 40 build.log; exit 1; }
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: ${{ matrix.art }}
+          path: erster
+      - name: Mit dem ersten Bau vergleichen
+        run: |
+          set -euo pipefail
+          dpkg-deb -x erster/tonestack-plugins_*_${{ matrix.arch }}.deb paket
+          n=0; bad=0
+          while IFS='|' read -r NAME REST; do case "$NAME" in ''|'#'*) continue;; esac
+            for f in "clap/$NAME.clap:engine/build/$NAME.clap" "vst3/$NAME.vst3/Contents/Resources/moduleinfo.json:engine/build/vst3/$NAME.vst3/Contents/Resources/moduleinfo.json"; do
+              a="paket/usr/lib/${f%%:*}"; b="${f#*:}"; n=$((n + 1)); cmp -s "$a" "$b" && echo "gleich: ${f%%:*}" || { echo "::error::abweichend: $a ↔ $b"; bad=1; }; done
+            so="$(ls paket/usr/lib/vst3/$NAME.vst3/Contents/*-linux/$NAME.so)"; n=$((n + 1)); cmp -s "$so" "engine/build/vst3/${so#paket/usr/lib/vst3/}" && echo "gleich: ${so#paket/usr/lib/}" || { echo "::error::abweichend: $so"; bad=1; }
+          done < scripts/plugins.txt
+          echo "::notice title=Nachbau ${{ matrix.arch }}::$n Dateien verglichen, $( [ $bad = 0 ] && echo alle bytegleich || echo ABWEICHUNGEN )"; exit $bad
+  validatoren:
+    # pluginval (Tracktion, Strenge 5, ohne Oberflächentests) und clap-validator (free-audio) gegen das installierte Debian-Paket, je Architektur;
+    # beide aus festen Ständen der Quellen gebaut (ab 2026-11-27)
+    needs: [linux, linux-arm64]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, arch: amd64, art: tonestack-linux }
+          - { os: ubuntu-24.04-arm, arch: arm64, art: tonestack-linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    env:
+      PLUGINVAL_TAG: v1.0.4
+      PLUGINVAL_SHA: ed19c2c16b57a6d94db391bea3ef4a80b769d5bf
+      JUCE_SHA: 5179f4e720d8406ebd1b5401c86aea8da6cc83c9
+      CLAPVAL_SHA: e11b52b57d44f6304108fd0bfa269ea4a804d7c2
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: ${{ matrix.art }}
+          path: rel
+      - name: Werkzeuge und Paket
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ninja-build cmake pkg-config g++ git xvfb libasound2-dev libfreetype-dev libfontconfig1-dev libxrandr-dev libxinerama-dev libxcursor-dev libgl1-mesa-dev ladspa-sdk libcurl4-openssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev
+          sudo apt-get install -y -q ./rel/tonestack-plugins_*_${{ matrix.arch }}.deb
+          command -v cargo >/dev/null || { curl -sSf --proto '=https' --tlsv1.2 https://sh.rustup.rs | sh -s -- -y --profile minimal; echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"; }
+      - name: clap-validator bauen
+        run: |
+          set -euo pipefail
+          git init -q cv && git -C cv fetch -q --depth 1 https://github.com/free-audio/clap-validator "$CLAPVAL_SHA" && git -C cv -c advice.detachedHead=false checkout -q FETCH_HEAD
+          [ "$(git -C cv rev-parse HEAD)" = "$CLAPVAL_SHA" ]
+          (cd cv && cargo build --release --locked -q) && cv/target/release/clap-validator --version
+      - name: pluginval bauen
+        run: |
+          set -euo pipefail
+          git clone -q --depth 1 --branch "$PLUGINVAL_TAG" https://github.com/Tracktion/pluginval pv
+          [ "$(git -C pv rev-parse HEAD)" = "$PLUGINVAL_SHA" ] || { echo "::error::pluginval $PLUGINVAL_TAG zeigt auf $(git -C pv rev-parse HEAD)"; exit 1; }
+          git -C pv submodule update -q --init --depth 1 && [ "$(git -C pv rev-parse HEAD:modules/juce)" = "$JUCE_SHA" ]
+          cmake -S pv -B pvb -G Ninja -DCMAKE_BUILD_TYPE=Release > pvcfg.log 2>&1 || { tail -n 40 pvcfg.log; exit 1; }
+          cmake --build pvb > pvbuild.log 2>&1 || { tail -n 40 pvbuild.log; exit 1; }
+          find pvb -name pluginval -type f -perm -u+x | head -1 > pluginval.txt; cat pluginval.txt; [ -s pluginval.txt ]
+      - name: Prüfen (installiertes Paket)
+        run: CLAPVAL="$PWD/cv/target/release/clap-validator" PLUGINVAL="$PWD/$(cat pluginval.txt)" bash scripts/check-linux-plugins.sh /usr/lib/clap /usr/lib/vst3
   mac:
     concurrency:   # neuer Lauf bricht den Bau eines älteren ab (Wunsch des Nutzers: nur das neueste Paket bauen, Mac-Bauzeit sparen); laufende Veröffentlichung bleibt unberührt
       group: plugins-mac-${{ github.ref }}
@@ -247,8 +360,9 @@ jobs:
           path: winbilder/*.png
           if-no-files-found: ignore
   publish:
-    # Linux-, Windows- und Mac-Dateien ans Release (nur main). Kein fremder Code läuft hier; nur gh (vorinstalliert).
-    needs: [linux, windows, mac]
+    # Linux-, Windows- und Mac-Dateien ans Release (nur main). Kein fremder Code läuft hier außer GitHubs eigener Aktion für die Herkunftsnachweise;
+    # sonst nur gh (vorinstalliert), gpg und apt-ftparchive (Ubuntu).
+    needs: [linux, linux-arm64, nachbau, validatoren, windows, mac]
     if: github.ref == 'refs/heads/main'
     concurrency:   # Veröffentlichungen nacheinander, eine spätere ersetzt eine noch wartende (sonst könnte ein älterer Lauf das neuere Release löschen)
       group: plugins-publish
@@ -256,6 +370,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      id-token: write          # Herkunftsnachweis: kurzlebiges OIDC-Zertifikat für die Sigstore-Signatur (kein gespeicherter Schlüssel)
+      attestations: write
+      artifact-metadata: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
         with:
@@ -264,6 +381,10 @@ jobs:
         with:
           name: tonestack-linux
           path: rel
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
+        with:
+          name: tonestack-linux-arm64
+          path: arm-art
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0   # v5.0.0
         with:
           name: tonestack-mac
@@ -276,15 +397,33 @@ jobs:
         with:
           name: tonestack-windows-bilder
           path: win-bilder
-      - name: Prüfen und veröffentlichen
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Zusammenstellen und prüfen
         run: |
           set -euo pipefail
-          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt) && (cd win-art && sha256sum -c SHA256SUMS-windows.txt && sha256sum -c SHA256SUMS-sources.txt)
+          (cd rel && sha256sum -c SHA256SUMS-linux.txt) && (cd arm-art && sha256sum -c SHA256SUMS-linux-arm64.txt) && (cd mac-art && sha256sum -c SHA256SUMS.txt) && (cd win-art && sha256sum -c SHA256SUMS-windows.txt && sha256sum -c SHA256SUMS-sources.txt)
+          cp arm-art/* rel/
           n=$(ls win-bilder/win-*.png | wc -l); [ "$n" = 15 ] || { echo "::error::15 Windows-Prüfbilder erwartet, gefunden: $n"; exit 1; }
           cp win-art/* win-bilder/win-*.png rel/
           n=$(ls mac-art/tonestack-Plugins-Mac*.pkg | wc -l); [ "$n" = 1 ] || { echo "::error::genau ein Installerpaket erwartet, gefunden: $n"; exit 1; }
           cp mac-art/*.pkg rel/; cp mac-art/laney.png rel/mac-laney.png; cp mac-art/b100ii.png rel/mac-b100ii.png; cp mac-art/b15nf.png rel/mac-b15nf.png; cp mac-art/gk.png rel/mac-gk.png; cp mac-art/g100.png rel/mac-g100.png; cp mac-art/b3.png rel/mac-b100iii.png; cp mac-art/svt.png rel/mac-svtcl.png; cp mac-art/weq.png rel/mac-wieneq.png; cp mac-art/u76.png rel/mac-ampfett76.png; cp mac-art/slo.png rel/mac-loldano.png; cp mac-art/kaiserin.png rel/mac-kaiserin.png; cp mac-art/blech.png rel/mac-blech140.png; cp mac-art/wisent.png rel/mac-wisent.png; cp mac-art/viereck.png rel/mac-viereck.png; cp mac-art/cultec.png rel/mac-cultec.png
           (cd rel && sha256sum *.pkg > SHA256SUMS-mac.txt)
-          bash scripts/release.sh rel
+      - name: apt-Paketquelle signieren (nur mit dem Geheimnis APT_SIGNING_KEY, docs/APT.md)
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          if [ -z "$APT_SIGNING_KEY" ]; then echo "::notice title=apt-Paketquelle::kein Geheimnis APT_SIGNING_KEY – keine Paketquelle erzeugt (Pakete wie bisher einzeln)"; exit 0; fi
+          bash scripts/apt-repo.sh rel
+      - name: Herkunftsnachweise (GitHub-Attestierung, schlüssellos über Sigstore)
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6   # v4.2.2
+        with:
+          subject-path: |
+            rel/*.zip
+            rel/*.deb
+            rel/*.tar.gz
+            rel/*.exe
+            rel/*.pkg
+            rel/SHA256SUMS*.txt
+      - name: Veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release.sh rel

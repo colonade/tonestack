@@ -2,7 +2,7 @@
 // (engine/src/viereck_core.hpp, docs/viereck/SCHALTPLAN.md) als CLAP-Plugin (Linux x86-64; auf dem Mac über clap-wrapper als VST3/Audio Unit).
 // Ein Regler-Satz für beide Kanäle; BALANCE wirkt gegensinnig (RV4 A links, RV4 B rechts). Modell: TILT stufenlos, Drehpunkt 80 Hz … 4 kHz, LEVEL, OUTPUT.
 #include "clap-1.2.2/include/clap/clap.h"
-#define TS_VERSION "1.2"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
+#define TS_VERSION "1.3"   // Plugin-Version: Deskriptor, Oberfläche, Paketnamen
 #include "viereck_core.hpp"
 #include "platform.hpp"
 #include "numtext.hpp"
@@ -68,15 +68,17 @@ static bool par_v2t(const clap_plugin_t *, clap_id id, double v, char *buf, uint
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { int k = (int)std::lround(v); if (k < 0) k = 0; if (k >= d.nn) k = d.nn - 1; std::snprintf(buf, n, "%s", d.names[k]); }
   else if (id == P_OUT) std::snprintf(buf, n, "%+.1f dB", v);
-  else if (id == P_LEVEL) std::snprintf(buf, n, "%+.1f dB (0 dBFS = %.2f V peak inside)", v, vinOf(v));
-  else if (id == P_PIV) std::snprintf(buf, n, v >= 1000 ? "%.2f kHz" : "%.0f Hz", v >= 1000 ? v / 1000 : v);
-  else if (id == P_BAL) std::snprintf(buf, n, std::fabs(v) < 0.005 ? "center" : "%+.2f", v);
-  else std::snprintf(buf, n, v == std::round(v) ? "%+.0f" : "%+.2f", v);
+  // Texte aus dem gezeigten, gerundeten Wert (ab 1.3): der zurückgelesene Text ergibt wieder denselben Text
+  else if (id == P_LEVEL) { double r = tsnum::rnd(v, 1); std::snprintf(buf, n, "%+.1f dB (0 dBFS = %.2f V peak inside)", r, vinOf(r)); }
+  else if (id == P_PIV) { double r = std::round(v) >= 1000 ? std::round(v / 10) * 10 : std::round(v); std::snprintf(buf, n, r >= 1000 ? "%.2f kHz" : "%.0f Hz", r >= 1000 ? r / 1000 : r); }
+  else if (id == P_BAL) { double r = tsnum::rnd(v, 2); if (r == 0) std::snprintf(buf, n, "center"); else std::snprintf(buf, n, "%+.2f", r); }
+  else { double r = tsnum::rnd(v, 2); std::snprintf(buf, n, r == std::round(r) ? "%+.0f" : "%+.2f", r); }
   return true; }
 static bool par_t2v(const clap_plugin_t *, clap_id id, const char *txt, double *out) {
   if (id >= P_COUNT) return false; const PDef &d = PD[id];
   if (d.names) { for (int k = 0; k < d.nn; k++) if (std::strncmp(txt, d.names[k], std::strlen(d.names[k])) == 0) { *out = k; return true; } }
-  *out = tsnum::parse(txt); return std::isfinite(*out); }
+  if (id == P_BAL && std::strncmp(txt, "center", 6) == 0) { *out = 0; return true; }   // Anzeige „center“ zurück (ab 1.3)
+  *out = id == P_PIV ? tsnum::parseHz(txt) : tsnum::parse(txt); return std::isfinite(*out); }   // Drehpunkt: „1.20 kHz“ = 1200 Hz (bis 1.2 las es 1,2 Hz)
 static void apply_events(Plugin *pl, const clap_input_events_t *in) {
   if (!in) return; uint32_t n = in->size(in);
   for (uint32_t i = 0; i < n; i++) { const clap_event_header_t *h = in->get(in, i);
@@ -103,12 +105,16 @@ static const clap_plugin_audio_ports_t EXT_PORTS = {ap_count, ap_get};
 // ---- Zustand ----
 static bool st_save(const clap_plugin_t *p, const clap_ostream_t *s) { char buf[1024]; int len = 0; for (int i = 0; i < P_COUNT; i++) len += std::snprintf(buf + len, sizeof buf - len, "%d=%.17g\n", i, P(p)->val[i].load());
   tsnum::fixDot(buf, len); int done = 0; while (done < len) { int64_t w = s->write(s, buf + done, len - done); if (w <= 0) return false; done += (int)w; } return true; }
+// Nach dem Laden des Zustands (ab 2026-11-27): dem Host melden, dass sich Parameterwerte geändert haben (CLAP_PARAM_RESCAN_VALUES) – sonst zeigt er
+// bis zur nächsten Änderung die alten Werte (clap-validator state-reproducibility-*); clap-wrapper gibt das an VST3 als kParamValuesChanged weiter
+static void rescanValues(Plugin *pl) { auto *hp = (const clap_host_params_t*)pl->host->get_extension(pl->host, CLAP_EXT_PARAMS); if (hp && hp->rescan) hp->rescan(pl->host, CLAP_PARAM_RESCAN_VALUES); }
 static bool st_load(const clap_plugin_t *p, const clap_istream_t *s) { std::string all; char buf[256]; while (true) { int64_t r = s->read(s, buf, sizeof buf); if (r <= 0) break; all.append(buf, (size_t)r); if (all.size() > 65536) return false; }
+  if (all.empty()) return false;   // leerer Zustand (ab 2026-11-27): nichts laden, Fehler melden (clap-validator state-invalid-empty)
   bool seen[P_COUNT] = {};
   size_t pos = 0; while (pos < all.size()) { size_t e = all.find('\n', pos); if (e == std::string::npos) e = all.size(); std::string line = all.substr(pos, e - pos); pos = e + 1;
     size_t q = line.find('='); if (q == std::string::npos) continue; int id = std::atoi(line.substr(0, q).c_str()); double v = tsnum::parse(line.substr(q + 1).c_str()); if (id >= 0 && id < P_COUNT && std::isfinite(v)) { P(p)->val[id].store(std::max(PD[id].lo, std::min(PD[id].hi, v))); seen[id] = true; } }
   for (int i = 0; i < P_COUNT; i++) if (!seen[i]) P(p)->val[i].store(PD[i].def);
-  P(p)->dirty = true; return true; }
+  P(p)->dirty = true; rescanValues(P(p)); return true; }
 static const clap_plugin_state_t EXT_STATE = {st_save, st_load};
 
 // ---- Plugin ----

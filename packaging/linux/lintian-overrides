@@ -1,0 +1,5 @@
+# Lintian-Ausnahmen für tonestack-plugins (ab 1.17242-1), je mit Begründung.
+# Das Paket ist nicht für das Debian-Archiv bestimmt (es kommt aus den GitHub-Releases), darum gibt es keinen ITP-Fehlerbericht zu schließen.
+tonestack-plugins: initial-upload-closes-no-bugs [usr/share/doc/tonestack-plugins/changelog.Debian.gz:1]
+# „AfE“ ist kein Wort, sondern ein zufälliges Byte-Muster in eingebetteten Bilddaten bzw. Maschinencode; kein Text des Plugins.
+tonestack-plugins: spelling-error-in-binary AfE Safe [*]

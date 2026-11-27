@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="addon">
+  <id>org.freedesktop.LinuxAudio.Plugins.Tonestack</id>
+  <extends>org.freedesktop.LinuxAudio.BaseExtension</extends>
+  <name>tonestack</name>
+  <summary>Amp and effect circuit simulations as CLAP and VST3 plugins</summary>
+  <description>
+    <p>Circuit simulations of guitar and bass amplifiers and studio effects after their original schematics, each as CLAP and VST3 plugin
+    with its own front panel: Laney AOR 50 preamp, Lametta B100-II, B100-III and G100-212II, AmpFett B-15NF and SVT-CL, GK 800RB,
+    Loldano SLO-100, AmpFett 76 limiting amplifier, Wien EQ, Cultec EQ-1A program equalizer, Viereck 34 tilt EQ, Kaiserin reverb,
+    Blech 140 plate reverb and Wisent Echoreck drum echo.</p>
+  </description>
+  <url type="homepage">https://tonestack.fluxstatus.de/</url>
+  <url type="bugtracker">https://github.com/colonade/tonestack/issues</url>
+  <project_license>GPL-3.0-only</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+  <developer id="io.github.colonade">
+    <name>colonade</name>
+  </developer>
+  <releases>
+    <release version="@DEBVER@" date="@DATE@"/>
+  </releases>
+</component>

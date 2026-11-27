@@ -1,4 +1,4 @@
-# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-24)
+# Klangregler-Simulatoren: Projektstand und Übergabe (2026-11-27)
 
 Lies diese Datei zuerst, wenn das Projekt in einem neuen Gespräch weitergeht. Sie fasst alles zusammen, was aus dem bisherigen Verlauf wichtig ist.
 
@@ -36,6 +36,64 @@ Anlass: Kritik mit LTspice-Bild (`lny.raw`, Laney, Burst mit 20 Perioden): angeb
 - Gitterstopper: Laney ohne eigene vor V102B/V103B, 470 kΩ/1 MΩ liegen schon davor (Versuch 2026-10-29: < 0,3 dB); Loldano 68 k/470 k/220 k nach Plan.
 - **Befund Aliasing in der Endstufe**: Laney, nicht harmonische Anteile (Ton bin-genau, 48 kHz): Grundstellung 2x −85/−58/−53 dB bei 439/1318/2637 Hz; Preamp 1 alles 10 (12AX7) 2x −32/−24/−17 dB, 4x −32/−24/−23 dB (4x hilft kaum, weil die Endstufe auch bei 4x mit 96 kHz rechnet, `paGroup`); Endstufe aus: −51 dB. Endstufe allein (bandbegrenztes Rechteck 439 Hz): Eingang 5 V 96 kHz −65 / 384 kHz −73 dB; 15 V −45 / −61 dB; 40 V −36 / −57 dB. Loldano (sloalias, OVERDRIVE): 2x −33…−38 dB, 4x −45…−50 dB. Kandidat für den „kaputten“ Klang bei starker Aussteuerung. Vorschlag (nicht beauftragt): Endstufe intern höher abtasten, Last messen.
 - ngspice bricht die Endstufe bei starker Aussteuerung ab („Timestep too small“, Knoten ga0 bzw. x), auch mit Gear; Gegenrechnung der Endstufe dort noch offen.
+
+## Linux-Paket nach Standards: alle 16 Vorschläge des Berichts (2026-11-27, alle Plugins +0.1, DEB 1.17242-1, Web 2026-11-27-2)
+Nutzer: „/deep-research Passt das Paket auch für andere DAW auf Linux und welche Standards sollte es erfüllen“, dann „Bitte alle Vorschläge umsetzen“.
+Versionen: Laney 3.54, B100-II 1.28, B-15NF 1.34, GK 1.14, G100 1.19, B100-III 1.15, SVT-CL 1.19, Wien EQ 1.10, AmpFett 76 1.8, Loldano 1.12,
+Kaiserin 1.4, Blech 1.8, Wisent 1.9, Viereck 1.3, Cultec 1.5; DEBREV wieder 1 → DEBVER 1.17242-1.
+- 1/2 REAPER: das Paket trägt /usr/lib/vst3 weiter selbst ein (Wahl des Nutzers bei -3: „funktionierendes Paket“), jetzt nach den Mindestregeln
+  des Berichts: Werkzeug /usr/bin/tonestack-reaper-setup [--undo] [--ini] (packaging/linux/, Handbuchseite), postinst ruft es je Benutzer (UID_MIN…MAX
+  mit ~/.config/REAPER/reaper.ini, keine Verknüpfung) **mit dessen Rechten** über setpriv (util-linux, essenziell) – root schreibt nie in fremde
+  Home-Ordner; nur Abschnitt [REAPER], erste Zeile vstpath=; Ersetzen über Nachbardatei + mv mit gleichen Rechten; Sicherung reaper.ini.vor-tonestack;
+  Merkdatei reaper.ini.tonestack („Eintrag von uns“). Laufender REAPER über /proc/*/comm (statt pgrep) → Hinweis, Status 2. Entfernen im prerm
+  (nur „remove“, Werkzeug fehlt im postrm schon): nur eigene Einträge, nur wenn in /usr/lib/vst3 nichts Fremdes liegt. Übergang von -3: Liste in
+  /var/lib/tonestack-plugins als eigene Einträge übernommen, dann gelöscht; postrm purge räumt Reste. procps raus.
+- 3 Depends aus dpkg-shlibdeps (libc6 (>= 2.38), libcairo2 (>= 1.2.4), libx11-6; Gegenprobe mit objdump; libstdc++/libgcc müssen fehlen; bekannte
+  usrmerge-Warnung „diversion by libc6“ wird übergangen, jede andere bricht ab). awk nicht als Abhängigkeit (Lintian: needlessly-depends-on-awk).
+- 4 copyright (DEP-5) und changelog.Debian.gz waren schon da (geprüft).
+- 5 Härtung ausdrücklich (engine/build.sh, engine/vst3/CMakeLists.txt, nur Linux): -U/-D_FORTIFY_SOURCE=3, -fstack-protector-strong,
+  -fstack-clash-protection, x86-64 -fcf-protection / ARM64 -mbranch-protection=standard, -Wl,-z,relro,-z,now, -s, danach .comment/.note entfernt,
+  -ffile-prefix-map. **Befund:** jede .clap exportierte rund 900 Symbole ihrer statischen libstdc++ (nm -D) – jetzt clap/exports.map, nur clap_entry.
+- 6 Lintian 2.117 mit --pedantic --fail-on error,warning: 0 Meldungen (packaging/linux/lintian-overrides: initial-upload-closes-no-bugs – nicht fürs
+  Debian-Archiv –, spelling-error-in-binary „AfE“ – Bytefolge in Bild/Maschinencode). CI-Schritt in beiden Linux-Jobs.
+- 7 Validatoren: scripts/check-linux-plugins.sh (Exporte genau clap_entry bzw. GetPluginFactory/ModuleEntry/ModuleExit/clap_entry, glibc ≤ 2.38,
+  GNU_RELRO, BIND_NOW, kein ausführbarer Stack, keine .symtab/.comment/.debug, keine libstdc++, moduleinfo.json passend), Steinbergs validator -e
+  (aus dem SDK, das clap-wrapper holt: engine/tools/vst3tools.sh, ohne die gtkmm-Beispiel-Hosts), clap-validator (free-audio, Commit e11b52b, 0.4.1),
+  pluginval v1.0.4 (Strenge 5, ohne Oberflächentests). CI: Job „validatoren“ (x86-64 und ARM64) gegen das installierte Paket.
+  **Befunde von clap-validator, behoben in allen 15 Plugins:** (a) nach state load kein params rescan → jetzt rescan(CLAP_PARAM_RESCAN_VALUES)
+  (clap-wrapper gibt es an VST3 als kParamValuesChanged weiter, AU: Parameterliste neu); (b) leerer Zustand wurde angenommen → false;
+  (c) Wert → Text → Wert → Text nicht stabil in 14 Plugins (abgeleitete Angaben aus dem ungerundeten Wert: dBu zu mV, Hz zur Knopfstellung,
+  Nachhall 125 Hz/4 kHz, V Spitze) → aus dem gezeigten Wert (tsnum::rnd); echte Fehler: Wien EQ las eingetippte dB/Hz/Q als Knopfstellung
+  (jetzt Umkehrung der Kennlinie, tsnum::invert), Viereck „1.03 kHz“ → 1,03 Hz (tsnum::parseHz), „center“ nicht lesbar. Neues Prüfprogramm
+  engine/tests/paramtext (je Parameter Grenzen, Grundstellung, 401 gleichmäßige + 400 zufällige Werte): alle 15 ohne Abweichung.
+  Zeitlimit: SVT-CL, AmpFett 76 und Blech 140 brauchen beim Aktivieren 0,5 … 1,1 s (Einschwingen; G100 hat dafür einen Zwischenspeicher je
+  Abtastrate, 80 … 170 ms); die Fuzz-Tests aktivieren 50-mal, auf dem langsamen Rechner hier über 45 s → scripts/clapval-auswerten.py meldet
+  Zeitlimits als Warnung, Fehler und Abstürze brechen ab. Offener Vorschlag: denselben Zwischenspeicher in SVT-CL, AmpFett 76, Blech 140.
+- 8 packaging/linux/README-Linux.txt (Englisch, in /usr/share/doc und im Archiv): Distributionen, Host-Tabelle, Re-Scan, REAPER, Flatpak-Grenze,
+  JUCE/lib64, Carla-Umgebungsvariablen, Prüfen per Attestierung.
+- 9 Signatur ohne eigenen Schlüssel: GitHub-Attestierungen (actions/attest v4.2.2, Sigstore) für alle Release-Dateien im Job publish
+  (id-token/attestations/artifact-metadata: write). Prüfen: gh attestation verify <Datei> -R colonade/tonestack. Doku: apt install ./… statt dpkg -i.
+- 10 Reproduzierbar: SOURCE_DATE_EPOCH = Datum des Changelog-Eintrags (fest 2026-01-01, wie bisher), DPKG_DEB_THREADS_MAX=1, -Zxz -z6,
+  --root-owner-group; neuer Job „nachbau“ (x86-64 und ARM64): zweiter Rechner baut neu, .clap/.so/moduleinfo.json müssen bytegleich sein.
+- 11 moduleinfo.json: moduleinfotool aus dem SDK nach jedem VST3-Bau (Contents/Resources/moduleinfo.json, Name, Version, Klasse; Linux).
+- 12 Control: Section sound, Priority optional, Homepage, Architecture amd64/arm64, kein Multi-Arch, Provides: clap-plugin, vst3-plugin (wie
+  Debians lsp-plugins). Aufteilung in -clap/-vst3 + Metapaket bewusst nicht: ohne Paketquelle müssten Nutzer drei Dateien laden.
+- 13 Bitwig nativ: hier nicht prüfbar (Bitwig hat keinen Kommandozeilen-Scan); README-Linux: „expected, not yet tested“ – offen für den Nutzer.
+- 14 apt-Paketquelle: scripts/apt-repo.sh (flach neben den Downloads, Packages/Release/InRelease/Release.gpg/Schlüssel/tonestack.sources, fest datiert,
+  bytegleich bei erneutem Lauf), im Job publish nur mit Geheimnis APT_SIGNING_KEY; Webseite zeigt den Abschnitt nur, wenn InRelease im Release liegt
+  (pack-web.sh). docs/APT.md: Schlüssel anlegen (Inhaber), Nutzung. Lokal mit Wegwerf-Schlüssel: apt-get update über lokalen Webserver ok, fremder
+  Schlüssel → NO_PUBKEY. Schlüssel noch nicht angelegt (Entscheidung des Nutzers).
+- 15 ARM64: Job linux-arm64 (ubuntu-24.04-arm, nativ): Bau, alle Prüfungen wie x86-64, Debian-Paket arm64, Archiv aarch64; -ffp-contract=off, damit
+  ARM64 ohne FMA-Zusammenziehen rechnet wie x86-64/WebAssembly. Keine Einzel-ZIPs für ARM64. Lokal kein ARM64-Nachbau möglich (ports.ubuntu.com
+  gesperrt) → Reproduzierbarkeit über den Job nachbau.
+- 16 Archiv tonestack-plugins-<DEBVER>-linux-<arch>.tar.gz (scripts/pack-tarball.sh, install.sh nach ~/.clap/~/.vst3, --uninstall, prüft Architektur
+  und glibc); Flatpak-Erweiterung org.freedesktop.LinuxAudio.Plugins.Tonestack vorbereitet (packaging/flatpak, scripts/flatpak-manifest.sh, Prüfbau
+  .github/workflows/flatpak.yml); Einreichen bei Flathub braucht das Konto des Nutzers (packaging/flatpak/LIESMICH.md).
+- Klang unverändert: alle 15 CLAP alt (Release) gegen neu, 4 s Bass-Signal, Grundstellung, 48 kHz: bitgleich. scripts/linux-tests.sh (die bisherige
+  Prüfliste aus der CI) ohne Abweichung; dabei `| head` durch `| sed -n` ersetzt (head beendete gktest vorzeitig: SIGPIPE, Status 141).
+- build.sh: TS_NO_GEN, TS_CMAKE_ARGS, TS_VST3_SDK, ONLY_PLUGINS, CXX/PKG_CONFIG/STRIP für Bauten ohne Netz (Flatpak) bzw. nur Plugins (nachbau).
+- Lokal geprüft: check-linux-plugins.sh mit Steinberg-Validator, clap-validator und pluginval: alle 15 bestanden (Steinberg 537/537 je Plugin, pluginval SUCCESS, clap-validator 34 bestanden + 10 übersprungen; Zeitlimit nur bei SVT-CL param-fuzz-basic und Blech param-fuzz-bounds); lintian 0 Meldungen; test-deb.sh bestanden
+  (drei Benutzer, Abschnitt [andere] bleibt, selbst gesetzter Eintrag bleibt, Übernahme von -3, Werkzeug lehnt root und Verknüpfung ab).
 
 ## DEB 1.17227-3: REAPER-Pfad /usr/lib/vst3 wird eingetragen (2026-11-27, Web 2026-11-27-1)
 Nutzer nach 1.17227-2: in REAPER weiterhin keine VST3; „Ich brauche auch keinen quickfix, nur ein funktionierendes paket“. Auf Rückfrage gewählt: das
