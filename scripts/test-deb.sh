@@ -21,7 +21,7 @@ soll() { [ "$(zeile "$1")" = "$2" ] || fehler "$3: $1 hat „$(zeile "$1")“, e
 rechte() { local f; for f in "$(ini "$1")" "$(ini "$1")".vor-tonestack "$(ini "$1")".tonestack; do [ -e "$f" ] || continue
   [ "$(stat -c '%U %G' "$f")" = "$1 $1" ] || fehler "$2: $f gehört $(stat -c '%U:%G' "$f")"; done
   [ "$(stat -c '%a' "$(ini "$1")")" = 600 ] || fehler "$2: Rechte von $(ini "$1") geändert ($(stat -c '%a' "$(ini "$1")"))"; }
-als() { local u="$1"; shift; runuser -u "$u" -- env HOME="/home/$u" "$@"; }
+als() { local u="$1"; shift; runuser -u "$u" -- env -i HOME="/home/$u" PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 "$@"; }   # leere Umgebung (im Bau auf GitHub ist XDG_CONFIG_HOME gesetzt)
 V1='vstpath=~/.vst;~/.vst3'; V2='vstpath=~/.vst;~/.vst3;/usr/lib/vst3'
 
 echo "== Installieren ohne sudo-Umgebung (wie PackageKit), drei Benutzer"

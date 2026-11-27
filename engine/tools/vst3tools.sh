@@ -13,8 +13,12 @@ if [ -x "$OUT/bin/Release/validator" ] && [ -x "$OUT/bin/Release/moduleinfotool"
 rm -rf "$OUT"; mkdir -p "$OUT/src"
 tar -C "$SDK" --exclude=./public.sdk/samples/vst-hosting/editorhost --exclude=./public.sdk/samples/vst-hosting/audiohost \
     --exclude=./public.sdk/samples/vst-hosting/inspectorapp --exclude=./vstgui4 --exclude=./doc --exclude=./tutorials --exclude=./.git -cf - . | tar -C "$OUT/src" -xf -
+# Das SDK linkt unter Linux fest gegen stdc++fs; neuere Übersetzer (z. B. im Flatpak-SDK) haben die Bibliothek nicht mehr, weil std::filesystem in
+# libstdc++ selbst steckt – dann eine leere Ersatzbibliothek anbieten
+LF=""; if ! echo 'int main(){}' | "${CXX:-c++}" -x c++ - -lstdc++fs -o "$OUT/fs-probe" >/dev/null 2>&1; then
+  mkdir -p "$OUT/stub" && ar rc "$OUT/stub/libstdc++fs.a" && LF="-DCMAKE_EXE_LINKER_FLAGS=-L$OUT/stub"; fi; rm -f "$OUT/fs-probe"
 cmake -S "$OUT/src" -B "$OUT" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSMTG_ENABLE_VST3_HOSTING_EXAMPLES=ON -DSMTG_ENABLE_VST3_PLUGIN_EXAMPLES=OFF \
-    -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_CREATE_PLUGIN_LINK=OFF -DSMTG_RUN_VST_VALIDATOR=OFF > "$OUT/cfg.log" 2>&1 || { tail -n 30 "$OUT/cfg.log" >&2; exit 1; }
+    -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_CREATE_PLUGIN_LINK=OFF -DSMTG_RUN_VST_VALIDATOR=OFF $LF > "$OUT/cfg.log" 2>&1 || { tail -n 30 "$OUT/cfg.log" >&2; exit 1; }
 cmake --build "$OUT" --target validator moduleinfotool > "$OUT/build.log" 2>&1 || { tail -n 30 "$OUT/build.log" >&2; exit 1; }
 echo "$SDK" > "$OUT/.sdk"
 echo "VST3-Werkzeuge: $OUT/bin/Release/validator, $OUT/bin/Release/moduleinfotool"

@@ -73,8 +73,9 @@ EA=(); for f in "$P"/usr/lib/clap/*.clap "$P"/usr/lib/vst3/*/Contents/"$TRIPLE"/
 SHL="$(cd "$T/sd" && dpkg-shlibdeps -O ${SHLIBDEPS_ARGS:-} "${EA[@]}" 2>"$T/sd/err")" || { cat "$T/sd/err" >&2; exit 1; }
 DEPS="$(printf '%s' "$SHL" | sed -n 's/^shlibs:Depends=//p')"
 [ -n "$DEPS" ] || { echo "dpkg-shlibdeps ohne Ergebnis: $SHL" >&2; cat "$T/sd/err" >&2; exit 1; }
-# bekannte, harmlose Warnung unter Ubuntu 24.04: usrmerge lenkt ld-linux um (diversion by libc6 … .usr-is-merged); jede andere Meldung bricht ab
-if grep -v -e 'warning: diversions involved - output may be incorrect' -e '^ diversion by libc6 \(from\|to\): /lib64/ld-linux-[a-z0-9_-]*\.so\.[0-9]*\(\.usr-is-merged\)\?$' "$T/sd/err" | grep -q .; then echo "dpkg-shlibdeps meldet:" >&2; cat "$T/sd/err" >&2; exit 1; fi
+# bekannte, harmlose Warnung unter Ubuntu 24.04: usrmerge lenkt ld-linux um (diversion by libc6 … .usr-is-merged; x86-64 /lib64/ld-linux-x86-64.so.2,
+# ARM64 /lib/ld-linux-aarch64.so.1); jede andere Meldung bricht ab
+if grep -v -e 'warning: diversions involved - output may be incorrect' -e '^ diversion by libc6 \(from\|to\): /lib\(64\)\?/ld-linux-[a-z0-9_-]*\.so\.[0-9]*\(\.usr-is-merged\)\?$' "$T/sd/err" | grep -q .; then echo "dpkg-shlibdeps meldet:" >&2; cat "$T/sd/err" >&2; exit 1; fi
 case ", $DEPS," in *", libc6 (>= $G),"*) ;; *) echo "dpkg-shlibdeps ($DEPS) passt nicht zur glibc-Version der Dateien ($G)" >&2; exit 1;; esac
 case "$DEPS" in *libstdc++*|*libgcc*) echo "libstdc++/libgcc sollten statisch eingebunden sein: $DEPS" >&2; exit 1;; esac
 INHALT="$(echo "Enthalten:${LISTE%,}." | fold -s -w 76 | sed 's/^/ /; s/ *$//')"
