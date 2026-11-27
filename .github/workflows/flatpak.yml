@@ -23,7 +23,8 @@ jobs:
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q flatpak flatpak-builder appstream
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y --noninteractive flathub org.freedesktop.Sdk//25.08 org.freedesktop.Platform//25.08 org.freedesktop.LinuxAudio.BaseExtension//25.08
+          flatpak install --user -y --noninteractive flathub org.freedesktop.Sdk//25.08 org.freedesktop.Platform//25.08
+          flatpak remote-ls --user flathub --all | grep -i LinuxAudio.BaseExtension || true   # Zweig der BaseExtension (Manifest: runtime-version stable)
       - name: Manifest erzeugen
         run: |
           bash scripts/flatpak-manifest.sh fp "$GITHUB_SHA"
@@ -32,7 +33,7 @@ jobs:
       - name: Bauen (flatpak-builder)
         run: |
           set -o pipefail
-          cd fp && flatpak-builder --user --force-clean --disable-rofiles-fuse --sandbox ../fp-build org.freedesktop.LinuxAudio.Plugins.Tonestack.json 2>&1 | tail -n 60
+          cd fp && flatpak-builder --user --install-deps-from=flathub --force-clean --disable-rofiles-fuse --sandbox ../fp-build org.freedesktop.LinuxAudio.Plugins.Tonestack.json 2>&1 | tail -n 60
       - name: Inhalt prüfen
         run: |
           set -euo pipefail
