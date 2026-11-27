@@ -51,6 +51,9 @@ Paket trägt den Pfad in REAPER ein (statt Verknüpfungen in ~/.vst3, die Bitwig
 - Neu scripts/test-deb.sh (CI-Schritt „Debian-Paket probehalber installieren“ im Linux-Job, braucht root): zwei Testbenutzer, Installieren ohne
   sudo-Umgebung, alle Plugins da, Einträge/Sicherung/Rechte, zweites Installieren idempotent, Entfernen, laufender REAPER (umbenanntes sleep) +
   dpkg-reconfigure, fremdes Plugin in /usr/lib/vst3. Lokal: 1.17227-3 bestanden, gegen 1.17227-2 schlägt er an (11 Fehler) – der Test misst also.
+- Release `…_cultec-1.4_deb-3` (Lauf 45979196363, Commit 3d24571, alle Jobs grün, CI-Schritt Debian-Paket bestanden; altes Release gelöscht): 88 Dateien,
+  Größe und Digest ok, alle vier SHA256SUMS ok, DEB bytegleich mit dem lokalen Bau; dist/ ersetzt, verify.sh 90 + 15 WebAssembly.
+  Ausgeliefert: DEB 1.17227-3 und SHA256SUMS-linux.txt.
 
 ## DEB 1.17227-2: Hinweis für REAPER und /usr/lib/vst3 (2026-11-26, Web 2026-11-26-1)
 Nutzer: in REAPER nach der Installation nur CLAP, keine VST3 – evtl. weil er ~/.vst3 gelöscht hatte; „bitte prüfen ob das abgefangen wird“.
